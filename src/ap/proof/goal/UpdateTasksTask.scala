@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -100,6 +100,9 @@ case object UpdateTasksTask extends EagerTask {
     if (left.predConj.isTrue || right.predConj.isTrue)
       return None
 
+    // for the formula to be an equivalence, one of the disjuncts
+    // has to be a conjunction of the singleton variable and some
+    // other formula; i.e., have size 2
     if (left.size != 2 && right.size != 2)
       return None
 
@@ -124,7 +127,7 @@ case object UpdateTasksTask extends EagerTask {
     while (singletonVars.hasNext) {
       val singletonVar = singletonVars.next
 
-      implicit val order = left.order
+      implicit val order = formula.order
 
       val remainingLeftPredConj =
         left.predConj.updateLitsSubset(

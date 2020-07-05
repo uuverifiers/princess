@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -470,6 +470,38 @@ println(unprocessed)
             //-END-ASSERTION-///////////////////////////////////////////////////
             return removeFactsActions ::: actions
           }
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      // Check if any of the polynomials have common factors, as an
+      // approximation of factorisation
+
+      {
+        var actions : List[Plugin.Action] = List()
+
+        for (p <- linearEq)
+          if (!p.isZero) {
+            val factor = p.commonFactor
+            if (!factor.isEmpty) {
+              val assumptions =
+                label2Assumptions(simplifiedGB labelFor p)
+              val remainingPoly =
+                p / CoeffMonomial(IdealInt.ONE, factor)
+              val factorisation =
+                disjFor(List(polynomialToAtom(remainingPoly)) ++
+                        (for (v <- factor.variables) yield (v === 0)))
+              actions = Plugin.AddAxiom(assumptions,
+                                        factorisation,
+                                        GroebnerMultiplication.this) :: actions
+            }
+          }
+
+        if (!actions.isEmpty) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          printActions("GB discovered factorisation of a polynomial", actions)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          return removeFactsActions ::: actions
         }
       }
 

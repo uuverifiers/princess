@@ -33,6 +33,9 @@ import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
+import ap.theories.rationals.Rationals
+import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
+                   RingWithIntConversions}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
@@ -57,6 +60,9 @@ object SMTParser2InputAbsy {
   }
   case object SMTInteger                           extends SMTType {
     def toSort = TSort.Integer
+  }
+  case class  SMTReal(sort : TSort)                extends SMTType {
+    def toSort = sort
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
@@ -782,6 +788,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val realAlgebra : PseudoRing with RingWithDivision
+                                       with RingWithOrder
+                                       with RingWithIntConversions = Rationals
+
+  private val realType = SMTReal(realAlgebra.dom)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private var stringTheoryBuilder =
     StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
 
@@ -836,8 +850,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         ind
       }
     }
-
-  private var realSortWarning = false
 
   private var lastReasonUnknown = ""
 
@@ -1797,13 +1809,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTInteger
       case PlainIdentifier("Bool") =>
         SMTBool
-      case PlainIdentifier("Real") => {
-        if (!realSortWarning) {
-          warn("treating sort Real as Int")
-          realSortWarning = true
-        }
-        SMTInteger
-      }
+      case PlainIdentifier("Real") =>
+        realType
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
       case PlainIdentifier("String") =>
@@ -2156,10 +2163,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           (IFormulaITE(asFormula(transArgs(0)),
                        asFormula(transArgs(1)), asFormula(transArgs(2))),
            SMTBool)
-        case Seq(SMTBool, t1, t2) =>
+        case Seq(SMTBool, _ : SMTReal, _) | Seq(SMTBool, _, _ : SMTReal) =>
+          (ITermITE(asFormula(transArgs(0)),
+                    asRealTerm("ite", transArgs(1)),
+                    asRealTerm("ite", transArgs(2))),
+           realType)
+        case Seq(SMTBool, t1, t2) => {
+          if (t1 != t2)
+            throw new TranslationException(
+              "branches of ite need to have consistent type, not " +
+              t1 + " and " + t2)
           (ITermITE(asFormula(transArgs(0)),
                     asTerm(transArgs(1)), asTerm(transArgs(2))),
            t1)
+        }
       }
     }
     
@@ -2169,46 +2186,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("=") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == SMTBool)) {
-         connect(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
-                   yield (a <===> b),
-                 IBinJunctor.And)
+         and(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
+               yield (a <===> b))
        } else {
-         val types = (transArgs map (_._2)).toSet
-         if (types.size > 1)
-           throw new Parser2InputAbsy.TranslationException(
-             "= cannot be applied to " +
-             ((args map (printer print _)) mkString " and "))
-         connect(for (Seq(a, b) <- (transArgs map (asTerm(_))) sliding 2)
-                   yield translateEq(a, b, types.iterator.next, polarity),
-                 IBinJunctor.And)
+         val (termArgs, typ) = asRealIntOtherTerms("=", transArgs)
+         and(for (Seq(a, b) <- termArgs sliding 2)
+               yield translateEq(a, b, typ, polarity))
        },
        SMTBool)
     }
     
     case PlainSymbol("distinct") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
-      (if (transArgs forall (_._2 == SMTBool)) transArgs.length match {
-         case 0 | 1 => true
-         case 2 => ~(asFormula(transArgs(0)) <===> asFormula(transArgs(1)))
-         case _ => false
-       } else {
-         val types = (transArgs map (_._2)).toSet
-         if (types.size > 1)
-           throw new Parser2InputAbsy.TranslationException(
-             "distinct cannot be applied to " +
-             ((args map (printer print _)) mkString " and "))
-         distinct(for (p <- transArgs.iterator) yield asTerm(p))
+      (if (transArgs forall (_._2 == SMTBool))
+         transArgs.length match {
+           case 0 | 1 => true
+           case 2 => ~(asFormula(transArgs(0)) <===> asFormula(transArgs(1)))
+           case _ => false
+         }
+       else {
+         val (termArgs, typ) = asRealIntOtherTerms("distinct", transArgs)
+         // TODO: special case for arrays?
+         distinct(termArgs)
        }, SMTBool)
     }
     
     case PlainSymbol("<=") =>
-      (translateChainablePred(args, _ <= _), SMTBool)
+      (translateChainableRealIntPred("<=", args, _ <= _, realAlgebra.leq _),
+       SMTBool)
     case PlainSymbol("<") =>
-      (translateChainablePred(args, _ < _), SMTBool)
+      (translateChainableRealIntPred("<",  args, _ < _,  realAlgebra.lt _),
+       SMTBool)
     case PlainSymbol(">=") =>
-      (translateChainablePred(args, _ >= _), SMTBool)
+      (translateChainableRealIntPred(">=", args, _ >= _, realAlgebra.geq _),
+       SMTBool)
     case PlainSymbol(">") =>
-      (translateChainablePred(args, _ > _), SMTBool)
+      (translateChainableRealIntPred(">",  args, _ > _,  realAlgebra.gt _),
+       SMTBool)
     
     case IndexedSymbol("divisible", denomStr) => {
       checkArgNum("divisible", 1, args)
@@ -2218,36 +2232,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
       
     ////////////////////////////////////////////////////////////////////////////
-    // Hardcoded integer operations
+    // Hardcoded integer and real operations
 
     case PlainSymbol("+") =>
-      (sum(for (s <- flatten("+", args))
-             yield asTerm(translateTerm(s, 0), SMTInteger)),
-       SMTInteger)
+      asRealIntTerms("+", flatten("+", args)) match {
+        case (terms, SMTInteger) =>
+          (sum(terms), SMTInteger)
+        case (terms, SMTReal(_)) =>
+          (realAlgebra.summation(terms : _*), realType)
+      }
 
-    case PlainSymbol("-") if (args.length == 1) =>
-      (-asTerm(translateTerm(args.head, 0), SMTInteger), SMTInteger)
-
-    case PlainSymbol("~") if (args.length == 1) => {
-      if (!tildeWarning) {
+    case PlainSymbol(op@("-" | "~")) if (args.length == 1) => {
+      if (op == "~" && !tildeWarning) {
         warn("interpreting \"~\" as unary minus, like in SMT-LIB 1")
         tildeWarning = true
       }
-      (-asTerm(translateTerm(args.head, 0), SMTInteger), SMTInteger)
+      asRealIntTerm(op, args.head) match {
+        case (t, SMTInteger) => (-t, SMTInteger)
+        case (t, SMTReal(_)) => (realAlgebra.minus(t), realType)
+      }
     }
 
-    case PlainSymbol("-") => {
-      (asTerm(translateTerm(args.head, 0), SMTInteger) -
-          sum(for (a <- args.tail)
-                yield asTerm(translateTerm(a, 0), SMTInteger)),
-       SMTInteger)
-    }
+    case PlainSymbol("-") =>
+      asRealIntTerms("-", args) match {
+        case (terms, SMTInteger) =>
+          (terms.head - sum(terms.tail), SMTInteger)
+        case (terms, SMTReal(_)) =>
+          (realAlgebra.minus(terms.head,
+                             realAlgebra.summation(terms.tail : _*)), realType)
+      }
 
     case PlainSymbol("*") =>
-      ((for (s <- flatten("*", args))
-          yield asTerm(translateTerm(s, 0), SMTInteger))
-          reduceLeft (mult _),
-       SMTInteger)
+      asRealIntTerms("*", flatten("*", args)) match {
+        case (terms, SMTInteger) =>
+          (terms reduceLeft (mult _), SMTInteger)
+        case (terms, SMTReal(_)) =>
+          (terms reduceLeft (realAlgebra.mul _), realType)
+      }
 
     case PlainSymbol("div") => {
       checkArgNum("div", 2, args)
@@ -2270,6 +2291,28 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("abs") => {
       checkArgNum("abs", 1, args)
       (abs(asTerm(translateTerm(args.head, 0))), SMTInteger)
+    }
+
+    case PlainSymbol("/") => {
+      checkArgNum("/", 2, args)
+      (realAlgebra.div(asRealTerm("/", args(0)),
+                       asRealTerm("/", args(1))),
+       realType)
+    }
+
+    case PlainSymbol("to_real") => {
+      checkArgNum("to_real", 1, args)
+      (asRealTerm("to_real", args(0)), realType)
+    }
+      
+    case PlainSymbol("to_int") => {
+      checkArgNum("to_int", 1, args)
+      (realAlgebra.ring2int(asRealTerm("to_int", args(0))), SMTInteger)
+    }
+      
+    case PlainSymbol("is_int") => {
+      checkArgNum("is_int", 1, args)
+      (realAlgebra.isInt(asRealTerm("to_int", args(0))), SMTBool)
     }
       
     ////////////////////////////////////////////////////////////////////////////
@@ -2731,6 +2774,60 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private def asRealTerm(op : String, t : Term) : ITerm =
+    asRealTerm(op, translateTerm(t, 0))
+
+  private def asRealTerm(op : String,
+                         expr : (IExpression, SMTType)) : ITerm = expr match {
+    case (expr : ITerm, SMTReal(_)) =>
+      expr
+    case (expr : ITerm, SMTInteger) =>
+      realAlgebra.int2ring(expr)
+    case (expr, _) =>
+      throw new Parser2InputAbsy.TranslationException(
+                   op + " expects a term of type Real, not " + expr)
+  }
+
+  private def asRealIntTerm(op : String, t : Term)
+                         : (ITerm, SMTType) = translateTerm(t, 0) match {
+    case p@(_, SMTReal(_)) =>
+      (asTerm(p), realType)
+    case p@(_, SMTInteger) =>
+      (asTerm(p), SMTInteger)
+    case (expr, _) =>
+      throw new Parser2InputAbsy.TranslationException(
+                   op + " expects a term of type Int or Real, not " +
+                   (printer print t))
+  }
+
+  private def asRealIntTerms(op : String,
+                             args : Seq[Term]) : (Seq[ITerm], SMTType) = {
+    val transArgs = for (s <- args) yield translateTerm(s, 0)
+    if (transArgs.isEmpty) {
+      (List(), SMTInteger)
+    } else if (transArgs exists { case (_, SMTReal(_)) => true
+                                  case _ => false }) {
+      (for (p <- transArgs) yield asRealTerm(op, p), realType)
+    } else {
+      (for (p <- transArgs) yield asTerm(p, SMTInteger), SMTInteger)
+    }
+  }
+
+  private def asRealIntOtherTerms(op : String,
+                                  args : Seq[(IExpression, SMTType)])
+                               : (Seq[ITerm], SMTType) =
+    if (args exists (_._2.isInstanceOf[SMTReal])) {
+      (args map (asRealTerm(op, _)), realType)
+    } else {
+      val typ = args.head._2
+      if (args exists (_._2 != typ))
+        throw new Parser2InputAbsy.TranslationException(
+          op + " cannot be applied to " + (args map (_._1) mkString ", "))
+      (args map asTerm, typ)
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private def translateStringFun(f : IFunction,
                                  args : Seq[Term],
                                  argTypes : Seq[SMTType]) : IExpression =
@@ -3165,15 +3262,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case c : RatConstant => {
       val v = IdealRat(c.rational_)
-      if (v.denom.isOne) {
-        warn("mapping rational literal " + c.rational_ + " to an integer literal")
-        (i(v.num), SMTInteger)
-      } else {
-        warn("mapping rational literal " + c.rational_ + " to an integer constant")
-        val const = new ConstantTerm("rat_" + c.rational_)
-        addConstant(const, SMTInteger)
-        (const, SMTInteger)
-      }
+      (realAlgebra.div(realAlgebra.int2ring(v.num),
+                       realAlgebra.int2ring(v.denom)),
+       realType)
     }
 
     case c : StringConstant => {
@@ -3190,11 +3281,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
   }
   
-  private def translateChainablePred(args : Seq[Term],
-                                     op : (ITerm, ITerm) => IFormula) : IFormula = {
-    val transArgs = for (a <- args) yield asTerm(translateTerm(a, 0))
-    connect(for (Seq(a, b) <- transArgs sliding 2) yield op(a, b), IBinJunctor.And)
-  }
+  private def translateChainableRealIntPred(
+                      op : String,
+                      args : Seq[Term],
+                      intOp  : (ITerm, ITerm) => IFormula,
+                      realOp : (ITerm, ITerm) => IFormula) : IFormula =
+    asRealIntTerms(op, args) match {
+      case (terms, SMTInteger) =>
+        and(for (Seq(a, b) <- terms sliding 2) yield intOp(a, b))
+      case (terms, SMTReal(_)) =>
+        and(for (Seq(a, b) <- terms sliding 2) yield realOp(a, b))
+    }
   
   private def flatten(op : String, args : Seq[Term]) : Seq[Term] =
     for (a <- args;
@@ -3390,6 +3487,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       expr
     case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term of type " + expectedSort + ", not " + expr)
+                   "Expected a term of type " +
+                   (SMTLineariser smtTypeAsString expectedSort) + ", not " +
+                   expr)
   }
 }
