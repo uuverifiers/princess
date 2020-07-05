@@ -1205,6 +1205,14 @@ abstract class ITerm extends IExpression {
     case _ => this - that
   }
 
+  /** Negation of a term. The resulting expression is simplified immediately
+   * if one of the terms is constant. */
+  def minusSimplify : ITerm = this match {
+    case IExpression.Const(a) => IIntLit(-a)
+    case ITimes(coeff, t)     => ITimes(-coeff, t)
+    case t                    => ITimes(IdealInt.MINUS_ONE, t)
+  }
+
   /**
    * Product of two terms. The resulting expression is simplified immediately
    * if one of the terms is constant.

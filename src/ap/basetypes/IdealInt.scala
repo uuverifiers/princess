@@ -781,6 +781,12 @@ final class IdealInt private (private val longStore : Long,
    */
   def lcm (that: IdealInt): IdealInt = (this.abs / (this gcd that)) * that.abs
 
+  /**
+   * Function corresponding to <code>BigInteger.isProbablePrime</code>
+   */
+  def isProbablePrime(certainty : Int) =
+    this.getBI isProbablePrime certainty
+
   /** Returns the minimum of this and that */
   def min (that: IdealInt): IdealInt =
     if (this < that) this else that

@@ -474,6 +474,38 @@ println(unprocessed)
       }
 
       //////////////////////////////////////////////////////////////////////////
+      // Check if any of the polynomials have common factors, as an
+      // approximation of factorisation
+
+      {
+        var actions : List[Plugin.Action] = List()
+
+        for (p <- linearEq)
+          if (!p.isZero) {
+            val factor = p.commonFactor
+            if (!factor.isEmpty) {
+              val assumptions =
+                label2Assumptions(simplifiedGB labelFor p)
+              val remainingPoly =
+                p / CoeffMonomial(IdealInt.ONE, factor)
+              val factorisation =
+                disjFor(List(polynomialToAtom(remainingPoly)) ++
+                        (for (v <- factor.variables) yield (v === 0)))
+              actions = Plugin.AddAxiom(assumptions,
+                                        factorisation,
+                                        GroebnerMultiplication.this) :: actions
+            }
+          }
+
+        if (!actions.isEmpty) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          printActions("GB discovered factorisation of a polynomial", actions)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          return removeFactsActions ::: actions
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
       // If Gröbner basis calculation does nothing
       // Lets try to do some interval propagation
 

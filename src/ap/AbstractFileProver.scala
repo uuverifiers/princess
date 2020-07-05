@@ -129,9 +129,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
    */
   protected class Translation(rawFormula : IFormula,
                               settings : GlobalSettings) {
-    
     val (inputFormulas, preprocInterpolantSpecs, transSignature,
-         gcedFunctions, functionEncoder) = {
+         gcedFunctions, functionEncoder, incompletePreproc) = {
+      var incompletePreproc = false
   
       val preprocSettings = settings.toPreprocessingSettings
   
@@ -148,9 +148,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       for (t <- rawSignature.theories)
         functionEnc addTheory t
   
-      val (inputFormulas, interpolantS, sig) =
+      val ((inputFormulas, interpolantS, sig), incomp) = Incompleteness.track {
         Preprocessing(rawFormula, rawInterpolantSpecs,
                       rawSignature, preprocSettings, functionEnc)
+      }
+
+      if (incomp)
+        incompletePreproc = true
       
       val sig2 =
         if (sig.isSorted) {
@@ -175,7 +179,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
            yield p).toSet
       }
       
-      (inputFormulas, interpolantS, sig2, gcedFunctions, functionEnc)
+      (inputFormulas, interpolantS, sig2, gcedFunctions, functionEnc,
+       incompletePreproc)
     }
   
     val theories = transSignature.theories
@@ -199,7 +204,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
     ////////////////////////////////////////////////////////////////////////////
 
-    val (namedParts, formulas, matchedTotalFunctions, ignoredQuantifiers) = {
+    val (namedParts, formulas, matchedTotalFunctions, ignoredQuantifiers2) = {
       var ignoredQuantifiers = false
   
       val reducer =
@@ -281,6 +286,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
          ignoredQuantifiers)
       }
     }
+
+    val ignoredQuantifiers = incompletePreproc || ignoredQuantifiers2
 
     private def checkMatchedTotalFunctions(conjs : Iterable[Conjunction])
                                           : Boolean =

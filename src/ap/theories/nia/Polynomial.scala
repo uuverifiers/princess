@@ -346,11 +346,29 @@ case class Monomial(val pairs : Monomial.PairList)
           else if (v1 < v2)
             (v2, e2) :: mergeLists(list1, t2)
           else
-            (v1, e1.max(e2)) :: mergeLists(t1, t2)
+            (v1, e1 max e2) :: mergeLists(t1, t2)
       }
     }
 
     Monomial(mergeLists(this.pairs, that.pairs))
+  }
+
+  def gcd(that : Monomial) : Monomial = {
+    def intersectLists(list1 : PairList, list2 : PairList) : PairList = {
+      (list1, list2) match {
+        case (Nil, l2) => Nil
+        case (l1, Nil) => Nil
+        case ((v1, e1) :: t1, (v2, e2) :: t2) =>
+          if (v1 > v2)
+            intersectLists(t1, list2)
+          else if (v1 < v2)
+            intersectLists(list1, t2)
+          else
+            (v1, e1 min e2) :: intersectLists(t1, t2)
+      }
+    }
+
+    Monomial(intersectLists(this.pairs, that.pairs))
   }
 
   def divisors : List[Monomial] = {
@@ -522,8 +540,8 @@ object Polynomial {
    * Converts an LinearCombination (Princess) to a Polynomial (Groebner).
    */
   def fromLinearCombinationGen
-                       (lc : LinearCombination)
-                       (implicit ordering : MonomialOrdering) : Polynomial = {
+                    (lc : LinearCombination)
+                    (implicit ordering : MonomialOrdering) : Polynomial = {
     var retPoly = Polynomial(List())
 
     for ((coeff, term) <- lc) {
@@ -541,9 +559,8 @@ object Polynomial {
   /**
    * Converts an atom (Princess) to a Polynomial (Groebner).
    */
-  def fromMulAtomGen
-                       (a : Atom)
-                       (implicit ordering : MonomialOrdering) : Polynomial =
+  def fromMulAtomGen(a : Atom)
+                    (implicit ordering : MonomialOrdering) : Polynomial =
     (fromLinearCombinationGen(a(0)) * fromLinearCombinationGen(a(1))) -
       fromLinearCombinationGen(a(2))
 
@@ -634,6 +651,9 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
   def -(that : CoeffMonomial) : Polynomial =
     this + that.neg
 
+  def /(that : CoeffMonomial) : Polynomial =
+    Polynomial(for (t <- terms) yield (t / that))
+
   def +(that : Polynomial) : Polynomial =
     Polynomial(merge_terms(this.terms, that.terms))
   def -(that : Polynomial) : Polynomial =
@@ -702,6 +722,14 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
     }
 
     this
+  }
+
+  // The greatest common factor of all the monomials of this polynomial
+  def commonFactor : Monomial = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(Debug.AC_NIA, !isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    (for (t <- terms.reverseIterator) yield t.monomial) reduceLeft (_ gcd _)
   }
 }
 
