@@ -63,6 +63,8 @@ trait Semigroup {
     res
   }
 
+  override def toString = dom.toString
+
 }
 
 /**
