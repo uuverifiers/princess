@@ -108,6 +108,8 @@ trait PseudoRing {
       PseudoRing.this.times(num, s)
   }
 
+  override def toString = dom.toString
+
 }
 
 /**
