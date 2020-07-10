@@ -1830,7 +1830,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    (new Simplifier (0))(Internal2InputAbsy(c, Map()))
+    internal2InputAbsy(c, new Simplifier (0))
+
+  private def internal2InputAbsy(
+                c : Conjunction,
+                simp : Simplifier = new Simplifier) : IFormula = {
+    implicit val ctxt = new Theory.DefaultDecoderContext(c)
+    IntToTermTranslator(
+      simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
+  }
 
   /**
    * Pretty-print a formula or term.
@@ -2602,11 +2610,7 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants) yield {
-       implicit val ctxt = new Theory.DefaultDecoderContext(c)
-       IntToTermTranslator(
-         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
-    }
+    interpolants map (internal2InputAbsy(_, simp))
   }
 
   /**
@@ -2678,13 +2682,7 @@ class SimpleAPI private (enableAssert : Boolean,
                            reducerSettings)
             }
 
-          val simpInt = {
-            implicit val ctxt = new Theory.DefaultDecoderContext(rawInt)
-            IntToTermTranslator(
-              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
-          }
-
-          (rawInt, simpInt)
+          (rawInt, internal2InputAbsy(rawInt, simp))
         }
 
       if (thisInt._1.isTrue) {
@@ -3230,7 +3228,8 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Decoding data needed (and implicitly read) by theories.
+   * Decoding data needed (and implicitly read) by theories; this will
+   * access the current model to extract the relevant decoding data.
    */
   val decoderContext = new Theory.DecoderContext {
     def getDataFor(t : Theory) : Theory.TheoryDecoderData =
