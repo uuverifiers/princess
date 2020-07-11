@@ -102,6 +102,7 @@ Project 5 < x & x < 2*y existentially to y: !(3 >= y)
 Project x > y | x < 0 universally to x: -1 >= x
 Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 Project x ==> y universally to y: y
+Project x === True existentially to empty set: true
 
 -- Asynchronous interface
 Running

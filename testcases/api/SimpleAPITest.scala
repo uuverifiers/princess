@@ -21,6 +21,7 @@
 
 import ap._
 import ap.parser._
+import ap.theories.ADT
 
 object SimpleAPITest extends App {
   ap.util.Debug.enableAllAssertions(true)
@@ -338,6 +339,8 @@ object SimpleAPITest extends App {
 
     println("Project x ==> y universally to " + y + ": " +
             pp(projectAll(eqZero(x) ==> eqZero(y), List(y))))
+    println("Project x === True existentially to empty set: " +
+            pp(projectEx(x === ADT.BoolADT.True, List())))
   }
 
   //////////////////////////////////////////////////////////////////////////////
