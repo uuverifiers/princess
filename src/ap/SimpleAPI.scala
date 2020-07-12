@@ -2987,6 +2987,9 @@ class SimpleAPI private (enableAssert : Boolean,
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
+      // TODO: this won't work if the formula contains theories
+      // that are not yet loaded
+
       asIFormula(asConjunction(f))
 
     } else if ((ContainsSymbol isPresburgerBV f) &&

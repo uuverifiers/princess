@@ -133,6 +133,12 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           case t : ITerm =>
             ite(adtSize(t) === 2, str_head(t), -1)
         }
+      case IFunApp(`str_from_code`, _) => {
+        val code = subres.head.asInstanceOf[ITerm]
+        ite(code >= 0 & code <= 196607,
+            str_cons(code, str_empty()),
+            str_empty())
+      }
       case t =>
         t update subres
     }

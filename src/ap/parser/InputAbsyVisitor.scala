@@ -23,7 +23,7 @@ package ap.parser;
 
 import IExpression.{ConstantTerm, Predicate}
 import ap.terfor.conjunctions.Quantifier
-import ap.theories.{TheoryRegistry, ModuloArithmetic}
+import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
@@ -832,16 +832,22 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
     !apply(t, (x:IExpression) => x match {
        case IFunApp(f, _) =>
          (TheoryRegistry lookupSymbol f) match {
-           case Some(ModuloArithmetic) => false
-           case _ => true
+           case Some(t) => !isPresburgerBVTheory(t)
+           case _       => true
          }
        case IAtom(p, _) =>
          (TheoryRegistry lookupSymbol p) match {
-           case Some(ModuloArithmetic) => false
-           case _ => true
+           case Some(t) => !isPresburgerBVTheory(t)
+           case _       => true
          }
        case _ => false
      })
+
+  private def isPresburgerBVTheory(t : Theory) = t match {
+    case ModuloArithmetic => true
+    case ADT.BoolADT      => true
+    case _                => false
+  }
 
   /**
    * Check whether given formula is in Presburger arithmetic, but
@@ -864,13 +870,13 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
     !apply(t, (x:IExpression) => x match {
        case IFunApp(f, _) =>
          (TheoryRegistry lookupSymbol f) match {
-           case Some(ModuloArithmetic) => false
-           case _ => true
+           case Some(t) => !isPresburgerBVTheory(t)
+           case _       => true
          }
        case IAtom(p, args) =>
          (TheoryRegistry lookupSymbol p) match {
-           case Some(ModuloArithmetic) => false
-           case _ => !(args forall (_.isInstanceOf[IIntLit]))
+           case Some(t) => !isPresburgerBVTheory(t)
+           case _       => !(args forall (_.isInstanceOf[IIntLit]))
          }
        case _ =>
          false

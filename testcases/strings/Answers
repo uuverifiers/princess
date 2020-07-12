@@ -134,6 +134,20 @@ unknown
   (define-fun R () RegLan RegLan!2)
 )
 
+Loading chars.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun ch () Int 90)
+  (define-fun c () String "string")
+  (define-fun b () String "s")
+  (define-fun a () String "s")
+  (define-fun z () String "")
+  (define-fun x () String "Z")
+)
+
 Loading concat-3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...

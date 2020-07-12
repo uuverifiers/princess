@@ -2475,7 +2475,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       checkArgNum("bv2nat", 1, args)
       val a0@(_, type0) = translateTerm(args(0), 0)
       extractBVWidth("bv2nat", type0, args(0))
-      (asTerm(translateTerm(args(0), 0)), SMTInteger)
+      (asTerm(a0), SMTInteger)
     }
 
     case PlainSymbol("bv2int") | IndexedSymbol("bv2int", _) => {
@@ -2674,6 +2674,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (stringTheory.int2Char(
          translateStringArgs("char.from-int", args, List(SMTInteger)).head),
        charType)
+
+    // Function seq.unit provided by Z3
+    case PlainSymbol("seq.unit") => {
+      checkArgNum("seq.unit", 1, args)
+      (stringTheory.str_from_code(asTerm(translateTerm(args(0), 0))),
+       stringType)
+    }
 
     // str.to-int, str.from-int
 
