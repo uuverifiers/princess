@@ -135,7 +135,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         }
       case IFunApp(`str_from_code`, _) => {
         val code = subres.head.asInstanceOf[ITerm]
-        ite(code >= 0 & code <= 196607,
+        ite(code >= 0 & code <= upperBound,
             str_cons(code, str_empty()),
             str_empty())
       }
