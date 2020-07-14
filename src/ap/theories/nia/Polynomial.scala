@@ -965,7 +965,8 @@ class Basis(implicit val ordering : MonomialOrdering) {
 
 //      println("" + nextPoly + " -> " + simpPoly)
 
-      newBasis.add(simpPoly, usedLabels)
+      if (!simpPoly.isZero)
+        newBasis.add(simpPoly, usedLabels)
     }
 
     newBasis
