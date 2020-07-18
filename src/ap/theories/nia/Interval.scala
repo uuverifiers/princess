@@ -652,6 +652,10 @@ class IntervalSet(equations   : Seq[(Polynomial, BitSet)],
   def getTermIntervalOption(ct : ConstantTerm) : Option[Interval] =
     for ((i, _, _) <- intervals get ct) yield i
 
+  /**
+   * Get the interval known for a variable. The second component specifies
+   * lower/upper/gap assumption
+   */
   def getLabelledTermInterval(ct : ConstantTerm)
                              : (Interval, (BitSet, BitSet, BitSet)) = {
     val (i, _, l) = intervals(ct)

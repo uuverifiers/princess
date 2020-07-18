@@ -68,6 +68,9 @@ class ListOrdering(list : Seq[ConstantTerm]) extends Ordering[ConstantTerm] {
       case _ =>
         StringOrdering.compare(c1, c2)
     }
+
+  override def toString =
+    "ListOrdering(" + list + ")"
 }
 
 
@@ -153,7 +156,7 @@ class GrevlexOrdering(termOrdering : Ordering[ConstantTerm])
     else if (m2.order > m1.order)
       -1
     else {
-      // Basically like lexcompare, but using termOredring.compare instead
+      // Basically like lexcompare, but using termOrdering.compare instead
       def compare_keys(keys1 : List[(ConstantTerm, Int)],
                        keys2 : List[(ConstantTerm, Int)]) : Int = {
         if (keys1 == Nil && keys2 == Nil)
@@ -192,7 +195,7 @@ class GrevlexOrdering(termOrdering : Ordering[ConstantTerm])
 
 object PartitionOrdering {
 
-  private class PartitionedTermOrdering(list : List[ConstantTerm],
+  private class PartitionedTermOrdering(list : Seq[ConstantTerm],
                                         backup : Ordering[ConstantTerm])
                 extends Ordering[ConstantTerm] {
     private val indexes = list.iterator.zipWithIndex.toMap
@@ -211,10 +214,11 @@ object PartitionOrdering {
  * The ConstantTerms in list are given highest order according
  * to the sorting of list. Falling back on ordering if not found in list
  */
-class PartitionOrdering(val list : List[ConstantTerm],
+class PartitionOrdering(val list : Seq[ConstantTerm],
                         implicit val backup : MonomialOrdering)
       extends MonomialOrdering(new PartitionOrdering.PartitionedTermOrdering(
                                  list, backup.termOrdering)) {
+  private val indexes = list.iterator.zipWithIndex.toMap
   def compare(m1 : Monomial, m2 : Monomial) : Int = {
     def compare_keys(keys1 : List[(ConstantTerm, Int)],
                      keys2 : List[(ConstantTerm, Int)]) : Int =
@@ -225,14 +229,14 @@ class PartitionOrdering(val list : List[ConstantTerm],
         case (_,   Nil) =>  1
 
         case ((v1, e1) :: tail1, (v2, e2) :: tail2) =>
-          (list indexOf v1, list indexOf v2) match {
+          (indexes get v1, indexes get v2) match {
             // If only one of the keys contains a defined element,
             // that is greater
-            case (-1, -1) =>
+            case (None, None) =>
               backup.compare(Monomial(keys1), Monomial(keys2))
-            case (_ , -1) =>  1
-            case (-1,  _) => -1
-            case (i1, i2) =>
+            case (_ , None) =>  1
+            case (None,  _) => -1
+            case (Some(i1), Some(i2)) =>
               if (i1 < i2)
                 -1
               else if (i2 < i1)
@@ -248,6 +252,9 @@ class PartitionOrdering(val list : List[ConstantTerm],
 
     compare_keys(m1.pairs, m2.pairs)
   }
+
+  override def toString =
+    "PartitionOrdering(" + list + ", " + backup + ")"
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -676,6 +683,7 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
 
   def reduceBy(that : Polynomial) : Polynomial =
     if (!this.isZero && (this.lt isDividedBy that.lt)) {
+      Timeout.check
       val newf = this.mul((this.lt.c lcm that.lt.c) / this.lt.c.abs)
       val gmul = Polynomial(List(newf.lt / that.lt))
       val newg = that * gmul
@@ -965,7 +973,8 @@ class Basis(implicit val ordering : MonomialOrdering) {
 
 //      println("" + nextPoly + " -> " + simpPoly)
 
-      newBasis.add(simpPoly, usedLabels)
+      if (!simpPoly.isZero)
+        newBasis.add(simpPoly, usedLabels)
     }
 
     newBasis

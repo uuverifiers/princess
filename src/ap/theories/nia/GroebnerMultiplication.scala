@@ -40,10 +40,10 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
-import ap.util.{Timeout, Seqs, Debug, LRUCache}
+import ap.util.{Timeout, Seqs, Debug, LRUCache, IdealRange}
 
 import scala.collection.immutable.BitSet
-import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
+import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer, LinkedHashSet}
 
 
 /**
@@ -56,6 +56,18 @@ object GroebnerMultiplication extends MulTheory {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   protected[nia] val debug = false
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  // Some options for splitting
+
+  // Below this threshold, split intervals x in [a, b] into the individual cases
+  // x = a, x = a+1, ..., x = b
+  val DISCRETE_SPLITTING_LIMIT = 20
+
+  // Randomly pick the next variable to split over
+  val RANDOMISE_VARIABLE_ORDER = true
+
+  // Randomise the order in which the splitting cases are handled
+  val RANDOMISE_CASES          = false
 
   private val AC = Debug.AC_NIA
 
@@ -83,64 +95,61 @@ object GroebnerMultiplication extends MulTheory {
    * Conversion functions
    */
 
-  protected[nia] def genMonomialOrder(predicates : Seq[Atom])
+  protected[nia] def genMonomialOrder(predicates : Seq[Atom],
+                                      baseOrder : TermOrder)
                                     : MonomialOrdering = {
-      var definedList = Set[ConstantTerm]()
+    val inputConsts = new MHashSet[ConstantTerm]
 
-      // Add all elements from LHS as defined
-      for (a <- predicates)
-        for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
-          case OneTerm => ()
-          case x : ConstantTerm => definedList += x
-        }
+    // We first compute the "defined" symbols, which are the symbols
+    // occurring in the terms c of multiplication atoms mul(a, b, c).
 
-      // Remove all elements that occurs on RHS from defined
-      for (a <- predicates)
-        for (aa <- a(2).termIterator) aa match {
-          case OneTerm => ()
-          case x : ConstantTerm =>
-            if ((x.toString startsWith "all") ||
-                (x.toString startsWith "ex") ||
-                (x.toString startsWith "sc"))
-              definedList -= x
-        }
-
-      // Fix-point computation to find the defined-set
-      def genDefsymbols(predicates : Seq[Atom],
-                        defined : Set[ConstantTerm],
-                        undefined : List[ConstantTerm]) : List[ConstantTerm] =
-        if (predicates.isEmpty) {
-          undefined.reverse
-        } else {
-          val predIt = predicates.iterator
-          while (predIt.hasNext) {
-            val a = predIt.next
-
-            var allDefined = true
-            for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
-              case OneTerm => ()
-              case x : ConstantTerm =>
-                if (!(defined contains x))
-                  allDefined = false
-            }
-
-            if (allDefined)
-              a(2)(0)._2 match {
-                case OneTerm =>
-                  return genDefsymbols(predicates diff List(a),
-                                       defined, undefined)
-                case (x : ConstantTerm) =>
-                  return genDefsymbols(predicates diff List(a),
-                                       defined + x, x :: undefined)
-              }
-          }
-          undefined.reverse
-        }
-
-      val orderList = genDefsymbols(predicates, definedList, List())
-      new PartitionOrdering(orderList,
-                            new GrevlexOrdering(new ListOrdering(orderList)))
+    // Consider the symbols in the terms a, b as "input symbols"
+    for (a <- predicates) {
+      inputConsts ++= a(0).constants
+      inputConsts ++= a(1).constants
     }
+
+    // Remove the constants that were generated internally
+    // TODO: this should not be done based on the name
+    for (a <- predicates.iterator)
+      for (x <- a(2).constants.iterator)
+        if ((x.name startsWith "all") ||
+            (x.name startsWith "ex") ||
+            (x.name startsWith "sc"))
+          inputConsts -= x
+
+    // Fix-point computation to find the defined constants in the c terms
+    val definedConsts = new LinkedHashSet[ConstantTerm]
+    val remainingPreds = new LinkedHashSet[Atom]
+
+    for (a <- predicates)
+      if (!a(2).isConstant)
+        remainingPreds += a
+
+    var cont = true
+    while (cont) {
+      cont = false
+
+      val predIt = remainingPreds.iterator
+      while (!cont && predIt.hasNext) {
+        val a = predIt.next
+        val lhsDefined =
+          (a(0).constants.iterator ++ a(1).constants.iterator) forall inputConsts
+
+        if (lhsDefined) {
+          remainingPreds -= a
+          val x = a(2).leadingTerm.asInstanceOf[ConstantTerm]
+          inputConsts += x
+          definedConsts += x
+          cont = true // exit the inner loop, continue in the outer loop
+        }
+      }
+    }
+
+    val orderList = definedConsts.toIndexedSeq
+    new PartitionOrdering(orderList,
+                          new GrevlexOrdering(baseOrder.constOrdering))
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -187,7 +196,7 @@ object GroebnerMultiplication extends MulTheory {
   def plugin = Some(new Plugin {
 
     private val gbCache =
-      new LRUCache[Seq[Atom], (Basis, Seq[Atom], MonomialOrdering)](5)
+      new LRUCache[(Seq[Atom], TermOrder), (Basis, Seq[Atom], MonomialOrdering)](5)
 
     // not used
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
@@ -342,10 +351,11 @@ println(unprocessed)
             NegEquationConj(disequalities(ind - negeqOffset), order)
         }
 
-      val (simplifiedGB, factsToRemove, monOrder) = gbCache(predicates.toList) {
+      val (simplifiedGB, factsToRemove, monOrder) = gbCache((predicates.toList,
+                                                             order)) {
           // Create a monomial ordering
-          implicit val monOrder = genMonomialOrder(predicates)
-    
+          implicit val monOrder = genMonomialOrder(predicates, order)
+
           val basis = new Basis
           var factsToRemove = List[ap.terfor.preds.Atom]()
     
@@ -915,13 +925,17 @@ println(unprocessed)
 
     /**
      * Splitter handles the splitting when no new information can be deduced
-     * 
-     * Strategy:
-     * 1) 
      */
-    object Splitter extends TheoryProcedure 
-    {
+    object Splitter extends TheoryProcedure  {
       def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+
+        // Compute a minimal set of variables that in enough to linearise all
+        // multiplication atoms
+        val MINIMAL_SPLITTING_SET =
+          Param.NONLINEAR_SPLITTING(goal.settings) match {
+            case Param.NonLinearSplitting.SignMinimal => true
+            case _                                    => false
+          }
   
         // Extract all predicates
         val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
@@ -999,7 +1013,7 @@ println(unprocessed)
         // Since we have predicates of the form a(0)*a(1)=a(2), a simple (but incomplete?)
   
         def linearizers(predicates : List[ap.terfor.preds.Atom],
-                        intervalSet : IntervalSet) : Set[Set[ConstantTerm]] = {
+                        intervalSet : IntervalSet) : Set[ConstantTerm] = {
   
           // Given the List [({x11, x12, ...}, {y11, y12, ...}), ({x21, ....]
           // returns {{x1*, x2*, x3* ...xn*}, {x1*, x2*, ... yn*}, ..., {y1*, y2*, ... yn*}}
@@ -1042,17 +1056,8 @@ println(unprocessed)
                 allConstsSet += c
             }
 
-          Set(allConstsSet.toSet)
+          allConstsSet.toSet
         }
-  
-  
-        def sphericalSplit(predicates : List[ap.terfor.preds.Atom],
-                           intervalSet : IntervalSet)
-                          : Iterator[(ArithConj, ArithConj, String, BitSet,
-                                      Seq[Plugin.Action])] =  {
-          throw new Exception("sphericalSplit not enabled!")
-        }
-  
   
         /**
           * Splits intervals that ranges from -Inf to +Inf on zero
@@ -1060,7 +1065,7 @@ println(unprocessed)
   
         def infinitySplit(intervalSet : IntervalSet,
                           targetSet : Set[ConstantTerm])
-                         : Iterator[(ArithConj, ArithConj, String, BitSet,
+                         : Iterator[(Seq[ArithConj], String, BitSet,
                                      Seq[Plugin.Action])] = {
           (intervalSet.getAllIntervals.iterator.collect {
             case (c, i, label) if ((targetSet contains c) &&
@@ -1068,7 +1073,7 @@ println(unprocessed)
                                    i.upper == IntervalPosInf) => {
               val opt1 = (c >= 0)
               val opt2 = (c < 0)
-              (opt1.negate, opt2.negate,
+              (List(opt1.negate, opt2.negate),
                "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
                BitSet(),
                splitTermAt(c, IdealInt.ZERO))
@@ -1089,25 +1094,54 @@ println(unprocessed)
         }
 
         /**
-         * Finds any possible split by finding a lower (upper) bound b on
-         * any variable x and the form the split x = b V x > b (x = b V x < b)
+         * Finds a possible split of x in [a, b] into the individual cases
+         * x = a, x = a + 1, ..., x = b
          */ 
-        def desperateSplit(intervalSet : IntervalSet,
-                           targetSet : Set[ConstantTerm])
-                          : Iterator[(ArithConj, ArithConj, String, BitSet,
-                                      Seq[Plugin.Action])] = {
-          val symbols = targetSet.toList.sortBy(_.name)
+        def discreteSplit(intervalSet : IntervalSet,
+                          targetSet : Seq[ConstantTerm])
+                        : Iterator[(Seq[ArithConj], String, BitSet,
+                                    Seq[Plugin.Action])] = {
           val ac = goal.facts.arithConj
 
-          for (x <- symbols.iterator;
+          for (x <- targetSet.iterator;
                res <- (intervalSet getLabelledTermInterval x) match {
                  case (Interval(IntervalVal(ll),
-                                IntervalVal(ul), _), _) if (ll < ul) => {
+                                IntervalVal(ul), _), (label1, label2, _))
+                     if (ll < ul && ll >= ul - DISCRETE_SPLITTING_LIMIT) => {
+                   val options =
+                     for (n <- IdealRange(ll, ul + 1))
+                     yield ArithConj.conj(x === n, order).negate
+                   Iterator single ((options,
+                                     "Discrete split: " + x + " in [" +
+                                       ll + ", " + ul + "]",
+                                     label1 | label2, null))
+                 }
+                 case _ =>
+                   Iterator.empty
+               })
+          yield res
+        }
+
+        /**
+         * Splitting of intervals in the middle
+         */ 
+        def binarySplit(intervalSet : IntervalSet,
+                        targetSet : Seq[ConstantTerm])
+                      : Iterator[(Seq[ArithConj], String, BitSet,
+                                  Seq[Plugin.Action])] = {
+          val ac = goal.facts.arithConj
+
+          for (x <- targetSet.iterator;
+               res <- (intervalSet getLabelledTermInterval x) match {
+                 case (Interval(IntervalVal(ll),
+                                IntervalVal(ul), _), _)
+                     if (ll < ul) => {
                    val mid = (ll + ul) / 2
                    val opt1 = ArithConj.conj(x <= mid, order)
                    val opt2 = ArithConj.conj(x > mid, order)
-                   Iterator single ((opt1.negate, opt2.negate,
-                                     "Interval split: " + opt1 + ", " + opt2,
+                   Iterator single ((List(opt1.negate, opt2.negate),
+                                     "Interval split: " + x + " in [" +
+                                       ll + ", " + ul + "] at " + mid,
                                      BitSet(), splitTermAt(x, mid)))
                  }
                  case (Interval(IntervalVal(ll), IntervalPosInf, _), _)
@@ -1115,7 +1149,7 @@ println(unprocessed)
                    val mid = 2*ll
                    val opt1 = ArithConj.conj(x <= mid, order)
                    val opt2 = ArithConj.conj(x > mid, order)
-                   Iterator single ((opt1.negate, opt2.negate,
+                   Iterator single ((List(opt1.negate, opt2.negate),
                                      "Exp lowerbound split: " +
                                         opt1 + ", " + opt2,
                                      BitSet(), splitTermAt(x, mid)))
@@ -1125,7 +1159,7 @@ println(unprocessed)
                      if ll >= IdealInt.MINUS_ONE => {
                    val opt1 = ArithConj.conj(x === ll, order)
                    val opt2 = ArithConj.conj(x > ll, order)
-                   Iterator single ((opt1.negate, opt2.negate,
+                   Iterator single ((List(opt1.negate, opt2.negate),
                                      "LowerBound split: " + opt1 + ", " + opt2,
                                      label, null))
                  }
@@ -1134,7 +1168,7 @@ println(unprocessed)
                    val mid = 2*ul
                    val opt1 = ArithConj.conj(x > mid, order)
                    val opt2 = ArithConj.conj(x <= mid, order)
-                   Iterator single ((opt1.negate, opt2.negate,
+                   Iterator single ((List(opt1.negate, opt2.negate),
                                      "Exp upperbound split: " +
                                         opt1 + ", " + opt2,
                                      BitSet(), splitTermAt(x, mid, true)))
@@ -1144,7 +1178,7 @@ println(unprocessed)
                       if ul <= IdealInt.ONE => {
                    val opt1 = ArithConj.conj(x === ul, order)
                    val opt2 = ArithConj.conj(x < ul, order)
-                   Iterator single ((opt1.negate, opt2.negate,
+                   Iterator single ((List(opt1.negate, opt2.negate),
                                      "UpperBound split: " + opt1 + ", " + opt2,
                                      label, null))
                  }
@@ -1152,7 +1186,7 @@ println(unprocessed)
                       (Interval(IntervalNegInf, IntervalVal(_), _), _) => {
                    val opt1 = ArithConj.conj(x >= 0, order)
                    val opt2 = ArithConj.conj(x < 0, order)
-                   Iterator single ((opt1.negate, opt2.negate,
+                   Iterator single ((List(opt1.negate, opt2.negate),
                                     "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
                                     BitSet(),
                                     splitTermAt(x, IdealInt.ZERO)))
@@ -1170,7 +1204,7 @@ println(unprocessed)
         def negeqSplit(intervalSet : IntervalSet,
                        negeqs : ap.terfor.equations.NegEquationConj,
                        targetSet : Set[ConstantTerm])
-                      : Iterator[(ArithConj, ArithConj, String, BitSet,
+                      : Iterator[(Seq[ArithConj], String, BitSet,
                                  Seq[Plugin.Action])] =
           for (negeq <- negeqs.iterator;
                if (negeq.constants.size == 1);
@@ -1180,7 +1214,7 @@ println(unprocessed)
                opt1 = (negeq > 0);
                opt2 = (negeq < 0))
           yield
-            (opt1.negate, opt2.negate, "Negeq split on: " + negeq,
+            (List(opt1.negate, opt2.negate), "Negeq split on: " + negeq,
              null,
              List(Plugin.SplitDisequality(negeq, List(), List())))
   
@@ -1191,7 +1225,7 @@ println(unprocessed)
          */
         def gapSplit(intervalSet : IntervalSet,
                      targetSet : Set[ConstantTerm])
-                    : Iterator[(ArithConj, ArithConj, String, BitSet,
+                    : Iterator[(Seq[ArithConj], String, BitSet,
                                 Seq[Plugin.Action])] = {
           val gaps = intervalSet.getGaps
           (for ((term, interval, label) <- gaps.iterator;
@@ -1199,7 +1233,7 @@ println(unprocessed)
           yield {
             val opt1 = (term < interval.gap.get._1)
             val opt2 = (term > interval.gap.get._2)
-            (opt1.negate, opt2.negate,
+            (List(opt1.negate, opt2.negate),
              "Gap split on " + term + " using " + interval,
              label, null)
           })
@@ -1228,33 +1262,44 @@ println(unprocessed)
                                             GroebnerMultiplication.this))
           }
 
-          // Let the target set be the smallest set such that all
-          // predicates are made linear
-          val targetSet = linearizers(predicates.toList, intervalSet).toList
-                             .sortWith((s1, s2) => s1.size > s2.size).head
+          // Determine the constants considered for splitting
+          val splitConstSet =
+            if (MINIMAL_SPLITTING_SET)
+              linearizers(predicates.toList, intervalSet)
+            else
+              (for (a <- predicates.iterator;
+                    c <- a(0).constants.iterator ++ a(1).constants.iterator)
+              yield c).toSet
+          val splitConstSeq = new ArrayBuffer[ConstantTerm]
+          splitConstSeq ++= order sort splitConstSet
+
+          if (RANDOMISE_VARIABLE_ORDER)
+            Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(splitConstSeq)
 
           val alternatives =
             negeqSplit(intervalSet,
-                       goal.facts.arithConj.negativeEqs, targetSet) ++
-            gapSplit(intervalSet, targetSet) ++ 
+                       goal.facts.arithConj.negativeEqs, splitConstSet) ++
+            gapSplit(intervalSet, splitConstSet) ++
             (Param.NONLINEAR_SPLITTING(goal.settings) match {
-              case Param.NonLinearSplitting.Sign =>
-                infinitySplit(intervalSet, targetSet) ++
-                desperateSplit(intervalSet, targetSet)
+              case Param.NonLinearSplitting.Sign |
+                   Param.NonLinearSplitting.SignMinimal =>
+                infinitySplit(intervalSet, splitConstSet) ++
+                discreteSplit(intervalSet, splitConstSeq.toSeq) ++
+                binarySplit(intervalSet, splitConstSeq.toSeq)
               case Param.NonLinearSplitting.Spherical =>
-                sphericalSplit(predicates.toList, intervalSet)
+                throw new Exception("sphericalSplit not enabled!")
             })
 
           if (alternatives.hasNext) {
-            val s@(opt1, opt2, _, label, actions) = alternatives.next
+            val s@(options, desc, label, actions) = alternatives.next
 
             if (Param.PROOF_CONSTRUCTION(goal.settings)) {
               // just apply the split that we found
               val splitActions =
                 if (actions == null)
                   List(Plugin.AxiomSplit(label2Assumptions(label),
-                                         List((conj(opt1), List()),
-                                              (conj(opt2), List())),
+                                         for (opt <- options)
+                                           yield (conj(opt.negate), List()),
                                          GroebnerMultiplication.this))
                 else
                   actions
@@ -1265,19 +1310,35 @@ println(unprocessed)
               val res = intActions ++ splitActions
 
               //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              printActions("Splitting", res)
+              printActions(desc, res)
               //-END-ASSERTION-/////////////////////////////////////////////////
               return res
 
             } else {
 
-              val opt1act = Conjunction.conj(opt1, order)
-              val opt2act = Conjunction.conj(opt2, order)
+              val optionsBuf = new ArrayBuffer[ArithConj]
+              optionsBuf ++= options
+
+              if (RANDOMISE_CASES)
+                Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(optionsBuf)
+
               lastAlternative =
                 List(Plugin.AddFormula(intervals2Formula(intervalSet,
                                                          predicates, goal)),
-                     Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
-                                           List(Plugin.AddFormula(opt2act)))))
+                     Plugin.SplitGoal(for (opt <- optionsBuf.toSeq)
+                                      yield List(Plugin.AddFormula(conj(opt)))))
+
+
+              //-BEGIN-ASSERTION-/////////////////////////////////////////////
+              printActions(desc, lastAlternative)
+              //-END-ASSERTION-///////////////////////////////////////////////
+              return lastAlternative
+
+/*
+            TODO: do we still need the below code?
+
+              val opt1act = Conjunction.conj(opt1, order)
+              val opt2act = Conjunction.conj(opt2, order)
 
               // check whether we might be able to close one of the branches
               // immediately, in which case we can focus on the other branch
@@ -1295,13 +1356,12 @@ println(unprocessed)
 //                println("one further iteration, adding " + opt2.negate)
                 contPropLoop = true
               } else {
-//                println("Splitting: " + s)
-
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
-                printActions("Splitting", lastAlternative)
+                printActions(desc, lastAlternative)
                 //-END-ASSERTION-///////////////////////////////////////////////
                 return lastAlternative
               }
+ */
             }
 
           } else if (lastAlternative != null) {
