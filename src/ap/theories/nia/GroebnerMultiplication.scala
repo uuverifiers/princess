@@ -1299,7 +1299,7 @@ println(unprocessed)
                 if (actions == null)
                   List(Plugin.AxiomSplit(label2Assumptions(label),
                                          for (opt <- options)
-                                           yield (conj(opt), List()),
+                                           yield (conj(opt.negate), List()),
                                          GroebnerMultiplication.this))
                 else
                   actions
