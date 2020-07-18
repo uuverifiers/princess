@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -652,6 +652,10 @@ class IntervalSet(equations   : Seq[(Polynomial, BitSet)],
   def getTermIntervalOption(ct : ConstantTerm) : Option[Interval] =
     for ((i, _, _) <- intervals get ct) yield i
 
+  /**
+   * Get the interval known for a variable. The second component specifies
+   * lower/upper/gap assumption
+   */
   def getLabelledTermInterval(ct : ConstantTerm)
                              : (Interval, (BitSet, BitSet, BitSet)) = {
     val (i, _, l) = intervals(ct)

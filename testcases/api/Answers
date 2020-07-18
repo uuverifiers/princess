@@ -239,7 +239,7 @@ Rat_frac(-4, 3)
 
 -- Test 7
 Sat
-{y -> Rat_frac(2, 1), x -> Rat_frac(20, 1), Rat_denom -> 1}
+{y -> Rat_frac(1, 2), x -> Rat_frac(5, 1), Rat_denom -> 2}
 
 -- Test 8
 Sat

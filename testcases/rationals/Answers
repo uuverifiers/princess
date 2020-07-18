@@ -44,7 +44,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun y () Real (/ (- 1) 2))
+  (define-fun y () Real (/ 1 2))
   (define-fun x () Real (/ 1 2))
 )
 
@@ -55,7 +55,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () Real (/ (- 1) 2))
+  (define-fun x () Real (/ 1 2))
 )
 
 Loading realList.smt2 ...
