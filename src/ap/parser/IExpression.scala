@@ -76,6 +76,24 @@ abstract class IExpression {
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Common trait for <code>IExpression</code> classes that bind variables.
+ * Bound variables are represented using de Bruijn indexes.
+ */
+trait IVariableBinder {
+  /**
+   * The sort of the bound variable.
+   */
+  def sort : ap.types.Sort
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Companion object of <code>IExpression</code>, with various helper methods.
+ */
 object IExpression {
   protected[parser] val AC = Debug.AC_INPUT_ABSY
 
@@ -108,9 +126,16 @@ object IExpression {
   implicit def ConstantTerm2ITerm(c : ConstantTerm) : ITerm = IConstant(c)
 
   /**
-   * Generate the variable with de Bruijn index <code>index</code>
+   * Generate the variable with de Bruijn index <code>index</code> and sort
+   * <code>Sort.Integer</code>.
    */
   def v(index : Int) : IVariable = IVariable(index)
+
+  /**
+   * Generate the variable with de Bruijn index <code>index</code> and the
+   * given sort.
+   */
+  def v(index : Int, sort : Sort) : IVariable = IVariable(index, sort)
 
   /** Conversion from Booleans to formulas */
   def i(value : Boolean) : IFormula = IBoolLit(value)
@@ -166,9 +191,14 @@ object IExpression {
   }
 
   /**
-   * Generate an epsilon-expression.
+   * Generate an epsilon-expression with sort <code>Sort.Integer</code>.
    */
   def eps(f : IFormula) = IEpsilon(f)
+
+  /**
+   * Generate an epsilon-expression with the given sort.
+   */
+  def eps(sort : Sort, f : IFormula) = IEpsilon(sort, f)
 
   /**
    * Higher-order syntax for epsilon-expressions. This makes it possible
@@ -626,10 +656,12 @@ object IExpression {
       case IBinJunctor.Or => false
     }
 
-  def connectSimplify(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
+  def connectSimplify(fors : Iterable[IFormula],
+                      op : IBinJunctor.Value) : IFormula =
     connectSimplify(fors.iterator, op)
 
-  def connectSimplify(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
+  def connectSimplify(fors : Iterator[IFormula],
+                      op : IBinJunctor.Value) : IFormula =
     if (fors.hasNext) op match {
       case IBinJunctor.And => fors reduceLeft (_ &&& _)
       case IBinJunctor.Or  => fors reduceLeft (_ ||| _)

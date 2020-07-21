@@ -152,7 +152,7 @@ object IVariable {
   def apply(index : Int, sort : Sort) : IVariable =
     ISortedVariable(index, sort)
 
-  def unapply(t : ITerm) : Option[Int] = t match {
+  def unapply(t : IVariable) : Option[Int] = t match {
     case ISortedVariable(index, _) => Some(index)
     case _                         => None
   }
@@ -171,6 +171,12 @@ abstract class IVariable extends ITerm {
    * The sort of the bound variable.
    */
   def sort : Sort
+
+  /**
+   * Increase the index of this variable by <code>shift</code> (which can
+   * have any sign).
+   */
+  def shiftedBy(shift : Int) : IVariable
 }
 
 /**
@@ -180,6 +186,14 @@ case class ISortedVariable(index : Int, sort : Sort) extends IVariable {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, index >= 0)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  /**
+   * Increase the index of this variable by <code>shift</code> (which can
+   * have any sign).
+   */
+  def shiftedBy(shift : Int) : IVariable =
+    if (shift == 0) this else ISortedVariable(index + shift, sort)
+
   override def toString =
     (if (sort == Sort.Integer) "" else sort.toString) + "_" + index
   override val hashCode : Int = ScalaRunTime._hashCode(this)
@@ -320,7 +334,7 @@ object IEpsilon {
   def apply(sort : Sort, cond : IFormula) : IEpsilon =
     ISortedEpsilon(sort, cond)
 
-  def unapply(t : ITerm) : Option[IFormula] = t match {
+  def unapply(t : IEpsilon) : Option[IFormula] = t match {
     case ISortedEpsilon(_, cond) => Some(cond)
     case _                       => None
   }
@@ -331,7 +345,7 @@ object IEpsilon {
  * satisfying the formula <code>cond</code>. <code>cond</code> is expected
  * to contain a bound variable with de Bruijn index 0 and the given sort.
  */
-abstract class IEpsilon() extends ITerm {
+abstract class IEpsilon extends ITerm with IVariableBinder {
   /**
    * The sort of the bound variable.
    */

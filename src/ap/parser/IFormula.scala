@@ -303,7 +303,7 @@ object IQuantified {
             sort : Sort, subformula : IFormula) : IQuantified =
     ISortedQuantified(quan, sort, subformula)
 
-  def unapply(f : IFormula) : Option[(Quantifier, IFormula)] = f match {
+  def unapply(f : IQuantified) : Option[(Quantifier, IFormula)] = f match {
     case ISortedQuantified(quan, _, subformula) => Some((quan, subformula))
     case _                                      => None
   }
@@ -313,7 +313,7 @@ object IQuantified {
  * Application of a quantifier to a formula containing a free variable
  * with de Bruijn index 0 and the given sort.
  */
-abstract class IQuantified extends IFormula {
+abstract class IQuantified extends IFormula with IVariableBinder {
   /**
    * The quantifier.
    */

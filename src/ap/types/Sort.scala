@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -266,6 +266,10 @@ object Sort {
       c.sort
     case IFunApp(f : SortedIFunction, args) =>
       f iResultSort args
+    case ISortedVariable(_, sort) =>
+      sort
+    case ISortedEpsilon(sort, _) =>
+      sort
     case ITermITE(_, left, right) => {
       val lSort = sortOf(left)
       val rSort = sortOf(right)
@@ -339,6 +343,12 @@ trait Sort {
    */
   def newConstant(name : String) : ConstantTerm =
     new SortedConstantTerm(name, this)
+
+  /**
+   * The variable with given de Bruijn index and <code>this</code> sort.
+   */
+  def boundVariable(index : Int) : IVariable =
+    ISortedVariable(index, this)
 
   //////////////////////////////////////////////////////////////////////////////
 
