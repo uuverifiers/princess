@@ -25,8 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
-import ap.theories.TheoryRegistry
-import ap.types.SortedConstantTerm
+import ap.types.Sort
 import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.ArrayBuffer
@@ -145,13 +144,44 @@ case class IConstant(c : ConstantTerm) extends ITerm {
 }
 
 /**
- * Bound variables, represented using their de Bruijn index.
+ * Bound variables of any sort.
  */
-case class IVariable(index : Int) extends ITerm {
-  //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+object IVariable {
+  def apply(index : Int) : IVariable =
+    ISortedVariable(index, Sort.Integer)
+  def apply(index : Int, sort : Sort) : IVariable =
+    ISortedVariable(index, sort)
+
+  def unapply(t : ITerm) : Option[Int] = t match {
+    case ISortedVariable(index, _) => Some(index)
+    case _                         => None
+  }
+}
+
+/**
+ * Bound variables, represented using their de Bruijn index and the sort.
+ */
+abstract class IVariable extends ITerm {
+  /**
+   * The index of the bound variable.
+   */
+  def index : Int
+
+  /**
+   * The sort of the bound variable.
+   */
+  def sort : Sort
+}
+
+/**
+ * Bound variables, represented using their de Bruijn index and the sort.
+ */
+case class ISortedVariable(index : Int, sort : Sort) extends IVariable {
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, index >= 0)
-  //-END-ASSERTION-///////////////////////////////////////////////////////////
-  override def toString = "_" + index
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+  override def toString =
+    (if (sort == Sort.Integer) "" else sort.toString) + "_" + index
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
@@ -282,9 +312,43 @@ case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm 
 /**
  * Epsilon term, which is defined to evaluate to an arbitrary value
  * satisfying the formula <code>cond</code>. <code>cond</code> is expected
- * to contain a bound variable with de Bruijn index 0.
+ * to contain a bound variable with de Bruijn index 0 and any sort.
  */
-case class IEpsilon(cond : IFormula) extends ITerm {
+object IEpsilon {
+  def apply(cond : IFormula) : IEpsilon =
+    ISortedEpsilon(Sort.Integer, cond)
+  def apply(sort : Sort, cond : IFormula) : IEpsilon =
+    ISortedEpsilon(sort, cond)
+
+  def unapply(t : ITerm) : Option[IFormula] = t match {
+    case ISortedEpsilon(_, cond) => Some(cond)
+    case _                       => None
+  }
+}
+
+/**
+ * Epsilon term, which is defined to evaluate to an arbitrary value
+ * satisfying the formula <code>cond</code>. <code>cond</code> is expected
+ * to contain a bound variable with de Bruijn index 0 and the given sort.
+ */
+abstract class IEpsilon() extends ITerm {
+  /**
+   * The sort of the bound variable.
+   */
+  def sort : Sort
+
+  /**
+   * The body of the epsilon term.
+   */
+  def cond : IFormula
+}
+
+/**
+ * Epsilon term, which is defined to evaluate to an arbitrary value
+ * satisfying the formula <code>cond</code>. <code>cond</code> is expected
+ * to contain a bound variable with de Bruijn index 0 and the given sort.
+ */
+case class ISortedEpsilon(sort : Sort, cond : IFormula) extends IEpsilon {
   override def apply(i : Int) : IExpression = i match {
     case 0 => cond
     case _ => throw new IndexOutOfBoundsException
@@ -292,14 +356,16 @@ case class IEpsilon(cond : IFormula) extends ITerm {
   
   override def length : Int = 1
 
-  override def update(newSubExprs : Seq[IExpression]) : IEpsilon = {
+  override def update(newSubExprs : Seq[IExpression]) : ISortedEpsilon = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newSubExprs.length == 1)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val newCond = newSubExprs(0).asInstanceOf[IFormula]
-    if (newCond eq cond) this else IEpsilon(newCond)
+    if (newCond eq cond) this else ISortedEpsilon(sort, newCond)
   }
 
-  override def toString = "EPS " + cond
+  override def toString =
+    "EPS " + (if (sort == Sort.Integer) "" else (sort.toString + ". ")) + cond
+
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 }

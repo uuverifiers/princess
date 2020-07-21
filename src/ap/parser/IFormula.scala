@@ -25,8 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
-import ap.theories.TheoryRegistry
-import ap.types.SortedConstantTerm
+import ap.types.Sort
 import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.ArrayBuffer
@@ -295,24 +294,67 @@ case class IIntFormula(rel : IIntRelation.Value, t : ITerm) extends IFormula {
 
 /**
  * Application of a quantifier to a formula containing a free variable
- * with de Bruijn index 0.
+ * with de Bruijn index 0 and any sort.
  */
-case class IQuantified(quan : Quantifier, subformula : IFormula) extends IFormula {
+object IQuantified {
+  def apply(quan : Quantifier, subformula : IFormula) : IQuantified =
+    ISortedQuantified(quan, Sort.Integer, subformula)
+  def apply(quan : Quantifier,
+            sort : Sort, subformula : IFormula) : IQuantified =
+    ISortedQuantified(quan, sort, subformula)
+
+  def unapply(f : IFormula) : Option[(Quantifier, IFormula)] = f match {
+    case ISortedQuantified(quan, _, subformula) => Some((quan, subformula))
+    case _                                      => None
+  }
+}
+
+/**
+ * Application of a quantifier to a formula containing a free variable
+ * with de Bruijn index 0 and the given sort.
+ */
+abstract class IQuantified extends IFormula {
+  /**
+   * The quantifier.
+   */
+  def quan : Quantifier
+
+  /**
+   * The sort of the bound variable.
+   */
+  def sort : Sort
+
+  /**
+   * The body of the quantified formula.
+   */
+  def subformula : IFormula
+}
+
+/**
+ * Application of a quantifier to a formula containing a free variable
+ * with de Bruijn index 0 and the given sort.
+ */
+case class ISortedQuantified(quan : Quantifier,
+                             sort : Sort,
+                             subformula : IFormula) extends IQuantified {
   override def apply(i : Int) : IFormula = i match {
     case 0 => subformula
     case _ => throw new IndexOutOfBoundsException
   }
   override def length : Int = 1
 
-  override def update(newSubExprs : Seq[IExpression]) : IQuantified = {
+  override def update(newSubExprs : Seq[IExpression]) : ISortedQuantified = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newSubExprs.length == 1)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val newsub = newSubExprs(0).asInstanceOf[IFormula]
-    if (newsub eq subformula) this else IQuantified(quan, newsub)
+    if (newsub eq subformula) this else ISortedQuantified(quan, sort, newsub)
   }
 
-  override def toString = "" + quan + " " + subformula
+  override def toString =
+    "" + quan +
+    (if (sort == Sort.Integer) " " else (sort.toString + ". ")) + subformula
+
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
