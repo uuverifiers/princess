@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -187,7 +187,11 @@ object ModReducer {
                 case `_mod_cast` =>
                   (reducer.lowerBound(a(2), logging),
                    reducer.upperBound(a(2), logging)) match {
-          
+
+                    case (Some((lb, _)), Some((ub, _))) if lb > ub =>
+                      // reducer is in an inconsistent state, no changes
+                      a
+
                     case (Some((lb, lbAsses)), Some((ub, ubAsses))) => {
                       val sort@ModSort(sortLB, sortUB) =
                         (SortedPredicate argumentSorts a).last
@@ -315,8 +319,12 @@ object ModReducer {
                     val (bitBoundary, lower, asses) = bitCache(a(2)) {
                       (reducer.lowerBound(a(2), logging),
                        reducer.upperBound(a(2), logging)) match {
-                        case (Some((lb, lbA)),
-                              Some((ub, ubA))) if lb.signum >= 0 =>
+                        case (Some((lb, lbA)), Some((ub, ubA))) if lb > ub =>
+                          // reducer is in an inconsistent state, just drop
+                          // the extract atom
+                          (0, IdealInt.ZERO, lbA ++ ubA)
+                        case (Some((lb, lbA)), Some((ub, ubA)))
+                            if lb.signum >= 0 =>
                           ((lb ^ ub).getHighestSetBit + 1, lb, lbA ++ ubA)
                         case _ =>
                           (-1, IdealInt.ZERO, List())
