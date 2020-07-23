@@ -1434,7 +1434,8 @@ object SubExprAbbreviator {
  */
 object VariableSortChecker extends ContextAwareVisitor[Unit, Unit] {
 
-  def apply(e : IExpression) : Unit = this.visitWithoutResult(e, Context(()))
+  def apply(e : IExpression) : Unit =
+    this.visitWithoutResult(e, Context(()))
 
   def apply(es : Iterable[IExpression]) : Unit =
     for (e <- es)
@@ -1452,6 +1453,37 @@ object VariableSortChecker extends ContextAwareVisitor[Unit, Unit] {
     }
     case _ =>
       () // nothing
+  }
+
+}
+
+
+/**
+ * Visitor that eliminates variable and quantifier sorts, and adds
+ * explicit membership constraints instead.
+ */
+object VariableSortEliminator extends CollectingVisitor[Unit, IExpression] {
+
+  import IExpression.{Sort, guardEx, guardAll}
+
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[IExpression]) : IExpression = t match {
+    case ISortedVariable(index, sort)
+        if sort != Sort.Integer =>
+      IVariable(index)
+    case ISortedQuantified(Quantifier.EX, sort, body)
+        if sort != Sort.Integer =>
+      IQuantified(Quantifier.EX,
+                  guardEx(body, sort.membershipConstraint(IVariable(0))))
+    case ISortedQuantified(Quantifier.ALL, sort, body)
+        if sort != Sort.Integer =>
+      IQuantified(Quantifier.ALL,
+                  guardAll(body, sort.membershipConstraint(IVariable(0))))
+    case ISortedEpsilon(sort, body)
+        if sort != Sort.Integer =>
+      IEpsilon(guardEx(body, sort.membershipConstraint(IVariable(0))))
+    case t =>
+      t update subres
   }
 
 }
