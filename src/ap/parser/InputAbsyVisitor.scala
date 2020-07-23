@@ -1426,3 +1426,32 @@ object SubExprAbbreviator {
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor that checks whether the sorts of variables are consistent with
+ * the sort of their binders.
+ */
+object VariableSortChecker extends ContextAwareVisitor[Unit, Unit] {
+
+  def apply(e : IExpression) : Unit = this.visitWithoutResult(e, Context(()))
+
+  def apply(es : Iterable[IExpression]) : Unit =
+    for (e <- es)
+      apply(e)
+
+  def postVisit(t : IExpression,
+                context : Context[Unit],
+                subres : Seq[Unit]) : Unit = t match {
+    case ISortedVariable(index, sort) => {
+      if (sort != context.boundSorts.applyOrElse(index, (x:Int) => sort))
+        Console.err.println("Warning: variable " + t +
+                            " is bound by " + context.binders(index) +
+                            " with sort " + context.boundSorts(index))
+      ()
+    }
+    case _ =>
+      () // nothing
+  }
+
+}

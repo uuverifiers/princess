@@ -58,6 +58,8 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
+    VariableSortChecker(f)
+
     // turn the formula into a list of its named parts
     val fors1a = PartExtractor(f)
 
@@ -298,7 +300,9 @@ println
       case Param.ClausifierOptions.Simple =>
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
-    
+
+    VariableSortChecker(fors6)
+
     (fors6, interpolantSpecs, signature2 updateOrder order3)
   }
 
