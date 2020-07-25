@@ -382,6 +382,15 @@ object IExpression {
     (f /: quans)((f, q) => IQuantified(q, f))
 
   /**
+   * Add quantifiers for the variables with de Bruijn index
+   * <code>0, ..., quans.size - 1</code>. The first quantifier in
+   * <code>quans</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def quanWithSorts(quans : Seq[(Quantifier, Sort)], f : IFormula) : IFormula =
+    (f /: quans) { case (f, (q, sort)) => ISortedQuantified(q, sort, f) }
+
+  /**
    * Quantify some of the variables occurring in a formula.
    */
   def quanVars(quan : Quantifier, vars : Iterable[IVariable],
@@ -401,7 +410,9 @@ object IExpression {
         VariablePermVisitor(f, IVarShift(shifts, vars.size))
 
       // then add quantifiers
-      (vars :\ shiftedF) ((_, g) => IQuantified(quan, g))
+      (vars :\ shiftedF) {
+        case (ISortedVariable(_, sort), g) => ISortedQuantified(quan, sort, g)
+      }
     }
   }
 
@@ -416,13 +427,14 @@ object IExpression {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val constsSeq = consts.toSeq
+    val sorts = constsSeq map (SortedConstantTerm sortOf _)
 
     val fWithShiftedVars = VariableShiftVisitor(f, 0, consts.size)
-    val subst = (for ((c, i) <- constsSeq.iterator.zipWithIndex)
-                 yield (c, v(i))).toMap
+    val subst = (for (((c, s), i) <-
+                      (constsSeq.iterator zip sorts.iterator).zipWithIndex)
+                 yield (c, v(i, s))).toMap
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
 
-    val sorts = constsSeq map (SortedConstantTerm sortOf _)
     quan match {
       case Quantifier.ALL => all(sorts, fWithSubstitutedConsts)
       case Quantifier.EX  => ex (sorts, fWithSubstitutedConsts)
@@ -504,7 +516,7 @@ object IExpression {
    * to index 0. 
    */
   def all(sorts : Seq[Sort], f : IFormula) : IFormula =
-    quan(Array.fill(sorts.size){Quantifier.ALL}, guardAll(f, sortGuards(sorts)))
+    quanWithSorts(for (s <- sorts) yield (Quantifier.ALL, s), f)
 
   /**
    * Add sorted existential quantifiers for the variables with de Bruijn index
@@ -513,12 +525,7 @@ object IExpression {
    * to index 0. 
    */
   def ex(sorts : Seq[Sort], f : IFormula) : IFormula =
-    quan(Array.fill(sorts.size){Quantifier.EX}, guardEx(f, sortGuards(sorts)))
-
-  private def sortGuards(sorts : Seq[Sort]) : IFormula =
-    connectSimplify(for ((s, n) <- sorts.iterator.zipWithIndex)
-                      yield (s membershipConstraint v(n)),
-                    IBinJunctor.And)
+    quanWithSorts(for (s <- sorts) yield (Quantifier.EX, s), f)
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -552,6 +559,27 @@ object IExpression {
    */
   def subst(t : IExpression, replacement : List[ITerm], shift : Int) =
     VariableSubstVisitor(t, (replacement, shift))
+
+  /**
+   * Shift all variables with <code>index >= offset</code> by
+   * <code>shift</code>.
+   */
+  def shiftVars(t : IExpression, offset : Int, shift : Int) =
+    VariableShiftVisitor(t, offset, shift)
+
+  /**
+   * Shift all variables with <code>index >= offset</code> by
+   * <code>shift</code>.
+   */
+  def shiftVars(t : IFormula, offset : Int, shift : Int) =
+    VariableShiftVisitor(t, offset, shift)
+
+  /**
+   * Shift all variables with <code>index >= offset</code> by
+   * <code>shift</code>.
+   */
+  def shiftVars(t : ITerm, offset : Int, shift : Int) =
+    VariableShiftVisitor(t, offset, shift)
 
   //////////////////////////////////////////////////////////////////////////////
 

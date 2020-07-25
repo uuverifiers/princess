@@ -353,7 +353,8 @@ case class ISortedQuantified(quan : Quantifier,
 
   override def toString =
     "" + quan +
-    (if (sort == Sort.Integer) " " else (sort.toString + ". ")) + subformula
+    (if (sort == Sort.Integer) " " else (" " + sort.toString + ". ")) +
+    subformula
 
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
@@ -400,7 +401,7 @@ object ITrigger {
     val extractor = new CollectingVisitor[Unit, Boolean] {
       override def preVisit(t : IExpression,
                             arg : Unit) : PreVisitResult = t match {
-        case _ : IQuantified | _ : IEpsilon => ShortCutResult(false)
+        case _ : IVariableBinder => ShortCutResult(false)
         case _ => KeepArg
       }
       def postVisit(t : IExpression, arg : Unit,

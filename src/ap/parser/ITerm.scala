@@ -195,7 +195,7 @@ case class ISortedVariable(index : Int, sort : Sort) extends IVariable {
     if (shift == 0) this else ISortedVariable(index + shift, sort)
 
   override def toString =
-    (if (sort == Sort.Integer) "" else sort.toString) + "_" + index
+    "_" + index + (if (sort == Sort.Integer) "" else "[" + sort.toString + "]")
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -58,10 +58,12 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
-    VariableSortChecker(f)
+    VariableSortChecker("initial", f)
 
     // turn the formula into a list of its named parts
-    val fors1a = PartExtractor(f)
+    val fors1a = PartExtractor(VariableSortEliminator(f))
+
+    VariableSortChecker("step 1", fors1a)
 
     // the other steps can be skipped for simple cases
     if ((functionEncoder.axioms match {
@@ -78,7 +80,7 @@ object Preprocessing {
       val newFors = for (f <- fors1a) yield {
         val (newF, newSig) = Theory.iPreprocess(f, signature.theories, sig)
         sig = newSig
-        newF
+        VariableSortEliminator(newF) // TODO
       }
       (newFors, sig)
     }
@@ -301,7 +303,7 @@ println
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
 
-    VariableSortChecker(fors6)
+    VariableSortChecker("final", fors6)
 
     (fors6, interpolantSpecs, signature2 updateOrder order3)
   }

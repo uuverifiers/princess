@@ -299,14 +299,14 @@ TypeTests.scala
 Starting
 \exists int v0, v1; v1 = x + v0
 Sat
-\exists int v0; (v0 >= 0 & v0 = x)
+\exists nat v0; v0 = x
 Sat
-\forall int v0; (!(v0 >= 0) | x = v0)
+\forall nat v0; x = v0
 Unsat
-\exists int v0; (v0 >= 0 & x = y + v0) <-> x >= y
+\exists nat v0; x = y + v0 <-> x >= y
 Valid
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
+\exists int[0, 9] v0; v0 - x >= 1
+\exists int[0, 9] v0; v0 - x >= 1
 8 >= x
 Valid
 Unsat
@@ -589,7 +589,7 @@ Test 7
 Unsat
 Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), !((y + -1 * mod_cast(0, 1, 0)) = 0))
 Test 8
-\exists int v0; (v0 >= 0 & 3 >= v0 & bv_mul(2, x, v0) = 1.\as[bv[2]])
+\exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
 x = 1.\as[bv[2]] | x >= 3
 Valid
 Test 9

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1233,7 +1233,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         if (!args.isEmpty)
             throw new Parser2InputAbsy.TranslationException(
                                "Variable " + name + " does not have arguments")
-        (v(i), sort)
+        (v(i, sort), sort)
       }
     }
 

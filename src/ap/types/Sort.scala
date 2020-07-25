@@ -413,16 +413,14 @@ trait Sort {
    * together with a guard representing this sort.
    */
   def ex(f : IFormula) =
-    IQuantified(IExpression.Quantifier.EX,
-                IExpression.guardEx(f, membershipConstraint(IVariable(0))))
+    ISortedQuantified(IExpression.Quantifier.EX, this, f)
   
   /**
    * Add an existential quantifier for the variable with de Bruijn index 0,
    * together with a guard representing this sort.
    */
   def all(f : IFormula) =
-    IQuantified(IExpression.Quantifier.ALL,
-                IExpression.guardAll(f, membershipConstraint(IVariable(0))))
+    ISortedQuantified(IExpression.Quantifier.ALL, this, f)
 
   /**
    * Higher-order syntax for existential quantifiers. This makes it possible
@@ -554,7 +552,7 @@ trait Sort {
    * Generate an epsilon-expression.
    */
   def eps(f : IFormula) =
-    IEpsilon(IExpression.guardEx(f, membershipConstraint(IExpression.v(0))))
+    ISortedEpsilon(this, f)
 
   /**
    * Higher-order syntax for epsilon-expressions. This makes it possible
@@ -566,9 +564,9 @@ trait Sort {
     // bound variable (just applying <code>f</code> to a bound variable
     // would not work in case of nested binders)
     val x = newConstant("x")
-    val fWithShiftedVars =
-      VariableShiftVisitor(guardEx(f(x), membershipConstraint(x)), 0, 1)
-    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+    val fWithShiftedVars = VariableShiftVisitor(f(x), 0, 1)
+    ISortedEpsilon(this,
+                   ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0, this))))
   }
 
 }

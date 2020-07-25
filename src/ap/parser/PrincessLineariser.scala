@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -507,13 +507,13 @@ object PrincessLineariser {
             })
         }
 
-        case IQuantified(quan, subF) => {
+        case ISortedQuantified(quan, sort, subF) => {
           val varName = "v" + ctxt.vars.size
           print(quan match {
             case Quantifier.ALL => "\\forall"
             case Quantifier.EX => "\\exists"
           })
-          print(" int " + varName)
+          print(" " + sort + " " + varName)
 
           var newCtxt = ctxt pushVar varName
 
@@ -531,9 +531,9 @@ object PrincessLineariser {
           TryAgain(sub, newCtxt)
         }
 
-        case IEpsilon(_) => {
+        case ISortedEpsilon(sort, _) => {
           val varName = "v" + ctxt.vars.size
-          print("\\eps int " + varName + "; ")
+          print("\\eps " + sort + " " + varName + "; ")
           noParentOp(ctxt pushVar varName)
         }
         case INamedPart(name, _) => {

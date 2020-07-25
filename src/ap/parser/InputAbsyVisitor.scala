@@ -230,6 +230,10 @@ abstract class CollectingVisitor[A, R] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Visitor to shift all variables with <code>index >= offset</code> by
+ * <code>shift</code>.
+ */
 object VariableShiftVisitor {
   private val AC = Debug.AC_INPUT_ABSY
   
@@ -245,6 +249,10 @@ object VariableShiftVisitor {
     apply(t.asInstanceOf[IExpression], offset, shift).asInstanceOf[ITerm]
 }
 
+/**
+ * Visitor to shift all variables with <code>index >= offset</code> by
+ * <code>shift</code>.
+ */
 class VariableShiftVisitor(offset : Int, shift : Int)
       extends CollectingVisitor[Int, IExpression] {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -1432,31 +1440,41 @@ object SubExprAbbreviator {
  * Visitor that checks whether the sorts of variables are consistent with
  * the sort of their binders.
  */
-object VariableSortChecker extends ContextAwareVisitor[Unit, Unit] {
+object VariableSortChecker
+       extends CollectingVisitor[String, Set[IVariable]] {
 
-  def apply(e : IExpression) : Unit =
-    this.visitWithoutResult(e, Context(()))
+  def apply(prefix : String, e : IExpression) : Unit =
+    this.visit(e, prefix)
 
-  def apply(es : Iterable[IExpression]) : Unit =
+  def apply(prefix : String, es : Iterable[IExpression]) : Unit =
     for (e <- es)
-      apply(e)
+      apply(prefix, e)
 
   def postVisit(t : IExpression,
-                context : Context[Unit],
-                subres : Seq[Unit]) : Unit = t match {
-    case ISortedVariable(index, sort) => {
-      if (sort != context.boundSorts.applyOrElse(index, (x:Int) => sort))
-        Console.err.println("Warning: variable " + t +
-                            " is bound by " + context.binders(index) +
-                            " with sort " + context.boundSorts(index))
-      ()
+                prefix : String,
+                subres : Seq[Set[IVariable]]) : Set[IVariable] = {
+    val bodyVars = (for (s <- subres.iterator; c <- s.iterator) yield c).toSet
+    t match {
+      case t : IVariable =>
+        bodyVars + t
+      case t : IVariableBinder => {
+        val extraSorts =
+          (for (v@ISortedVariable(0, s) <- bodyVars; if s != t.sort)
+           yield v).toSeq
+        if (!extraSorts.isEmpty)
+          Console.err.println("Warning " + prefix + ": variables " +
+                                (extraSorts mkString ", ") +
+                                " occurring in " + t)
+        for (t@IVariable(ind) <- bodyVars; if ind > 0) yield (t shiftedBy -1)
+      }
+      case _ =>
+        bodyVars
     }
-    case _ =>
-      () // nothing
   }
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Visitor that eliminates variable and quantifier sorts, and adds
@@ -1466,22 +1484,24 @@ object VariableSortEliminator extends CollectingVisitor[Unit, IExpression] {
 
   import IExpression.{Sort, guardEx, guardAll}
 
+  def apply(f : IFormula) : IFormula =
+    this.visit(f, ()).asInstanceOf[IFormula]
+
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[IExpression]) : IExpression = t match {
-    case ISortedVariable(index, sort)
-        if sort != Sort.Integer =>
+    case ISortedVariable(index, sort)               if sort != Sort.Integer =>
       IVariable(index)
-    case ISortedQuantified(Quantifier.EX, sort, body)
-        if sort != Sort.Integer =>
+    case ISortedQuantified(Quantifier.EX, sort, _)  if sort != Sort.Integer =>
       IQuantified(Quantifier.EX,
-                  guardEx(body, sort.membershipConstraint(IVariable(0))))
-    case ISortedQuantified(Quantifier.ALL, sort, body)
-        if sort != Sort.Integer =>
+                  guardEx(subres(0).asInstanceOf[IFormula],
+                          sort.membershipConstraint(IVariable(0))))
+    case ISortedQuantified(Quantifier.ALL, sort, _) if sort != Sort.Integer =>
       IQuantified(Quantifier.ALL,
-                  guardAll(body, sort.membershipConstraint(IVariable(0))))
-    case ISortedEpsilon(sort, body)
-        if sort != Sort.Integer =>
-      IEpsilon(guardEx(body, sort.membershipConstraint(IVariable(0))))
+                  guardAll(subres(0).asInstanceOf[IFormula],
+                           sort.membershipConstraint(IVariable(0))))
+    case ISortedEpsilon(sort, _)                    if sort != Sort.Integer =>
+      IEpsilon(guardEx(subres(0).asInstanceOf[IFormula],
+                       sort.membershipConstraint(IVariable(0))))
     case t =>
       t update subres
   }
