@@ -568,6 +568,12 @@ object IExpression {
     VariableShiftVisitor(t, offset, shift)
 
   /**
+   * Shift all variables by <code>shift</code>.
+   */
+  def shiftVars(t : IExpression, shift : Int) =
+    VariableShiftVisitor(t, 0, shift)
+
+  /**
    * Shift all variables with <code>index >= offset</code> by
    * <code>shift</code>.
    */
@@ -575,11 +581,23 @@ object IExpression {
     VariableShiftVisitor(t, offset, shift)
 
   /**
+   * Shift all variables by <code>shift</code>.
+   */
+  def shiftVars(t : IFormula, shift : Int) =
+    VariableShiftVisitor(t, 0, shift)
+
+  /**
    * Shift all variables with <code>index >= offset</code> by
    * <code>shift</code>.
    */
   def shiftVars(t : ITerm, offset : Int, shift : Int) =
     VariableShiftVisitor(t, offset, shift)
+
+  /**
+   * Shift all variables by <code>shift</code>.
+   */
+  def shiftVars(t : ITerm, shift : Int) =
+    VariableShiftVisitor(t, 0, shift)
 
   //////////////////////////////////////////////////////////////////////////////
 

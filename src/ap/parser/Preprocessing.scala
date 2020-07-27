@@ -58,12 +58,12 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
-    VariableSortChecker("initial", f)
+    VariableSortChecker("preproc initial", f)
 
     // turn the formula into a list of its named parts
-    val fors1a = PartExtractor(VariableSortEliminator(f))
+    val fors1a = PartExtractor(f)
 
-    VariableSortChecker("step 1", fors1a)
+    VariableSortChecker("preproc step 1a", fors1a)
 
     // the other steps can be skipped for simple cases
     if ((functionEncoder.axioms match {
@@ -80,14 +80,18 @@ object Preprocessing {
       val newFors = for (f <- fors1a) yield {
         val (newF, newSig) = Theory.iPreprocess(f, signature.theories, sig)
         sig = newSig
-        VariableSortEliminator(newF) // TODO
+        newF
       }
       (newFors, sig)
     }
 
+    VariableSortChecker("preproc step 1b", fors1b)
+
+    val fors1bX = for (f <- fors1b) yield VariableSortEliminator(f)
+
     // partial evaluation, expand equivalences
     val fors2a =
-      for (f <- fors1b)
+      for (f <- fors1bX)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
     // mini/maxi-scoping of existential quantifiers
@@ -303,7 +307,7 @@ println
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
 
-    VariableSortChecker("final", fors6)
+    VariableSortChecker("preproc final", fors6)
 
     (fors6, interpolantSpecs, signature2 updateOrder order3)
   }

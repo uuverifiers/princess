@@ -248,6 +248,12 @@ object Sort {
                    definedTerms : MSet[(IdealInt, Sort)]) : Unit = {}
   }
 
+  /**
+   * A placeholder sort that is used in places where the sort has not been
+   * inferred yet.
+   */
+  val AnySort = createInfUninterpretedSort("any")
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
