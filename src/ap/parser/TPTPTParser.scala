@@ -336,6 +336,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   //////////////////////////////////////////////////////////////////////////////
   
   private def genRRAxioms = {
+    // TODO: move those axioms to a proper theory; make sure that all
+    // quantifiers have the right sorts
+
     if (tptpType == TPTPType.TFF && (containsRat || containsReal))
       saturateRR
 
@@ -403,7 +406,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     for (i <- 0 until allConsts.size;
          j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
   }
-  
+
   private def generalRatAxioms(prefix : String, t : Type,
                                constants : Map[IdealRat, ConstantTerm]) = {
     // instances of axioms for the defined literals
@@ -684,7 +687,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         var res =
           if (env.declaredVariableNum > 0) possiblyEmptyTrigger(f) else f
         while (env.declaredVariableNum > 0) {
-          res = all(res)
+          res = IType.toSort.all(res)
           env.popVar
         }
         (false, INamedPart(env lookupPartName name, !res))

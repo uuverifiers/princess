@@ -1453,7 +1453,12 @@ object VariableSortChecker
   def postVisit(t : IExpression,
                 prefix : String,
                 subres : Seq[Set[IVariable]]) : Set[IVariable] = {
-    val bodyVars = (for (s <- subres.iterator; c <- s.iterator) yield c).toSet
+    val bodyVars =
+      subres match {
+        case Seq() => Set[IVariable]()
+        case sets  => sets reduceLeft (_ ++ _)
+      }
+
     t match {
       case t : IVariable =>
         bodyVars + t
