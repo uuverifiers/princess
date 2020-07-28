@@ -46,18 +46,15 @@ object ModPreprocessor {
 
   import ModuloArithmetic._
 
-  case class VisitorArg(modN : Option[IdealInt],
-                        boundVarRanges : List[(Option[IdealInt],
-                                               Option[IdealInt])],
-                        underQuantifier : Boolean) {
+  case class VisitorArg(modN : Option[IdealInt]) {
     import IExpression._
 
     def setMod(n : IdealInt) =
-      copy(modN = Some(n), underQuantifier = false)
+      copy(modN = Some(n))
 
     def addMod(n : IdealInt) = modN match {
       case Some(oldN) if (oldN divides n) =>
-        this.notUnderQuantifier
+        this
       case _ =>
         this.setMod(n)
     }
@@ -80,61 +77,17 @@ object ModPreprocessor {
         if (g > IdealInt.ONE)
           setMod(oldN / g)
         else
-          this.notUnderQuantifier
+          this
       }
       case _ =>
-        this.notUnderQuantifier
+        this
     }
 
     def noMod =
-      if (modN.isDefined || underQuantifier)
-        copy(modN = None, underQuantifier = false)
+      if (modN.isDefined)
+        copy(modN = None)
       else
         this
-
-    def pushVar =
-      copy(boundVarRanges = (None, None) :: boundVarRanges,
-           underQuantifier = true)
-
-    def notUnderQuantifier =
-      if (underQuantifier)
-        copy(underQuantifier = false)
-      else
-        this
-
-    def collectVariableRanges(f : IFormula) = {
-      var ranges = boundVarRanges
-
-      def collectRanges(f : IFormula, neg : Boolean) : Unit = f match {
-        case INot(subF) =>
-          collectRanges(subF, !neg)
-        case Conj(left, right) if !neg => {
-          collectRanges(left, neg)
-          collectRanges(right, neg)
-        }
-        case Disj(left, right) if neg => {
-          collectRanges(left, neg)
-          collectRanges(right, neg)
-        }
-        case Geq(IVariable(ind), IIntLit(value)) if !neg => {
-          val (oldL, oldU) =
-            ranges(ind)
-          ranges =
-            ranges.updated(ind, (Some((oldL getOrElse value) max value), oldU))
-        }
-        case Geq(IIntLit(value), IVariable(ind)) if !neg => {
-          val (oldL, oldU) =
-            ranges(ind)
-          ranges =
-            ranges.updated(ind, (oldL, Some((oldU getOrElse value) min value)))
-        }
-        case _ =>
-          // nothing
-      }
-
-      collectRanges(f, false)
-      copy(boundVarRanges = ranges, underQuantifier = false)
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -201,8 +154,8 @@ object ModPreprocessor {
         }
       }
 
-      case _ : IConstant | _ : IFunApp | _ : IVariable =>
-        (Sort sortOf t.asInstanceOf[ITerm]) match {
+      case _ : IConstant | _ : IFunApp | _ : IVariable | _ : IEpsilon =>
+        (Sort sortOf t.asInstanceOf[ITerm])match {
           case ModSort(lower, upper) =>
             VisitorRes(t, lower, upper)
           case Sort.Interval(lower, upper) =>
@@ -343,15 +296,6 @@ object ModPreprocessor {
 
     override def preVisit(t : IExpression,
                           ctxt : VisitorArg) : PreVisitResult = t match {
-      case _ : IVariableBinder =>
-        UniSubArgs(ctxt.pushVar)
-      case Conj(left, _) if ctxt.underQuantifier =>
-        SubArgs(List(ctxt.notUnderQuantifier,
-                     ctxt collectVariableRanges left))
-      case Disj(left, _) if ctxt.underQuantifier =>
-        SubArgs(List(ctxt.notUnderQuantifier,
-                     ctxt collectVariableRanges ~left))
-
       case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod (upper - lower + IdealInt.ONE)))
@@ -380,13 +324,12 @@ object ModPreprocessor {
         UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
-        UniSubArgs(ctxt.notUnderQuantifier)
+        KeepArg
       case ITimes(coeff, _) =>
         UniSubArgs(ctxt divideMod coeff)
 
       case _ : ITermITE =>
-        SubArgs(List(ctxt.noMod,
-                     ctxt.notUnderQuantifier, ctxt.notUnderQuantifier))
+        SubArgs(List(ctxt.noMod, ctxt, ctxt))
 
       case _ =>
         UniSubArgs(ctxt.noMod)

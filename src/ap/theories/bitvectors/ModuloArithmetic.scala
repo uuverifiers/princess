@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -621,13 +621,13 @@ object ModuloArithmetic extends Theory {
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) =
     (Preproc.visit(
-        f, VisitorArg(None, List(), false)).res.asInstanceOf[IFormula],
+        f, VisitorArg(None)).res.asInstanceOf[IFormula],
      signature)
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
     if (f.args forall (isLit _)) {
       val sort = Sort sortOf f
-      val res = Preproc.visit(f, VisitorArg(None, List(), false))
+      val res = Preproc.visit(f, VisitorArg(None))
       if (res.isConstant)
         Some(IIntLit(res.lowerBound))
       else
@@ -638,7 +638,7 @@ object ModuloArithmetic extends Theory {
 
   override def evalPred(a : IAtom) : Option[Boolean] =
     if (a.args forall (isLit _)) {
-      Preproc.visit(a, VisitorArg(None, List(), false)).res match {
+      Preproc.visit(a, VisitorArg(None)).res match {
         case IBoolLit(v) => Some(v)
         case _           => None
       }

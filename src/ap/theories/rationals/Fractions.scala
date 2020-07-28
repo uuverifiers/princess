@@ -211,7 +211,7 @@ class Fractions(name : String,
       // (s * t / denom) / denom
       dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
                            (ringMul(v(0, ringDom), v(1, dom)) ===
-                              ringMul(shiftVars(s, 0, 2), shiftVars(t, 0, 2)))))
+                              ringMul(shiftVars(s, 2), shiftVars(t, 2)))))
   }
 
   def div(s : ITerm, t : ITerm) : ITerm = t match {
@@ -226,8 +226,8 @@ class Fractions(name : String,
       // (s / denom) * (denom / t) =
       // (s * denom / t) / denom
       dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
-                           (ringMul(shiftVars(t, 0, 2), v(1, dom)) ===
-                              ringMul(shiftVars(s, 0, 2), v(0, ringDom)))))
+                           (ringMul(shiftVars(t, 2), v(1, dom)) ===
+                              ringMul(shiftVars(s, 2), v(0, ringDom)))))
   }
 
   def minus(s: ITerm): ITerm = s match {
@@ -274,8 +274,8 @@ class Fractions(name : String,
           case Seq(num : ITerm, den : ITerm) => {
             usedDenom = true
             dom.eps(dom.ex(
-                      (denom() ===ringMul(v(0, dom), shiftVars(den, 0, 2))) &
-                        (v(1) === ringMul(v(0, dom), shiftVars(num, 0, 2)))))
+                      (denom() ===ringMul(v(0, dom), shiftVars(den, 2))) &
+                        (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
           }
         }
       case _ =>
