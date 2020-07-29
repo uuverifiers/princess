@@ -87,19 +87,20 @@ object Preprocessing {
 
     VariableSortChecker("preproc step 1b", fors1b)
 
-    val fors1bX = for (f <- fors1b) yield VariableSortEliminator(f)
-
     // partial evaluation, expand equivalences
     val fors2a =
-      for (f <- fors1bX)
+      for (f <- fors1b)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+
+    VariableSortChecker("preproc step 2a", fors2a)
+    val fors2aX = for (f <- fors2a) yield VariableSortEliminator(f)
 
     // mini/maxi-scoping of existential quantifiers
     val fors2b = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None | Param.ClausifierOptions.Simple=>
-        for (f <- fors2a) yield SimpleMiniscoper(f)
+        for (f <- fors2aX) yield SimpleMiniscoper(f)
       case Param.ClausifierOptions.ExMaxiscope =>
-        for (f <- fors2a) yield ExMaxiscoper(f)
+        for (f <- fors2aX) yield ExMaxiscoper(f)
     }
 
     // compress chains of implications
