@@ -943,6 +943,15 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
                 subres : Seq[Unit]) : Unit = ()
 }
 
+/**
+ * Check whether an expression contains the variable with index
+ * <code>index</code>.
+ */
+object ContainsVariable {
+  def apply(e : IExpression, index : Int) : Boolean =
+    !ContainsSymbol.freeFromVariableIndex(e, Set(index))
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 object Context {

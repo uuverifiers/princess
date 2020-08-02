@@ -383,6 +383,16 @@ object IExpression {
 
   /**
    * Add quantifiers for the variables with de Bruijn index
+   * <code>0, ..., sorts.size - 1</code>. The first sort in
+   * <code>sorts</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def quanWithSorts(q : Quantifier, sorts : Seq[Sort],
+                    f : IFormula) : IFormula =
+    (f /: sorts)((f, s) => ISortedQuantified(q, s, f))
+
+  /**
+   * Add quantifiers for the variables with de Bruijn index
    * <code>0, ..., quans.size - 1</code>. The first quantifier in
    * <code>quans</code> will be the innermost quantifier and corresponds
    * to index 0. 
