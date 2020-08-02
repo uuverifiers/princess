@@ -26,6 +26,7 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.theories.{Theory, TheoryRegistry}
+import ap.util.Debug
 
 /**
  * Preprocess an InputAbsy formula in order to make it suitable for
@@ -56,12 +57,12 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
-    VariableSortChecker("preproc initial", f)
+    checkSorts("preproc initial", List(f))
 
     // turn the formula into a list of its named parts
     val fors1a = PartExtractor(f)
 
-    VariableSortChecker("preproc step 1a", fors1a)
+    checkSorts("preproc step 1a", fors1a)
 
     // the other steps can be skipped for simple cases
     if ((functionEncoder.axioms match {
@@ -83,14 +84,14 @@ object Preprocessing {
       (newFors, sig)
     }
 
-    VariableSortChecker("preproc step 1b", fors1b)
+    checkSorts("preproc step 1b", fors1b)
 
     // partial evaluation, expand equivalences
     val fors2a =
       for (f <- fors1b)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
-    VariableSortChecker("preproc step 2a", fors2a)
+    checkSorts("preproc step 2a", fors2a)
 
     // mini/maxi-scoping of existential quantifiers
     val fors2b = Param.CLAUSIFIER(settings) match {
@@ -100,7 +101,7 @@ object Preprocessing {
         for (f <- fors2a) yield ExMaxiscoper(f)
     }
 
-    VariableSortChecker("preproc step 2b", fors2b)
+    checkSorts("preproc step 2b", fors2b)
 
     // compress chains of implications
 //    val fors2b = for (INamedPart(n, f) <- fors2a)
@@ -126,7 +127,7 @@ object Preprocessing {
       (functionEncoding.newFors, functionEncoding.newOrder)
     }
 
-    VariableSortChecker("preproc step 3", fors3)
+    checkSorts("preproc step 3", fors3)
         val fors3X = for (f <- fors3) yield VariableSortEliminator(f)
 
     ////////////////////////////////////////////////////////////////////////////
@@ -164,9 +165,15 @@ object Preprocessing {
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
 
-    VariableSortChecker("preproc final", fors6)
+    checkSorts("preproc final", fors6)
 
     (fors6.toList, interpolantSpecs, signature2 updateOrder order3)
+  }
+
+  private def checkSorts(stage : String, fors : Seq[IFormula]) : Unit = {
+    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
+                                      Debug.AC_VAR_TYPES))
+      VariableSortChecker(stage, fors)
   }
 
   //////////////////////////////////////////////////////////////////////////////
