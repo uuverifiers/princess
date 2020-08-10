@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,9 +21,11 @@
 
 package ap.proof.goal
 
-import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.Vocabulary
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.proof.certificates.BranchInferenceCollector
+import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
+                               IterativeClauseMatcher}
 import ap.terfor.{ConstantTerm, VariableTerm, TermOrder}
 import ap.parameters.Param
 import ap.util.Debug
@@ -58,11 +60,74 @@ private object MatchFunctions {
   def updateMatcher(goal : Goal,
                     ptf : ProofTreeFactory,
                     eager : Boolean) : ProofTree = {
-    val order = goal.order
-    val collector = goal.getInferenceCollector
+    val collector  = goal.getInferenceCollector
     val oldMatcher = goal.compoundFormulas quantifierClauses eager
 
     // first check whether any of the clauses has to be updated
+    val (reducedMatcher, removedClauseTasks) =
+      reduceMatcherClauses(goal, oldMatcher, collector)
+
+    // then match using new facts available in the goal
+    val (newMatcher, instanceTasks) =
+      updateMatcherFacts(goal, reducedMatcher, collector)
+
+    val allTasks =
+      removedClauseTasks ++ instanceTasks
+
+    val newCF =
+      goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
+    ptf.updateGoal(newCF, allTasks, collector.getCollection, goal)
+  }
+
+  private def updateMatcherFacts(goal : Goal,
+                                 matcher : IterativeClauseMatcher,
+                                 collector : BranchInferenceCollector)
+                              : (IterativeClauseMatcher,
+                                 Iterable[PrioritisedTask]) = {
+    val order = goal.order
+    val voc = goal.vocabulary
+  
+    val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
+    val (instances, newMatcher) =
+      matcher.updateFacts(goal.facts.predConj,
+                          goal.mayAlias,
+                          goal.reduceWithFacts,
+                          isIrrelevantInstance(_, voc, _, reverseProp),
+                          reverseProp,
+                          collector, order)
+
+    // check whether some of the instances are useless and blocked
+    // for the time being
+    val blockedTasks = new ArrayBuffer[BlockedFormulaTask]
+
+    val normalInstances =
+      for (f <- instances;
+           if (BlockedFormulaTask.isBlocked(f, goal) match {
+                 case Some(t) => { blockedTasks += t; false }
+                 case None => true
+               }))
+      yield f
+
+    val newTasks =
+      if (collector.isLogging)
+        // if we are producing proofs, we have to treat the instances
+        // separately (to log all performed simplifications)
+        for (f <- normalInstances; t <- goal.formulaTasks(f)) yield t
+      else
+        for (t <- goal.formulaTasks(
+               goal reduceWithFacts disjPullOutAll(normalInstances, order)))
+        yield t
+
+    (newMatcher, newTasks ++ blockedTasks)
+  }
+
+  private def reduceMatcherClauses(goal : Goal,
+                                   matcher : IterativeClauseMatcher,
+                                   collector : BranchInferenceCollector)
+                                : (IterativeClauseMatcher,
+                                   Iterable[PrioritisedTask]) = {
+    val order = goal.order
+
     val (removedClauses, reducedMatcher) =
       if (collector.isLogging) {
         // if we are producing proofs, we mostly check for subsumed clauses
@@ -71,7 +136,7 @@ private object MatchFunctions {
 
         def clauseReducer(c : Conjunction) =
           if (!FormulaTask.isFunctionalityAxiom(c, settings) &&
-              goal.reduceWithFacts.tentativeReduce(c).isFalse)
+                goal.reduceWithFacts.tentativeReduce(c).isFalse)
             Conjunction.FALSE
           else
             c
@@ -82,63 +147,21 @@ private object MatchFunctions {
         
         val instanceReducer = ReduceWithConjunction(
           Conjunction.conj(goal.facts.arithConj.positiveEqs, order), order)
-          
-        oldMatcher.reduceClauses(clauseReducer _,
-                                 instanceReducer.tentativeReduce _,
-                                 order)
+
+        matcher.reduceClauses(clauseReducer _,
+                              instanceReducer.tentativeReduce _,
+                              order)
       } else {
         val reducerObj : Conjunction => Conjunction =
           goal.reduceWithFacts.tentativeReduce _
-        oldMatcher.reduceClauses(reducerObj, reducerObj, order)
+        matcher.reduceClauses(reducerObj, reducerObj, order)
       }
 
-    if (removedClauses.isEmpty) {
-      val voc = goal.vocabulary
-  
-      val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
-      val (instances, newMatcher) =
-        reducedMatcher.updateFacts(goal.facts.predConj,
-                                   goal.mayAlias,
-                                   goal.reduceWithFacts,
-                                   isIrrelevantInstance(_, voc, _, reverseProp),
-                                   reverseProp,
-                                   collector, order)
-
-      // check whether some of the instances are useless and blocked
-      // for the time being
-      val blockedTasks = new ArrayBuffer[BlockedFormulaTask]
-
-      val normalInstances =
-        for (f <- instances;
-             if (BlockedFormulaTask.isBlocked(f, goal) match {
-                   case Some(t) => { blockedTasks += t; false }
-                   case None => true
-                 }))
-        yield f
-
-      val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
-      val newTasks =
-        if (collector.isLogging)
-          // if we are producing proofs, we have to treat the instances
-          // separately (to log all performed simplifications)
-          for (f <- normalInstances; t <- goal.formulaTasks(f)) yield t
-        else
-          for (t <- goal.formulaTasks(
-                 goal reduceWithFacts disjPullOutAll(normalInstances, order))) yield t
-
-      ptf.updateGoal(newCF, newTasks ++ blockedTasks, collector.getCollection, goal)
-    } else {
-      val newTasks =
-        (goal formulaTasks Conjunction.negate(removedClauses, order)) ++
-        (if (eager)
-           List()
-         else
-           List(new LazyMatchTask (goal.age, Param.MATCHING_BASE_PRIORITY(goal.settings))))
-      val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, reducedMatcher)
-      ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
-    }
+    val newTasks =
+      goal formulaTasks Conjunction.negate(removedClauses, order)
+    (reducedMatcher, newTasks)
   }
-  
+
   private def disjPullOutAll(formulas : Iterable[Conjunction],
                              order : TermOrder) : Conjunction = {
     var nextVar = 0

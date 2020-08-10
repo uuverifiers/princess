@@ -21,7 +21,7 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        pairs.pri pairs2.pri adt-nats.pri \
        adt-size.pri adt-size2.pri adt-size3.pri adt-finite-ctor-args.pri \
        adt-unfold3.pri adt-existential.pri two-element-sort.pri \
-       optimisation5.pri optimisation6.pri"
+       optimisation5.pri optimisation6.pri eagerMatchBug.smt2"
 
 $PRI "$@" $TESTS
 
