@@ -105,17 +105,17 @@ Project x ==> y universally to y: y
 Project x === True existentially to empty set: true
 
 -- Asynchronous interface
-Running
+true
 true
 Sat
 
 -- Asynchronous interface, timeouts
-Running
+true
 true
 Sat
 
 -- Asynchronous interface, busy waiting
-Running
+true
 Sat
 
 -- Stopping computations

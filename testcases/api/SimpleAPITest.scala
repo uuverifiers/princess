@@ -347,27 +347,27 @@ object SimpleAPITest extends App {
 
   part("Asynchronous interface")
   
+  val okStatus = Set(ProverStatus.Sat, ProverStatus.Running)
+
   !! (true)
-  println(p checkSat false)        // non-blocking, Running
-  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
-              ProverStatus.Running) contains (p getStatus false))
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
+  println(okStatus(p getStatus false))           // non-blocking, Running or Sat
   println(p getStatus true)        // blocking, equivalent to println(???), Sat
   
   part("Asynchronous interface, timeouts")
   
   !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
-              ProverStatus.Running) contains (p getStatus false))
-  println(p getStatus 30)    // blocking for up to 30ms, Sat
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
+  println(okStatus(p getStatus false))           // non-blocking, Running or Sat
+  println(p getStatus 30)                        // blocking for up to 30ms, Sat
   p getStatus true
   
   part("Asynchronous interface, busy waiting")
   
   !! (true)
-  println(p checkSat false) // Running
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
   while ((p getStatus false) == ProverStatus.Running) {}
-  println(p getStatus false) // Sat
+  println(p getStatus false)                     // Sat
   
   part("Stopping computations")
   
