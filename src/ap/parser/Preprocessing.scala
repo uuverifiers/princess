@@ -128,34 +128,22 @@ object Preprocessing {
     }
 
     checkSorts("preproc step 3", fors3)
-        val fors3X = for (f <- fors3) yield VariableSortEliminator(f)
 
     ////////////////////////////////////////////////////////////////////////////
     // Add the function axioms
 
     val fors4 = functionEncoder.axioms match {
-      case IBoolLit(true) => fors3X
-      case x => {
-        var noNamePart : INamedPart = null
-        var realNamedParts : List[INamedPart] = List()
-        
-        for (p @ INamedPart(n, _) <- fors3X)
-          if (n == PartName.NO_NAME)
-            noNamePart = p
-          else
-            realNamedParts = p :: realNamedParts
-        
-        val newNoNamePart = noNamePart match {
-          case null => INamedPart(PartName.NO_NAME, !x)
-          case INamedPart(_, f) => INamedPart(PartName.NO_NAME, f | !x)
-        }
-        newNoNamePart :: realNamedParts
-      }
+      case IBoolLit(true) => fors3
+      case x              => PartExtractor.addPart(x, PartName.NO_NAME, fors3)
     }
+
+    checkSorts("preproc step 4", fors4)
+
+        val fors4X = for (f <- fors4) yield VariableSortEliminator(f)
 
     // do some direct simplifications
     val fors5 = 
-      for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
+      for (f <- fors4X) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {

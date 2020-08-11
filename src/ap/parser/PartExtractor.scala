@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,6 +34,25 @@ object PartExtractor {
     if (!extractor.visit(f, Context(true)))
       extractor.addPart(f)
     (for ((name, f) <- extractor.parts.iterator) yield INamedPart(name, f)).toList
+  }
+
+  def addPart(toAdd : IFormula, name : PartName,
+              otherParts : Seq[INamedPart]) : List[INamedPart] = {
+    var selPart : INamedPart = null
+    var unchangedParts : List[INamedPart] = List()
+        
+    for (p @ INamedPart(n, _) <- otherParts)
+      if (n == name)
+        selPart = p
+      else
+        unchangedParts = p :: unchangedParts
+        
+    val newSelPart = selPart match {
+      case null             => INamedPart(name, !toAdd)
+      case INamedPart(_, f) => INamedPart(name, f | !toAdd)
+    }
+
+    newSelPart :: unchangedParts
   }
 
 }
