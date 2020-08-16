@@ -139,12 +139,12 @@ object Preprocessing {
 
     checkSorts("preproc step 4", fors4)
 
-        val fors4X = for (f <- fors4) yield VariableSortEliminator(f)
-
     // do some direct simplifications
     val fors5 = 
-      for (f <- fors4X) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
-    
+      for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
+
+    checkSorts("preproc step 5", fors5)
+
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None | Param.ClausifierOptions.ExMaxiscope =>
@@ -155,7 +155,9 @@ object Preprocessing {
 
     checkSorts("preproc final", fors6)
 
-    (fors6.toList, interpolantSpecs, signature2 updateOrder order3)
+    val fors6X = for (f <- fors6) yield VariableSortEliminator(f).asInstanceOf[INamedPart]
+
+    (fors6X.toList, interpolantSpecs, signature2 updateOrder order3)
   }
 
   private def checkSorts(stage : String, fors : Seq[IFormula]) : Unit = {
