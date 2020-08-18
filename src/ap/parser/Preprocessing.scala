@@ -155,9 +155,7 @@ object Preprocessing {
 
     checkSorts("preproc final", fors6)
 
-    val fors6X = for (f <- fors6) yield VariableSortEliminator(f).asInstanceOf[INamedPart]
-
-    (fors6X.toList, interpolantSpecs, signature2 updateOrder order3)
+    (fors6.toList, interpolantSpecs, signature2 updateOrder order3)
   }
 
   private def checkSorts(stage : String, fors : Seq[IFormula]) : Unit = {
