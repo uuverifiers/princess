@@ -622,7 +622,9 @@ object IExpression {
   object EqZ {
     def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
     def unapply(f : IFormula) : Option[ITerm] = f match {
-      case IIntFormula(IIntRelation.EqZero, t) => Some(t)
+      case IEquation(t, IIntLit(IdealInt.ZERO)) => Some(t)
+      case IEquation(IIntLit(IdealInt.ZERO), t) => Some(t)
+      case IIntFormula(IIntRelation.EqZero, t)  => Some(t)
       case _ => None
     }
   }
@@ -633,6 +635,8 @@ object IExpression {
   object Eq {
     def apply(s : ITerm, t : ITerm) : IFormula = (s === t)
     def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
+      case IEquation(s, t) =>
+        Some((s, t))
       case IIntFormula(IIntRelation.EqZero, Difference(s, t)) =>
         Some((s, t))
       case IIntFormula(IIntRelation.EqZero, ITimes(IdealInt.MINUS_ONE, t)) =>
@@ -651,6 +655,10 @@ object IExpression {
   object EqLit {
     def apply(s : ITerm, t : IdealInt) : IFormula = (s === t)
     def unapply(f : IFormula) : Option[(ITerm, IdealInt)] = f match {
+      case IEquation(a, IIntLit(c)) =>
+        Some((a, c))
+      case IEquation(IIntLit(c), a) =>
+        Some((a, c))
       case IIntFormula(IIntRelation.EqZero,
                        IPlus(ITimes(IdealInt.MINUS_ONE, a), IIntLit(c))) =>
         Some((a, c))
@@ -872,10 +880,11 @@ object IExpression {
   /** Identify formulae that do not have direct subformulae. */
   object LeafFormula {
     def unapply(t : IExpression) : Option[IFormula] = t match {
-      case t : IBoolLit => Some(t)
-      case t : IAtom => Some(t)
+      case t : IBoolLit    => Some(t)
+      case t : IAtom       => Some(t)
       case t : IIntFormula => Some(t)
-      case _ => None
+      case t : IEquation   => Some(t)
+      case _               => None
     }
   }
   
@@ -909,6 +918,26 @@ object IExpression {
         (ca + cb, ra +++ rb)
       }
       case _ => (0, t *** coeff)
+    }
+  }
+
+  /**
+   * Rewrite an equation to the form <code>coeff * symbol = remainder</code>
+   * (where remainder does not contain the atomic term
+   * <code>symbol</code>) and determine the coefficient and the remainder
+   */
+  case class SymbolEquation(symbol : ITerm) {
+    private val SSum = SymbolSum(symbol)
+
+    def unapply(f : IFormula) : Option[(IdealInt, ITerm)] = f match {
+      case IIntFormula(IIntRelation.EqZero, SSum(coeff, rem)) =>
+        Some((-coeff, rem))
+      case IEquation(left, right) => (left - right) match {
+        case SSum(coeff, rem) => Some((-coeff, rem))
+        case _                => None
+      }
+      case _ =>
+        None
     }
   }
 
@@ -1108,6 +1137,11 @@ object IExpression {
    */
   def updateAndSimplify(t : IFormula,
                         newSubExpr : Seq[IExpression]) : IFormula = t match {
+    case t : IEquation => newSubExpr match {
+      case Seq(IIntLit(c), IIntLit(d)) => IBoolLit(c == d)
+      case _ => t update newSubExpr
+    }
+
     case t@IIntFormula(IIntRelation.EqZero, _) => newSubExpr match {
       case Seq(IIntLit(value)) => IBoolLit(value.isZero)
       case Seq(ITermITE(cond, IIntLit(value1), t2)) if (!value1.isZero) =>

@@ -257,6 +257,35 @@ case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
 }
 
 /**
+ * Equation between two terms.
+ */
+case class IEquation(left : ITerm, right : ITerm) extends IFormula {
+  override def apply(i : Int) : ITerm = i match {
+    case 0 => left
+    case 1 => right
+    case _ => throw new IndexOutOfBoundsException
+  }
+  override def length : Int = 2
+
+  override def update(newSubExprs : Seq[IExpression]) : IEquation = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, newSubExprs.length == 2)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val newLeft  = newSubExprs(0).asInstanceOf[ITerm]
+    val newRight = newSubExprs(1).asInstanceOf[ITerm]
+    if ((newLeft eq left) && (newRight eq right))
+      this
+    else
+      IEquation(newLeft, newRight)
+  }
+
+  override def toString =
+    "(" + left + " = " + right + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
+}
+
+/**
  * Integer relation operators.
  */
 object IIntRelation extends Enumeration {
@@ -264,7 +293,7 @@ object IIntRelation extends Enumeration {
 }
 
 /**
- * Equation or inequality.
+ * Integer equation or inequality.
  */
 case class IIntFormula(rel : IIntRelation.Value, t : ITerm) extends IFormula {
   override def apply(i : Int) : ITerm = i match {

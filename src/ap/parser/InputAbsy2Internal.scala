@@ -119,6 +119,14 @@ private class InputAbsy2Internal(order : TermOrder) {
     case IIntFormula(IIntRelation.GeqZero, t) =>
       LazyConjunction(InEqConj(translateLinComb(t), order))
 
+    case IEquation(left, right) => {
+      val (c1, t1) = translateTermCoeff(left)
+      val (c2, t2) = translateTermCoeff(right)
+      LazyConjunction(
+        EquationConj(
+          LinearCombination(Array((c1, t1), (-c2, t2)), order), order))
+    }
+
     case ISortedQuantified(quan, sort, _subF) => {
       var currentQuan = quan
       var quans       = List(quan)

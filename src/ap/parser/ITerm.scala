@@ -56,7 +56,8 @@ abstract class ITerm extends IExpression {
   def -(that : ITerm) : ITerm = IPlus(this, -that)
   /** Equation between two terms. */
   def ===(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.EqZero, this --- that)
+//    IIntFormula(IIntRelation.EqZero, this --- that)
+    IEquation(this, that)
   /** Dis-equation between two terms. */
   def =/=(that : ITerm) : IFormula =
     !(this === that)

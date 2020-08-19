@@ -1209,7 +1209,7 @@ object QuantifierCollectingVisitor {
     }
   }
 
-  private val V0Sum = IExpression.SymbolSum(IVariable(0))
+  private val V0Eq = IExpression.SymbolEquation(IVariable(0))
 }
 
 /**
@@ -1227,10 +1227,10 @@ class QuantifierCollectingVisitor extends ContextAwareVisitor[Unit, Unit] {
                         ctxt : Context[Unit]) : PreVisitResult = t match {
     case ISortedQuantified(Quantifier.EX,
                            Sort.Integer,
-                           IExpression.EqZ(V0Sum(_, _))) |
+                           V0Eq(_, _)) |
          ISortedQuantified(Quantifier.ALL,
                            Sort.Integer,
-                           INot(IExpression.EqZ(V0Sum(_, _)))) =>
+                           INot(V0Eq(_, _))) =>
       // divisibility, ignored
       super.preVisit(t, ctxt)
 

@@ -165,7 +165,7 @@ object PrincessLineariser {
     case _ : ITermITE | _ : IFormulaITE                 => 1
     case _ : INot | _ : IQuantified | _ : INamedPart |
          _ : ITrigger | _ : IEpsilon                    => 3
-    case _ : IIntFormula                                => 4
+    case _ : IIntFormula | _ : IEquation                => 4
     case _ : IPlus                                      => 5
     case _ : ITimes                                     => 6
     case IIntLit(v) if (v.signum < 0)                   => 8
@@ -174,7 +174,6 @@ object PrincessLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val EqPredicate      = new Predicate ("=", 2)
   private val NonEqPredicate   = new Predicate ("!=", 2)
   
   //////////////////////////////////////////////////////////////////////////////
@@ -296,27 +295,7 @@ object PrincessLineariser {
                        ctxt setParentOp ")"))
         }
 
-        // Equation predicates
-
-        case IAtom(EqPredicate, _) => {
-          allButLast(ctxt setPrecLevel 1, " = ", "", 2)
-        }
-
-        case IAtom(NonEqPredicate, _) => {
-          allButLast(ctxt setPrecLevel 1, " != ", "", 2)
-        }
-
         // General formulae
-
-        case IAtom(pred, _) => {
-          print(pred.name)
-          if (pred.arity > 0) {
-            print("(")
-            allButLast(ctxt setPrecLevel 0, ", ", ")", pred.arity)
-          } else {
-            noParentOp(ctxt)
-          }
-        }
 
         case IBinFormula(IBinJunctor.Or, INot(left : IAtom), right) => {
           left match {
@@ -399,8 +378,11 @@ object PrincessLineariser {
         case INot(IExpression.Eq(t, ADT.BoolADT.False)) =>
           TryAgain(t, ctxt)
 
-        // Negated equations
+        // Some special rule for negated equations
         
+        case INot(IEquation(s, t)) =>
+          TryAgain(IAtom(NonEqPredicate, List(s, t)), ctxt)
+
         case INot(IIntFormula(IIntRelation.EqZero,
                               ITimes(IdealInt.MINUS_ONE, t))) => {
           TryAgain(IAtom(NonEqPredicate, List(IIntLit(0), t)), ctxt)
@@ -438,23 +420,23 @@ object PrincessLineariser {
       
         case IIntFormula(IIntRelation.EqZero,
                          ITimes(IdealInt.MINUS_ONE, t)) => {
-          TryAgain(IAtom(EqPredicate, List(IIntLit(0), t)), ctxt)
+          TryAgain(IEquation(IIntLit(0), t), ctxt)
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(s, ITimes(IdealInt.MINUS_ONE, t))) => {
-          TryAgain(IAtom(EqPredicate, List(s, t)), ctxt)
+          TryAgain(IEquation(s, t), ctxt)
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(s, ITimes(coeff, t))) if (coeff.signum < 0) => {
-          TryAgain(IAtom(EqPredicate, List(s, ITimes(-coeff, t))), ctxt)
+          TryAgain(IEquation(s, ITimes(-coeff, t)), ctxt)
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(ITimes(IdealInt.MINUS_ONE, t), s)) => {
-          TryAgain(IAtom(EqPredicate, List(t, s)), ctxt)
+          TryAgain(IEquation(t, s), ctxt)
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(ITimes(coeff, t), s)) if (coeff.signum < 0) => {
-          TryAgain(IAtom(EqPredicate, List(ITimes(-coeff, t), s)), ctxt)
+          TryAgain(IEquation(ITimes(-coeff, t), s), ctxt)
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(IIntLit(value), s)) => {
@@ -463,6 +445,28 @@ object PrincessLineariser {
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(s, IIntLit(value))) => {
           TryAgain(s, ctxt addParentOp (" = " + (-value)))
+        }
+
+        // Equation predicates
+
+        case IAtom(NonEqPredicate, _) => {
+          allButLast(ctxt setPrecLevel 1, " != ", "", 2)
+        }
+
+        case IEquation(s, t) => {
+          allButLast(ctxt setPrecLevel 1, " = ", "", 2)
+        }
+
+        // Atoms
+
+        case IAtom(pred, _) => {
+          print(pred.name)
+          if (pred.arity > 0) {
+            print("(")
+            allButLast(ctxt setPrecLevel 0, ", ", ")", pred.arity)
+          } else {
+            noParentOp(ctxt)
+          }
         }
 
         // Non-negated relations
