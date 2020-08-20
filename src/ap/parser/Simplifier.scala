@@ -219,12 +219,10 @@ class Simplifier(splittingLimit : Int = 20,
       
       case NoDefFound => {
         // handle some cases of obviously invalid formulae
-        val VarSum = SymbolSum(v(0, sort))
+        val VarEq = SymbolEquation(v(0))
         expr match {
-          case IQuantified(ALL, IIntFormula(EqZero, VarSum(c, _)))
-            if (!c.isZero) => false
-          case IQuantified(EX, INot(IIntFormula(EqZero, VarSum(c, _))))
-            if (!c.isZero) => true
+          case IQuantified(ALL, VarEq(c, _))       if (!c.isZero) => false
+          case IQuantified(EX, INot(VarEq(c, _)))  if (!c.isZero) => true
           case _ => expr
         }
       }
@@ -295,19 +293,19 @@ class Simplifier(splittingLimit : Int = 20,
               }
           }
 
-      case INot(eq @ IIntFormula(EqZero, _)) if (universal) =>
+      case INot(eq @ (IIntFormula(EqZero, _) | IEquation(_, _)))
+          if (universal) =>
         findDefinition(eq, varIndex, sort, false)
 
       case _ => {
         // check for equations that represent definitions
-        val VarIndexSum = SymbolSum(v(varIndex, sort))
+        val VarIndexEq = SymbolEquation(v(varIndex, sort))
         
         f match {
-          case IIntFormula(EqZero, VarIndexSum(coeff, t))
-            if ((coeff == IdealInt.ONE || coeff == IdealInt.MINUS_ONE) &&
-                !universal) =>
+          case VarIndexEq(coeff, t)
+            if (coeff.isUnit && !universal) =>
               if (allIndexesLargerThan(t, varIndex))
-                GoodDef(shiftVars(t *** (-coeff), varIndex + 1, -varIndex - 1))
+                GoodDef(shiftVars(t *** coeff, varIndex + 1, -varIndex - 1))
               else
                 DefRequiresShifting
         
@@ -421,7 +419,9 @@ class Simplifier(splittingLimit : Int = 20,
     
     case IIntFormula(EqZero, IIntLit(v)) => v.isZero
     case IIntFormula(GeqZero, IIntLit(v)) => (v.signum >= 0)
-      
+
+    case IEquation(t1, t2) if t1 == t2 => true
+
     case _ => expr
   }
   
