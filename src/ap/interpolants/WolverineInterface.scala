@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2010,2011 Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -308,6 +308,11 @@ class WolverineInterpolantLineariser extends CollectingVisitor[List[String], Uni
       case IBinFormula(And, _, _) =>      printOp("&")
       case IBinFormula(Or, _, _) =>       printOp("|")
       case _ : IAtom =>                   { assert(false); KeepArg } // TODO
+
+      case IEquation(_, _) => {
+        printOp("=")
+        KeepArg
+      }
       
       case IIntFormula(j, t) => {
     	printOp(j match {

@@ -407,13 +407,13 @@ Vector(!(list_ctor(x) = 0))
 Unsat
 Vector(!(head(x) = 0))
 Unsat
-Vector(((-42 + head(x)) = 0))
+Vector((head(x) = 42))
 Unsat
-Vector(((-42 + head(x)) = 0), !((-43 + head(a)) = 0))
+Vector((head(x) = 42), !(head(a) = 43))
 Valid
-Vector(((nil + -1 * x) = 0), ((y + -1 * x) = 0))
+Vector((nil = x), (y = x))
 Valid
-Vector(((cons(1, cons(2, nil)) + -1 * x) = 0), ((y + -1 * x) = 0))
+Vector((cons(1, cons(2, nil)) = x), (y = x))
 
 ADTTest3.scala
 Vector(red, nil)
@@ -587,7 +587,7 @@ Test 6
 Valid
 Test 7
 Unsat
-Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), !((y + -1 * mod_cast(0, 1, 0)) = 0))
+Vector((x = mod_cast(0, 1, 1)), !(y = mod_cast(0, 1, 0)))
 Test 8
 \exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
 x = 1.\as[bv[2]] | x >= 3

@@ -1324,18 +1324,12 @@ class SMTLineariser(benchmarkName : String,
         // strip off the ADT encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
 
-      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+      case IExpression.EqLit(BooleanTerm(t), v) =>
         // strip off the integer encoding
-        TryAgain(t, ctxt)
-
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
+        if (v.isZero)
+          TryAgain(t, ctxt)
+        else
+          TryAgain(!IExpression.eqZero(t), ctxt)
 
       // ADT expression
       case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
