@@ -254,6 +254,16 @@ object Sort {
    */
   val AnySort = createInfUninterpretedSort("any")
 
+  /**
+   * Extractor to recognise sorts that represent the Booleans.
+   */
+  object AnyBool {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case Bool | MultipleValueBool => Some(s)
+      case _ => None
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
