@@ -436,18 +436,41 @@ object ModuloArithmetic extends Theory {
      */
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort)
 
-    def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
+    private def doIComputeSorts(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val indexes =
         for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
-      computeSorts(indexes)
+      if (indexes.size < indexArity) {
+        // this means that some of the indexes are symbolic, we just specify
+        // argument sorts to be AnySort
+        anySorts
+      } else {
+        computeSorts(indexes)
+      }
     }
-    
-    def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
+
+    private def doComputeSorts(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
       val indexes =
         for (lc <- arguments take indexArity)
         yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-      computeSorts(indexes)
+      if (indexes.size < indexArity) {
+        // this means that some of the indexes are symbolic, we just specify
+        // argument sorts to be AnySort
+        anySorts
+      } else {
+        computeSorts(indexes)
+      }
     }
+
+    private lazy val anySorts =
+      ((for (_ <- 0 until indexArity) yield Sort.Integer) ++
+         (for (_ <- 0 until bvArity) yield Sort.AnySort),
+       Sort.AnySort)
+
+    def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) =
+      doIComputeSorts(arguments)
+    
+    def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) =
+      doComputeSorts(arguments)
     
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
     def resultSort(arguments : Seq[Term]) : Sort = functionType(arguments)._2
@@ -455,17 +478,12 @@ object ModuloArithmetic extends Theory {
     def toPredicate : SortedPredicate =
       new SortedPredicate(_name, indexArity + bvArity + 1) {
         def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
-          val indexes =
-            for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
-          val (args, res) = computeSorts(indexes)
+          val (args, res) = doIComputeSorts(arguments)
           args ++ List(res)
         }
         
         def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
-          val indexes =
-            for (lc <- arguments take indexArity)
-            yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-          val (args, res) = computeSorts(indexes)
+          val (args, res) = doComputeSorts(arguments)
           args ++ List(res)
         }
         

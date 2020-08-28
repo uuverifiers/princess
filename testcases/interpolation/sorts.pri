@@ -8,7 +8,7 @@
 }
 
 \problem {
-  \part[p1] \forall S x; f(x) = b
+  \part[p1] \forall S x; {f(x)} f(x) = b
 &
   \part[p2] b = c
 ->

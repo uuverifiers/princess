@@ -523,7 +523,8 @@ object PrincessLineariser {
 
           var sub = subF
           while (sub.isInstanceOf[IQuantified] &&
-                 sub.asInstanceOf[IQuantified].quan == quan) {
+                 sub.asInstanceOf[IQuantified].quan == quan &&
+                 sub.asInstanceOf[IQuantified].sort == sort) {
             val varName2 = "v" + newCtxt.vars.size
             newCtxt = newCtxt pushVar varName2
             print(", " + varName2)

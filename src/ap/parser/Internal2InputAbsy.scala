@@ -44,25 +44,14 @@ object Internal2InputAbsy {
   import IExpression._
   
   def apply(f : Formula,
-            predTranslation : MMap[Predicate, IFunction]) : IFormula = {
-    val res =
-    VariableSortInferenceVisitor(
-      new Internal2InputAbsy(predTranslation).convert(f))
-//    println(res)
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
-                                      Debug.AC_VAR_TYPES))
-      VariableSortChecker("Internal2InputAbsy result", res)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    res
-  }
+            predTranslation : MMap[Predicate, IFunction]) : IFormula =
+    (new Internal2InputAbsy(predTranslation))(f)
 
   def apply(f : Formula) : IFormula = apply(f, Map())
 
   def apply(t : Term,
             predTranslation : MMap[Predicate, IFunction]) : ITerm =
-    VariableSortInferenceVisitor(
-      new Internal2InputAbsy(predTranslation).convert(t))
+    (new Internal2InputAbsy(predTranslation))(t)
 
   def apply(t : Term) : ITerm = apply(t, Map())
 
@@ -73,8 +62,25 @@ class Internal2InputAbsy(
   
   import IExpression._
 
-  def apply(t : Term) : ITerm = convert(t)
-  def apply(f : Formula) : IFormula = convert(f)
+  def apply(t : Term) : ITerm = {
+    val res = VariableSortInferenceVisitor(convert(t))
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
+                                      Debug.AC_VAR_TYPES))
+      VariableSortChecker("Internal2InputAbsy result", res)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
+
+  def apply(f : Formula) : IFormula = {
+    val res = VariableSortInferenceVisitor(convert(f))
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
+                                      Debug.AC_VAR_TYPES))
+      VariableSortChecker("Internal2InputAbsy result", res)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
 
   private def convert(t : Term) : ITerm = t match {
     case OneTerm                => i(1)
@@ -161,9 +167,15 @@ class Internal2InputAbsy(
  * quantifiers, by inferring the sort of the quantifiers variables.
  */
 object VariableSortInferenceVisitor
-       extends CollectingVisitor[Unit, IExpression] {
+       extends CollectingVisitor[IExpression.Sort, IExpression] {
   import IExpression._
   import Sort.{AnySort, :::, Numeric}
+
+  /**
+   * A placeholder sort that is used in places type inference discovered
+   * conflicts.
+   */
+  val ConflictSort = Sort.createInfUninterpretedSort("conflict")
 
   def apply(t : IFormula) : IFormula =
     infer(t).asInstanceOf[IFormula]
@@ -171,7 +183,7 @@ object VariableSortInferenceVisitor
     infer(t).asInstanceOf[ITerm]
 
   def infer(t : IExpression) : IExpression = {
-    val res = this.visit(t, ())
+    val res = this.visit(t, null)
     if (res eq t)
       t
     else
@@ -195,12 +207,23 @@ object VariableSortInferenceVisitor
         case Numeric(_) => Sort.Integer
         case t => t
       }
+
       val pos = variableSorts.size - variableIndex - 1
-      val oldSort = variableSorts(pos)
-      if (oldSort != AnySort && oldSort != effectiveSort)
-        Console.err.println("Warning: type clash during inference: " +
-                              oldSort + " vs " + t)
-      variableSorts(pos) = effectiveSort
+
+      variableSorts(pos) match {
+        case AnySort =>
+          variableSorts(pos) = effectiveSort
+        case ConflictSort =>
+          // nothing
+        case oldSort if oldSort != effectiveSort => {
+          Console.err.println("Warning: type clash during inference: " +
+                                oldSort + " vs " + t)
+          variableSorts(pos) = ConflictSort
+        }
+        case _ =>
+          variableSorts(pos) = effectiveSort
+      }
+
     }
 
   private def equalSorts(t1 : ITerm, t2 : ITerm) : Unit = (t1, t2) match {
@@ -220,17 +243,29 @@ object VariableSortInferenceVisitor
   }
 
   override def preVisit(t : IExpression,
-                        arg : Unit) : PreVisitResult = t match {
-    case t : IVariableBinder => {
-      variableSorts += t.sort
+                        ctxt : Sort) : PreVisitResult = t match {
+    case ISortedVariable(ind, AnySort) if ctxt != null => {
+      setVariableSort(ind, ctxt)
       KeepArg
     }
+    case t : IVariableBinder => {
+      variableSorts += t.sort
+      UniSubArgs(null)
+    }
+    case _ : IPlus | _ : ITimes | _ : IIntFormula =>
+      UniSubArgs(Sort.Integer)
+    case _ : ITermITE =>
+      SubArgs(Array(null, ctxt, ctxt))
+    case IFunApp(f, args) =>
+      SubArgs(SortedIFunction.iArgumentSorts(f, args))
+    case IAtom(p, args) =>
+      SubArgs(SortedPredicate.iArgumentSorts(p, args))
     case _ =>
-      KeepArg
+      UniSubArgs(null)
   }
 
   def postVisit(t : IExpression,
-                arg : Unit,
+                ctxt : Sort,
                 subres : Seq[IExpression]) : IExpression = t match {
     case t@ISortedVariable(ind, sort) => {
       val infSort = getVariableSort(ind)
@@ -264,23 +299,6 @@ object VariableSortInferenceVisitor
     case t : ITermITE => {
       val res = t update subres
       equalSorts(res.left, res.right)
-      res
-    }
-
-    case t@IFunApp(f, _) => {
-      val res = t update subres
-      val argSorts = SortedIFunction.iArgumentSorts(f, res.args)
-      for ((ISortedVariable(ind, AnySort), s) <-
-             subres.iterator zip argSorts.iterator)
-        setVariableSort(ind, s)
-      res
-    }
-    case t@IAtom(p, _) => {
-      val res = t update subres
-      val argSorts = SortedPredicate.iArgumentSorts(p, res.args)
-      for ((ISortedVariable(ind, AnySort), s) <-
-             subres.iterator zip argSorts.iterator)
-        setVariableSort(ind, s)
       res
     }
 
