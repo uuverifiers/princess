@@ -409,7 +409,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     def processInterpolant(c : Conjunction) =
       postprocessing.processInterpolant(c)
 
-    def toIFormula(c : Conjunction,
+    def XtoIFormula(c : Conjunction,
                    onlyNonTheory : Boolean = false) = {
       val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
       val remainingNoTypes = TypeTheory.filterTypeConstraints(remaining)

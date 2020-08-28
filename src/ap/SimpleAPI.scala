@@ -31,8 +31,7 @@ import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
 import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
 import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
-import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
-                        ArraySimplifier}
+import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
@@ -1830,15 +1829,18 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    internal2InputAbsy(c, new Simplifier (0))
+    postprocessing.processFormula(c)
 
-  private def internal2InputAbsy(
-                c : Conjunction,
-                simp : Simplifier = new Simplifier) : IFormula = {
-    implicit val _ = new Theory.DefaultDecoderContext(c)
-    IntToTermTranslator(
-      simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
-  }
+  private def postprocessing =
+    // TODO: cache?
+    new Postprocessing (toSignature(currentOrder), functionEnc.predTranslation)
+
+  private def processInterpolant(c : Conjunction) : IFormula =
+    postprocessing.processInterpolant(c)
+  private def processModel(c : Conjunction) : IFormula =
+    postprocessing.processModel(c)
+  private def processConstraint(c : Conjunction) : IFormula =
+    postprocessing.processConstraint(c)
 
   /**
    * Pretty-print a formula or term.
@@ -2562,8 +2564,6 @@ class SimpleAPI private (enableAssert : Boolean,
     if (currentSimpCertificate == null)
       currentSimpCertificate = ProofSimplifier(currentCertificate)
 
-    val simp = interpolantSimplifier
-    
     val commonFors =
       for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
@@ -2610,7 +2610,7 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    interpolants map (internal2InputAbsy(_, simp))
+    interpolants map processInterpolant
   }
 
   /**
@@ -2653,8 +2653,6 @@ class SimpleAPI private (enableAssert : Boolean,
     val commonFors =
       for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
-    val simp = interpolantSimplifier
-
     def computeInts(names : Tree[Set[Int]],
                     intKnown : Option[(Conjunction, IFormula)])
                    : Tree[(Conjunction, IFormula)] = {
@@ -2682,7 +2680,7 @@ class SimpleAPI private (enableAssert : Boolean,
                            reducerSettings)
             }
 
-          (rawInt, internal2InputAbsy(rawInt, simp))
+          (rawInt, processInterpolant(rawInt))
         }
 
       if (thisInt._1.isTrue) {
@@ -2735,8 +2733,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
     interpolants
   }
-  
-  private def interpolantSimplifier = new ArraySimplifier
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2867,7 +2863,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (needExhaustiveProver)
-      asIFormula(TypeTheory filterTypeConstraints currentConstraint)
+      processConstraint(currentConstraint)
     else
       IBoolLit(true)
   }
@@ -2893,8 +2889,7 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    asIFormula(PresburgerTools.minimiseFormula(
-                 TypeTheory filterTypeConstraints currentConstraint))
+    processConstraint(PresburgerTools.minimiseFormula(currentConstraint))
   }
 
   /**
@@ -2990,7 +2985,7 @@ class SimpleAPI private (enableAssert : Boolean,
       // TODO: this won't work if the formula contains theories
       // that are not yet loaded
 
-      asIFormula(asConjunction(f))
+      processInterpolant(asConjunction(f))
 
     } else if ((ContainsSymbol isPresburgerBV f) &&
                (ContainsSymbol isClosed f)) {
@@ -3218,14 +3213,7 @@ class SimpleAPI private (enableAssert : Boolean,
                     currentModel.negatedConjs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit val _ = currentModel.order
-    val remainingPredConj = currentModel.predConj filter {
-      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
-    }
-    val remaining = currentModel.updatePredConj(remainingPredConj)
-    
-    val simp = Internal2InputAbsy(remaining, functionEnc.predTranslation)
-    IntToTermTranslator(simp)(decoderContext)
+    processModel(currentModel)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -4214,14 +4202,17 @@ class SimpleAPI private (enableAssert : Boolean,
       c
     }
 
+  private def toSignature(order : TermOrder) =
+    Signature(Set(),
+              existentialConstants,
+              order.orderedConstants -- existentialConstants,
+              Map(), // TODO: also handle predicate_match_config
+              order,
+              theoryCollector.theories)
+
   private def toInternalNoAxioms(f : IFormula,
                                  order : TermOrder) : Conjunction = {
-    val sig = Signature(Set(),
-                        existentialConstants,
-                        order.orderedConstants -- existentialConstants,
-                        Map(), // TODO: also handle predicate_match_config
-                        order,
-                        theoryCollector.theories)
+    val sig = toSignature(order)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
                     functionEnc)
@@ -4244,14 +4235,10 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
-    val sig = Signature(Set(),
-                        existentialConstants,
-                        currentOrder.orderedConstants -- existentialConstants,
-                        Map(), // TODO: also handle predicate_match_config
-                        currentOrder,
-                        theoryCollector.theories)
+    val sig = toSignature(currentOrder)
     val (fors, _, newSig) =
-      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig,
+                    preprocSettings, functionEnc)
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

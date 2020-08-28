@@ -288,9 +288,12 @@ class ArraySimplifier extends ap.parser.Simplifier {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val rewritings =
-    Rewriter.combineRewritings(Array(elimStore _ , elimQuantifiedSelect _))
+  val rewritings =
+    Vector(elimStore _ , elimQuantifiedSelect _)
+
+  private val rewritingFun =
+    Rewriter.combineRewritings(rewritings)
   
   protected override def furtherSimplifications(expr : IExpression) =
-    rewritings(expr)
+    rewritingFun(expr)
 }

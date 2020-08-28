@@ -39,9 +39,13 @@ class Postprocessing(signature : Signature,
   private val theories = signature.theories
   private val order    = signature.order
 
+  private val rewritings =
+    Rewriter.combineRewritings(Theory.postSimplifiers(theories))
+
   def apply(f : Conjunction,
             maskTheoryConjuncts : Boolean = false,
             simplify : Boolean            = false,
+            simplifySplittingLimit : Int  = 0,
             int2TermTranslation : Boolean = false) : IFormula = {
 
     var formula = f
@@ -59,9 +63,7 @@ class Postprocessing(signature : Signature,
 
     if (simplify) {
       val simplifier =
-        new Simplifier {
-          private val rewritings =
-            Rewriter.combineRewritings(Theory.postSimplifiers(theories))
+        new Simplifier(simplifySplittingLimit) {
           protected override def furtherSimplifications(expr : IExpression) =
             rewritings(expr)
         }
@@ -77,14 +79,18 @@ class Postprocessing(signature : Signature,
 
   }
 
+  def processFormula(f : Conjunction) : IFormula =
+    apply(f)
+
   def processModel(f : Conjunction) : IFormula =
     apply(f, maskTheoryConjuncts = true, int2TermTranslation = true)
 
   def processInterpolant(f : Conjunction) :IFormula=
-    apply(f, simplify = true, int2TermTranslation = true)
+    apply(f, simplify = true, int2TermTranslation = true,
+          simplifySplittingLimit = 20)
 
   def processConstraint(f : Conjunction) : IFormula=
-    apply(f)
+    apply(f, simplify = true)
 
   private def filterNonTheoryParts(model : Conjunction) : Conjunction = {
     implicit val _ = model.order
