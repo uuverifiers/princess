@@ -62,25 +62,9 @@ class Internal2InputAbsy(
   
   import IExpression._
 
-  def apply(t : Term) : ITerm = {
-    val res = VariableSortInferenceVisitor(convert(t))
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
-                                      Debug.AC_VAR_TYPES))
-      VariableSortChecker("Internal2InputAbsy result", res)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    res
-  }
+  def apply(t : Term) : ITerm = convert(t)
 
-  def apply(f : Formula) : IFormula = {
-    val res = VariableSortInferenceVisitor(convert(f))
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
-                                      Debug.AC_VAR_TYPES))
-      VariableSortChecker("Internal2InputAbsy result", res)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    res
-  }
+  def apply(f : Formula) : IFormula = convert(f)
 
   private def convert(t : Term) : ITerm = t match {
     case OneTerm                => i(1)
@@ -177,10 +161,14 @@ object VariableSortInferenceVisitor
    */
   val ConflictSort = Sort.createInfUninterpretedSort("conflict")
 
-  def apply(t : IFormula) : IFormula =
-    infer(t).asInstanceOf[IFormula]
-  def apply(t : ITerm) : ITerm =
-    infer(t).asInstanceOf[ITerm]
+  def apply(t : IFormula) : IFormula = {
+    val t1 = infer(t)
+    ConflictSortEliminator.visit(t1, ()).asInstanceOf[IFormula]
+  }
+  def apply(t : ITerm) : ITerm = {
+    val t1 = infer(t)
+    ConflictSortEliminator.visit(t1, ()).asInstanceOf[ITerm]
+  }
 
   def infer(t : IExpression) : IExpression = {
     val res = this.visit(t, null)
@@ -275,7 +263,6 @@ object VariableSortInferenceVisitor
         t
     }
     case ISortedQuantified(quan, sort, body) => {
-      // TODO: eliminate type guards
       val infSort = popVariableSort
       if (sort == infSort && (body eq subres.head))
         t
@@ -283,7 +270,6 @@ object VariableSortInferenceVisitor
         ISortedQuantified(quan, infSort, subres.head.asInstanceOf[IFormula])
     }
     case ISortedEpsilon(sort, body) => {
-      // TODO: eliminate type guards
       val infSort = popVariableSort
       if (sort == infSort && (body eq subres.head))
         t
@@ -305,4 +291,31 @@ object VariableSortInferenceVisitor
     case _ =>
       t update subres
   }
+
+  /**
+   * Visitor to replace the sort
+   * <code>VariableSortInferenceVisitor.ConflictSort</code> with
+   * <code>Sort.AnySort</code>.
+   */
+  private object ConflictSortEliminator
+          extends CollectingVisitor[Unit, IExpression] {
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case ISortedVariable(ind, ConflictSort) =>
+        ISortedVariable(ind, AnySort)
+
+      case ISortedQuantified(quan, ConflictSort, _) =>
+        ISortedQuantified(quan, AnySort, subres(0).asInstanceOf[IFormula])
+      case ISortedEpsilon(ConflictSort, _) =>
+        ISortedEpsilon(AnySort, subres(0).asInstanceOf[IFormula])
+
+      case _ =>
+        t update subres
+    }
+  }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+

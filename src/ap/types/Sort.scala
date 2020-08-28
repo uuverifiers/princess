@@ -252,7 +252,9 @@ object Sort {
    * A placeholder sort that is used in places where the sort has not been
    * inferred yet.
    */
-  val AnySort = createInfUninterpretedSort("any")
+  val AnySort = new ProxySort(Sort.Integer) {
+    override val name = "any"
+  }
 
   /**
    * Extractor to recognise sorts that represent the Booleans.
