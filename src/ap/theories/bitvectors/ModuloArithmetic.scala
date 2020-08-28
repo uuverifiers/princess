@@ -37,7 +37,8 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
 import LinearCombination.SingleTerm
 import ap.basetypes.IdealInt
-import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
+import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate,
+                 MonoSortedIFunction}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
@@ -191,6 +192,11 @@ object ModuloArithmetic extends Theory {
     IFunApp(mod_cast, List(lower, upper, t))
   }
 
+  /**
+   * Cast a term to an integer term.
+   */
+  def cast2Int(t : ITerm) : ITerm = IFunApp(int_cast, List(t))
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -294,6 +300,16 @@ object ModuloArithmetic extends Theory {
       throw new IllegalArgumentException(
         "method can only be applied to terms with a bit-vector sort")
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Function to map the modulo-sorts back to integers. Semantically this
+   * is just the identify function
+   */
+  val int_cast =
+    new MonoSortedIFunction("int_cast",
+                            List(Sort.AnySort), Sort.Integer, true, false)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -641,6 +657,9 @@ object ModuloArithmetic extends Theory {
     (Preproc.visit(
         f, VisitorArg(None)).res.asInstanceOf[IFormula],
      signature)
+
+  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
+    ModPostprocessor(f)
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
     if (f.args forall (isLit _)) {

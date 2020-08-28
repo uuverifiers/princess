@@ -76,13 +76,50 @@ object PrincessLineariser {
     println("}")
   }
   
-  def printExpression(e : IExpression) =
-    AbsyPrinter.visit(e, PrintContext(List(), "", 0))
+  def printExpression(e : IExpression) = {
+    val enriched = EnrichingVisitor.visit(e, ())
+    AbsyPrinter.visit(enriched, PrintContext(List(), "", 0))
+  }
 
   def asString(e : IExpression) : String =
     ap.DialogUtil.asString { printExpression(e) }
 
   private def fun2Identifier(fun : IFunction) = fun.name
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val NonEqPredicate   = new Predicate ("!=", 2)
+  private val GeqPredicate     = new Predicate (">=", 2)
+  private val LtPredicate      = new Predicate ("<", 2)
+  private val MinusFunction    = new IFunction ("-", 2, false, false)
+  
+  private object EnrichingVisitor extends CollectingVisitor[Unit, IExpression] {
+
+    override def preVisit(t : IExpression,
+                          oldCtxt : Unit) : PreVisitResult = t match {
+      case IExpression.Difference(NonNegTerm(s), NonNegTerm(t)) =>
+        TryAgain(IFunApp(MinusFunction, List(s, t)), ())
+
+      case INot(IExpression.Eq(s, t)) =>
+        TryAgain(IAtom(NonEqPredicate, List(s, t)), ())
+      case IExpression.Geq(s, t) =>
+        TryAgain(IAtom(GeqPredicate, List(s, t)), ())
+      case INot(IExpression.Geq(s, t)) =>
+        TryAgain(IAtom(LtPredicate, List(s, t)), ())
+
+      case _ : IEquation =>
+        KeepArg
+      case IExpression.Eq(s, t) =>
+        TryAgain(IEquation(s, t), ())
+
+      case _ =>
+        KeepArg
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : Unit, subres : Seq[IExpression]) : IExpression =
+      t update subres
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -140,6 +177,14 @@ object PrincessLineariser {
     }
   }
 
+  private object NonNegTerm {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case ITimes(coeff, s) if coeff.signum < 0 => None
+      case IIntLit(value)   if value.signum < 0 => None
+      case _                                    => Some(t)
+    }
+  }
+
   private def needsIntCast(t : ITerm) : Boolean = t match {
     case (_ : IConstant) ::: SortNeedingIntCast(_)       => true
     case IFunApp(MulTheory.Mul(), _)                     => false
@@ -147,11 +192,15 @@ object PrincessLineariser {
     case _                                               => false
   }
 
-  private def insertIntCast(t : ITerm, ctxt : PrintContext) : PrintContext =
+  private def maybeInsertIntCast(t : ITerm,
+                                 ctxt : PrintContext) : PrintContext =
     if (needsIntCast(t))
-      ctxt.addOpPrec(".\\as[int]", 10)
+      insertIntCast(ctxt)
     else
       ctxt
+
+  private def insertIntCast(ctxt : PrintContext) : PrintContext =
+    ctxt.addOpPrec(".\\as[int]", 10)
 
   private def relation(rel : IIntRelation.Value) = rel match {
     case IIntRelation.EqZero => "="
@@ -165,19 +214,18 @@ object PrincessLineariser {
     case _ : ITermITE | _ : IFormulaITE                 => 1
     case _ : INot | _ : IQuantified | _ : INamedPart |
          _ : ITrigger | _ : IEpsilon                    => 3
-    case _ : IIntFormula | _ : IEquation                => 4
+    case _ : IIntFormula | _ : IEquation |
+         IAtom(NonEqPredicate | GeqPredicate |
+               LtPredicate, _)                          => 4
+    case IFunApp(MinusFunction, _)                      => 5
     case _ : IPlus                                      => 5
-    case _ : ITimes                                     => 6
+    case _ : ITimes | IFunApp(MulTheory.Mul(), _)       => 7
     case IIntLit(v) if (v.signum < 0)                   => 8
     case _ : ITerm | _ : IBoolLit | _ : IAtom           => 10
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val NonEqPredicate   = new Predicate ("!=", 2)
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
     
     private def allButLast(ctxt : PrintContext, op : String, lastOp : String,
@@ -195,15 +243,15 @@ object PrincessLineariser {
     }
 
     private def tryAgainWithCast(s : ITerm, ctxt : PrintContext) =
-      TryAgain(s, insertIntCast(s, ctxt))
+      TryAgain(s, maybeInsertIntCast(s, ctxt))
 
     override def preVisit(t : IExpression,
                           oldCtxt : PrintContext) : PreVisitResult = {
       // first use the precedence level of operators to determine whether we
       // have to insert parentheses
-      
+
       val newPrecLevel = precLevel(t)
-      
+
       val ctxt =
         if (newPrecLevel > oldCtxt.outerPrec) {
           oldCtxt setPrecLevel newPrecLevel
@@ -217,6 +265,8 @@ object PrincessLineariser {
                             
       t match {
         // Terms
+
+/*
         case IPlus(IIntLit(value), s) => {
           val offset =
             if (value.signum >= 0)
@@ -238,7 +288,8 @@ object PrincessLineariser {
         case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
           tryAgainWithCast(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt, true)))
         }
-      
+ */
+    
         case AtomicTerm(t) => {
           print(atomicTerm(t, ctxt))
           noParentOp(ctxt)
@@ -247,19 +298,24 @@ object PrincessLineariser {
           print(value)
           noParentOp(ctxt)
         }
+
         case IPlus(t1, t2) => {
-          SubArgs(List(insertIntCast(t1, ctxt setParentOp " + "),
-                       insertIntCast(t2, ctxt setParentOp "")))
+          SubArgs(List(maybeInsertIntCast(t1, ctxt setParentOp " + "),
+                       maybeInsertIntCast(t2, ctxt setParentOp "")))
         }
         case IFunApp(MulTheory.Mul(), Seq(t1, t2)) => {
-          SubArgs(List(insertIntCast(t1, ctxt setParentOp " * "),
-                       insertIntCast(t2, ctxt setParentOp "")))
+          SubArgs(List(maybeInsertIntCast(t1, ctxt setParentOp " * "),
+                       maybeInsertIntCast(t2, ctxt setParentOp "")))
+        }
+        case IFunApp(MinusFunction, Seq(t1, t2)) => {
+          SubArgs(List(maybeInsertIntCast(t1, ctxt setParentOp " - "),
+                       maybeInsertIntCast(t2, ctxt setParentOp "" setPrecLevel 6)))
         }
 
         case ITimes(coeff, s) => {
           print(coeff + "*")
           // noParentOp(ctxt)
-          UniSubArgs(insertIntCast(s, ctxt setParentOp ""))
+          UniSubArgs(maybeInsertIntCast(s, ctxt setParentOp ""))
         }
       
         case IFunApp(ADT.TermSize(adt, num), Seq(t ::: tSort))
@@ -273,6 +329,9 @@ object PrincessLineariser {
           TryAgain(t, ctxt.addOpPrec(".\\as[" +
                                      ModuloArithmetic.ModSort(lower, upper) +
                                      "]", 10))
+
+        case IFunApp(ModuloArithmetic.int_cast, Seq(t)) =>
+          TryAgain(t, insertIntCast(ctxt))
 
         case IFunApp(ModuloArithmetic.bv_extract,
                      Seq(IIntLit(upper), IIntLit(lower), t)) =>
@@ -380,6 +439,7 @@ object PrincessLineariser {
 
         // Some special rule for negated equations
         
+/*
         case INot(IEquation(s, t)) =>
           TryAgain(IAtom(NonEqPredicate, List(s, t)), ctxt)
 
@@ -415,9 +475,11 @@ object PrincessLineariser {
         case INot(IIntFormula(IIntRelation.EqZero, s)) => {
           TryAgain(s, ctxt addParentOp " != 0")
         }
-
+ */
         // Positive equations
       
+
+/*
         case IIntFormula(IIntRelation.EqZero,
                          ITimes(IdealInt.MINUS_ONE, t)) => {
           TryAgain(IEquation(IIntLit(0), t), ctxt)
@@ -446,16 +508,19 @@ object PrincessLineariser {
                          IPlus(s, IIntLit(value))) => {
           TryAgain(s, ctxt addParentOp (" = " + (-value)))
         }
+ */
 
         // Equation predicates
 
-        case IAtom(NonEqPredicate, _) => {
+        case IAtom(NonEqPredicate, _) =>
           allButLast(ctxt setPrecLevel 1, " != ", "", 2)
-        }
+        case IAtom(GeqPredicate, _) =>
+          allButLast(ctxt setPrecLevel 1, " >= ", "", 2)
+        case IAtom(LtPredicate, _) =>
+          allButLast(ctxt setPrecLevel 1, " < ", "", 2)
 
-        case IEquation(s, t) => {
+        case IEquation(s, t) =>
           allButLast(ctxt setPrecLevel 1, " = ", "", 2)
-        }
 
         // Atoms
 
@@ -471,6 +536,7 @@ object PrincessLineariser {
 
         // Non-negated relations
 
+/*
         case IIntFormula(rel, ITimes(IdealInt.MINUS_ONE, t)) => {
           print("0 " + relation(rel) + " ")
           TryAgain(t, ctxt)
@@ -495,7 +561,8 @@ object PrincessLineariser {
         case IIntFormula(rel, IPlus(s, IIntLit(value))) => {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
         }
-      
+ */
+
         case IIntFormula(rel, _) => {
           UniSubArgs(ctxt setParentOp (" " + relation(rel) + " 0"))
         }

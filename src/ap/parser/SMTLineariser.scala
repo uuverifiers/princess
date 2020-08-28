@@ -704,6 +704,9 @@ class SMTLineariser(benchmarkName : String,
         "_size"
       case Some(Rationals) if fun == Rationals.frac =>
         "/"
+      case Some(ModuloArithmetic) => fun match {
+        case ModuloArithmetic.int_cast => "bv2nat"
+      }
       case _ =>
         if (zeroExtendFuns contains fun)
           fun.name

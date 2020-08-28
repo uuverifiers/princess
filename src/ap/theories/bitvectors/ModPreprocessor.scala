@@ -319,6 +319,9 @@ object ModPreprocessor {
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
+      case IFunApp(`int_cast`, _) =>
+        UniSubArgs(ctxt)
+
       case IAtom(`bv_slt` | `bv_sle`,
                  Seq(IIntLit(IdealInt(n)), _*)) =>
         UniSubArgs(ctxt addMod pow2(n))
@@ -462,6 +465,10 @@ object ModPreprocessor {
             case null => VisitorRes.update(t, subres)
             case res  => res
           }
+
+        case IFunApp(`int_cast`, _) =>
+          // the identity function, can be ignored
+          subres.head
 
         case IFunApp(`bv_extract`, Seq(IIntLit(IdealInt(start)),
                                        IIntLit(IdealInt(end)), _*)) =>

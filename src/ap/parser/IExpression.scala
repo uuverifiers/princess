@@ -953,8 +953,22 @@ object IExpression {
                  ITimes(IdealInt.MINUS_ONE, b))    => Some((a, b))
       case IPlus(ITimes(IdealInt.MINUS_ONE, b),
                  ITimes(IdealInt.ONE, a))          => Some((a, b))
+
       case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
       case IPlus(ITimes(IdealInt.MINUS_ONE, b), a) => Some((a, b))
+
+      case IPlus(ITimes(aCoeff, a),
+                 ITimes(bCoeff, b)) =>
+        (aCoeff.signum, bCoeff.signum) match {
+          case (1, 1) | (_, -1)                    => Some((ITimes(aCoeff, a),
+                                                            ITimes(-bCoeff, b)))
+          case (-1, 1)                             => Some((ITimes(bCoeff, b),
+                                                            ITimes(-aCoeff, a)))
+          case _                                   => None
+        }
+      case IPlus(a, ITimes(bCoeff, b))             => Some((a, ITimes(-bCoeff, b)))
+      case IPlus(ITimes(aCoeff, a), b)             => Some((b, ITimes(-aCoeff, a)))
+
       case IPlus(a, IIntLit(value))                => Some((a, IIntLit(-value)))
       case IPlus(IIntLit(value), a)                => Some((a, IIntLit(-value)))
       case _                                       => None
