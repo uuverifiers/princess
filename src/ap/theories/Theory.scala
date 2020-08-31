@@ -211,6 +211,10 @@ object Theory {
     def getDataFor(t : Theory) : TheoryDecoderData
   }
 
+  /**
+   * Decoder context that will extract all data from the given
+   * <code>model</code>.
+   */
   class DefaultDecoderContext(model : Conjunction) extends DecoderContext {
     private val decoderDataCache = new MHashMap[Theory, TheoryDecoderData]
     def getDataFor(t : Theory) : TheoryDecoderData =

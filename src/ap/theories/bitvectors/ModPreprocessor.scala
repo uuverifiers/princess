@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -366,7 +366,7 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt.multMod(pow2(end), pow2(begin + 1))))
 
-      case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul` | `bv_srem`,
+      case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
         UniSubArgs(ctxt addMod pow2(n))
@@ -1025,17 +1025,21 @@ object ModPreprocessor {
 
         ////////////////////////////////////////////////////////////////////////
 
-        // TODO: special treatment for constant denominators?
+        // TODO: better treatment of constant denominators?
         case IFunApp(`bv_srem`, Seq(IIntLit(IdealInt(bits)), _*)) => {
           val noModCtxt = ctxt.noMod
           val ModSort(lower, upper) = SignedBVSort(bits)
-          VisitorRes(
-            ite(subres(2).resTerm === 0,
-                subres(1).resTerm,
-                MultTheory.tMod(
+
+          if (subres(2).isConstant && subres(2).lowerBound.isZero)
+            subres(1).modCastPow2(bits, ctxt)
+          else
+            VisitorRes(
+              ite(subres(2).resTerm === 0,
                   subres(1).modCastSignedPow2(bits, noModCtxt).resTerm,
-                  subres(2).modCastSignedPow2(bits, noModCtxt).resTerm)),
-            lower, upper).modCastPow2(bits, ctxt)
+                  MultTheory.tMod(
+                    subres(1).modCastSignedPow2(bits, noModCtxt).resTerm,
+                    subres(2).modCastSignedPow2(bits, noModCtxt).resTerm)),
+              lower, upper).modCastPow2(bits, ctxt)
         }
 
         ////////////////////////////////////////////////////////////////////////

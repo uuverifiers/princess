@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1201,6 +1201,14 @@ abstract class ITerm extends IExpression {
     case (t, IExpression.Const(IdealInt.ZERO)) => t
     case (t, IExpression.Const(b)) => t + IIntLit(-b)
     case _ => this - that
+  }
+
+  /** Negation of a term. The resulting expression is simplified immediately
+   * if one of the terms is constant. */
+  def minusSimplify : ITerm = this match {
+    case IExpression.Const(a) => IIntLit(-a)
+    case ITimes(coeff, t)     => ITimes(-coeff, t)
+    case t                    => ITimes(IdealInt.MINUS_ONE, t)
   }
 
   /**

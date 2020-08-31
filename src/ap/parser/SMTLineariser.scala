@@ -25,6 +25,7 @@ import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
 import ap.theories.strings.StringTheory
+import ap.theories.rationals.Rationals
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -293,8 +294,18 @@ object SMTLineariser {
                      formalArgs : Seq[ConstantTerm],
                      body : IExpression) : Unit = {
     val (argSorts, resSort) = functionType
+    print("(define-fun " + quoteIdentifier(f.name) + " ")
+    printArguments(argSorts, formalArgs)
+    print(" ")
+    printSMTType(sort2SMTType(resSort)._1)
+    print(" ")
+    apply(body)
+    println(")")
+  }
 
-    print("(define-fun " + quoteIdentifier(f.name) + " (")
+  def printArguments(argSorts : Seq[Sort],
+                     formalArgs : Seq[ConstantTerm]) : Unit = {
+    print("(")
     var sep = ""
     for ((a, t) <- formalArgs.iterator zip argSorts.iterator) {
       print(sep)
@@ -305,17 +316,14 @@ object SMTLineariser {
       printSMTType(sort2SMTType(t)._1)
       print(")")
     }
-    print(") ")
-    printSMTType(sort2SMTType(resSort)._1)
-    print(" ")
-    apply(body)
-    println(")")
+    print(")")
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint}
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
+                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
+                              SMTADT}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -363,6 +371,7 @@ object SMTLineariser {
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
+    case SMTReal(_)          => print("Real")
     case t : SMTADT          => print(quoteIdentifier(t.toString))
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
@@ -378,6 +387,9 @@ object SMTLineariser {
     }
     case SMTUnint(sort)      => print(sort)
   }
+
+  def smtTypeAsString(t : SMTType) : String =
+    DialogUtil asString { printSMTType(t) }
 
   def sort2SMTType(sort : Sort) : (SMTType,
                                    Option[ITerm => IFormula]) = sort match {
@@ -396,6 +408,8 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
+    case Rationals.FractionSort =>
+      (SMTReal(sort), None)
     case sort : UninterpretedSortTheory.UninterpretedSort =>
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
@@ -403,7 +417,7 @@ object SMTLineariser {
   }
 
   def sort2SMTString(sort : Sort) : String =
-    DialogUtil asString { printSMTType(sort2SMTType(sort)._1) }
+    smtTypeAsString(sort2SMTType(sort)._1)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -688,6 +702,8 @@ class SMTLineariser(benchmarkName : String,
       case Some(t : ADT)
         if t.termSize != null && (t.termSize contains fun) =>
         "_size"
+      case Some(Rationals) if fun == Rationals.frac =>
+        "/"
       case _ =>
         if (zeroExtendFuns contains fun)
           fun.name

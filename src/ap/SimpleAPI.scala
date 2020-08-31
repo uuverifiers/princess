@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1830,7 +1830,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    (new Simplifier (0))(Internal2InputAbsy(c, Map()))
+    internal2InputAbsy(c, new Simplifier (0))
+
+  private def internal2InputAbsy(
+                c : Conjunction,
+                simp : Simplifier = new Simplifier) : IFormula = {
+    implicit val _ = new Theory.DefaultDecoderContext(c)
+    IntToTermTranslator(
+      simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
+  }
 
   /**
    * Pretty-print a formula or term.
@@ -2602,11 +2610,7 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants) yield {
-       implicit val _ = new Theory.DefaultDecoderContext(c)
-       IntToTermTranslator(
-         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
-    }
+    interpolants map (internal2InputAbsy(_, simp))
   }
 
   /**
@@ -2678,13 +2682,7 @@ class SimpleAPI private (enableAssert : Boolean,
                            reducerSettings)
             }
 
-          val simpInt = {
-            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
-            IntToTermTranslator(
-              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
-          }
-
-          (rawInt, simpInt)
+          (rawInt, internal2InputAbsy(rawInt, simp))
         }
 
       if (thisInt._1.isTrue) {
@@ -2989,6 +2987,9 @@ class SimpleAPI private (enableAssert : Boolean,
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
+      // TODO: this won't work if the formula contains theories
+      // that are not yet loaded
+
       asIFormula(asConjunction(f))
 
     } else if ((ContainsSymbol isPresburgerBV f) &&
@@ -3230,7 +3231,8 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Decoding data needed (and implicitly read) by theories.
+   * Decoding data needed (and implicitly read) by theories; this will
+   * access the current model to extract the relevant decoding data.
    */
   val decoderContext = new Theory.DecoderContext {
     def getDataFor(t : Theory) : Theory.TheoryDecoderData =

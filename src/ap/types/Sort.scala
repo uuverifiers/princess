@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -246,6 +246,16 @@ object Sort {
                    assignment : MMap[(IdealInt, Sort), ITerm],
                    allTerms : Set[(IdealInt, Sort)],
                    definedTerms : MSet[(IdealInt, Sort)]) : Unit = {}
+  }
+
+  /**
+   * Extractor to recognise sorts that represent the Booleans.
+   */
+  object AnyBool {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case Bool | MultipleValueBool => Some(s)
+      case _ => None
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
