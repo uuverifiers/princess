@@ -222,7 +222,20 @@ trait StringTheory extends Theory {
 
   // Capture groups and references, which are indexed symbols
   val re_capture     : IFunction    // Int x RegexSort -> RegexSort
-  val re_reference   : IFunction    // Int -> RegexSort
+
+  // Refer back to a capture group.
+  val re_reference   : IFunction    // Int -> StringSort
+
+  // ((_ str_match n1 n2) str re) extracts the contents of capture group
+  // #n2 in the n1'th match of re in str
+  val str_match      : IFunction    // Int x Int x StringSort x RegexSort
+                                    //   -> StringSort
+
+  // If str matches re, then
+  // ((_ str_extract n) str re) extracts the contents of capture group
+  // #n of re
+  val str_extract    : IFunction    // Int x StringSort x RegexSort
+                                    //   -> StringSort
 
   // Further functions or predicates that a string theory might define
 

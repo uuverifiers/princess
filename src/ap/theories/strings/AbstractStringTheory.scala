@@ -150,7 +150,14 @@ abstract class AbstractStringTheory extends StringTheory {
                             true, false)
 
   val re_reference =
-    new MonoSortedIFunction("re_reference", List(Integer), RSo,
+    new MonoSortedIFunction("re_reference", List(Integer), SSo,
+                            true, false)
+
+  val str_match =
+    new MonoSortedIFunction("str_match", List(Integer, Integer, SSo, RSo), SSo,
+                            true, false)
+  val str_extract =
+    new MonoSortedIFunction("str_extract", List(Integer, SSo, RSo), SSo,
                             true, false)
 
   protected def predefFunctions =
@@ -161,7 +168,7 @@ abstract class AbstractStringTheory extends StringTheory {
          str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
          re_union, re_inter, re_*, re_+, re_opt, re_comp, re_loop,
-         re_capture, re_reference)
+         re_capture, re_reference, str_match, str_extract)
 
   protected def predefPredicates =
     List(char_is_digit, str_<=, str_prefixof,

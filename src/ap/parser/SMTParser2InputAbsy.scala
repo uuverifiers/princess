@@ -2665,9 +2665,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (stringTheory.re_capture(num, arg), regexType)
     }
     case IndexedSymbol("re.reference", n) => {
-      translateStringArgs("re.capture", args, List())
+      translateStringArgs("re.reference", args, List())
       val num = n.toInt
-      (stringTheory.re_reference(num), regexType)
+      (stringTheory.re_reference(num), stringType)
+    }
+
+    case IndexedSymbol("str.match", n1, n2) => {
+      val Seq(strArg, reArg) =
+        translateStringArgs("str.match", args, List(stringType, regexType))
+      val num1 = n1.toInt
+      val num2 = n2.toInt
+      (stringTheory.str_match(num1, num2, strArg, reArg), stringType)
+    }
+    case IndexedSymbol("str.extract", n) => {
+      val Seq(strArg, reArg) =
+        translateStringArgs("str.extract", args, List(stringType, regexType))
+      val num = n.toInt
+      (stringTheory.str_extract(num, strArg, reArg), stringType)
     }
 
     case PlainSymbol("char.code") =>
