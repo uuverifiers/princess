@@ -85,9 +85,10 @@ object Heap {
         model.predConj positiveLitsWithPred heapTheory.heapFunPredMap(f)
 
       /* Collect the relevant functions and predicates of the theory */
-      import heapTheory.{counter, emptyHeap, write, allocHeap}
+      import heapTheory.{counter, emptyHeap, read, write, allocHeap}
       val writeAtoms = getAtoms(write)
       val allocAtoms = getAtoms(allocHeap)
+      val readAtoms = getAtoms(read)
       val counterAtoms = getAtoms(counter)
       val emptyHeapAtoms = getAtoms(emptyHeap)
 
@@ -137,26 +138,42 @@ object Heap {
         * location, are the same as the original heap.
         */
           // allocHeap(prevHeapId, obj, heapId)
-          val (prevHeapId, changedAddr, newObj) = allocAtoms
+          val (prevHeapId, changedAddr, newObj, allocOrWriteFound) = allocAtoms
             .find(p => p(2).constant == heapId) match {
-            case Some(p) => (p(0).constant, counterVal, p(1).constant)
+            case Some(p) => (p(0).constant, counterVal, p(1).constant, true)
             case None => // no allocs found, then there must be a write
               // write(prevHeapId, addr, obj, heapId)
               writeAtoms.find(p => p(3).constant == heapId) match {
-                case Some(p) => (p(0).constant, p(1).constant, p(2).constant)
-                case None => throw new HeapException( // todo: fix this
-                  "No allocs or writes found" + "for heap id: " + heapId)
+                case Some(p) => (p(0).constant, p(1).constant, p(2).constant, true)
+                case None => // no writes nor allocs found
+                  (IdealInt(-1), IdealInt(-1), IdealInt(-1), false)
               }
           }
-          // copy all locations from previous heap, then update changed loc
-          val prevHeap = heapContents(prevHeapId)
-          val thisHeap = heapContents(heapId)
-          val changedInd = changedAddr.intValue-1
-          for (i <- prevHeap.indices if i != changedInd) {
-            if (thisHeap(i) != prevHeap(i)) somethingChanged = true
-            thisHeap(i) = prevHeap(i)
+
+          if (prevHeapId != heapId) {
+            if (allocOrWriteFound) {
+              // copy all locations from previous heap, then update changed loc
+              val changedInd = changedAddr.intValue - 1
+              val thisHeap = heapContents(heapId)
+              if (changedInd > 0) { // otherwise prevHeap is the empty heap
+                val prevHeap = heapContents(prevHeapId)
+                for (i <- prevHeap.indices if i != changedInd) {
+                  if (thisHeap(i) != prevHeap(i)) somethingChanged = true
+                  thisHeap(i) = prevHeap(i)
+                }
+              }
+              thisHeap(changedInd) = newObj // this does not depend on prev heaps.
+            } else { // try to find the contents through read atoms
+              for (a <- readAtoms if a(0).constant == heapId) {
+                val changedInd = a(1).constant.intValue - 1
+                val newVal = a(2).constant
+                if (heapContents(heapId)(changedInd) != newVal) {
+                  heapContents(heapId)(changedInd) = newVal
+                  somethingChanged = true
+                }
+              }
+            }
           }
-          thisHeap(changedInd) = newObj // this does not depend on prev heaps.
         }
       }
 

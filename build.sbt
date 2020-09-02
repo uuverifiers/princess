@@ -37,6 +37,9 @@ lazy val smtParser = (project in file("smt-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
+// Do not run scalatest during assembly
+// test in assembly := {}
+
 // Actual project
 
 lazy val root = (project in file(".")).
