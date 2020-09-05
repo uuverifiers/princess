@@ -93,16 +93,22 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_replace =
     new MonoSortedIFunction("str_replace",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replacere =
     new MonoSortedIFunction("str_replacere",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
+  val str_replacecg =
+    new MonoSortedIFunction("str_replacecg",
+                            List(SSo, RSo, RSo), SSo, true, false)
   val str_replaceall =
     new MonoSortedIFunction("str_replaceall",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replaceallre =
     new MonoSortedIFunction("str_replaceallre",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
+  val str_replaceallcg =
+    new MonoSortedIFunction("str_replaceallcg",
+                            List(SSo, RSo, RSo), SSo, true, false)
 
   val str_in_re =
     new MonoSortedPredicate("str_in_re", List(SSo, RSo))
@@ -150,7 +156,7 @@ abstract class AbstractStringTheory extends StringTheory {
                             true, false)
 
   val re_reference =
-    new MonoSortedIFunction("re_reference", List(Integer), SSo,
+    new MonoSortedIFunction("re_reference", List(Integer), RSo,
                             true, false)
 
   val str_match =
@@ -164,7 +170,8 @@ abstract class AbstractStringTheory extends StringTheory {
     List(str_head_code, str, str_from_code, str_to_code,
          str_++, str_len, str_at, str_char,
          str_substr, str_indexof,
-         str_replace, str_replacere, str_replaceall, str_replaceallre,
+         str_replace, str_replacere, str_replacecg,
+         str_replaceall, str_replaceallre, str_replaceallcg,
          str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
          re_union, re_inter, re_*, re_+, re_opt, re_comp, re_loop,

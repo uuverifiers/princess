@@ -184,11 +184,20 @@ trait StringTheory extends Theory {
   
   val str_replace    : IFunction    // StringSort x StringSort x StringSort
                                     //  -> StringSort
+  // Replacement with regular expression
   val str_replacere  : IFunction    // StringSort x RegexSort x StringSort
                                     //  -> StringSort
+  // Replacement with regular expression and capture groups
+  val str_replacecg  : IFunction    // StringSort x RegexSort x RegexSort
+                                    //  -> StringSort
+
   val str_replaceall : IFunction    // StringSort x StringSort x StringSort
                                     //  -> StringSort
+  // Replacement with regular expression
   val str_replaceallre : IFunction  // StringSort x RegexSort x StringSort
+                                    //  -> StringSort
+  // Replacement with regular expression and capture groups
+  val str_replaceallcg : IFunction  // StringSort x RegexSort x RegexSort
                                     //  -> StringSort
 
   // Regex functions
@@ -224,7 +233,7 @@ trait StringTheory extends Theory {
   val re_capture     : IFunction    // Int x RegexSort -> RegexSort
 
   // Refer back to a capture group.
-  val re_reference   : IFunction    // Int -> StringSort
+  val re_reference   : IFunction    // Int -> RegexSort
 
   // ((_ str_match n1 n2) str re) extracts the contents of capture group
   // #n2 in the n1'th match of re in str

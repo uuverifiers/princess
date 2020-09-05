@@ -2627,14 +2627,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.replacere" | "str.replace_re") =>
       (translateStringFun(stringTheory.str_replacere, args,
                           List(stringType, regexType, stringType)), stringType)
+    case PlainSymbol("str.replacecg" | "str.replace_cg") =>
+      (translateStringFun(stringTheory.str_replacere, args,
+                          List(stringType, regexType, regexType)), stringType)
 
     case PlainSymbol("str.replaceall" | "str.replace_all") =>
       (translateStringFun(stringTheory.str_replaceall, args,
                           List(stringType, stringType, stringType)), stringType)
-
     case PlainSymbol("str.replaceallre" | "str.replace_re_all") =>
       (translateStringFun(stringTheory.str_replaceallre, args,
                           List(stringType, regexType, stringType)), stringType)
+    case PlainSymbol("str.replaceallcg" | "str.replace_cg_all") =>
+      (translateStringFun(stringTheory.str_replaceallre, args,
+                          List(stringType, regexType, regexType)), stringType)
 
     case PlainSymbol("str.is-digit") =>
       translateStringPred(stringTheory.char_is_digit, args, List(charType))
@@ -2667,7 +2672,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case IndexedSymbol("re.reference", n) => {
       translateStringArgs("re.reference", args, List())
       val num = n.toInt
-      (stringTheory.re_reference(num), stringType)
+      (stringTheory.re_reference(num), regexType)
     }
 
     case IndexedSymbol("str.match", n1, n2) => {
