@@ -2628,7 +2628,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_replacere, args,
                           List(stringType, regexType, stringType)), stringType)
     case PlainSymbol("str.replacecg" | "str.replace_cg") =>
-      (translateStringFun(stringTheory.str_replacere, args,
+      (translateStringFun(stringTheory.str_replacecg, args,
                           List(stringType, regexType, regexType)), stringType)
 
     case PlainSymbol("str.replaceall" | "str.replace_all") =>
@@ -2638,7 +2638,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_replaceallre, args,
                           List(stringType, regexType, stringType)), stringType)
     case PlainSymbol("str.replaceallcg" | "str.replace_cg_all") =>
-      (translateStringFun(stringTheory.str_replaceallre, args,
+      (translateStringFun(stringTheory.str_replaceallcg, args,
                           List(stringType, regexType, regexType)), stringType)
 
     case PlainSymbol("str.is-digit") =>
