@@ -338,15 +338,6 @@ trait StringTheory extends Theory {
 
     Some(DecoderData(stringMap.toMap))
   }
-
-  /**
-   * Translate a string to its term representation.
-   */
-  def str2term(str : String) : ITerm = str match {
-    case ""  => IFunApp(str_empty, List())
-    case str => IFunApp(str_cons, List(str.head, str2term(str.substring(1))))
-  }
-
 }
 
 /**
