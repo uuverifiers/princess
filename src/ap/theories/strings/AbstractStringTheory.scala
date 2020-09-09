@@ -302,6 +302,11 @@ abstract class AbstractStringTheory extends StringTheory {
           if ((regexFunctions contains f) &&
                 (args forall { s => ConcreteRegex.unapply(s).isDefined })) =>
         Some(t)
+      case t@IFunApp(ModuloArithmetic.mod_cast,
+                     Seq(IIntLit(_), IIntLit(_), IIntLit(_))) =>
+        Some(t)
+      case t : IIntLit =>
+        Some(t)
       case _ =>
         None
     }
