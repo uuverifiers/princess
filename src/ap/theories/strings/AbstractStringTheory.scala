@@ -252,11 +252,12 @@ abstract class AbstractStringTheory extends StringTheory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val regexFunctions =
+    Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
+        re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
+        re_*, re_+, re_opt, re_comp, re_loop, re_capture, re_reference)
+
   object RegexExtractor {
-    private val regexFunctions =
-      Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
-          re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
-          re_*, re_+, re_opt, re_comp, re_loop, re_capture, re_reference)
     private lazy val regexPredicates =
       regexFunctions map functionPredicateMapping.toMap
 
@@ -289,6 +290,21 @@ abstract class AbstractStringTheory extends StringTheory {
             throw new IllegalRegexException
         }
       }
+  }
+
+  /**
+   * Extractor to identify regular expressions that are completely defined,
+   * i.e., in which no sub-terms are left symbolic.
+   */
+  object ConcreteRegex {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case t@IFunApp(f, args)
+          if ((regexFunctions contains f) &&
+                (args forall { s => ConcreteRegex.unapply(s).isDefined })) =>
+        Some(t)
+      case _ =>
+        None
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
