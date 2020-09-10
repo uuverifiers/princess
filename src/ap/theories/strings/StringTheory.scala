@@ -312,7 +312,6 @@ trait StringTheory extends Theory {
 
     Some(DecoderData(stringMap.toMap))
   }
-
 }
 
 /**
