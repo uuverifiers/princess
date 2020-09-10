@@ -86,7 +86,7 @@ Found proof (size 8), simplifying (8), interpolating ...
 VALID
 
 Interpolants:
-\exists int v0; 5*v0 + y = -1 | \exists int v0; 5*v0 + y = 0
+\exists int v0; 5*v0 + y = -1 | \exists int v0; y = -5*v0
 
 Loading inEqProof0.pri ...
 Preprocessing ...
@@ -309,8 +309,8 @@ Found proof (size 50), simplifying (87), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0, v1; (v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1 | h'(f(v0)) + -1*h'(f(v1)) >= 0)
-\exists int v0, v1; (n >= v0 & v0 >= v1 & v1 >= 0 & -1*h'(f(v0)) + h'(f(v1)) >= 1)
+\forall int v0, v1; (v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1 | h'(f(v0)) >= h'(f(v1)))
+\exists int v0, v1; (n >= v0 & v0 >= v1 & v1 >= 0 & h'(f(v1)) - h'(f(v0)) >= 1)
 
 Loading quan.pri ...
 Preprocessing ...
@@ -636,7 +636,7 @@ unsat
 ((= (select |#length_13| main_~p~4.base_18) 8))
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 unsat
-((forall ((var0 Int)) (not (= (+ (* 4294967296 var0) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42))) 0))))
+((forall ((var0 Int)) (not (= (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42)) (* (- 4294967296) var0)))))
 Loading function-bug3.smt2 ...
 "Start declaration of constants"
 "Finished declaration of constants"
@@ -755,7 +755,7 @@ Found proof (size 289), interpolating ...
 VALID
 
 Interpolants:
-x4 >= 19670160000*x1 | x4 >= 16039976000*x1 | x4 >= 12890400000*x1 | x4 >= 10511440000*x1 | x4 >= 7999 | \exists int v0; (4000*v0 >= 4000 & 4000*v0 - x4 >= -3998 & x4 >= 4000*v0)
+x4 >= 19670160000*x1 | x4 >= 16039976000*x1 | x4 >= 12890400000*x1 | x4 >= 10511440000*x1 | x4 >= 7999 | \exists int v0; (-4000 >= -4000*v0 & 4000*v0 - x4 >= -3998 & x4 >= 4000*v0)
 
 Loading ring_2exp10_3vars_0ite_unsat.pri ...
 Preprocessing ...
@@ -772,7 +772,7 @@ Found proof (size 24), simplifying (21), interpolating ...
 VALID
 
 Interpolants:
--1*inv_main4_1_0 - inv_main4_1_1 >= 1
+-1*inv_main4_1_0 + -1*inv_main4_1_1 >= 1
 inv_main4_2_1 != 1
 inv_main4_3_1 != 0
 

@@ -414,6 +414,11 @@ object SMTLineariser {
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
+    case Sort.AnySort =>
+      (SMTInteger, None)
+    case s =>
+      throw new Exception (
+        "do not know how to translate " + s + " to an SMT-LIB type")
   }
 
   def sort2SMTString(sort : Sort) : String =

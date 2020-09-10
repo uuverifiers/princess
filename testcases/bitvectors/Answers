@@ -110,9 +110,9 @@ Found proof (size 40), simplifying (58), interpolating ...
 
 unsat
 (
-  (bvuge x (_ bv3 8))
-  (and (bvsge (bvadd (_ bv6 10) (bvneg ((_ zero_extend 2) x))) (_ bv0 10)) (bvuge x (_ bv3 8)))
-  (bvuge y (_ bv8 8))
+  (<= 0 (+ (- 3) (bv2nat x)))
+  (and (<= 0 (+ 6 (* (- 1) (bv2nat x)))) (<= 0 (+ (- 3) (bv2nat x))))
+  (<= 0 (+ (- 8) (bv2nat y)))
 )
 
 Loading shift2.pri ...
@@ -544,8 +544,8 @@ Assumptions after simplification:
   v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1:1] = v1 & x[0:0] = v0 &
     \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1 >= v3 & v3 >= 0 & 3 >= v2 &
       v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 & \exists int v5; (3 >= v5 & v5 >= 0
-        & -1*v4 - v1 >= -1 & v1 >= v4 & -1*v3 - v0 >= -1 & v0 >= v3 & v5[1:1] =
-        1 - v1 & v5[0:0] = 1 - v0)))
+        & -1*v4 + -1*v1 >= -1 & v1 >= v4 & -1*v3 + -1*v0 >= -1 & v0 >= v3 &
+        v5[1:1] = 1 - v1 & v5[0:0] = 1 - v0)))
 
 Those formulas are unsatisfiable:
 ---------------------------------
@@ -556,31 +556,31 @@ Begin of proof
 |   (1)  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1:1] =
 |          v1 & x[0:0] = v0 & \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1 >=
 |            v3 & v3 >= 0 & 3 >= v2 & v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 &
-|            \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 - v1 >= -1 & v1 >= v4 &
-|              -1*v3 - v0 >= -1 & v0 >= v3 & v5[1:1] = 1 - v1 & v5[0:0] = 1 -
-|              v0)))
+|            \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 + -1*v1 >= -1 & v1 >= v4
+|              & -1*v3 + -1*v0 >= -1 & v0 >= v3 & v5[1:1] = 1 - v1 & v5[0:0] = 1
+|              - v0)))
 | 
 | DELTA: instantiating (1) with fresh symbols all_2_0, all_2_1 gives:
 |   (2)  1 >= all_2_0 & all_2_0 >= 0 & 1 >= all_2_1 & all_2_1 >= 0 & x[1:1] =
 |        all_2_0 & x[0:0] = all_2_1 & \exists int v0, v1, v2; (1 >= v2 & v2 >= 0
 |          & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1
-|          & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 - all_2_0 >= -1 &
-|            all_2_0 >= v2 & -1*v1 - all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1] = 1
-|            - all_2_0 & v3[0:0] = 1 - all_2_1))
+|          & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 &
+|            all_2_0 >= v2 & -1*v1 + -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1]
+|            = 1 - all_2_0 & v3[0:0] = 1 - all_2_1))
 | 
 | ALPHA: (2) implies:
 |   (3)  \exists int v0, v1, v2; (1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >=
 |          v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3
-|            & v3 >= 0 & -1*v2 - all_2_0 >= -1 & all_2_0 >= v2 & -1*v1 - all_2_1
-|            >= -1 & all_2_1 >= v1 & v3[1:1] = 1 - all_2_0 & v3[0:0] = 1 -
-|            all_2_1))
+|            & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 & all_2_0 >= v2 & -1*v1 +
+|            -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1] = 1 - all_2_0 & v3[0:0]
+|            = 1 - all_2_1))
 | 
 | DELTA: instantiating (3) with fresh symbols all_5_0, all_5_1, all_5_2 gives:
 |   (4)  1 >= all_5_0 & all_5_0 >= 0 & 1 >= all_5_1 & all_5_1 >= 0 & 3 >=
 |        all_5_2 & all_5_2 >= 1 & all_5_2[1:1] = all_5_0 & all_5_2[0:0] =
-|        all_5_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >=
-|          -1 & all_2_0 >= all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >=
-|          all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+|        all_5_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0
+|          >= -1 & all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1
+|          >= all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
 | 
 | ALPHA: (4) implies:
 |   (5)  all_5_2 >= 1
@@ -588,36 +588,38 @@ Begin of proof
 |   (7)  all_5_1 >= 0
 |   (8)  all_5_2[0:0] = all_5_1
 |   (9)  all_5_2[1:1] = all_5_0
-|   (10)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >= -1 &
-|           all_2_0 >= all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1
-|           & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+|   (10)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 &
+|           all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >=
+|           all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
 | 
 | DELTA: instantiating (10) with fresh symbol all_8_0 gives:
-|   (11)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 - all_2_0 >= -1 & all_2_0 >=
-|         all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1 &
+|   (11)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 & all_2_0
+|         >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >= all_5_1 &
 |         all_8_0[1:1] = 1 - all_2_0 & all_8_0[0:0] = 1 - all_2_1
 | 
 | ALPHA: (11) implies:
 |   (12)  all_2_1 >= all_5_1
-|   (13)  -1*all_5_1 - all_2_1 >= -1
+|   (13)  -1*all_5_1 + -1*all_2_1 >= -1
 |   (14)  all_2_0 >= all_5_0
-|   (15)  -1*all_5_0 - all_2_0 >= -1
+|   (15)  -1*all_5_0 + -1*all_2_0 >= -1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (16)  \forall int v0, v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 | v0.\as[bv[2]]
-|           = 2*v2 + v1)
+Warning: type clash during inference: bv[1] vs int
+Warning: type clash during inference: bv[1] vs int
+|   (16)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
+|           v0.\as[bv[2]] = 2*v2 + v1)
 | 
 | GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
 |              with (8), (9) gives:
 |   (17)  all_5_2.\as[bv[2]] = 2*all_5_0 + all_5_1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | !(3 >= v0) | !(v0 >= 1) |
+|   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
 |           v0.\as[bv[2]] != 2*v2 + v1)
 | 
 | GROUND_INST: instantiating (18) with all_5_2, all_5_1, all_5_0, simplifying
 |              with (17) gives:
-|   (19)  2*all_5_0 + all_5_1 = all_5_2 | !(3 >= all_5_2) | !(all_5_2 >= 1)
+|   (19)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2 | all_5_2 < 1
 | 
 | BETA: splitting (19) gives:
 | 
@@ -632,7 +634,7 @@ Begin of proof
 | | 
 | Case 2:
 | | 
-| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | !(3 >= all_5_2)
+| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2
 | | 
 | | BETA: splitting (22) gives:
 | | 
@@ -659,13 +661,13 @@ Begin of proof
 | | |   (28)  all_5_0 - all_5_2 = sc_17_1_0
 | | | 
 | | | COMBINE_EQS: (25), (28) imply:
-| | |   (29)  all_5_1 + all_5_2 + 2*sc_17_1_0 = 0
+| | |   (29)  all_5_1 + all_5_2 = -2*sc_17_1_0
 | | | 
 | | | REDUCE: (26), (28), (29) imply:
-| | |   (30)  -1*all_5_2 - sc_17_1_0 - all_2_0 >= -1
+| | |   (30)  -1*all_5_2 + -1*sc_17_1_0 - all_2_0 >= -1
 | | | 
 | | | REDUCE: (27), (28), (29) imply:
-| | |   (31)  -1*all_5_2 - sc_17_1_0 + all_2_0 >= 0
+| | |   (31)  -1*all_5_2 + -1*sc_17_1_0 + all_2_0 >= 0
 | | | 
 | | | REDUCE: (13), (29) imply:
 | | |   (32)  all_5_2 + 2*sc_17_1_0 - all_2_1 >= -1
@@ -674,7 +676,7 @@ Begin of proof
 | | |   (33)  all_5_2 + 2*sc_17_1_0 + all_2_1 >= 0
 | | | 
 | | | REDUCE: (7), (29) imply:
-| | |   (34)  -1*all_5_2 >= 2*sc_17_1_0
+| | |   (34)  -2*sc_17_1_0 >= all_5_2
 | | | 
 | | | COMBINE_INEQS: (30), (32) imply:
 | | |   (35)  sc_17_1_0 - all_2_0 - all_2_1 >= -2
@@ -695,7 +697,7 @@ Begin of proof
 | | |   (40)  -1 >= sc_17_1_0
 | | | 
 | | | COMBINE_INEQS: (35), (40) imply:
-| | |   (41)  -1*all_2_0 - all_2_1 >= -1
+| | |   (41)  -1*all_2_0 + -1*all_2_1 >= -1
 | | | 
 | | | COMBINE_INEQS: (37), (40) imply:
 | | |   (42)  all_2_1 >= all_2_0

@@ -597,6 +597,7 @@ object ModuloArithmetic extends Theory {
 
   val functions = List(
     mod_cast,
+    int_cast,
     l_shift_cast,
     r_shift_cast,
     bv_concat,

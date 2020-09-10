@@ -48,6 +48,8 @@ object ModPostprocessor
       UniSubArgs(Sort.Integer)
     case _ : ITermITE =>
       SubArgs(Array(null, ctxt, ctxt))
+    case IFunApp(`bv_extract`, _) =>
+      SubArgs(Array(Sort.Integer, Sort.Integer, null))
     case IFunApp(f, args) =>
       SubArgs(SortedIFunction.iArgumentSorts(f, args))
     case IAtom(p, args) =>
