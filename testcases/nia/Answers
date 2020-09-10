@@ -466,11 +466,10 @@ Assumptions after simplification:
 ---------------------------------
 
   (axioms)
-  \exists int v0, v1, v2, v3; (a * a = v0 & ((3 >= v0 & (!(1 >= a) | !(a >=
-            -1))) | (v0 >= 4 & 1 >= a & a >= -1) | (v0 * a = v1 & ((10 >= v1 & a
-            >= 3) | (3 >= v1 & a >= 2) | (v1 >= 11 & 2 >= a) | (v1 >= 4 & 1 >=
-            a) | (v2 * a = v3 & v1 * a = v2 & ((39 >= v3 & a >= 3) | (v3 >= 40 &
-                2 >= a)))))))
+  \exists int v0, v1, v2, v3; (a * a = v0 & ((3 >= v0 & (1 < a | a < -1)) | (v0
+        >= 4 & 1 >= a & a >= -1) | (v0 * a = v1 & ((10 >= v1 & a >= 3) | (3 >=
+            v1 & a >= 2) | (v1 >= 11 & 2 >= a) | (v1 >= 4 & 1 >= a) | (v2 * a =
+            v3 & v1 * a = v2 & ((39 >= v3 & a >= 3) | (v3 >= 40 & 2 >= a)))))))
 
 Those formulas are unsatisfiable:
 ---------------------------------
@@ -479,23 +478,23 @@ Begin of proof
 | 
 | DELTA: instantiating (axioms) with fresh symbols all_0_0, all_0_1, all_0_2,
 |        all_0_3 gives:
-|   (1)  a * a = all_0_3 & ((3 >= all_0_3 & (!(1 >= a) | !(a >= -1))) | (all_0_3
-|            >= 4 & 1 >= a & a >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2
-|                & a >= 3) | (3 >= all_0_2 & a >= 2) | (all_0_2 >= 11 & 2 >= a)
-|              | (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a
-|                = all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >=
+|   (1)  a * a = all_0_3 & ((3 >= all_0_3 & (1 < a | a < -1)) | (all_0_3 >= 4 &
+|            1 >= a & a >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >=
+|                3) | (3 >= all_0_2 & a >= 2) | (all_0_2 >= 11 & 2 >= a) |
+|              (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a =
+|                all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >=
 |                    a))))))
 | 
 | ALPHA: (1) implies:
 |   (2)  a * a = all_0_3
-|   (3)  (3 >= all_0_3 & (!(1 >= a) | !(a >= -1))) | (all_0_3 >= 4 & 1 >= a & a
-|          >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >= 3) | (3 >=
-|              all_0_2 & a >= 2) | (all_0_2 >= 11 & 2 >= a) | (all_0_2 >= 4 & 1
-|              >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >=
-|                  all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >= a)))))
+|   (3)  (3 >= all_0_3 & (1 < a | a < -1)) | (all_0_3 >= 4 & 1 >= a & a >= -1) |
+|        (all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >= 3) | (3 >= all_0_2 & a
+|              >= 2) | (all_0_2 >= 11 & 2 >= a) | (all_0_2 >= 4 & 1 >= a) |
+|            (all_0_1 * a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >= all_0_0 &
+|                  a >= 3) | (all_0_0 >= 40 & 2 >= a)))))
 | 
 | THEORY_AXIOM GroebnerMultiplication: 
-|   (4)  \forall int v0, v1; (!(-1 >= v1) | v0 * v0 != v1)
+|   (4)  \forall int v0, v1; (-1 < v1 | v0 * v0 != v1)
 | 
 | GROUND_INST: instantiating (4) with a, all_0_3, simplifying with (2) gives:
 |   (5)  all_0_3 >= 0
@@ -504,17 +503,17 @@ Begin of proof
 | 
 | Case 1:
 | | 
-| |   (6)  3 >= all_0_3 & (!(1 >= a) | !(a >= -1))
+| |   (6)  3 >= all_0_3 & (1 < a | a < -1)
 | | 
 | | ALPHA: (6) implies:
 | |   (7)  3 >= all_0_3
-| |   (8)  !(1 >= a) | !(a >= -1)
+| |   (8)  1 < a | a < -1
 | | 
 | | THEORY_AXIOM GroebnerMultiplication: 
-| |   (9)  \forall int v0, v1; (!(3 >= v1) | !(v1 >= 2) | v0 * v0 != v1)
+| |   (9)  \forall int v0, v1; (3 < v1 | v1 < 2 | v0 * v0 != v1)
 | | 
 | | GROUND_INST: instantiating (9) with a, all_0_3, simplifying with (2) gives:
-| |   (10)  !(3 >= all_0_3) | !(all_0_3 >= 2)
+| |   (10)  3 < all_0_3 | all_0_3 < 2
 | | 
 | | BETA: splitting (10) gives:
 | | 
@@ -532,11 +531,11 @@ Begin of proof
 | | |   (13)  1 >= all_0_3
 | | | 
 | | | THEORY_AXIOM GroebnerMultiplication: 
-| | |   (14)  \forall int v0, v1; (!(3 >= v1) | !(-2 >= v0) | v0 * v0 != v1)
+| | |   (14)  \forall int v0, v1; (3 < v1 | -2 < v0 | v0 * v0 != v1)
 | | | 
 | | | GROUND_INST: instantiating (14) with a, all_0_3, simplifying with (2)
 | | |              gives:
-| | |   (15)  !(3 >= all_0_3) | !(-2 >= a)
+| | |   (15)  3 < all_0_3 | -2 < a
 | | | 
 | | | BETA: splitting (15) gives:
 | | | 
@@ -554,11 +553,11 @@ Begin of proof
 | | | |   (18)  a >= -1
 | | | | 
 | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | |   (19)  \forall int v0, v1; (!(3 >= v1) | !(v0 >= 2) | v0 * v0 != v1)
+| | | |   (19)  \forall int v0, v1; (3 < v1 | v0 < 2 | v0 * v0 != v1)
 | | | | 
 | | | | GROUND_INST: instantiating (19) with a, all_0_3, simplifying with (2)
 | | | |              gives:
-| | | |   (20)  !(3 >= all_0_3) | !(a >= 2)
+| | | |   (20)  3 < all_0_3 | a < 2
 | | | | 
 | | | | BETA: splitting (20) gives:
 | | | | 
@@ -576,12 +575,11 @@ Begin of proof
 | | | | |   (23)  1 >= a
 | | | | | 
 | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | |   (24)  \forall int v0, v1; (!(2*v0 - v1 >= 2) | !(1 >= v0) | v0 * v0
-| | | | |           != v1)
+| | | | |   (24)  \forall int v0, v1; (2*v0 - v1 < 2 | 1 < v0 | v0 * v0 != v1)
 | | | | | 
 | | | | | GROUND_INST: instantiating (24) with a, all_0_3, simplifying with (2)
 | | | | |              gives:
-| | | | |   (25)  !(2*a - all_0_3 >= 2) | !(1 >= a)
+| | | | |   (25)  2*a - all_0_3 < 2 | 1 < a
 | | | | | 
 | | | | | BETA: splitting (25) gives:
 | | | | | 
@@ -599,12 +597,12 @@ Begin of proof
 | | | | | |   (28)  all_0_3 - 2*a >= -1
 | | | | | | 
 | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | |   (29)  \forall int v0, v1; (!(-1*v1 - 2*v0 >= 2) | !(v0 >= -1) | v0
-| | | | | |           * v0 != v1)
+| | | | | |   (29)  \forall int v0, v1; (-1*v1 + -2*v0 < 2 | v0 < -1 | v0 * v0
+| | | | | |           != v1)
 | | | | | | 
 | | | | | | GROUND_INST: instantiating (29) with a, all_0_3, simplifying with
 | | | | | |              (2) gives:
-| | | | | |   (30)  !(-1*all_0_3 - 2*a >= 2) | !(a >= -1)
+| | | | | |   (30)  -1*all_0_3 + -2*a < 2 | a < -1
 | | | | | | 
 | | | | | | BETA: splitting (30) gives:
 | | | | | | 
@@ -679,12 +677,11 @@ Begin of proof
 | | |   (44)  all_0_3 >= 4
 | | | 
 | | | THEORY_AXIOM GroebnerMultiplication: 
-| | |   (45)  \forall int v0, v1; (!(v1 >= 2) | !(1 >= v0) | !(v0 >= -1) | v0 *
-| | |           v0 != v1)
+| | |   (45)  \forall int v0, v1; (v1 < 2 | 1 < v0 | v0 < -1 | v0 * v0 != v1)
 | | | 
 | | | GROUND_INST: instantiating (45) with a, all_0_3, simplifying with (2)
 | | |              gives:
-| | |   (46)  !(all_0_3 >= 2) | !(1 >= a) | !(a >= -1)
+| | |   (46)  all_0_3 < 2 | 1 < a | a < -1
 | | | 
 | | | BETA: splitting (46) gives:
 | | | 
@@ -699,7 +696,7 @@ Begin of proof
 | | | | 
 | | | Case 2:
 | | | | 
-| | | |   (49)  !(all_0_3 >= 2) | !(a >= -1)
+| | | |   (49)  all_0_3 < 2 | a < -1
 | | | | 
 | | | | BETA: splitting (49) gives:
 | | | | 
@@ -756,11 +753,11 @@ Begin of proof
 | | | | |   (60)  10 >= all_0_2
 | | | | | 
 | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | |   (61)  \forall int v0, v1; (!(8 >= v1) | !(v0 >= 3) | v0 * v0 != v1)
+| | | | |   (61)  \forall int v0, v1; (8 < v1 | v0 < 3 | v0 * v0 != v1)
 | | | | | 
 | | | | | GROUND_INST: instantiating (61) with a, all_0_3, simplifying with (2)
 | | | | |              gives:
-| | | | |   (62)  !(8 >= all_0_3) | !(a >= 3)
+| | | | |   (62)  8 < all_0_3 | a < 3
 | | | | | 
 | | | | | BETA: splitting (62) gives:
 | | | | | 
@@ -778,12 +775,12 @@ Begin of proof
 | | | | | |   (65)  all_0_3 >= 9
 | | | | | | 
 | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | |   (66)  \forall int v0, v1, v2; (!(3*v1 - v2 >= 1) | !(v1 >= 0) |
-| | | | | |           !(v0 >= 3) | v1 * v0 != v2)
+| | | | | |   (66)  \forall int v0, v1, v2; (3*v1 - v2 < 1 | v1 < 0 | v0 < 3 |
+| | | | | |           v1 * v0 != v2)
 | | | | | | 
 | | | | | | GROUND_INST: instantiating (66) with a, all_0_3, all_0_2,
 | | | | | |              simplifying with (55) gives:
-| | | | | |   (67)  !(3*all_0_3 - all_0_2 >= 1) | !(all_0_3 >= 0) | !(a >= 3)
+| | | | | |   (67)  3*all_0_3 - all_0_2 < 1 | all_0_3 < 0 | a < 3
 | | | | | | 
 | | | | | | BETA: splitting (67) gives:
 | | | | | | 
@@ -798,7 +795,7 @@ Begin of proof
 | | | | | | | 
 | | | | | | Case 2:
 | | | | | | | 
-| | | | | | |   (70)  !(3*all_0_3 - all_0_2 >= 1) | !(a >= 3)
+| | | | | | |   (70)  3*all_0_3 - all_0_2 < 1 | a < 3
 | | | | | | | 
 | | | | | | | BETA: splitting (70) gives:
 | | | | | | | 
@@ -841,11 +838,11 @@ Begin of proof
 | | | | |   (79)  3 >= all_0_2
 | | | | | 
 | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | |   (80)  \forall int v0, v1; (!(3 >= v1) | !(v0 >= 2) | v0 * v0 != v1)
+| | | | |   (80)  \forall int v0, v1; (3 < v1 | v0 < 2 | v0 * v0 != v1)
 | | | | | 
 | | | | | GROUND_INST: instantiating (80) with a, all_0_3, simplifying with (2)
 | | | | |              gives:
-| | | | |   (81)  !(3 >= all_0_3) | !(a >= 2)
+| | | | |   (81)  3 < all_0_3 | a < 2
 | | | | | 
 | | | | | BETA: splitting (81) gives:
 | | | | | 
@@ -863,12 +860,12 @@ Begin of proof
 | | | | | |   (84)  all_0_3 >= 4
 | | | | | | 
 | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | |   (85)  \forall int v0, v1, v2; (!(2*v1 - v2 >= 1) | !(v1 >= 0) |
-| | | | | |           !(v0 >= 2) | v1 * v0 != v2)
+| | | | | |   (85)  \forall int v0, v1, v2; (2*v1 - v2 < 1 | v1 < 0 | v0 < 2 |
+| | | | | |           v1 * v0 != v2)
 | | | | | | 
 | | | | | | GROUND_INST: instantiating (85) with a, all_0_3, all_0_2,
 | | | | | |              simplifying with (55) gives:
-| | | | | |   (86)  !(2*all_0_3 - all_0_2 >= 1) | !(all_0_3 >= 0) | !(a >= 2)
+| | | | | |   (86)  2*all_0_3 - all_0_2 < 1 | all_0_3 < 0 | a < 2
 | | | | | | 
 | | | | | | BETA: splitting (86) gives:
 | | | | | | 
@@ -883,7 +880,7 @@ Begin of proof
 | | | | | | | 
 | | | | | | Case 2:
 | | | | | | | 
-| | | | | | |   (89)  !(2*all_0_3 - all_0_2 >= 1) | !(a >= 2)
+| | | | | | |   (89)  2*all_0_3 - all_0_2 < 1 | a < 2
 | | | | | | | 
 | | | | | | | BETA: splitting (89) gives:
 | | | | | | | 
@@ -936,12 +933,12 @@ Begin of proof
 | | | | |   (99)  all_0_2 >= 11
 | | | | | 
 | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | |   (100)  \forall int v0, v1, v2; (!(v2 >= 9) | !(2 >= v0) | v1 * v0 !=
-| | | | |            v2 | v0 * v0 != v1)
+| | | | |   (100)  \forall int v0, v1, v2; (v2 < 9 | 2 < v0 | v1 * v0 != v2 | v0
+| | | | |            * v0 != v1)
 | | | | | 
 | | | | | GROUND_INST: instantiating (100) with a, all_0_3, all_0_2, simplifying
 | | | | |              with (2), (55) gives:
-| | | | |   (101)  !(all_0_2 >= 9) | !(2 >= a)
+| | | | |   (101)  all_0_2 < 9 | 2 < a
 | | | | | 
 | | | | | BETA: splitting (101) gives:
 | | | | | 
@@ -982,12 +979,12 @@ Begin of proof
 | | | | | |   (109)  all_0_2 >= 4
 | | | | | | 
 | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | |   (110)  \forall int v0, v1, v2; (!(v2 >= 2) | !(1 >= v0) | v1 * v0
-| | | | | |            != v2 | v0 * v0 != v1)
+| | | | | |   (110)  \forall int v0, v1, v2; (v2 < 2 | 1 < v0 | v1 * v0 != v2 |
+| | | | | |            v0 * v0 != v1)
 | | | | | | 
 | | | | | | GROUND_INST: instantiating (110) with a, all_0_3, all_0_2,
 | | | | | |              simplifying with (2), (55) gives:
-| | | | | |   (111)  !(all_0_2 >= 2) | !(1 >= a)
+| | | | | |   (111)  all_0_2 < 2 | 1 < a
 | | | | | | 
 | | | | | | BETA: splitting (111) gives:
 | | | | | | 
@@ -1032,12 +1029,12 @@ Begin of proof
 | | | | | | |   (122)  39 >= all_0_0
 | | | | | | | 
 | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | |   (123)  \forall int v0, v1, v2, v3; (!(39 >= v3) | !(v1 >= 6) |
-| | | | | | |            !(v0 >= 3) | v2 * v0 != v3 | v1 * v0 != v2)
+| | | | | | |   (123)  \forall int v0, v1, v2, v3; (39 < v3 | v1 < 6 | v0 < 3 |
+| | | | | | |            v2 * v0 != v3 | v1 * v0 != v2)
 | | | | | | | 
 | | | | | | | GROUND_INST: instantiating (123) with a, all_0_2, all_0_1,
 | | | | | | |              all_0_0, simplifying with (117), (118) gives:
-| | | | | | |   (124)  !(39 >= all_0_0) | !(all_0_2 >= 6) | !(a >= 3)
+| | | | | | |   (124)  39 < all_0_0 | all_0_2 < 6 | a < 3
 | | | | | | | 
 | | | | | | | BETA: splitting (124) gives:
 | | | | | | | 
@@ -1052,7 +1049,7 @@ Begin of proof
 | | | | | | | | 
 | | | | | | | Case 2:
 | | | | | | | | 
-| | | | | | | |   (127)  !(all_0_2 >= 6) | !(a >= 3)
+| | | | | | | |   (127)  all_0_2 < 6 | a < 3
 | | | | | | | | 
 | | | | | | | | BETA: splitting (127) gives:
 | | | | | | | | 
@@ -1070,12 +1067,11 @@ Begin of proof
 | | | | | | | | |   (130)  5 >= all_0_2
 | | | | | | | | | 
 | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | |   (131)  \forall int v0, v1; (!(8 >= v1) | !(v0 >= 3) | v0 *
-| | | | | | | | |            v0 != v1)
+| | | | | | | | |   (131)  \forall int v0, v1; (8 < v1 | v0 < 3 | v0 * v0 != v1)
 | | | | | | | | | 
 | | | | | | | | | GROUND_INST: instantiating (131) with a, all_0_3, simplifying
 | | | | | | | | |              with (2) gives:
-| | | | | | | | |   (132)  !(8 >= all_0_3) | !(a >= 3)
+| | | | | | | | |   (132)  8 < all_0_3 | a < 3
 | | | | | | | | | 
 | | | | | | | | | BETA: splitting (132) gives:
 | | | | | | | | | 
@@ -1093,13 +1089,12 @@ Begin of proof
 | | | | | | | | | |   (135)  all_0_3 >= 9
 | | | | | | | | | | 
 | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | | |   (136)  \forall int v0, v1, v2; (!(3*v1 - v2 >= 1) | !(v1
-| | | | | | | | | |              >= 0) | !(v0 >= 3) | v1 * v0 != v2)
+| | | | | | | | | |   (136)  \forall int v0, v1, v2; (3*v1 - v2 < 1 | v1 < 0 |
+| | | | | | | | | |            v0 < 3 | v1 * v0 != v2)
 | | | | | | | | | | 
 | | | | | | | | | | GROUND_INST: instantiating (136) with a, all_0_3, all_0_2,
 | | | | | | | | | |              simplifying with (55) gives:
-| | | | | | | | | |   (137)  !(3*all_0_3 - all_0_2 >= 1) | !(all_0_3 >= 0) | !(a
-| | | | | | | | | |            >= 3)
+| | | | | | | | | |   (137)  3*all_0_3 - all_0_2 < 1 | all_0_3 < 0 | a < 3
 | | | | | | | | | | 
 | | | | | | | | | | BETA: splitting (137) gives:
 | | | | | | | | | | 
@@ -1114,7 +1109,7 @@ Begin of proof
 | | | | | | | | | | | 
 | | | | | | | | | | Case 2:
 | | | | | | | | | | | 
-| | | | | | | | | | |   (140)  !(3*all_0_3 - all_0_2 >= 1) | !(a >= 3)
+| | | | | | | | | | |   (140)  3*all_0_3 - all_0_2 < 1 | a < 3
 | | | | | | | | | | | 
 | | | | | | | | | | | BETA: splitting (140) gives:
 | | | | | | | | | | | 
@@ -1161,12 +1156,12 @@ Begin of proof
 | | | | | | |   (149)  all_0_0 >= 40
 | | | | | | | 
 | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | |   (150)  \forall int v0, v1, v2; (!(v2 >= 9) | !(2 >= v0) | v1 *
-| | | | | | |            v0 != v2 | v0 * v0 != v1)
+| | | | | | |   (150)  \forall int v0, v1, v2; (v2 < 9 | 2 < v0 | v1 * v0 != v2
+| | | | | | |            | v0 * v0 != v1)
 | | | | | | | 
 | | | | | | | GROUND_INST: instantiating (150) with a, all_0_3, all_0_2,
 | | | | | | |              simplifying with (2), (55) gives:
-| | | | | | |   (151)  !(all_0_2 >= 9) | !(2 >= a)
+| | | | | | |   (151)  all_0_2 < 9 | 2 < a
 | | | | | | | 
 | | | | | | | BETA: splitting (151) gives:
 | | | | | | | 
@@ -1184,13 +1179,12 @@ Begin of proof
 | | | | | | | |   (154)  8 >= all_0_2
 | | | | | | | | 
 | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | |   (155)  \forall int v0, v1, v2; (!(v2 - 2*v1 >= 1) | !(v1 >= 0)
-| | | | | | | |            | !(2 >= v0) | v1 * v0 != v2)
+| | | | | | | |   (155)  \forall int v0, v1, v2; (v2 - 2*v1 < 1 | v1 < 0 | 2 <
+| | | | | | | |            v0 | v1 * v0 != v2)
 | | | | | | | | 
 | | | | | | | | GROUND_INST: instantiating (155) with a, all_0_3, all_0_2,
 | | | | | | | |              simplifying with (55) gives:
-| | | | | | | |   (156)  !(all_0_2 - 2*all_0_3 >= 1) | !(all_0_3 >= 0) | !(2 >=
-| | | | | | | |            a)
+| | | | | | | |   (156)  all_0_2 - 2*all_0_3 < 1 | all_0_3 < 0 | 2 < a
 | | | | | | | | 
 | | | | | | | | BETA: splitting (156) gives:
 | | | | | | | | 
@@ -1205,7 +1199,7 @@ Begin of proof
 | | | | | | | | | 
 | | | | | | | | Case 2:
 | | | | | | | | | 
-| | | | | | | | |   (159)  !(all_0_2 - 2*all_0_3 >= 1) | !(2 >= a)
+| | | | | | | | |   (159)  all_0_2 - 2*all_0_3 < 1 | 2 < a
 | | | | | | | | | 
 | | | | | | | | | BETA: splitting (159) gives:
 | | | | | | | | | 
@@ -1223,14 +1217,14 @@ Begin of proof
 | | | | | | | | | |   (162)  2*all_0_3 >= all_0_2
 | | | | | | | | | | 
 | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | | |   (163)  \forall int v0, v1, v2, v3; (!(4*v2 - v3 - 4*v1 >=
-| | | | | | | | | |              1) | !(2*v1 >= v2) | !(2 >= v0) | v2 * v0 != v3
-| | | | | | | | | |            | v1 * v0 != v2)
+| | | | | | | | | |   (163)  \forall int v0, v1, v2, v3; (4*v2 - v3 - 4*v1 < 1 |
+| | | | | | | | | |            2*v1 < v2 | 2 < v0 | v2 * v0 != v3 | v1 * v0 !=
+| | | | | | | | | |            v2)
 | | | | | | | | | | 
 | | | | | | | | | | GROUND_INST: instantiating (163) with a, all_0_3, all_0_2,
 | | | | | | | | | |              all_0_1, simplifying with (55), (117) gives:
-| | | | | | | | | |   (164)  !(4*all_0_2 - all_0_1 - 4*all_0_3 >= 1) |
-| | | | | | | | | |          !(2*all_0_3 >= all_0_2) | !(2 >= a)
+| | | | | | | | | |   (164)  4*all_0_2 - all_0_1 - 4*all_0_3 < 1 | 2*all_0_3 <
+| | | | | | | | | |          all_0_2 | 2 < a
 | | | | | | | | | | 
 | | | | | | | | | | BETA: splitting (164) gives:
 | | | | | | | | | | 
@@ -1245,8 +1239,7 @@ Begin of proof
 | | | | | | | | | | | 
 | | | | | | | | | | Case 2:
 | | | | | | | | | | | 
-| | | | | | | | | | |   (167)  !(4*all_0_2 - all_0_1 - 4*all_0_3 >= 1) | !(2 >=
-| | | | | | | | | | |            a)
+| | | | | | | | | | |   (167)  4*all_0_2 - all_0_1 - 4*all_0_3 < 1 | 2 < a
 | | | | | | | | | | | 
 | | | | | | | | | | | BETA: splitting (167) gives:
 | | | | | | | | | | | 
@@ -1261,20 +1254,18 @@ Begin of proof
 | | | | | | | | | | | | 
 | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (170)  all_0_1 - 4*all_0_2 + 4*all_0_3 >= 0
+| | | | | | | | | | | |   (170)  all_0_1 - 4*all_0_2 >= -4*all_0_3
 | | | | | | | | | | | | 
 | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | | | | |   (171)  \forall int v0, v1, v2, v3, v4; (!(v4 - 6*v3 +
-| | | | | | | | | | | |              12*v2 - 8*v1 >= 1) | !(v3 - 4*v2 + 4*v1 >= 0)
-| | | | | | | | | | | |            | !(2 >= v0) | v3 * v0 != v4 | v2 * v0 != v3 |
-| | | | | | | | | | | |            v1 * v0 != v2)
+| | | | | | | | | | | |   (171)  \forall int v0, v1, v2, v3, v4; (v4 - 6*v3 + 12*v2
+| | | | | | | | | | | |            - 8*v1 < 1 | v3 - 4*v2 < -4*v1 | 2 < v0 | v3 *
+| | | | | | | | | | | |            v0 != v4 | v2 * v0 != v3 | v1 * v0 != v2)
 | | | | | | | | | | | | 
 | | | | | | | | | | | | GROUND_INST: instantiating (171) with a, all_0_3, all_0_2,
 | | | | | | | | | | | |              all_0_1, all_0_0, simplifying with (55), (117),
 | | | | | | | | | | | |              (118) gives:
-| | | | | | | | | | | |   (172)  !(all_0_0 - 6*all_0_1 + 12*all_0_2 - 8*all_0_3 >=
-| | | | | | | | | | | |            1) | !(all_0_1 - 4*all_0_2 + 4*all_0_3 >= 0) |
-| | | | | | | | | | | |          !(2 >= a)
+| | | | | | | | | | | |   (172)  all_0_0 - 6*all_0_1 + 12*all_0_2 - 8*all_0_3 < 1 |
+| | | | | | | | | | | |          all_0_1 - 4*all_0_2 < -4*all_0_3 | 2 < a
 | | | | | | | | | | | | 
 | | | | | | | | | | | | BETA: splitting (172) gives:
 | | | | | | | | | | | | 
@@ -1289,8 +1280,8 @@ Begin of proof
 | | | | | | | | | | | | | 
 | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | 
-| | | | | | | | | | | | |   (175)  !(all_0_0 - 6*all_0_1 + 12*all_0_2 - 8*all_0_3 >=
-| | | | | | | | | | | | |            1) | !(2 >= a)
+| | | | | | | | | | | | |   (175)  all_0_0 - 6*all_0_1 + 12*all_0_2 - 8*all_0_3 < 1 |
+| | | | | | | | | | | | |          2 < a
 | | | | | | | | | | | | | 
 | | | | | | | | | | | | | BETA: splitting (175) gives:
 | | | | | | | | | | | | | 
@@ -1305,7 +1296,7 @@ Begin of proof
 | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | |   (178)  6*all_0_1 - all_0_0 - 12*all_0_2 + 8*all_0_3 >= 0
+| | | | | | | | | | | | | |   (178)  6*all_0_1 - all_0_0 - 12*all_0_2 >= -8*all_0_3
 | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
 | | | | | | | | | | | | | |   (179)  \forall int v0; (\exists int v1; (0 >= v1 & v0 * 1
@@ -1344,21 +1335,20 @@ Begin of proof
 | | | | | | | | | | | | | | |   (187)  0 >= all_0_1
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | | | | | | | |   (188)  \forall int v0, v1, v2, v3, v4; (!(v4 >= 40) | !(0
-| | | | | | | | | | | | | | |              >= v3) | !(v1 >= 0) | v3 * v0 != v4 | v2 * v0
-| | | | | | | | | | | | | | |            != v3 | v1 * v0 != v2)
+| | | | | | | | | | | | | | |   (188)  \forall int v0, v1, v2, v3, v4; (v4 < 40 | 0 < v3
+| | | | | | | | | | | | | | |            | v1 < 0 | v3 * v0 != v4 | v2 * v0 != v3 | v1 *
+| | | | | | | | | | | | | | |            v0 != v2)
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | GROUND_INST: instantiating (188) with a, all_0_3, all_0_2,
 | | | | | | | | | | | | | | |              all_0_1, all_0_0, simplifying with (55), (117),
 | | | | | | | | | | | | | | |              (118) gives:
-| | | | | | | | | | | | | | |   (189)  !(all_0_0 >= 40) | !(0 >= all_0_1) | !(all_0_3 >=
-| | | | | | | | | | | | | | |            0)
+| | | | | | | | | | | | | | |   (189)  all_0_0 < 40 | 0 < all_0_1 | all_0_3 < 0
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | BETA: splitting (189) gives:
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | Case 1:
 | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | |   (190)  !(all_0_0 >= 40) | !(0 >= all_0_1)
+| | | | | | | | | | | | | | | |   (190)  all_0_0 < 40 | 0 < all_0_1
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | BETA: splitting (190) gives:
 | | | | | | | | | | | | | | | | 
@@ -1384,7 +1374,7 @@ Begin of proof
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | |   (195)  !(all_0_0 >= 1) | !(all_0_3 >= 0)
+| | | | | | | | | | | | | | | |   (195)  all_0_0 < 1 | all_0_3 < 0
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | BETA: splitting (195) gives:
 | | | | | | | | | | | | | | | | 
@@ -1436,24 +1426,22 @@ Begin of proof
 | | | | | | | | | | | | | | |   (206)  all_0_1 >= 1
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | | | | | | | |   (207)  \forall int v0, v1, v2, v3, v4; (!(6*v3 - v4 -
-| | | | | | | | | | | | | | |              12*v2 + 8*v1 >= 0) | !(v4 >= 40) | !(v3 >= 1)
-| | | | | | | | | | | | | | |            | !(8 >= v2) | !(2 >= v0) | v3 * v0 != v4 | v2 *
-| | | | | | | | | | | | | | |            v0 != v3 | v0 * v0 != v1)
+| | | | | | | | | | | | | | |   (207)  \forall int v0, v1, v2, v3, v4; (6*v3 - v4 - 12*v2
+| | | | | | | | | | | | | | |            < -8*v1 | v4 < 40 | v3 < 1 | 8 < v2 | 2 < v0 |
+| | | | | | | | | | | | | | |            v3 * v0 != v4 | v2 * v0 != v3 | v0 * v0 != v1)
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | GROUND_INST: instantiating (207) with a, all_0_3, all_0_2,
 | | | | | | | | | | | | | | |              all_0_1, all_0_0, simplifying with (2), (117),
 | | | | | | | | | | | | | | |              (118) gives:
-| | | | | | | | | | | | | | |   (208)  !(6*all_0_1 - all_0_0 - 12*all_0_2 + 8*all_0_3 >=
-| | | | | | | | | | | | | | |            0) | !(all_0_0 >= 40) | !(all_0_1 >= 1) | !(8 >=
-| | | | | | | | | | | | | | |            all_0_2) | !(2 >= a)
+| | | | | | | | | | | | | | |   (208)  6*all_0_1 - all_0_0 - 12*all_0_2 < -8*all_0_3 |
+| | | | | | | | | | | | | | |          all_0_0 < 40 | all_0_1 < 1 | 8 < all_0_2 | 2 < a
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | BETA: splitting (208) gives:
 | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | Case 1:
 | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | |   (209)  !(6*all_0_1 - all_0_0 - 12*all_0_2 + 8*all_0_3 >=
-| | | | | | | | | | | | | | | |            0) | !(all_0_0 >= 40) | !(all_0_1 >= 1)
+| | | | | | | | | | | | | | | |   (209)  6*all_0_1 - all_0_0 - 12*all_0_2 < -8*all_0_3 |
+| | | | | | | | | | | | | | | |          all_0_0 < 40 | all_0_1 < 1
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | BETA: splitting (209) gives:
 | | | | | | | | | | | | | | | | 
@@ -1468,7 +1456,7 @@ Begin of proof
 | | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | | |   (212)  !(all_0_0 >= 40) | !(all_0_1 >= 1)
+| | | | | | | | | | | | | | | | |   (212)  all_0_0 < 40 | all_0_1 < 1
 | | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | | BETA: splitting (212) gives:
 | | | | | | | | | | | | | | | | | 
@@ -1496,7 +1484,7 @@ Begin of proof
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | |   (217)  !(all_0_0 >= 33) | !(8 >= all_0_2) | !(2 >= a)
+| | | | | | | | | | | | | | | |   (217)  all_0_0 < 33 | 8 < all_0_2 | 2 < a
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | BETA: splitting (217) gives:
 | | | | | | | | | | | | | | | | 
@@ -1511,7 +1499,7 @@ Begin of proof
 | | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | | | | | | 
-| | | | | | | | | | | | | | | | |   (220)  !(all_0_0 >= 33) | !(2 >= a)
+| | | | | | | | | | | | | | | | |   (220)  all_0_0 < 33 | 2 < a
 | | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | | BETA: splitting (220) gives:
 | | | | | | | | | | | | | | | | | 
@@ -1580,8 +1568,7 @@ Assumptions after simplification:
 ---------------------------------
 
   (axioms)
-  \exists int v0; (-1*v0 - 7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & (3*x) * y =
-    v0)
+  \exists int v0; (-1*v0 + -7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & 3*x * y = v0)
 
 Those formulas are unsatisfiable:
 ---------------------------------
@@ -1589,21 +1576,20 @@ Those formulas are unsatisfiable:
 Begin of proof
 | 
 | DELTA: instantiating (axioms) with fresh symbol all_0_0 gives:
-|   (1)  -1*all_0_0 - 7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & (3*x) * y = all_0_0
+|   (1)  -1*all_0_0 + -7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & 3*x * y = all_0_0
 | 
 | ALPHA: (1) implies:
 |   (2)  x >= 2
 |   (3)  y >= 2
 |   (4)  a >= 0
-|   (5)  -1*all_0_0 - 7*a >= -3
-|   (6)  (3*x) * y = all_0_0
+|   (5)  -1*all_0_0 + -7*a >= -3
+|   (6)  3*x * y = all_0_0
 | 
 | THEORY_AXIOM GroebnerMultiplication: 
-|   (7)  \forall int v0, v1, v2; (!(11 >= v2) | !(v1 >= 2) | !(v0 >= 2) | (3*v0)
-|          * v1 != v2)
+|   (7)  \forall int v0, v1, v2; (11 < v2 | v1 < 2 | v0 < 2 | 3*v0 * v1 != v2)
 | 
 | GROUND_INST: instantiating (7) with x, y, all_0_0, simplifying with (6) gives:
-|   (8)  !(11 >= all_0_0) | !(y >= 2) | !(x >= 2)
+|   (8)  11 < all_0_0 | y < 2 | x < 2
 | 
 | BETA: splitting (8) gives:
 | 
@@ -1618,7 +1604,7 @@ Begin of proof
 | | 
 | Case 2:
 | | 
-| |   (11)  !(11 >= all_0_0) | !(x >= 2)
+| |   (11)  11 < all_0_0 | x < 2
 | | 
 | | BETA: splitting (11) gives:
 | | 
