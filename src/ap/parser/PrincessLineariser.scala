@@ -414,8 +414,9 @@ object PrincessLineariser {
           TryAgain(arg, ctxt addParentOp (")"))
         }
 
-        case INot(IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
-                                    num)) => {
+        case IAtom(NonEqPredicate,
+                   Seq(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
+                       IExpression.Const(num))) => {
           print("!is_" + adt.getCtorPerSort(sortNum, num.intValueSafe).name +
                 "(")
           TryAgain(arg, ctxt addParentOp (")"))
@@ -429,12 +430,12 @@ object PrincessLineariser {
           TryAgain(t, ctxt)
         }
 
-        case INot(IExpression.Eq(t, ADT.BoolADT.True)) => {
+        case IAtom(NonEqPredicate, Seq(t, ADT.BoolADT.True)) => {
           print("!")
           TryAgain(t, ctxt)
         }
 
-        case INot(IExpression.Eq(t, ADT.BoolADT.False)) =>
+        case IAtom(NonEqPredicate, Seq(t, ADT.BoolADT.False)) =>
           TryAgain(t, ctxt)
 
         // Some special rule for negated equations
