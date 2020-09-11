@@ -200,9 +200,10 @@ class PrettyScalaLineariser private (
           allButLast(ctxt, ", ", ")", 3)
         }
 
-        case IEpsilon(_) => {
+        case ISortedEpsilon(sort, _) => {
           val varName = "v" + ctxt.vars.size
-          print("eps(")
+          printSort(sort)
+          print(".eps(")
           print(varName + " => ")
           UniSubArgs(ctxt pushVar varName setOpNoWrap ")")
         }
