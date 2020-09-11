@@ -21,6 +21,7 @@
 
 package ap.types
 
+import ap.Signature
 import ap.basetypes.IdealInt
 import ap.theories.{Theory, TheoryRegistry}
 import ap.parser._
@@ -30,7 +31,8 @@ import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.linearcombination.LinearCombination
 
 import scala.collection.{Map => GMap}
-import scala.collection.mutable.{Map => MMap, Set => MSet, HashMap => MHashMap}
+import scala.collection.mutable.{Map => MMap, Set => MSet, HashMap => MHashMap,
+                                 ArrayBuffer}
 
 import ap.util.Debug
 
@@ -159,6 +161,91 @@ class UninterpretedSortTheory(name : String) extends Theory {
   import TerForConvenience._
 
   val axioms = exists(domainPredicate(List(l(v(0)))))
+
+  /**
+   * In the post-processing we eliminate domain predicates again, and
+   * if necessary add types of quantifiers.
+   */
+  override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
+    val visitor = new DomainPredicateEliminator
+    visitor.visit(f, ()).asInstanceOf[IFormula]
+  }
+
+  private class DomainPredicateEliminator
+          extends CollectingVisitor[Unit, IExpression] {
+    private val variableSorts = new ArrayBuffer[Sort]
+
+    private def popVariableSort : Sort = {
+      val res = variableSorts.last
+      variableSorts reduceToSize (variableSorts.size - 1)
+      res
+    }
+
+    override def preVisit(t : IExpression,
+                          ctxt : Unit) : PreVisitResult = t match {
+      case t : IVariableBinder => {
+        variableSorts += t.sort
+        KeepArg
+      }
+      case _ =>
+        KeepArg
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IAtom(`domainPredicate`, _) =>
+        subres match {
+          case Seq(IVariable(ind)) => {
+            val pos = variableSorts.size - ind - 1
+            if (pos >= 0) {
+              val oldSort = variableSorts(pos)
+              if (oldSort != Sort.AnySort && oldSort != sort)
+                Console.err.println(
+                  "Warning: inconsistent sorts " + oldSort + " and " + sort +
+                    " of quantified variable")
+              variableSorts(pos) = sort
+            }
+            IBoolLit(true)
+          }
+          case Seq(t : ITerm) => {
+            val oldSort = Sort sortOf t
+            if (oldSort != sort)
+              Console.err.println(
+                "Warning: inconsistent sorts " + oldSort + " and " + sort +
+                  " of term " + t)
+            IBoolLit(true)
+          }
+        }
+
+      case ISortedQuantified(q, qSort, _) =>
+        popVariableSort match {
+          case `qSort` =>
+            t update subres
+          case newSort => {
+            val newBody =
+              VariableSubstVisitor(subres.head.asInstanceOf[IFormula],
+                                   (List(ISortedVariable(0, newSort)), 0))
+            ISortedQuantified(q, newSort, newBody)
+          }
+        }
+
+      case ISortedEpsilon(eSort, _) =>
+        popVariableSort match {
+          case `eSort` =>
+            t update subres
+          case newSort => {
+            val newBody =
+              VariableSubstVisitor(subres.head.asInstanceOf[IFormula],
+                                   (List(ISortedVariable(0, newSort)), 0))
+            ISortedEpsilon(newSort, newBody)
+          }
+        }
+
+      case _ =>
+        t update subres
+    }
+  }
 
   override def isSoundForSat(
          theories : Seq[Theory],

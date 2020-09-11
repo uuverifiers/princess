@@ -802,8 +802,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
-    AbsyPrinter(bitvecFormula)
+//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    AbsyPrinter(typedFormula)
   }
   
   def printTerm(term : ITerm) =
@@ -1038,6 +1038,8 @@ class SMTLineariser(benchmarkName : String,
   /**
    * Translate arithmetic constraints back to bit-vectors.
    */
+
+/*
   private class BitVectorTranslator
                 extends CollectingVisitor[Unit, IExpression] {
 
@@ -1170,6 +1172,7 @@ class SMTLineariser(benchmarkName : String,
         t update subres
     }
   }
+ */
 
   //////////////////////////////////////////////////////////////////////////////
 

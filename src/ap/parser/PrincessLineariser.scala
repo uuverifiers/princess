@@ -92,7 +92,11 @@ object PrincessLineariser {
   private val GeqPredicate     = new Predicate (">=", 2)
   private val LtPredicate      = new Predicate ("<", 2)
   private val MinusFunction    = new IFunction ("-", 2, false, false)
-  
+
+  /**
+   * Visitor to introduce some operations purely used for pretty-printing
+   * purposes.
+   */
   private object EnrichingVisitor extends CollectingVisitor[Unit, IExpression] {
 
     override def preVisit(t : IExpression,
@@ -266,30 +270,6 @@ object PrincessLineariser {
       t match {
         // Terms
 
-/*
-        case IPlus(IIntLit(value), s) => {
-          val offset =
-            if (value.signum >= 0)
-              " + " + value
-            else
-              " - " + (-value)
-          tryAgainWithCast(s, ctxt addParentOp offset)
-        }
-        
-        case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
-          tryAgainWithCast(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt, true)))
-        }
-        case IPlus(s, ITimes(coeff, AtomicTerm(t))) if (coeff.signum < 0) => {
-          tryAgainWithCast(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt, true)))
-        }
-        case IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s) => {
-          tryAgainWithCast(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt, true)))
-        }
-        case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
-          tryAgainWithCast(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt, true)))
-        }
- */
-    
         case AtomicTerm(t) => {
           print(atomicTerm(t, ctxt))
           noParentOp(ctxt)
@@ -438,79 +418,6 @@ object PrincessLineariser {
         case IAtom(NonEqPredicate, Seq(t, ADT.BoolADT.False)) =>
           TryAgain(t, ctxt)
 
-        // Some special rule for negated equations
-        
-/*
-        case INot(IEquation(s, t)) =>
-          TryAgain(IAtom(NonEqPredicate, List(s, t)), ctxt)
-
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              ITimes(IdealInt.MINUS_ONE, t))) => {
-          TryAgain(IAtom(NonEqPredicate, List(IIntLit(0), t)), ctxt)
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(s, ITimes(IdealInt.MINUS_ONE, t)))) => {
-          TryAgain(IAtom(NonEqPredicate, List(s, t)), ctxt)
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(s, ITimes(coeff, t)))) if (coeff.signum < 0) => {
-          TryAgain(IAtom(NonEqPredicate, List(s, ITimes(-coeff, t))), ctxt)
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(ITimes(IdealInt.MINUS_ONE, t), s))) => {
-          TryAgain(IAtom(NonEqPredicate, List(t, s)), ctxt)
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(ITimes(coeff, t), s))) if (coeff.signum < 0) => {
-          TryAgain(IAtom(NonEqPredicate, List(ITimes(-coeff, t), s)), ctxt)
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(IIntLit(value), s))) => {
-          TryAgain(s, ctxt addParentOp (" != " + (-value)))
-        }
-        case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(s, IIntLit(value)))) => {
-          TryAgain(s, ctxt addParentOp (" != " + (-value)))
-        }
-      
-        case INot(IIntFormula(IIntRelation.EqZero, s)) => {
-          TryAgain(s, ctxt addParentOp " != 0")
-        }
- */
-        // Positive equations
-      
-
-/*
-        case IIntFormula(IIntRelation.EqZero,
-                         ITimes(IdealInt.MINUS_ONE, t)) => {
-          TryAgain(IEquation(IIntLit(0), t), ctxt)
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(s, ITimes(IdealInt.MINUS_ONE, t))) => {
-          TryAgain(IEquation(s, t), ctxt)
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(s, ITimes(coeff, t))) if (coeff.signum < 0) => {
-          TryAgain(IEquation(s, ITimes(-coeff, t)), ctxt)
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(ITimes(IdealInt.MINUS_ONE, t), s)) => {
-          TryAgain(IEquation(t, s), ctxt)
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(ITimes(coeff, t), s)) if (coeff.signum < 0) => {
-          TryAgain(IEquation(ITimes(-coeff, t), s), ctxt)
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(IIntLit(value), s)) => {
-          TryAgain(s, ctxt addParentOp (" = " + (-value)))
-        }
-        case IIntFormula(IIntRelation.EqZero,
-                         IPlus(s, IIntLit(value))) => {
-          TryAgain(s, ctxt addParentOp (" = " + (-value)))
-        }
- */
-
         // Equation predicates
 
         case IAtom(NonEqPredicate, _) =>
@@ -536,33 +443,6 @@ object PrincessLineariser {
         }
 
         // Non-negated relations
-
-/*
-        case IIntFormula(rel, ITimes(IdealInt.MINUS_ONE, t)) => {
-          print("0 " + relation(rel) + " ")
-          TryAgain(t, ctxt)
-        }
-        case IIntFormula(rel, IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)))) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
-        }
-        case IIntFormula(rel, IPlus(s, ITimes(coeff, AtomicTerm(t)))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " +
-                                        coeff.abs + "*" + atomicTerm(t, ctxt, true)))
-        }
-        case IIntFormula(rel, IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s)) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
-        }
-        case IIntFormula(rel, IPlus(ITimes(coeff, AtomicTerm(t)), s)) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " +
-                                        coeff.abs + "*" + atomicTerm(t, ctxt, true)))
-        }
-        case IIntFormula(rel, IPlus(IIntLit(value), s)) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
-        }
-        case IIntFormula(rel, IPlus(s, IIntLit(value))) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
-        }
- */
 
         case IIntFormula(rel, _) => {
           UniSubArgs(ctxt setParentOp (" " + relation(rel) + " 0"))

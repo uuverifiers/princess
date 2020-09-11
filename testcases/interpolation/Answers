@@ -599,7 +599,19 @@ VALID
 
 Interpolants:
 (2*z.\as[int] + 4*y.\as[int] + 3*x.\as[int]).\as[bv[16]] = 0.\as[bv[16]]
-(2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[16]] != 0.\as[bv[16]]
+(2 + 2*y.\as[int] + 2*x.\as[int]).\as[bv[16]] != 0.\as[bv[16]]
+
+Loading sorts.pri ...
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+Found proof (size 9), simplifying (15), interpolating ...
+
+VALID
+
+Interpolants:
+\forall S v0; f(v0) = b
+c != b
 
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -651,6 +663,7 @@ unsat
 Loading simplifier.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+Warning: type clash during inference: int vs SimpleArray
 (true
 true
 (= main_~a~4.offset_2 0)
