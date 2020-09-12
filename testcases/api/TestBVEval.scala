@@ -108,4 +108,15 @@
       println("27: " + SimplifyingConstantSubstVisitor(g, Map(_x -> bv(4, 1),
                                                               _y -> bv(4, 2))))
     }
+
+    // Test projections with bit-vector expressions
+    scope {
+      val x@IConstant(_x) = createConstant("x", UnsignedBVSort(4))
+      val y@IConstant(_y) = createConstant("y", UnsignedBVSort(4))
+ 
+      val f = bvule(bv(4, 1), x) & bvugt(y, x)
+
+      println("28: " + pp(projectEx(f, List(y))))
+      println("29: " + pp(projectAll(f, List(y))))
+    }
   }

@@ -678,13 +678,13 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
         if (newArgs eq args) nt else IAtom(p, newArgs)
       }
 
-      case Eq(NonNumericTerm(s, sSort), d@IIntLit(value)) =>
+      case Eq(NonNumericTerm(s, sSort), IIntLit(value)) =>
         (sSort asTerm value) match {
           case Some(sd) => s === sd
           case None => nt
         }
 
-      case Eq(d@IIntLit(value), NonNumericTerm(s, sSort)) =>
+      case Eq(IIntLit(value), NonNumericTerm(s, sSort)) =>
         (sSort asTerm value) match {
           case Some(sd) => s === sd
           case None => nt

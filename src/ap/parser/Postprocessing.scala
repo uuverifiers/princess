@@ -90,7 +90,7 @@ class Postprocessing(signature : Signature,
           simplifySplittingLimit = 20)
 
   def processConstraint(f : Conjunction) : IFormula=
-    apply(f, simplify = true)
+    apply(f, simplify = true, int2TermTranslation = true)
 
   private def filterNonTheoryParts(model : Conjunction) : Conjunction = {
     implicit val _ = model.order

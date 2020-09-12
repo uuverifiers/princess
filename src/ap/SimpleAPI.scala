@@ -44,7 +44,7 @@ import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
                  MonoSortedIFunction, MonoSortedPredicate,
-                 SortedPredicate, TypeTheory, IntToTermTranslator}
+                 SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
