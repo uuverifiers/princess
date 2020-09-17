@@ -395,7 +395,9 @@ object SMTLineariser {
                                    Option[ITerm => IFormula]) = sort match {
     case Sort.Integer =>
       (SMTInteger, None)
-    case Sort.Nat | _ : Sort.Interval =>
+    case Sort.Nat =>
+      (SMTInteger, Some(_ >= 0))
+    case sort : Sort.Interval =>
       (SMTInteger, Some(sort.membershipConstraint _))
     case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)

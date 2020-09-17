@@ -1487,37 +1487,3 @@ object VariableSortChecker
   }
 
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Visitor that eliminates variable and quantifier sorts, and adds
- * explicit membership constraints instead.
- */
-object VariableSortEliminator extends CollectingVisitor[Unit, IExpression] {
-
-  import IExpression.{Sort, guardEx, guardAll}
-
-  def apply(f : IFormula) : IFormula =
-    this.visit(f, ()).asInstanceOf[IFormula]
-
-  def postVisit(t : IExpression, arg : Unit,
-                subres : Seq[IExpression]) : IExpression = t match {
-    case ISortedVariable(index, sort)               if sort != Sort.Integer =>
-      IVariable(index)
-    case ISortedQuantified(Quantifier.EX, sort, _)  if sort != Sort.Integer =>
-      IQuantified(Quantifier.EX,
-                  guardEx(subres(0).asInstanceOf[IFormula],
-                          sort.membershipConstraint(IVariable(0))))
-    case ISortedQuantified(Quantifier.ALL, sort, _) if sort != Sort.Integer =>
-      IQuantified(Quantifier.ALL,
-                  guardAll(subres(0).asInstanceOf[IFormula],
-                           sort.membershipConstraint(IVariable(0))))
-    case ISortedEpsilon(sort, _)                    if sort != Sort.Integer =>
-      IEpsilon(guardEx(subres(0).asInstanceOf[IFormula],
-                       sort.membershipConstraint(IVariable(0))))
-    case t =>
-      t update subres
-  }
-
-}

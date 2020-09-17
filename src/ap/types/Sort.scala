@@ -44,9 +44,6 @@ object Sort {
   object Integer extends Sort {
     val name : String = "int"
 
-    def membershipConstraint(t : ITerm) : IFormula =
-      IExpression.i(true)
-
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
       Conjunction.TRUE
 
@@ -330,11 +327,6 @@ trait Sort {
   /**
    * Constraints defining the range of the sort.
    */
-  def membershipConstraint(t : ITerm) : IFormula
-
-  /**
-   * Constraints defining the range of the sort.
-   */
   def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula
 
   /**
@@ -597,9 +589,6 @@ trait Sort {
  */
 class ProxySort(underlying : Sort) extends Sort {
   val name : String = underlying.name
-
-  def membershipConstraint(t : ITerm) : IFormula =
-    underlying.membershipConstraint(t)
 
   def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
     underlying.membershipConstraint(t)

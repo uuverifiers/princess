@@ -98,7 +98,7 @@ Valid
 Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 
 -- Simplification, projection
-Project 5 < x & x < 2*y existentially to y: !(3 >= y)
+Project 5 < x & x < 2*y existentially to y: 3 < y
 Project x > y | x < 0 universally to x: -1 >= x
 Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 Project x ==> y universally to y: y
@@ -587,16 +587,16 @@ Test 6
 Valid
 Test 7
 Unsat
-Vector((x = mod_cast(0, 1, 1)), !(y = mod_cast(0, 1, 0)))
+Vector((x = mod_cast(0, 1, 1)), (y = mod_cast(0, 1, 1)))
 Test 8
 \exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
-x = 1.\as[bv[2]] | x >= 3
+x = 1.\as[bv[2]] | x.\as[int] >= 3
 Valid
 Test 9
 Unsat
-Vector(a >= 0 & (a.\as[int] + 130).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a >= 252), b >= 130, b >= c)
+Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
 Test 10
-!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b & b >= 1) | (a.\as[int] - b.\as[int] >= -1 & b >= 245))
+!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b.\as[int] & b.\as[int] >= 1) | (a.\as[int] - b.\as[int] >= -1 & b.\as[int] >= 245))
 
 TreeInterpolation.scala
 Unsat
@@ -670,6 +670,8 @@ Sat
 25: Some(true)
 26: true
 27: 1
+28: 1 < y.\as[int]
+29: false
 
 simplifier-bug.scala
 true
@@ -685,10 +687,10 @@ ManyEqvs.scala
 Sat
 
 readSMTLIB.scala
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1
