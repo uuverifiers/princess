@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -39,8 +39,8 @@ object SimpleMiniscoper {
     Rewriter.rewrite(Transform2NNF(f), rewriteVal).asInstanceOf[IFormula]
 
   private def rewriteFun(t : IExpression) : IExpression = t match {
-    case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
-      IBinFormula(Or, IQuantified(EX, f1), IQuantified(EX, f2))
+    case ISortedQuantified(EX, sort, IBinFormula(Or, f1, f2)) =>
+      IBinFormula(Or, IQuantified(EX, sort, f1), IQuantified(EX, sort, f2))
     case t => t
   }
 

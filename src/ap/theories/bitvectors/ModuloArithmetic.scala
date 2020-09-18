@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -37,7 +37,8 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
 import LinearCombination.SingleTerm
 import ap.basetypes.IdealInt
-import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
+import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate,
+                 MonoSortedIFunction}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
@@ -191,6 +192,11 @@ object ModuloArithmetic extends Theory {
     IFunApp(mod_cast, List(lower, upper, t))
   }
 
+  /**
+   * Cast a term to an integer term.
+   */
+  def cast2Int(t : ITerm) : ITerm = IFunApp(int_cast, List(t))
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -294,6 +300,16 @@ object ModuloArithmetic extends Theory {
       throw new IllegalArgumentException(
         "method can only be applied to terms with a bit-vector sort")
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Function to map the modulo-sorts back to integers. Semantically this
+   * is just the identify function
+   */
+  val int_cast =
+    new MonoSortedIFunction("int_cast",
+                            List(Sort.AnySort), Sort.Integer, true, false)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -436,18 +452,41 @@ object ModuloArithmetic extends Theory {
      */
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort)
 
-    def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
+    private def doIComputeSorts(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val indexes =
         for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
-      computeSorts(indexes)
+      if (indexes.size < indexArity) {
+        // this means that some of the indexes are symbolic, we just specify
+        // argument sorts to be AnySort
+        anySorts
+      } else {
+        computeSorts(indexes)
+      }
     }
-    
-    def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
+
+    private def doComputeSorts(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
       val indexes =
         for (lc <- arguments take indexArity)
         yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-      computeSorts(indexes)
+      if (indexes.size < indexArity) {
+        // this means that some of the indexes are symbolic, we just specify
+        // argument sorts to be AnySort
+        anySorts
+      } else {
+        computeSorts(indexes)
+      }
     }
+
+    private lazy val anySorts =
+      ((for (_ <- 0 until indexArity) yield Sort.Integer) ++
+         (for (_ <- 0 until bvArity) yield Sort.AnySort),
+       Sort.AnySort)
+
+    def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) =
+      doIComputeSorts(arguments)
+    
+    def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) =
+      doComputeSorts(arguments)
     
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
     def resultSort(arguments : Seq[Term]) : Sort = functionType(arguments)._2
@@ -455,17 +494,12 @@ object ModuloArithmetic extends Theory {
     def toPredicate : SortedPredicate =
       new SortedPredicate(_name, indexArity + bvArity + 1) {
         def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
-          val indexes =
-            for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
-          val (args, res) = computeSorts(indexes)
+          val (args, res) = doIComputeSorts(arguments)
           args ++ List(res)
         }
         
         def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
-          val indexes =
-            for (lc <- arguments take indexArity)
-            yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-          val (args, res) = computeSorts(indexes)
+          val (args, res) = doComputeSorts(arguments)
           args ++ List(res)
         }
         
@@ -563,6 +597,7 @@ object ModuloArithmetic extends Theory {
 
   val functions = List(
     mod_cast,
+    int_cast,
     l_shift_cast,
     r_shift_cast,
     bv_concat,
@@ -621,13 +656,16 @@ object ModuloArithmetic extends Theory {
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) =
     (Preproc.visit(
-        f, VisitorArg(None, List(), false)).res.asInstanceOf[IFormula],
+        f, VisitorArg(None)).res.asInstanceOf[IFormula],
      signature)
+
+  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
+    ModPostprocessor(f)
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
     if (f.args forall (isLit _)) {
       val sort = Sort sortOf f
-      val res = Preproc.visit(f, VisitorArg(None, List(), false))
+      val res = Preproc.visit(f, VisitorArg(None))
       if (res.isConstant)
         Some(IIntLit(res.lowerBound))
       else
@@ -638,7 +676,7 @@ object ModuloArithmetic extends Theory {
 
   override def evalPred(a : IAtom) : Option[Boolean] =
     if (a.args forall (isLit _)) {
-      Preproc.visit(a, VisitorArg(None, List(), false)).res match {
+      Preproc.visit(a, VisitorArg(None)).res match {
         case IBoolLit(v) => Some(v)
         case _           => None
       }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -150,6 +150,17 @@ object MonoSortedIFunction {
       new IFunction(name, argSorts.size, partial, relational)
     else
       new MonoSortedIFunction(name, argSorts, resSort, partial, relational)
+
+  /**
+   * Determine the argument and result sorts of a
+   * <code>MonoSortedIfunction</code>.
+   */
+  def functionType(f : IFunction) : (Seq[Sort], Sort) = f match {
+    case f : MonoSortedIFunction =>
+      (f.argSorts, f.resSort)
+    case _ =>
+      (for (_ <- 0 until f.arity) yield Sort.Integer, Sort.Integer)
+  }
 }
 
 /**
@@ -268,6 +279,14 @@ object MonoSortedPredicate {
       new Predicate(name, argSorts.size)
     else
       new MonoSortedPredicate(name, argSorts)
+
+  /**
+   * Determine the argument sorts of a <code>MonoSortedPredicate</code>.
+   */
+  def argumentSorts(pred : Predicate) : Seq[Sort] = pred match {
+    case pred : MonoSortedPredicate => pred.argSorts
+    case _ => for (_ <- 0 until pred.arity) yield Sort.Integer
+  }
 }
 
 /**

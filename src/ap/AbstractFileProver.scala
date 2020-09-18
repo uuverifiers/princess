@@ -22,14 +22,7 @@
 package ap;
 
 import ap.parameters._
-import ap.parser.{InputAbsy2Internal,
-                  ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
-                  Preprocessing, IsUniversalFormulaVisitor,
-                  UniformSubstVisitor,
-                  FunctionEncoder, IExpression, INamedPart, PartName,
-                  IFunction, IInterpolantSpec, IBinJunctor, Environment,
-                  Internal2InputAbsy, IFormula, SymbolCollector,
-                  QuantifierCollectingVisitor}
+import ap.parser._
 import ap.interpolants.ArraySimplifier
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
@@ -405,7 +398,18 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
     ////////////////////////////////////////////////////////////////////////////
 
-    def toIFormula(c : Conjunction,
+    private val postprocessing =
+      new Postprocessing(transSignature,
+                         functionEncoder.predTranslation)
+
+    def processModel(c : Conjunction) =
+      postprocessing.processModel(c)
+    def processConstraint(c : Conjunction) =
+      postprocessing.processConstraint(c)
+    def processInterpolant(c : Conjunction) =
+      postprocessing.processInterpolant(c)
+
+    def XtoIFormula(c : Conjunction,
                    onlyNonTheory : Boolean = false) = {
       val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
       val remainingNoTypes = TypeTheory.filterTypeConstraints(remaining)

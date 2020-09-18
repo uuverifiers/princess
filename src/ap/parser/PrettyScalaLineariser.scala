@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -74,7 +74,7 @@ object PrettyScalaLineariser {
 class PrettyScalaLineariser private (
                functionNames : PartialFunction[IFunction, String]) {
 
-  import PrettyScalaLineariser.int2String
+  import PrettyScalaLineariser.{int2String, printSort}
 
   def apply(e : IExpression) =
     AbsyPrinter.visit(e, PrintContext(List(), "", true))
@@ -200,9 +200,10 @@ class PrettyScalaLineariser private (
           allButLast(ctxt, ", ", ")", 3)
         }
 
-        case IEpsilon(_) => {
+        case ISortedEpsilon(sort, _) => {
           val varName = "v" + ctxt.vars.size
-          print("eps(")
+          printSort(sort)
+          print(".eps(")
           print(varName + " => ")
           UniSubArgs(ctxt pushVar varName setOpNoWrap ")")
         }
@@ -298,8 +299,10 @@ class PrettyScalaLineariser private (
           UniSubArgs(ctxt setOpWrap "")
         }
 
-        case IQuantified(quan, _) => {
+        case ISortedQuantified(quan, sort, _) => {
           val varName = "v" + ctxt.vars.size
+          printSort(sort)
+          print(".")
           print(quan match {
             case Quantifier.ALL => "all("
             case Quantifier.EX => "ex("

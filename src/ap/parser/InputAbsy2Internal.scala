@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -111,26 +111,73 @@ private class InputAbsy2Internal(order : TermOrder) {
     case INot(subF) =>
       translateFor(subF).negate
     case IAtom(pred, args) =>
-        LazyConjunction(Atom(pred,
-                             for (r <- args.iterator) yield translateLinComb(r),
-                             order))
+      LazyConjunction(Atom(pred,
+                           for (r <- args.iterator) yield translateLinComb(r),
+                           order))
     case IIntFormula(IIntRelation.EqZero, t) =>
-        LazyConjunction(EquationConj(translateLinComb(t), order))
+      LazyConjunction(EquationConj(translateLinComb(t), order))
     case IIntFormula(IIntRelation.GeqZero, t) =>
-        LazyConjunction(InEqConj(translateLinComb(t), order))
-    case IQuantified(quan, _subF) => {
-      var quans = List(quan)
-      var subF = _subF
-      while (subF.isInstanceOf[IQuantified]) {
-        val IQuantified(quan, sf) = subF
-        quans = quan :: quans
-        subF = sf
-      }
-      
-      LazyConjunction(Conjunction.quantify(quans,
-                                           translateFor(subF).toConjunction,
-                                           order))
+      LazyConjunction(InEqConj(translateLinComb(t), order))
+
+    case IEquation(left, right) => {
+      val (c1, t1) = translateTermCoeff(left)
+      val (c2, t2) = translateTermCoeff(right)
+      LazyConjunction(
+        EquationConj(
+          LinearCombination(Array((c1, t1), (-c2, t2)), order), order))
     }
+
+    case ISortedQuantified(quan, sort, _subF) => {
+      var currentQuan = quan
+      var quans       = List(quan)
+      var sorts       = List(sort)
+      var subF        = _subF
+      var guard       = LazyConjunction.TRUE
+
+      var cont        = true
+
+      while(cont) subF match {
+        case ISortedQuantified(quan, sort, f) if quan == currentQuan => {
+          quans = currentQuan :: quans
+          sorts = sort :: sorts
+          subF  = f
+        }
+        case _ => {
+          guard =
+            LazyConjunction.conj(
+              for ((s, n) <- sorts.iterator.zipWithIndex)
+              yield LazyConjunction(s.membershipConstraint(VariableTerm(n))))
+          if (guard.isTrue) {
+            // maybe there are further quantifiers that can be handled
+            // immediately
+            subF match {
+              case ISortedQuantified(quan, sort, f) => {
+                currentQuan = quan
+                quans       = currentQuan :: quans
+                sorts       = List(sort)
+                subF        = f
+              }
+              case _ =>
+                cont = false
+            }
+          } else {
+            cont = false
+          }
+        }
+      }
+
+      val transSub =
+        translateFor(subF)
+
+      val matrix =
+        currentQuan match {
+          case Quantifier.EX  => guard & transSub
+          case Quantifier.ALL => guard ==> transSub
+        }
+
+      LazyConjunction(Conjunction.quantify(quans, matrix.toConjunction, order))
+    }
+
     case INamedPart(_, subF) =>
       // names are just ignored
       translateFor(subF)

@@ -546,7 +546,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }

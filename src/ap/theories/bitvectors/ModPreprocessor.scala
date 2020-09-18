@@ -46,18 +46,15 @@ object ModPreprocessor {
 
   import ModuloArithmetic._
 
-  case class VisitorArg(modN : Option[IdealInt],
-                        boundVarRanges : List[(Option[IdealInt],
-                                               Option[IdealInt])],
-                        underQuantifier : Boolean) {
+  case class VisitorArg(modN : Option[IdealInt]) {
     import IExpression._
 
     def setMod(n : IdealInt) =
-      copy(modN = Some(n), underQuantifier = false)
+      copy(modN = Some(n))
 
     def addMod(n : IdealInt) = modN match {
       case Some(oldN) if (oldN divides n) =>
-        this.notUnderQuantifier
+        this
       case _ =>
         this.setMod(n)
     }
@@ -80,61 +77,17 @@ object ModPreprocessor {
         if (g > IdealInt.ONE)
           setMod(oldN / g)
         else
-          this.notUnderQuantifier
+          this
       }
       case _ =>
-        this.notUnderQuantifier
+        this
     }
 
     def noMod =
-      if (modN.isDefined || underQuantifier)
-        copy(modN = None, underQuantifier = false)
+      if (modN.isDefined)
+        copy(modN = None)
       else
         this
-
-    def pushVar =
-      copy(boundVarRanges = (None, None) :: boundVarRanges,
-           underQuantifier = true)
-
-    def notUnderQuantifier =
-      if (underQuantifier)
-        copy(underQuantifier = false)
-      else
-        this
-
-    def collectVariableRanges(f : IFormula) = {
-      var ranges = boundVarRanges
-
-      def collectRanges(f : IFormula, neg : Boolean) : Unit = f match {
-        case INot(subF) =>
-          collectRanges(subF, !neg)
-        case Conj(left, right) if !neg => {
-          collectRanges(left, neg)
-          collectRanges(right, neg)
-        }
-        case Disj(left, right) if neg => {
-          collectRanges(left, neg)
-          collectRanges(right, neg)
-        }
-        case Geq(IVariable(ind), IIntLit(value)) if !neg => {
-          val (oldL, oldU) =
-            ranges(ind)
-          ranges =
-            ranges.updated(ind, (Some((oldL getOrElse value) max value), oldU))
-        }
-        case Geq(IIntLit(value), IVariable(ind)) if !neg => {
-          val (oldL, oldU) =
-            ranges(ind)
-          ranges =
-            ranges.updated(ind, (oldL, Some((oldU getOrElse value) min value)))
-        }
-        case _ =>
-          // nothing
-      }
-
-      collectRanges(f, false)
-      copy(boundVarRanges = ranges, underQuantifier = false)
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -201,15 +154,15 @@ object ModPreprocessor {
         }
       }
 
-      case _ : IConstant |
-           _ : IFunApp => (Sort sortOf t.asInstanceOf[ITerm]) match {
-        case ModSort(lower, upper) =>
-          VisitorRes(t, lower, upper)
-        case Sort.Interval(lower, upper) =>
-          VisitorRes(t, lower getOrElse null, upper getOrElse null)
-        case _ =>
-          VisitorRes(t, null, null)
-      }
+      case _ : IConstant | _ : IFunApp | _ : IVariable | _ : IEpsilon =>
+        (Sort sortOf t.asInstanceOf[ITerm])match {
+          case ModSort(lower, upper) =>
+            VisitorRes(t, lower, upper)
+          case Sort.Interval(lower, upper) =>
+            VisitorRes(t, lower getOrElse null, upper getOrElse null)
+          case _ =>
+            VisitorRes(t, null, null)
+        }
 
       case _ =>
         VisitorRes(t, null, null)
@@ -343,15 +296,6 @@ object ModPreprocessor {
 
     override def preVisit(t : IExpression,
                           ctxt : VisitorArg) : PreVisitResult = t match {
-      case _ : IQuantified | _ : IEpsilon =>
-        UniSubArgs(ctxt.pushVar)
-      case Conj(left, _) if ctxt.underQuantifier =>
-        SubArgs(List(ctxt.notUnderQuantifier,
-                     ctxt collectVariableRanges left))
-      case Disj(left, _) if ctxt.underQuantifier =>
-        SubArgs(List(ctxt.notUnderQuantifier,
-                     ctxt collectVariableRanges ~left))
-
       case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod (upper - lower + IdealInt.ONE)))
@@ -375,18 +319,20 @@ object ModPreprocessor {
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
+      case IFunApp(`int_cast`, _) =>
+        UniSubArgs(ctxt)
+
       case IAtom(`bv_slt` | `bv_sle`,
                  Seq(IIntLit(IdealInt(n)), _*)) =>
         UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
-        UniSubArgs(ctxt.notUnderQuantifier)
+        KeepArg
       case ITimes(coeff, _) =>
         UniSubArgs(ctxt divideMod coeff)
 
       case _ : ITermITE =>
-        SubArgs(List(ctxt.noMod,
-                     ctxt.notUnderQuantifier, ctxt.notUnderQuantifier))
+        SubArgs(List(ctxt.noMod, ctxt, ctxt))
 
       case _ =>
         UniSubArgs(ctxt.noMod)
@@ -416,10 +362,10 @@ object ModPreprocessor {
           val sort =
             UnsignedBVSort(bits)
           val res =
-            sort.eps(eqZero(doExtract(shift - 1, 0, v(0), bits)) &
-                     (doExtract(bits - 1, shift, v(0), bits) ===
+            sort.eps(eqZero(doExtract(shift - 1, 0, v(0, sort), bits)) &
+                     (doExtract(bits - 1, shift, v(0, sort), bits) ===
                       doExtract(bits - shift - 1, 0,
-                                VariableShiftVisitor(arg.resTerm, 0, 1), bits)))
+                                shiftVars(arg.resTerm, 1), bits)))
 
           val f1 = pow2(bits - shift)
           val f2 = pow2(shift)
@@ -480,12 +426,13 @@ object ModPreprocessor {
           val sort =
             UnsignedBVSort(bits)
           val res =
-            sort.eps(ex(geqZero(v(0)) & (v(0) <= 1) &
+            sort.eps((0 to 1).ex(
                         and(for (n <- (bits - shift - 1) to (bits - 1))
-                            yield (doExtract(n, n, v(1), bits) === v(0))) &
-                        (doExtract(bits - shift - 1, 0, v(1), bits) ===
+                            yield (doExtract(n, n, v(1, sort), bits) ===
+                                     v(0, 0 to 1))) &
+                        (doExtract(bits - shift - 1, 0, v(1, sort), bits) ===
                          doExtract(bits - 1, shift,
-                                   VariableShiftVisitor(arg.resTerm, 0, 2),
+                                   shiftVars(arg.resTerm, 2),
                                    bits))))
           val (lb, ub) =
             boundsBVASHR(bits, arg, shift)
@@ -495,12 +442,13 @@ object ModPreprocessor {
           val sort =
             UnsignedBVSort(bits)
           val res =
-            sort.eps(ex(geqZero(v(0)) & (v(0) <= 1) &
+            sort.eps((0 to 1).ex(
                         and(for (n <- 0 to (bits - 1))
-                            yield (doExtract(n, n, v(1), bits) === v(0))) &
+                            yield (doExtract(n, n, v(1, sort), bits) ===
+                                     v(0, 0 to 1))) &
                         (doExtract(bits - 1, bits - 1,
-                                   VariableShiftVisitor(arg.resTerm, 0, 2),
-                                   bits) === v(0))))
+                                   shiftVars(arg.resTerm, 2),
+                                   bits) === v(0, 0 to 1))))
           val (lb, ub) =
             boundsBVASHR(bits, arg, shift)
           VisitorRes(res, lb, ub)
@@ -517,6 +465,10 @@ object ModPreprocessor {
             case null => VisitorRes.update(t, subres)
             case res  => res
           }
+
+        case IFunApp(`int_cast`, _) =>
+          // the identity function, can be ignored
+          subres.head
 
         case IFunApp(`bv_extract`, Seq(IIntLit(IdealInt(start)),
                                        IIntLit(IdealInt(end)), _*)) =>
@@ -536,12 +488,12 @@ object ModPreprocessor {
             // We create a new variable v(0) which is existentially
             // quantified, representing the result of the concat
 
-            val bv1lhs = bv_extract(bits1+bits2-1, bits2, v(0))
-            val bv1rhs = VariableShiftVisitor(subres(2).resTerm, 0, 1)
+            val bv1lhs = bv_extract(bits1+bits2-1, bits2, v(0, sort))
+            val bv1rhs = shiftVars(subres(2).resTerm, 1)
             val bv1 = (bv1lhs === bv1rhs)
 
-            val bv2lhs = bv_extract(bits2-1, 0, v(0))
-            val bv2rhs = VariableShiftVisitor(subres(3).resTerm, 0, 1)
+            val bv2lhs = bv_extract(bits2-1, 0, v(0, sort))
+            val bv2rhs = shiftVars(subres(3).resTerm, 1)
             val bv2 = (bv2lhs === bv2rhs)
 
             val res = sort.eps(bv1 & bv2)
@@ -564,9 +516,9 @@ object ModPreprocessor {
 
             val (arg, resTerm) =
               if (simple)
-                (VariableShiftVisitor(rawArg, 0, 1), v(0))
+                (shiftVars(rawArg, 1), v(0, sort))
               else
-                (v(0), v(1))
+                (v(0), v(1, sort))
 
             val resultDef =
               and(for (i <- 0 until bits) yield {
@@ -579,7 +531,7 @@ object ModPreprocessor {
               if (simple)
                 sort.eps(resultDef)
               else
-                sort.eps(ex(v(0) === VariableShiftVisitor(rawArg, 0, 2) &
+                sort.eps(ex(v(0) === shiftVars(rawArg, 2) &
                             resultDef))
 
             VisitorRes(res,
@@ -725,7 +677,7 @@ object ModPreprocessor {
                         bit = !bit
                         if (len > 0) {
                           offset = offset + len
-                          doExtract(offset-1, (offset-len), v(1), bits) === 
+                          doExtract(offset-1, (offset-len), v(1,sort), bits) ===
                           (if (bit)
                              doExtract(offset-1, (offset-len), v(0), bits)
                            else
@@ -737,7 +689,7 @@ object ModPreprocessor {
                 
                 val res =
                   sort.eps(
-                    ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                    ex(v(0) === shiftVars(arg.resTerm, 2) &
                        resultDef))
 
                 VisitorRes(res, IdealInt.ZERO, pattern)
@@ -755,15 +707,15 @@ object ModPreprocessor {
             case (false, false) => {
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
-                  val res = doExtract(i, i, v(2), bits)
+                  val res = doExtract(i, i, v(2, sort), bits)
                   val lhs = doExtract(i, i, v(1), bits)
                   val rhs = doExtract(i, i, v(0), bits)
                   (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1)
                 })
               val res =
                 sort.eps(ex(ex(
-                  v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 3) &
-                  v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 3) &
+                  v(1) === shiftVars(subres(1).resTerm, 3) &
+                  v(0) === shiftVars(subres(2).resTerm, 3) &
                   resultDef)))
               VisitorRes(res,
                          IdealInt.ZERO,
@@ -807,7 +759,7 @@ object ModPreprocessor {
                         bit = !bit
                         if (len > 0) {
                           offset = offset + len
-                          doExtract(offset-1, offset-len, v(1), bits) ===
+                          doExtract(offset-1, offset-len, v(1, sort), bits) ===
                           (if (bit)
                              i(pow2MinusOne(len))
                            else
@@ -819,7 +771,7 @@ object ModPreprocessor {
                 
                 val res =
                   sort.eps(
-                    ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                    ex(v(0) === shiftVars(arg.resTerm, 2) &
                        resultDef))
 
                 VisitorRes(res, pattern, pow2MinusOne(bits))
@@ -837,15 +789,15 @@ object ModPreprocessor {
             case (false, false) => {
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
-                  val res = doExtract(i, i, v(2), bits)
+                  val res = doExtract(i, i, v(2, sort), bits)
                   val lhs = doExtract(i, i, v(1), bits)
                   val rhs = doExtract(i, i, v(0), bits)
                   (res >= lhs) & (res >= rhs) & (res <= lhs + rhs)
                 })
               val res =
                 sort.eps(ex(ex(
-                    v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 3) &
-                    v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 3) &
+                    v(1) === shiftVars(subres(1).resTerm, 3) &
+                    v(0) === shiftVars(subres(2).resTerm, 3) &
                     resultDef)))
     
               VisitorRes(res,
@@ -863,15 +815,15 @@ object ModPreprocessor {
           val sort = UnsignedBVSort(bits)
           val resultDef = 
             and(for (i <- 0 until bits) yield{
-              val res = doExtract(i, i, v(2), bits)
+              val res = doExtract(i, i, v(2, sort), bits)
               val lhs = doExtract(i, i, v(1), bits)
               val rhs = doExtract(i, i, v(0), bits)
               mod_cast(0, 1, lhs+rhs) === res
             })
           val res =
             sort.eps(ex(ex(
-                v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 3) &
-                v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 3) &
+                v(1) === shiftVars(subres(1).resTerm, 3) &
+                v(0) === shiftVars(subres(2).resTerm, 3) &
                 resultDef)))
           VisitorRes(res, IdealInt.ZERO, sort.upper)
         }
@@ -943,7 +895,7 @@ object ModPreprocessor {
           val resVar = v(3)
 
           val (num, numDef) =
-            VariableShiftVisitor(subres(1).resTerm, 0, 4) match {
+            shiftVars(subres(1).resTerm, 4) match {
               case SimpleTerm(rawNum) => (rawNum, i(true))
               case rawNum             => (v(0), v(0) === rawNum)
             }
@@ -951,7 +903,7 @@ object ModPreprocessor {
           val negNum = -num + modulus
 
           val (denom, denomDef) =
-            VariableShiftVisitor(subres(2).resTerm, 0, 4) match {
+            shiftVars(subres(2).resTerm, 4) match {
               case SimpleTerm(rawDenom) => (rawDenom, i(true))
               case rawDenom             => (v(1), v(1) === rawDenom)
             }
@@ -1052,13 +1004,13 @@ object ModPreprocessor {
           val modulus = sort.modulus
 
           val (num, numDef) =
-            VariableShiftVisitor(subres(1).resTerm, 0, 5) match {
+            shiftVars(subres(1).resTerm, 5) match {
               case SimpleTerm(rawNum) => (rawNum, i(true))
               case rawNum             => (v(0), v(0) === rawNum)
             }
 
           val (denom, denomDef) =
-            VariableShiftVisitor(subres(2).resTerm, 0, 5) match {
+            shiftVars(subres(2).resTerm, 5) match {
               case SimpleTerm(rawDenom) => (rawDenom, i(true))
               case rawDenom             => (v(1), v(1) === rawDenom)
             }
