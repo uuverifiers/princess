@@ -5,8 +5,8 @@ lazy val commonSettings = Seq(
     version := "unstable-SNAPSHOT",
     homepage := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses := Seq("GNU Lesser General Public License v2.1 or later" -> url("http://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html")),
-    scalaVersion := "2.13.1",
-    crossScalaVersions := Seq("2.13.1"),
+    scalaVersion := "2.13.3",
+    crossScalaVersions := Seq("2.13.3"),
     fork in run := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
@@ -55,7 +55,7 @@ lazy val root = (project in file(".")).
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
-      case "2.13.1" => "-opt:_"
+      case "2.13.3" => "-opt:_"
     }}).value,
 //
     libraryDependencies +=

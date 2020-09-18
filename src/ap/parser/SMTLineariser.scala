@@ -396,7 +396,9 @@ object SMTLineariser {
                                    Option[ITerm => IFormula]) = sort match {
     case Sort.Integer =>
       (SMTInteger, None)
-    case Sort.Nat | _ : Sort.Interval =>
+    case Sort.Nat =>
+      (SMTInteger, Some(_ >= 0))
+    case sort : Sort.Interval =>
       (SMTInteger, Some(sort.membershipConstraint _))
     case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)
@@ -415,6 +417,11 @@ object SMTLineariser {
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
+    case Sort.AnySort =>
+      (SMTInteger, None)
+    case s =>
+      throw new Exception (
+        "do not know how to translate " + s + " to an SMT-LIB type")
   }
 
   def sort2SMTString(sort : Sort) : String =
@@ -705,6 +712,9 @@ class SMTLineariser(benchmarkName : String,
         "_size"
       case Some(Rationals) if fun == Rationals.frac =>
         "/"
+      case Some(ModuloArithmetic) => fun match {
+        case ModuloArithmetic.int_cast => "bv2nat"
+      }
       case _ =>
         if (zeroExtendFuns contains fun)
           fun.name
@@ -795,8 +805,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
-    AbsyPrinter(bitvecFormula)
+//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    AbsyPrinter(typedFormula)
   }
   
   def printTerm(term : ITerm) =
@@ -1031,6 +1041,8 @@ class SMTLineariser(benchmarkName : String,
   /**
    * Translate arithmetic constraints back to bit-vectors.
    */
+
+/*
   private class BitVectorTranslator
                 extends CollectingVisitor[Unit, IExpression] {
 
@@ -1163,6 +1175,7 @@ class SMTLineariser(benchmarkName : String,
         t update subres
     }
   }
+ */
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1325,18 +1338,12 @@ class SMTLineariser(benchmarkName : String,
         // strip off the ADT encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
 
-      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+      case IExpression.EqLit(BooleanTerm(t), v) =>
         // strip off the integer encoding
-        TryAgain(t, ctxt)
-
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
+        if (v.isZero)
+          TryAgain(t, ctxt)
+        else
+          TryAgain(!IExpression.eqZero(t), ctxt)
 
       // ADT expression
       case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),

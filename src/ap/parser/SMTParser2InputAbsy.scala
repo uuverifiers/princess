@@ -436,18 +436,18 @@ object SMTParser2InputAbsy {
           if (index < subst.size && subst(index).isInstanceOf[ITerm]) =>
           ShortCutResult(subst(index))
 
-        case IVariable(index)
+        case t@IVariable(index)
           if (index >= subst.size) =>
-          ShortCutResult(IVariable(index + shift))
+          ShortCutResult(t shiftedBy shift)
 
         case IIntFormula(IIntRelation.EqZero, IVariable(index))
           if (index < subst.size && subst(index).isInstanceOf[IFormula]) =>
           ShortCutResult(subst(index))
           
-        case IQuantified(_, _) | IEpsilon(_) => {
+        case t : IVariableBinder => {
           val (subst, shift) = substShift
           val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
-          UniSubArgs((IVariable(0) :: newSubst, shift))
+          UniSubArgs((IVariable(0, t.sort) :: newSubst, shift))
         }
         case _ => KeepArg
       }
@@ -2777,7 +2777,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         (c, t)
       
       case Environment.Variable(i, BoundVariable(t)) =>
-        (v(i), t)
+        (v(i, t.toSort), t)
         
       case Environment.Variable(i, SubstExpression(e, t)) =>
         (e, t)
@@ -3172,7 +3172,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         IAtom(pred, List())
       }
       case Environment.Constant(c, _, _) => c
-      case Environment.Variable(i, BoundVariable(t)) => v(i)
+      case Environment.Variable(i, BoundVariable(t)) => v(i, t.toSort)
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
           "Unexpected symbol in a trigger: " +
@@ -3212,7 +3212,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             case Environment.Variable(i, BoundVariable(t)) => {
               checkArgNumSExpr(printer print funExpr.symbol_,
                                0, expr.listsexpr_.tail)
-              v(i)
+              v(i, t.toSort)
             }
             case _ =>
               throw new Parser2InputAbsy.TranslationException(
@@ -3454,16 +3454,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def addAxiomEquation(f : IFunction,
                                body : (IExpression, SMTType)) : Unit = {
-    val argNum = f.arity
+    val (argSorts, resSort) = MonoSortedIFunction.functionType(f)
+    val argNum = argSorts.size
 
-    val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
+    val argVars = for ((s, n) <- argSorts.zipWithIndex) yield v(argNum -n-1, s)
+    val resVar  = v(argNum, resSort)
+    val lhs     = IFunApp(f, argVars)
     val axiom =
       if (argNum == 0)
         lhs === asTerm(body)
       else
-        quan(Array.fill(argNum + 1){Quantifier.ALL}, 
-          ITrigger(List(lhs),
-            (lhs === v(argNum)) ==> (asTerm(body) === v(argNum))))
+        all(argSorts.reverse ++ List(resSort),
+            ITrigger(List(lhs),
+                     (lhs === resVar) ==> (asTerm(body) === resVar)))
 
     addAxiom(axiom)
   }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,8 +26,7 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.theories.{Theory, TheoryRegistry}
-
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
+import ap.util.Debug
 
 /**
  * Preprocess an InputAbsy formula in order to make it suitable for
@@ -58,8 +57,12 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
+    checkSorts("preproc initial", List(f))
+
     // turn the formula into a list of its named parts
     val fors1a = PartExtractor(f)
+
+    checkSorts("preproc step 1a", fors1a)
 
     // the other steps can be skipped for simple cases
     if ((functionEncoder.axioms match {
@@ -81,10 +84,14 @@ object Preprocessing {
       (newFors, sig)
     }
 
+    checkSorts("preproc step 1b", fors1b)
+
     // partial evaluation, expand equivalences
     val fors2a =
       for (f <- fors1b)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+
+    checkSorts("preproc step 2a", fors2a)
 
     // mini/maxi-scoping of existential quantifiers
     val fors2b = Param.CLAUSIFIER(settings) match {
@@ -94,203 +101,50 @@ object Preprocessing {
         for (f <- fors2a) yield ExMaxiscoper(f)
     }
 
+    checkSorts("preproc step 2b", fors2b)
+
     // compress chains of implications
 //    val fors2b = for (INamedPart(n, f) <- fors2a)
 //                 yield INamedPart(n, ImplicationCompressor(f))
     
     ////////////////////////////////////////////////////////////////////////////
-    // Handling of triggers
+    // Handling of triggers and encoding of functions
 
-    var order3 = signature2.order
-    def encodeFunctions(f : IFormula) : IFormula = {
-      val (g, o) = functionEncoder(f, order3)
-      order3 = o
-      g
-    }
-
-    val theoryTriggerFunctions =
-      (for (t <- signature2.theories.iterator;
-            f <- t.triggerRelevantFunctions.iterator) yield f).toSet
-    // all uninterpreted functions occurring in the problem
-    val problemFunctions =
-      for (f <- FunctionCollector(fors2b);
-           if (!(TheoryRegistry lookupSymbol f).isDefined))
-      yield f
-
-    lazy val allTriggeredFunctions = Param.TRIGGER_GENERATION(settings) match {
-      case Param.TriggerGenerationOptions.None =>
-        theoryTriggerFunctions
-      case Param.TriggerGenerationOptions.All =>
-        theoryTriggerFunctions ++ problemFunctions
-      case _ =>
-        theoryTriggerFunctions ++
-        (for (g <- problemFunctions.iterator;
-              if (!g.partial && !g.relational)) yield g)
-    }
-    lazy val stdTriggerGenerator = {
-      val gen = new TriggerGenerator (allTriggeredFunctions,
-                                      Param.TRIGGER_STRATEGY(settings))
-      for (f <- fors2b)
-        gen setup f
-      gen
-    }
-
-    val fors3 = Param.TRIGGER_GENERATION(settings) match {
-      case Param.TriggerGenerationOptions.Complete |
-           Param.TriggerGenerationOptions.CompleteFrugal => {
-
-        val disjuncts =
-          (for (INamedPart(n, f) <- fors2b.iterator;
-                f2 <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or).iterator)
-           yield (INamedPart(n, f2))).toArray
-  
-        val coll = new TotalFunctionCollector(functionEncoder.predTranslation)
-  
-        val impliedTotalFunctions =
-          for (d@INamedPart(n, f) <- disjuncts) yield
-            if (f.isInstanceOf[IQuantified])
-              // translation without triggers
-              (d, coll(encodeFunctions(f)) & problemFunctions)
-            else
-              (d, Set[IFunction]())
-  
-        val functionOccurrences = new MHashMap[IFunction, Int]
-        for ((_, s) <- impliedTotalFunctions.iterator; f <- s.iterator)
-          functionOccurrences.put(f, functionOccurrences.getOrElse(f, 0) + 1)
-
-        def updateFunctionOccurrences(oldFuns : Set[IFunction],
-                                      newDisjunct : IFormula) = {
-          for (f <- oldFuns)
-            functionOccurrences.put(f, functionOccurrences(f) - 1)
-          for (f <- coll(newDisjunct))
-            if (problemFunctions contains f)
-              functionOccurrences.put(f, functionOccurrences(f) + 1)
-        }
-
-        // add the functions for which explicit totality axioms will be created
-        if (Param.GENERATE_TOTALITY_AXIOMS(settings))
-          for (f <- problemFunctions)
-            if (!f.partial)
-              functionOccurrences.put(f, functionOccurrences.getOrElse(f, 0) + 1)
-
-        val totalFunctions =
-          theoryTriggerFunctions ++
-          (for (f <- problemFunctions.iterator;
-                if ((functionOccurrences get f) match {
-                      case Some(n) => n > 0
-                      case None => false
-                    }))
-           yield f)
-
-        val newDisjuncts = Param.TRIGGER_GENERATION(settings) match {
-          case Param.TriggerGenerationOptions.Complete => {
-            val triggeredNonTotal = allTriggeredFunctions -- totalFunctions
-
-            for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
-              val withTriggers =
-                if (!disjunct.isInstanceOf[IQuantified] ||
-                    (!ContainsSymbol(disjunct, (f:IExpression) => f match {
-                        case IFunApp(f, _) => triggeredNonTotal contains f
-                        case _ => false
-                      }) &&
-                     !(funs exists { f => functionOccurrences(f) == 1 }))) {
-                  // can generate triggers for all functions that were identified
-                  // as total
-                  stdTriggerGenerator(disjunct)
-                } else {
-                  // add a version of this formula without triggers
-                  stdTriggerGenerator(disjunct) | disjunct
-                }
-
-/*
-println(functionOccurrences.toList)
-println((INamedPart(n, disjunct), funs))
-println(withTriggers)
-println
-*/
-
-              val encoded = encodeFunctions(withTriggers)
-              updateFunctionOccurrences(funs, encoded)
-
-              INamedPart(n, encoded)
-            }
-          }
-
-          case Param.TriggerGenerationOptions.CompleteFrugal => {
-            // only use total functions in triggers
-            val triggerGenerator =
-              new TriggerGenerator (totalFunctions,
-                                    Param.TRIGGER_STRATEGY(settings))
-            for (f <- fors2b)
-              triggerGenerator setup f
-
-            for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
-              val withTriggers =
-                if (!disjunct.isInstanceOf[IQuantified] ||
-                    !(funs exists { f => functionOccurrences(f) == 1 })) {
-                  // can generate triggers for all functions that were identified
-                  // as total
-                  triggerGenerator(disjunct)
-                } else {
-                  // cannot introduce triggers on top-level, since this disjunct
-                  // is needed to demonstrate totality of some function
-                  triggerGenerator(EmptyTriggerInjector(disjunct))
-                }
-
-              val encoded = encodeFunctions(withTriggers)
-              updateFunctionOccurrences(funs, encoded)
-
-/*
-println(functionOccurrences.toList)
-println((INamedPart(n, disjunct), funs))
-println(withTriggers)
-println(encoded)
-println
-*/
-
-              INamedPart(n, encoded)
-            }
-          }
-        }
-
-        PartExtractor(IExpression.or(newDisjuncts))
+    val (fors3, order3) = {
+      val funEncArgs =
+        FunctionPreproc.FunctionPreprocArgs(fors2b, signature2.order,
+                                            settings, functionEncoder,
+                                            signature2.theories)
+      val functionEncoding = Param.TRIGGER_GENERATION(settings) match {
+        case Param.TriggerGenerationOptions.Complete =>
+          new CompleteFunctionPreproc(funEncArgs)
+        case Param.TriggerGenerationOptions.CompleteFrugal =>
+          new CompleteFrugalFunctionPreproc(funEncArgs)
+        case _ =>
+          new StdFunctionPreproc(funEncArgs)
       }
 
-      case _ => {
-        val withTriggers = for (f <- fors2b) yield stdTriggerGenerator(f)
-
-        for (INamedPart(n, f) <- withTriggers)
-        yield INamedPart(n, encodeFunctions(f))
-      }
+      (functionEncoding.newFors, functionEncoding.newOrder)
     }
+
+    checkSorts("preproc step 3", fors3)
 
     ////////////////////////////////////////////////////////////////////////////
     // Add the function axioms
 
     val fors4 = functionEncoder.axioms match {
       case IBoolLit(true) => fors3
-      case x => {
-        var noNamePart : INamedPart = null
-        var realNamedParts : List[INamedPart] = List()
-        
-        for (p @ INamedPart(n, _) <- fors3)
-          if (n == PartName.NO_NAME)
-            noNamePart = p
-          else
-            realNamedParts = p :: realNamedParts
-        
-        val newNoNamePart = noNamePart match {
-          case null => INamedPart(PartName.NO_NAME, !x)
-          case INamedPart(_, f) => INamedPart(PartName.NO_NAME, f | !x)
-        }
-        newNoNamePart :: realNamedParts
-      }
+      case x              => PartExtractor.addPart(x, PartName.NO_NAME, fors3)
     }
+
+    checkSorts("preproc step 4", fors4)
 
     // do some direct simplifications
     val fors5 = 
       for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
-    
+
+    checkSorts("preproc step 5", fors5)
+
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None | Param.ClausifierOptions.ExMaxiscope =>
@@ -298,8 +152,16 @@ println
       case Param.ClausifierOptions.Simple =>
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
-    
-    (fors6, interpolantSpecs, signature2 updateOrder order3)
+
+    checkSorts("preproc final", fors6)
+
+    (fors6.toList, interpolantSpecs, signature2 updateOrder order3)
+  }
+
+  private def checkSorts(stage : String, fors : Seq[IFormula]) : Unit = {
+    if (Debug.enabledAssertions.value(Debug.AT_METHOD_INTERNAL,
+                                      Debug.AC_VAR_TYPES))
+      VariableSortChecker(stage, fors)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -334,97 +196,4 @@ println
     }
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
-  
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Visitor that determines functions whose totality is implied by a
- * quantified formula.
- */
-private class TotalFunctionCollector(
-        predTranslation : scala.collection.Map[IExpression.Predicate, IFunction])
-              extends ContextAwareVisitor[Unit, Unit] {
-
-  private val collectedFunctions = new MHashSet[IFunction]
-
-  def apply(f : IFormula) : Set[IFunction] = {
-    this.visitWithoutResult(f, Context(()))
-    val res = collectedFunctions.toSet
-    collectedFunctions.clear
-    res
-  }
-
-  override def preVisit(t : IExpression,
-                        ctxt : Context[Unit]) : PreVisitResult = t match {
-    case _ : IQuantified | _ : INot =>
-      super.preVisit(t, ctxt)
-    case IBinFormula(IBinJunctor.And, _, _)
-      if (ctxt.polarity < 0) =>
-        super.preVisit(t, ctxt)
-    case IBinFormula(IBinJunctor.Or, _, _)
-      if (ctxt.polarity > 0) =>
-        super.preVisit(t, ctxt)
-
-    case IAtom(p, args)
-      if (ctxt.polarity < 0) => (predTranslation get p) match {
-        case Some(f) => {
-          // the function arguments have to be existentially quantified
-
-          val exIndexes =
-            (for (IVariable(ind) <- args.init.iterator;
-                  if (ctxt.binders(ind) == Context.EX))
-             yield ind).toSet
-          if (exIndexes.size == args.size - 1)
-            collectedFunctions += f
-
-          ShortCutResult(())
-        }
-        case None =>
-          ShortCutResult(())
-      }
-    case _ =>
-      ShortCutResult(())
-  }
-
-  def postVisit(t : IExpression, ctxt : Context[Unit],
-                subres : Seq[Unit]) : Unit = ()
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Visitor to add an empty trigger set for every top-level existential
- * quantifier. This assumes that the given formula is in NNF.
- */
-private object EmptyTriggerInjector
-        extends CollectingVisitor[Boolean, IExpression] {
-
-  def apply(f : IFormula) : IFormula =
-    this.visit(f, false).asInstanceOf[IFormula]
-
-  override def preVisit(t : IExpression,
-                        underEx : Boolean) : PreVisitResult = t match {
-    case IQuantified(Quantifier.EX, _) =>
-      UniSubArgs(true)
-    case _ : IQuantified |
-         IBinFormula(IBinJunctor.Or, _, _) |
-         _ : ITrigger =>
-      UniSubArgs(false)
-    case t : IFormula =>
-      ShortCutResult(if (underEx) ITrigger(List(), t) else t)
-  }
-
-  def postVisit(t : IExpression, underEx : Boolean,
-                subres : Seq[IExpression]) : IExpression = t match {
-    case _ : ITrigger | IQuantified(Quantifier.EX, _) =>
-      t update subres
-    case t : IFormula if (underEx) =>
-      ITrigger(List(), t update subres)
-    case t =>
-      t update subres
-  }
-
 }

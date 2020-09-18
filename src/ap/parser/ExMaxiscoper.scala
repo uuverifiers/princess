@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,12 +38,17 @@ object ExMaxiscoper {
     Rewriter.rewrite(Transform2NNF(f), rewriteVal).asInstanceOf[IFormula]
 
   private def rewriteFun(t : IExpression) : IExpression = t match {
-    case IBinFormula(Or, IQuantified(EX, f1), IQuantified(EX, f2)) =>
-      IQuantified(EX, IBinFormula(Or, f1, f2))
-    case IBinFormula(j, IQuantified(EX, f1), f2) =>
-      IQuantified(EX, IBinFormula(j, f1, VariableShiftVisitor(f2, 0, 1)))
-    case IBinFormula(j, f2, IQuantified(EX, f1)) =>
-      IQuantified(EX, IBinFormula(j, VariableShiftVisitor(f2, 0, 1), f1))
+    case IBinFormula(Or,
+                     ISortedQuantified(EX, sort1, f1),
+                     ISortedQuantified(EX, sort2, f2))
+        if sort1 == sort2 =>
+      ISortedQuantified(EX, sort1, IBinFormula(Or, f1, f2))
+    case IBinFormula(j, ISortedQuantified(EX, sort, f1), f2) =>
+      ISortedQuantified(EX, sort,
+                        IBinFormula(j, f1, VariableShiftVisitor(f2, 0, 1)))
+    case IBinFormula(j, f2, ISortedQuantified(EX, sort, f1)) =>
+      ISortedQuantified(EX, sort,
+                        IBinFormula(j, VariableShiftVisitor(f2, 0, 1), f1))
     case t => t
   }
 

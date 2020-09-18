@@ -336,6 +336,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   //////////////////////////////////////////////////////////////////////////////
   
   private def genRRAxioms = {
+    // TODO: move those axioms to a proper theory; make sure that all
+    // quantifiers have the right sorts
+
     if (tptpType == TPTPType.TFF && (containsRat || containsReal))
       saturateRR
 
@@ -405,7 +408,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     for (i <- 0 until allConsts.size;
          j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
   }
-  
+
   private def generalRatAxioms(prefix : String, t : Type,
                                constants : Map[IdealRat, ConstantTerm]) = {
     // instances of axioms for the defined literals
@@ -686,7 +689,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         var res =
           if (env.declaredVariableNum > 0) possiblyEmptyTrigger(f) else f
         while (env.declaredVariableNum > 0) {
-          res = all(res)
+          res = IType.toSort.all(res)
           env.popVar
         }
         (false, INamedPart(env lookupPartName name, !res))
@@ -1187,7 +1190,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           
         (env lookupSym functor) match {
           case Environment.Constant(c, _, t) => (i(c), t)
-          case Environment.Variable(ind, t) => (v(ind), t)
+          case Environment.Variable(ind, t) => (v(ind, t.toSort), t)
           case _ => throw new SyntaxError("Unexpected symbol: " + functor)
         }
         
@@ -1207,9 +1210,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
        (env lookupSym varStr) match {
          case Environment.Variable(index, t)
            if (tptpType == TPTPType.CNF) =>
-             (v(env.declaredVariableNum - index - 1), t)
+             (v(env.declaredVariableNum - index - 1, t.toSort), t)
          case Environment.Variable(index, t) =>
-           (v(index), t)
+           (v(index, t.toSort), t)
          case _ =>
            throw new SyntaxError("Unexpected symbol: " + varStr)
        }
@@ -1600,7 +1603,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case Environment.Variable(ind, t) => {
           if (!args.isEmpty)
             throw new SyntaxError("Variable does not accept arguments: " + functor)
-          (IVariable(ind), t)
+          (IVariable(ind, t.toSort), t)
         }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + fun)

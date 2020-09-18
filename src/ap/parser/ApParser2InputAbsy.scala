@@ -1239,7 +1239,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         if (!args.isEmpty)
             throw new Parser2InputAbsy.TranslationException(
                                "Variable " + name + " does not have arguments")
-        (v(i), sort)
+        (v(i, sort), sort)
       }
     }
 

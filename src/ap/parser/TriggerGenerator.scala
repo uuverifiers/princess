@@ -254,10 +254,10 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
 
           }
           
-        case IVariable(index) => {
+        case ISortedVariable(index, sort) => {
           val effectiveIndex = index - ctxt.binders.size
           if (effectiveIndex >= 0)
-            (Some(v(effectiveIndex)), ListSet.empty, Set(effectiveIndex))
+            (Some(v(effectiveIndex, sort)), ListSet.empty, Set(effectiveIndex))
           else
             (None, ListSet.empty, Set())
         }

@@ -62,6 +62,10 @@ object TypeTheory extends Theory {
     ReduceWithConjunction(Conjunction.TRUE, order)(res)
   }
 
+  override def postprocess(f : Conjunction,
+                           order : TermOrder) : Conjunction =
+    filterTypeConstraints(f)
+
   /**
    * Add constraints about implicitly existentially quantified constants.
    */
