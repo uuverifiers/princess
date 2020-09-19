@@ -80,8 +80,10 @@ object ModPostprocessor
         case (s ::: (sSort : ModSort), t ::: (tSort : ModSort))
             if sSort != tSort =>
           cast2Int(s) === cast2Int(t)
+          // TODO: insert this cast whenever t is a non-bitvector term?
         case (s ::: ModSort(_, _), t ::: Numeric(_)) =>
           cast2Int(s) === t
+          // TODO: insert this cast whenever t is a non-bitvector term?
         case (s ::: Numeric(_), t ::: ModSort(_, _)) =>
           s === cast2Int(t)
         case _ =>
