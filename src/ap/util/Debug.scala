@@ -116,6 +116,12 @@ object Debug {
   def withoutAssertions[A](comp : => A) : A =
     enabledAssertions.withValue(everythingDisabled) { comp }
   
+  def whenAssertionsOn[A](ac : ASSERTION_CATEGORY)(comp : => A) : Unit = {
+    if (enabledAssertions.value(AT_METHOD_INTERNAL, ac))
+      comp
+    ()
+  }
+
   def withDisabledAssertions[A](disabledAssertions : Set[ASSERTION_CATEGORY])
                                (comp : => A) : A = {
     val oldEnabled = enabledAssertions.value

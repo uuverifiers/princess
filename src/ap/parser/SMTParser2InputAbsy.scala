@@ -2956,8 +2956,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
 
         if (conjuncts.size == emptinessConds.size &&
-            (SymbolCollector variables and(emptinessConds)) ==
-              ((0 until tracks) map (v(_))).toSet) {
+            (for (IVariable(ind) <-
+                    SymbolCollector variables and(emptinessConds))
+             yield ind) == (0 until tracks).toSet) {
 
           accepting += funs2Index(f)
 
