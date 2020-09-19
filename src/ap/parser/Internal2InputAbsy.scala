@@ -204,8 +204,10 @@ object VariableSortInferenceVisitor
         case ConflictSort =>
           // nothing
         case oldSort if oldSort != effectiveSort => {
-          Console.err.println("Warning: type clash during inference: " +
-                                oldSort + " vs " + t)
+          Debug.whenAssertionsOn(AC) {
+            Console.err.println("Warning: type clash during inference: " +
+                                  oldSort + " vs " + t)
+          }
           variableSorts(pos) = ConflictSort
         }
         case _ =>
