@@ -44,9 +44,6 @@ object Sort {
   object Integer extends Sort {
     val name : String = "int"
 
-    def membershipConstraint(t : ITerm) : IFormula =
-      IExpression.i(true)
-
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
       Conjunction.TRUE
 
@@ -249,6 +246,14 @@ object Sort {
   }
 
   /**
+   * A placeholder sort that is used in places where the sort has not been
+   * inferred yet.
+   */
+  val AnySort = new ProxySort(Sort.Integer) {
+    override val name = "any"
+  }
+
+  /**
    * Extractor to recognise sorts that represent the Booleans.
    */
   object AnyBool {
@@ -276,6 +281,10 @@ object Sort {
       c.sort
     case IFunApp(f : SortedIFunction, args) =>
       f iResultSort args
+    case ISortedVariable(_, sort) =>
+      sort
+    case ISortedEpsilon(sort, _) =>
+      sort
     case ITermITE(_, left, right) => {
       val lSort = sortOf(left)
       val rSort = sortOf(right)
@@ -318,11 +327,6 @@ trait Sort {
   /**
    * Constraints defining the range of the sort.
    */
-  def membershipConstraint(t : ITerm) : IFormula
-
-  /**
-   * Constraints defining the range of the sort.
-   */
   def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula
 
   /**
@@ -349,6 +353,12 @@ trait Sort {
    */
   def newConstant(name : String) : ConstantTerm =
     new SortedConstantTerm(name, this)
+
+  /**
+   * The variable with given de Bruijn index and <code>this</code> sort.
+   */
+  def boundVariable(index : Int) : IVariable =
+    ISortedVariable(index, this)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -413,16 +423,14 @@ trait Sort {
    * together with a guard representing this sort.
    */
   def ex(f : IFormula) =
-    IQuantified(IExpression.Quantifier.EX,
-                IExpression.guardEx(f, membershipConstraint(IVariable(0))))
+    ISortedQuantified(IExpression.Quantifier.EX, this, f)
   
   /**
    * Add an existential quantifier for the variable with de Bruijn index 0,
    * together with a guard representing this sort.
    */
   def all(f : IFormula) =
-    IQuantified(IExpression.Quantifier.ALL,
-                IExpression.guardAll(f, membershipConstraint(IVariable(0))))
+    ISortedQuantified(IExpression.Quantifier.ALL, this, f)
 
   /**
    * Higher-order syntax for existential quantifiers. This makes it possible
@@ -554,7 +562,7 @@ trait Sort {
    * Generate an epsilon-expression.
    */
   def eps(f : IFormula) =
-    IEpsilon(IExpression.guardEx(f, membershipConstraint(IExpression.v(0))))
+    ISortedEpsilon(this, f)
 
   /**
    * Higher-order syntax for epsilon-expressions. This makes it possible
@@ -566,9 +574,9 @@ trait Sort {
     // bound variable (just applying <code>f</code> to a bound variable
     // would not work in case of nested binders)
     val x = newConstant("x")
-    val fWithShiftedVars =
-      VariableShiftVisitor(guardEx(f(x), membershipConstraint(x)), 0, 1)
-    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+    val fWithShiftedVars = VariableShiftVisitor(f(x), 0, 1)
+    ISortedEpsilon(this,
+                   ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0, this))))
   }
 
 }
@@ -581,9 +589,6 @@ trait Sort {
  */
 class ProxySort(underlying : Sort) extends Sort {
   val name : String = underlying.name
-
-  def membershipConstraint(t : ITerm) : IFormula =
-    underlying.membershipConstraint(t)
 
   def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
     underlying.membershipConstraint(t)
@@ -662,13 +667,13 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
         if (newArgs eq args) nt else IAtom(p, newArgs)
       }
 
-      case Eq(NonNumericTerm(s, sSort), d@IIntLit(value)) =>
+      case Eq(NonNumericTerm(s, sSort), IIntLit(value)) =>
         (sSort asTerm value) match {
           case Some(sd) => s === sd
           case None => nt
         }
 
-      case Eq(d@IIntLit(value), NonNumericTerm(s, sSort)) =>
+      case Eq(IIntLit(value), NonNumericTerm(s, sSort)) =>
         (sSort asTerm value) match {
           case Some(sd) => s === sd
           case None => nt

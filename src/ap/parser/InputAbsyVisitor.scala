@@ -143,9 +143,11 @@ abstract class CollectingVisitor[A, R] {
                   for (_ <- PlainRange(expr.length)) argsToVisit push subArg
                 case SubArgs(subArgs) => {
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertInt(CollectingVisitor.AC, subArgs.length == expr.length)
+                  Debug.assertInt(CollectingVisitor.AC,
+                                 subArgs.length == expr.length)
                   //-END-ASSERTION-/////////////////////////////////////////////
-                  for (i <- (expr.length - 1) to 0 by -1) argsToVisit push subArgs(i)
+                  for (i <- (expr.length - 1) to 0 by -1)
+                    argsToVisit push subArgs(i)
                 }
               }
           
@@ -203,9 +205,11 @@ abstract class CollectingVisitor[A, R] {
                   for (_ <- PlainRange(expr.length)) argsToVisit push subArg
                 case SubArgs(subArgs) => {
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertInt(CollectingVisitor.AC, subArgs.length == expr.length)
+                  Debug.assertInt(CollectingVisitor.AC,
+                                  subArgs.length == expr.length)
                   //-END-ASSERTION-/////////////////////////////////////////////
-                  for (i <- (expr.length - 1) to 0 by -1) argsToVisit push subArgs(i)
+                  for (i <- (expr.length - 1) to 0 by -1)
+                    argsToVisit push subArgs(i)
                 }
               }
           
@@ -226,6 +230,10 @@ abstract class CollectingVisitor[A, R] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Visitor to shift all variables with <code>index >= offset</code> by
+ * <code>shift</code>.
+ */
 object VariableShiftVisitor {
   private val AC = Debug.AC_INPUT_ABSY
   
@@ -241,22 +249,26 @@ object VariableShiftVisitor {
     apply(t.asInstanceOf[IExpression], offset, shift).asInstanceOf[ITerm]
 }
 
+/**
+ * Visitor to shift all variables with <code>index >= offset</code> by
+ * <code>shift</code>.
+ */
 class VariableShiftVisitor(offset : Int, shift : Int)
       extends CollectingVisitor[Int, IExpression] {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(VariableShiftVisitor.AC, offset >= 0 && offset + shift >= 0)
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////     
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def preVisit(t : IExpression, quantifierNum : Int) : PreVisitResult =
     t match {
-      case _ : IQuantified | _ : IEpsilon => UniSubArgs(quantifierNum + 1)
+      case _ : IVariableBinder => UniSubArgs(quantifierNum + 1)
       case _ => KeepArg
     }
   def postVisit(t : IExpression, quantifierNum : Int,
                 subres : Seq[IExpression]) : IExpression =
     t match {
-      case IVariable(i) =>
-        if (i < offset + quantifierNum) t else IVariable(i + shift)
+      case t : IVariable =>
+        if (t.index < offset + quantifierNum) t else (t shiftedBy shift)
       case _ =>
         t update subres
     }
@@ -283,7 +295,7 @@ object VariablePermVisitor extends CollectingVisitor[IVarShift, IExpression] {
 
   override def preVisit(t : IExpression, shifts : IVarShift) : PreVisitResult =
     t match {
-      case _ : IQuantified | _ : IEpsilon => UniSubArgs(shifts push 0)
+      case _ : IVariableBinder => UniSubArgs(shifts push 0)
       case _ => KeepArg
     }
 
@@ -327,7 +339,7 @@ abstract class IVarShift {
   
   def apply(v : IVariable) : IVariable = {
     val newIndex = apply(v.index)
-    if (newIndex == v.index) v else IVariable(newIndex)
+    if (newIndex == v.index) v else ISortedVariable(newIndex, v.sort)
   }
 }
 
@@ -483,7 +495,7 @@ object ConstantSubstVisitor
         case Some(replacement) => VariableShiftVisitor(replacement, 0, subst._2)
         case None => t
       })
-      case _ : IQuantified | _ : IEpsilon =>
+      case _ : IVariableBinder =>
         UniSubArgs((subst._1, subst._2 + 1))
       case _ => KeepArg
     }
@@ -517,7 +529,7 @@ object SimplifyingConstantSubstVisitor
         case Some(replacement) => VariableShiftVisitor(replacement, 0, subst._2)
         case None => t
       })
-      case _ : IQuantified | _ : IEpsilon =>
+      case _ : IVariableBinder =>
         UniSubArgs((subst._1, subst._2 + 1))
       case _ => KeepArg
     }
@@ -549,7 +561,7 @@ object PredicateSubstVisitor
         case Some(replacement) => ShortCutResult(VariableShiftVisitor(replacement, 0, subst._2))
         case None => KeepArg
       }
-      case _ : IQuantified | _ : IEpsilon =>
+      case _ : IVariableBinder =>
         UniSubArgs((subst._1, subst._2 + 1))
       case _ => KeepArg
     }
@@ -594,13 +606,10 @@ class UniformSubstVisitor(subst : CMap[Predicate, IFormula])
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/**
- * Substitute variables in an expression with arbitrary terms
- */
-object VariableSubstVisitor
-       extends CollectingVisitor[(List[ITerm], Int), IExpression] {
+abstract class AbstractVariableSubstVisitor
+               extends CollectingVisitor[(List[ITerm], Int), IExpression] {
   def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =
-    VariableSubstVisitor.visit(t, substShift)
+    visit(t, substShift)
   def apply(t : ITerm, substShift : (List[ITerm], Int)) : ITerm =
     apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[ITerm]
   def apply(t : IFormula, substShift : (List[ITerm], Int)) : IFormula =
@@ -609,59 +618,37 @@ object VariableSubstVisitor
   override def preVisit(t : IExpression,
                         substShift : (List[ITerm], Int)) : PreVisitResult =
     t match {
-      case IVariable(index) => {
+      case t : IVariable => {
         val (subst, shift) = substShift
-        ShortCutResult(if (index >= subst.size)
-                         IVariable(index + shift)
+        ShortCutResult(if (t.index >= subst.size)
+                         t shiftedBy shift
                        else
-                         subst(index))
+                         subst(t.index))
       }
-      case _ : IQuantified | _ : IEpsilon => {
+      case t : IVariableBinder => {
         val (subst, shift) = substShift
         val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
-        UniSubArgs((IVariable(0) :: newSubst, shift))
+        UniSubArgs((ISortedVariable(0, t.sort) :: newSubst, shift))
       }
       case _ => KeepArg
     }
-
-  def postVisit(t : IExpression,
-                substShift : (List[ITerm], Int),
-                subres : Seq[IExpression]) : IExpression = t update subres
 }
 
-////////////////////////////////////////////////////////////////////////////////
+/**
+ * Substitute variables in an expression with arbitrary terms
+ */
+object VariableSubstVisitor extends AbstractVariableSubstVisitor {
+  def postVisit(t : IExpression,
+                substShift : (List[ITerm], Int),
+                subres : Seq[IExpression]) : IExpression =
+    t update subres
+}
 
 /**
  * Substitute variables in an expression with arbitrary terms,
  * and immediately simplify the resulting expression if possible.
  */
-object SimplifyingVariableSubstVisitor
-       extends CollectingVisitor[(List[ITerm], Int), IExpression] {
-  def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =
-    SimplifyingVariableSubstVisitor.visit(t, substShift)
-  def apply(t : ITerm, substShift : (List[ITerm], Int)) : ITerm =
-    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[ITerm]
-  def apply(t : IFormula, substShift : (List[ITerm], Int)) : IFormula =
-    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[IFormula]
-
-  override def preVisit(t : IExpression,
-                        substShift : (List[ITerm], Int)) : PreVisitResult =
-    t match {
-      case IVariable(index) => {
-        val (subst, shift) = substShift
-        ShortCutResult(if (index >= subst.size)
-                         IVariable(index + shift)
-                       else
-                         subst(index))
-      }
-      case _ : IQuantified | _ : IEpsilon => {
-        val (subst, shift) = substShift
-        val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
-        UniSubArgs((IVariable(0) :: newSubst, shift))
-      }
-      case _ => KeepArg
-    }
-
+object SimplifyingVariableSubstVisitor extends AbstractVariableSubstVisitor {
   def postVisit(t : IExpression,
                 substShift : (List[ITerm], Int),
                 subres : Seq[IExpression]) : IExpression =
@@ -670,6 +657,10 @@ object SimplifyingVariableSubstVisitor
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Class for collecting the variables, constants, or nullary predicates
+ * occurring in an expression.
+ */
 object SymbolCollector {
   def variables(t : IExpression) : scala.collection.Set[IVariable] = {
     val variables = new MHashSet[IVariable]
@@ -714,6 +705,10 @@ object SymbolCollector {
   }
 }
 
+/**
+ * Class for collecting the variables, constants, or nullary predicates
+ * occurring in an expression.
+ */
 class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
                       constants : scala.collection.mutable.Set[ConstantTerm],
                       nullaryPredicates : scala.collection.mutable.Set[Predicate])
@@ -721,14 +716,14 @@ class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
 
   override def preVisit(t : IExpression, boundVars : Int) : PreVisitResult =
     t match {
-      case _ : IQuantified | _ : IEpsilon => UniSubArgs(boundVars + 1)
+      case _ : IVariableBinder => UniSubArgs(boundVars + 1)
       case _ => KeepArg
     }
 
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
     t match {
-      case IVariable(i) if (variables != null && i >= boundVars) =>
-        variables += IVariable(i - boundVars)
+      case t@IVariable(i) if (variables != null && i >= boundVars) =>
+        variables += t shiftedBy (-boundVars)
       case IConstant(c) if (constants != null) =>
         constants += c
       case IAtom(p, Seq()) if (nullaryPredicates != null) =>
@@ -739,6 +734,9 @@ class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Class for collecting the functions occurring in an expression.
+ */
 object FunctionCollector {
   def apply(t : IExpression) : scala.collection.Set[IFunction] = {
     val functions = new MHashSet[IFunction]
@@ -755,6 +753,9 @@ object FunctionCollector {
   }
 }
 
+/**
+ * Class for collecting the functions occurring in an expression.
+ */
 class FunctionCollector(functions : scala.collection.mutable.Set[IFunction])
       extends CollectingVisitor[Int, Unit] {
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
@@ -766,15 +767,23 @@ class FunctionCollector(functions : scala.collection.mutable.Set[IFunction])
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Class for collecting the indexes of free variables occurring in an
+ * expression.
+ */
 object VariableIndexCollector
        extends CollectingVisitor[(Int, Int => Unit), Unit] {
 
+  /**
+   * Traverse the given expression, and invoke <code>f(n)</code> whenever
+   * a variable with index <code>n</code> is encountered.
+   */
   def apply(t : IExpression, f : Int => Unit) : Unit =
     this.visitWithoutResult(t, (0, f))
 
   override def preVisit(t : IExpression,
                         ctxt : (Int, Int => Unit)) : PreVisitResult = t match {
-    case _ : IQuantified | _ : IEpsilon => UniSubArgs((ctxt._1 + 1, ctxt._2))
+    case _ : IVariableBinder => UniSubArgs((ctxt._1 + 1, ctxt._2))
     case _ => KeepArg
   }
 
@@ -797,14 +806,29 @@ object VariableIndexCollector
  * Check whether an expression contains some <code>IVariable</code>,
  * <code>IConstant</code>, <code>IAtom</code>, or <code>IFunApp</code>.
  */
-object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] {
+object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
   
+  /**
+   * Check that given expression does not contain any of the variables.
+   */
   def freeFrom(t : IExpression, syms : Set[IVariable]) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case v : IVariable => syms contains v
        case _ => false
      })
   
+  /**
+   * Check that given expression does not contain any of the variables.
+   */
+  def freeFromVariableIndex(t : IExpression, indexes : Set[Int]) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case v : IVariable => indexes contains v.index
+       case _ => false
+     })
+  
+  /**
+   * Check that given expression does not contain free/unbound variables.
+   */
   def isClosed(t : IExpression) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case v : IVariable => true
@@ -812,7 +836,7 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
      })
 
   /**
-   * Check whether given formula is in Presburger arithmetic.
+   * Check whether given expression is in Presburger arithmetic.
    */
   def isPresburger(t : IExpression) : Boolean =
     !apply(t, (x:IExpression) => x match {
@@ -894,15 +918,16 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
   private object FOUND_EXCEPTION extends Exception
   
   override def preVisit(t : IExpression,
-                        context : Context[IExpression => Boolean]) : PreVisitResult = {
+                        context : Context[IExpression => Boolean])
+                      : PreVisitResult = {
     t match {
       case v : IVariable =>
         if (context.binders.isEmpty) {
           if (context.a(v))
             throw FOUND_EXCEPTION
         } else {
-          val newIndex = v.index - context.binders.size
-          if (newIndex >= 0 && context.a(IVariable(newIndex)))
+          val shift = context.binders.size
+          if (v.index >= shift && context.a(v shiftedBy (-shift)))
             throw FOUND_EXCEPTION
         }
       case _ : IConstant | _ : IAtom | _ : IFunApp =>
@@ -916,6 +941,15 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
   def postVisit(t : IExpression,
                 context : Context[IExpression => Boolean],
                 subres : Seq[Unit]) : Unit = ()
+}
+
+/**
+ * Check whether an expression contains the variable with index
+ * <code>index</code>.
+ */
+object ContainsVariable {
+  def apply(e : IExpression, index : Int) : Boolean =
+    !ContainsSymbol.freeFromVariableIndex(e, Set(index))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -937,20 +971,35 @@ object Context {
     case Quantifier.EX => EX
   }
   
-  def apply[A](a : A) : Context[A] = Context(List(), +1, a)
+  def apply[A](a : A) : Context[A] = Context(List(), List(), +1, a)
 }
 
-case class Context[A](binders : List[Context.Binder], polarity : Int, a : A) {
+case class Context[A](binders : List[Context.Binder],
+                      boundSorts : List[IExpression.Sort],
+                      polarity : Int,
+                      a : A) {
   import Context._
+  import IExpression._
   
-  def togglePolarity = Context(binders, -polarity, a)
-  def noPolarity = Context(binders, 0, a)
-  def push(q : Quantifier) = Context(toBinder(q) :: binders, polarity, a)
-  def push(b : Binder) = Context(b :: binders, polarity, a)
-  def apply(newA : A) = Context(binders, polarity, newA)
+  def togglePolarity =
+    Context(binders, boundSorts, -polarity, a)
+  def noPolarity =
+    Context(binders, boundSorts, 0, a)
+  def push(q : Quantifier, sort : Sort) =
+    Context(toBinder(q) :: binders, sort :: boundSorts, polarity, a)
+  def push(b : Binder, sort : Sort) =
+    Context(b :: binders, sort :: boundSorts, polarity, a)
+  def apply(newA : A) =
+    Context(binders, boundSorts, polarity, newA)
 }
 
-abstract class ContextAwareVisitor[A, R] extends CollectingVisitor[Context[A], R] {
+/**
+ * An extended version of the <code>CollectingVisitor</code> that also keeps
+ * track of the sign of a sub-expression (positive or negative), and of the
+ * bound variables.
+ */
+abstract class ContextAwareVisitor[A, R]
+         extends CollectingVisitor[Context[A], R] {
 
   override def preVisit(t : IExpression, arg : Context[A]) : PreVisitResult =
     t match {
@@ -958,12 +1007,14 @@ abstract class ContextAwareVisitor[A, R] extends CollectingVisitor[Context[A], R
         UniSubArgs(arg.togglePolarity)
       case IBinFormula(IBinJunctor.Eqv, _, _) =>
         UniSubArgs(arg.noPolarity)
-      case IQuantified(quan, _) => {
+      case ISortedQuantified(quan, sort, _) => {
         val actualQuan = if (arg.polarity < 0) quan.dual else quan
-        UniSubArgs(arg push actualQuan)
+        UniSubArgs(arg.push(actualQuan, sort))
       }
-      case IEpsilon(_) =>
-        UniSubArgs(Context(Context.EPS :: arg.binders, -1, arg.a))
+      case ISortedEpsilon(sort, _) =>
+        UniSubArgs(
+          Context(Context.EPS :: arg.binders,
+                  sort :: arg.boundSorts, -1, arg.a))
       case IFormulaITE(_, _, _) | ITermITE(_, _, _) =>
         SubArgs(List(arg.noPolarity, arg, arg))
       case _ =>
@@ -1007,8 +1058,8 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
         subres(0).asInstanceOf[IFormula] | subres(1).asInstanceOf[IFormula]
       case IBinFormula(Or, _, _) =>
         subres(0).asInstanceOf[IFormula] & subres(1).asInstanceOf[IFormula]
-      case IQuantified(quan, _) =>
-        IQuantified(quan.dual, subres(0).asInstanceOf[IFormula])
+      case ISortedQuantified(quan, sort, _) =>
+        ISortedQuantified(quan.dual, sort, subres(0).asInstanceOf[IFormula])
       case LeafFormula(t) =>
         !(t.asInstanceOf[IFormula] update subres)
     } else {
@@ -1112,7 +1163,7 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
 object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
 
   private object FoundQuantifier extends Exception
-  private val v0Set = Set(IVariable(0))
+  private val v0Set = Set(0)
 
   def apply(f : IExpression) : Boolean = try {
     this.visitWithoutResult(f, Context({}))
@@ -1132,7 +1183,8 @@ object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
     case IQuantified(q, ITrigger(Seq(IFunApp(f, _)), body)) if f.partial =>
       super.preVisit(t, ctxt)
     case IQuantified(q, body)
-      if (isEX(q, ctxt) && !ContainsSymbol.freeFrom(body, v0Set)) =>
+      if (isEX(q, ctxt) &&
+          !ContainsSymbol.freeFromVariableIndex(body, v0Set)) =>
         throw FoundQuantifier
     case _ =>
       super.preVisit(t, ctxt)
@@ -1157,7 +1209,7 @@ object QuantifierCollectingVisitor {
     }
   }
 
-  private val V0Sum = IExpression.SymbolSum(IVariable(0))
+  private val V0Eq = IExpression.SymbolEquation(IVariable(0))
 }
 
 /**
@@ -1167,13 +1219,18 @@ object QuantifierCollectingVisitor {
 class QuantifierCollectingVisitor extends ContextAwareVisitor[Unit, Unit] {
 
   import QuantifierCollectingVisitor._
+  import IExpression.Sort
 
   private val foundQuantifiers = new MHashSet[Quantifier]
 
   override def preVisit(t : IExpression,
                         ctxt : Context[Unit]) : PreVisitResult = t match {
-    case IQuantified(Quantifier.EX,  IExpression.EqZ(V0Sum(_, _))) |
-         IQuantified(Quantifier.ALL, INot(IExpression.EqZ(V0Sum(_, _)))) =>
+    case ISortedQuantified(Quantifier.EX,
+                           Sort.Integer,
+                           V0Eq(_, _)) |
+         ISortedQuantified(Quantifier.ALL,
+                           Sort.Integer,
+                           INot(V0Eq(_, _))) =>
       // divisibility, ignored
       super.preVisit(t, ctxt)
 
@@ -1245,21 +1302,23 @@ class Transform2Prenex private (finalQuantifierNum : Int,
   override def preVisit(t : IExpression,
                         context : Context[List[IVariable]])
                        : PreVisitResult = t match {
-    case IQuantified(q, _) => {
+    case ISortedQuantified(q, sort, _) => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Transform2Prenex.AC, context.polarity != 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       val realQuan = if (context.polarity > 0) q else q.dual
       if (consideredQuantifiers contains realQuan) {
         val newVars =
-          IVariable(finalQuantifierNum - quantifiersToAdd.size - 1) :: context.a
+          IVariable(finalQuantifierNum - quantifiersToAdd.size - 1,
+                    sort) :: context.a
         quantifiersToAdd += realQuan
         super.preVisit(t, context(newVars))
       } else {
         // Don't look underneath this quantifier. We still have to substitute
         // variables in the right way
         ShortCutResult(
-          VariableSubstVisitor(t, (context.a, finalQuantifierNum - context.a.size)))
+          VariableSubstVisitor(t,
+            (context.a, finalQuantifierNum - context.a.size)))
       }
     }
     // Triggers will not make sense anymore after turning to prenex, so
@@ -1281,7 +1340,7 @@ class Transform2Prenex private (finalQuantifierNum : Int,
     case v@IVariable(ind)  => {
       val newVar =
         if (ind >= context.a.size)
-          IVariable(ind - context.a.size + finalQuantifierNum)
+          v shiftedBy (finalQuantifierNum - context.a.size)
         else
           context.a(ind)
       if (newVar == v) v else newVar
@@ -1384,3 +1443,47 @@ object SubExprAbbreviator {
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor that checks whether the sorts of variables are consistent with
+ * the sort of their binders.
+ */
+object VariableSortChecker
+       extends CollectingVisitor[String, Set[IVariable]] {
+
+  def apply(prefix : String, e : IExpression) : Unit =
+    this.visit(e, prefix)
+
+  def apply(prefix : String, es : Iterable[IExpression]) : Unit =
+    for (e <- es)
+      apply(prefix, e)
+
+  def postVisit(t : IExpression,
+                prefix : String,
+                subres : Seq[Set[IVariable]]) : Set[IVariable] = {
+    val bodyVars =
+      subres match {
+        case Seq() => Set[IVariable]()
+        case sets  => sets reduceLeft (_ ++ _)
+      }
+
+    t match {
+      case t : IVariable =>
+        bodyVars + t
+      case t : IVariableBinder => {
+        val extraSorts =
+          (for (v@ISortedVariable(0, s) <- bodyVars; if s != t.sort)
+           yield v).toSeq
+        if (!extraSorts.isEmpty)
+          Console.err.println("Warning " + prefix + ": variables " +
+                                (extraSorts mkString ", ") +
+                                " occurring in " + t)
+        for (t@IVariable(ind) <- bodyVars; if ind > 0) yield (t shiftedBy -1)
+      }
+      case _ =>
+        bodyVars
+    }
+  }
+
+}

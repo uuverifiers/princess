@@ -74,6 +74,7 @@ object Debug {
   case object AC_ENVIRONMENT extends ASSERTION_CATEGORY
   case object AC_INPUT_ABSY extends ASSERTION_CATEGORY
   case object AC_TYPES extends ASSERTION_CATEGORY
+  case object AC_VAR_TYPES extends ASSERTION_CATEGORY
   case object AC_PARAMETERS extends ASSERTION_CATEGORY
   case object AC_CLAUSE_MATCHER extends ASSERTION_CATEGORY
   case object AC_CONSTANT_FREEDOM extends ASSERTION_CATEGORY
@@ -115,6 +116,12 @@ object Debug {
   def withoutAssertions[A](comp : => A) : A =
     enabledAssertions.withValue(everythingDisabled) { comp }
   
+  def whenAssertionsOn[A](ac : ASSERTION_CATEGORY)(comp : => A) : Unit = {
+    if (enabledAssertions.value(AT_METHOD_INTERNAL, ac))
+      comp
+    ()
+  }
+
   def withDisabledAssertions[A](disabledAssertions : Set[ASSERTION_CATEGORY])
                                (comp : => A) : A = {
     val oldEnabled = enabledAssertions.value

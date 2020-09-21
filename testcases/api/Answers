@@ -98,7 +98,7 @@ Valid
 Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 
 -- Simplification, projection
-Project 5 < x & x < 2*y existentially to y: !(3 >= y)
+Project 5 < x & x < 2*y existentially to y: 3 < y
 Project x > y | x < 0 universally to x: -1 >= x
 Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 Project x ==> y universally to y: y
@@ -299,14 +299,14 @@ TypeTests.scala
 Starting
 \exists int v0, v1; v1 = x + v0
 Sat
-\exists int v0; (v0 >= 0 & v0 = x)
+\exists nat v0; v0 = x
 Sat
-\forall int v0; (!(v0 >= 0) | x = v0)
+\forall nat v0; x = v0
 Unsat
-\exists int v0; (v0 >= 0 & x = y + v0) <-> x >= y
+\exists nat v0; x = y + v0 <-> x >= y
 Valid
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
+\exists int[0, 9] v0; v0 - x >= 1
+\exists int[0, 9] v0; v0 - x >= 1
 8 >= x
 Valid
 Unsat
@@ -407,13 +407,13 @@ Vector(!(list_ctor(x) = 0))
 Unsat
 Vector(!(head(x) = 0))
 Unsat
-Vector(((-42 + head(x)) = 0))
+Vector((head(x) = 42))
 Unsat
-Vector(((-42 + head(x)) = 0), !((-43 + head(a)) = 0))
+Vector((head(x) = 42), !(head(a) = 43))
 Valid
-Vector(((nil + -1 * x) = 0), ((y + -1 * x) = 0))
+Vector((nil = x), (y = x))
 Valid
-Vector(((cons(1, cons(2, nil)) + -1 * x) = 0), ((y + -1 * x) = 0))
+Vector((cons(1, cons(2, nil)) = x), (y = x))
 
 ADTTest3.scala
 Vector(red, nil)
@@ -587,16 +587,16 @@ Test 6
 Valid
 Test 7
 Unsat
-Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), !((y + -1 * mod_cast(0, 1, 0)) = 0))
+Vector((x = mod_cast(0, 1, 1)), (y = mod_cast(0, 1, 1)))
 Test 8
-\exists int v0; (v0 >= 0 & 3 >= v0 & bv_mul(2, x, v0) = 1.\as[bv[2]])
-x = 1.\as[bv[2]] | x >= 3
+\exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
+x = 1.\as[bv[2]] | x.\as[int] >= 3
 Valid
 Test 9
 Unsat
-Vector(a >= 0 & (a.\as[int] + 130).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a >= 252), b >= 130, b >= c)
+Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
 Test 10
-!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b & b >= 1) | (a.\as[int] - b.\as[int] >= -1 & b >= 245))
+!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b.\as[int] & b.\as[int] >= 1) | (a.\as[int] - b.\as[int] >= -1 & b.\as[int] >= 245))
 
 TreeInterpolation.scala
 Unsat
@@ -670,6 +670,8 @@ Sat
 25: Some(true)
 26: true
 27: 1
+28: 1 < y.\as[int]
+29: false
 
 simplifier-bug.scala
 true
@@ -685,10 +687,10 @@ ManyEqvs.scala
 Sat
 
 readSMTLIB.scala
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
-x - y >= 1 & y + -50 >= 1
+x - y >= 1 & y - 50 >= 1

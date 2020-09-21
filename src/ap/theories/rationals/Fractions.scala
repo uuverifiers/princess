@@ -50,6 +50,7 @@ class Fractions(name : String,
 
   private val ringZero = underlyingRing.zero
   private val ringOne  = underlyingRing.one
+  private val ringDom  = underlyingRing.dom
 
   /**
    * Method that can be overwritten in sub-classes to term concrete
@@ -208,10 +209,9 @@ class Fractions(name : String,
       // (s / denom) * (t / denom) =
       // s * t / denom^2 =
       // (s * t / denom) / denom
-      dom.eps(ex((denom() === v(0)) & denomConstraint &
-                 (ringMul(v(0), v(1)) ===
-                    ringMul(VariableShiftVisitor(s, 0, 2),
-                            VariableShiftVisitor(t, 0, 2)))))
+      dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+                           (ringMul(v(0, ringDom), v(1, dom)) ===
+                              ringMul(shiftVars(s, 2), shiftVars(t, 2)))))
   }
 
   def div(s : ITerm, t : ITerm) : ITerm = t match {
@@ -225,9 +225,9 @@ class Fractions(name : String,
       // (s / denom) / (t / denom) =
       // (s / denom) * (denom / t) =
       // (s * denom / t) / denom
-      dom.eps(ex((denom() === v(0)) & denomConstraint &
-                 (ringMul(VariableShiftVisitor(t, 0, 2), v(1)) ===
-                    ringMul(VariableShiftVisitor(s, 0, 2), v(0)))))
+      dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+                           (ringMul(shiftVars(t, 2), v(1, dom)) ===
+                              ringMul(shiftVars(s, 2), v(0, ringDom)))))
   }
 
   def minus(s: ITerm): ITerm = s match {
@@ -248,7 +248,9 @@ class Fractions(name : String,
     val res2 =
       res match {
         case INamedPart(name, res) if visitor.usedDenom =>
-          INamedPart(name, all((denom() === v(0) & denomConstraint) ==> res))
+          INamedPart(name,
+                     ringDom.all((denom() === v(0, ringDom) &
+                                    denomConstraint) ==> res))
         case res =>
           res
       }
@@ -272,8 +274,8 @@ class Fractions(name : String,
           case Seq(num : ITerm, den : ITerm) => {
             usedDenom = true
             dom.eps(dom.ex(
-               (denom() === ringMul(v(0), VariableShiftVisitor(den, 0, 2))) &
-               (v(1) === ringMul(v(0), VariableShiftVisitor(num, 0, 2)))))
+                      (denom() ===ringMul(v(0, dom), shiftVars(den, 2))) &
+                        (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
           }
         }
       case _ =>

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,8 +25,6 @@ import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet, PriorityQueu
 
 import ap.basetypes.IdealInt
 import ap.terfor.TermOrder
-//import ap.terfor.preds.Predicate
-//import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
 import ap.theories.Theory
 import ap.types.SortedIFunction
@@ -86,9 +84,10 @@ object FunctionEncoder {
     // we potentially introduce local abstractions when scanning triggers
     // containing terms that are not part of the matrix of the quantified
     // formula
-    val localAbstractions = new AbstractionFrame(null, frame.depth)
+    val localAbstractions = new AbstractionFrame(null, List())
     
-    def postVisit(t : IExpression, trigger : ITerm, subres : Seq[ITerm]) : ITerm =
+    def postVisit(t : IExpression, trigger : ITerm,
+                  subres : Seq[ITerm]) : ITerm =
       t match {
         case t : IFunApp => {
           val updatedT = t update subres
@@ -124,21 +123,25 @@ object FunctionEncoder {
   // quantifiers and collect all function definitions that should be
   // inserted at this point in the <code>postVisit</code> phase
   private class AbstractionFrame(val prevFrame : AbstractionFrame,
-                                 // the number of quantifiers immediately above
+                                 // the quantifiers immediately above
                                  // this frame
-                                 val quantifierNum : Int) {
-    // Function notation can also be used for relations ("relational functions"")
-    // in this case, we have to introduce distinct abstraction variables even
-    // for different occurrences of the same function application.
-    // e.g.  f(c) = f(c) has to be invalid if "f" is not functional
-    // Therefore, the value of the abstractions map is a set
+                                 val outerQuantifiers : Seq[Sort]) {
+    val quantifierNum : Int = outerQuantifiers.size
+
+    // Function notation can also be used for relations ("relational
+    // functions"") in this case, we have to introduce distinct
+    // abstraction variables even for different occurrences of the
+    // same function application.  e.g.  f(c) = f(c) has to be invalid
+    // if "f" is not functional Therefore, the value of the
+    // abstractions map is a set
     var abstractions : Map[IFunApp, Set[Int]] = Map()
     var abstractionList : List[(IFunApp, Int)] = List()
     // the number of all quantifiers above this point
     val depth : Int =
       (if (prevFrame == null) 0 else prevFrame.depth) + quantifierNum
   
-    def getAbstraction(t : IFunApp, newGlobalAbstractionIndex : => Int) : Int = {
+    def getAbstraction(t : IFunApp,
+                       newGlobalAbstractionIndex : => Int) : Int = {
       def allocNewAbstraction = {
         val localIndex = newGlobalAbstractionIndex + depth
         abstractions =
@@ -318,13 +321,13 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     val visitor =
       new EncoderVisitor(firstFreeVariableIndex, order)
     val context : Context[EncodingContext] =
-      Context(AddDefinitions(new AbstractionFrame (null, 0), List()))
+      Context(AddDefinitions(new AbstractionFrame (null, List()), List()))
     
     val newF = visitor.visit(nnfF, context).asInstanceOf[IFormula]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // no dangling variables in the result
     Debug.assertInt(FunctionEncoder.AC,
-                    Set() ++ (SymbolCollector variables newF) == Set() ++ freeVars)
+                    (SymbolCollector variables newF).toSet == freeVars.toSet)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     (newF, visitor.order)
   }
@@ -555,12 +558,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         // kind directly follow after each other
         super.preVisit(t, toNormal(c))
 
-      case IQuantified(q, subFor) => {
+      case ISortedQuantified(q, sort, subFor) => {
         // otherwise, push an abstraction frame and tell the
         // <code>postVisit</code> method to define function abstractions at
         // this point
 
-        val quantifierNum = c.binders.length - c.a.frame.depth + 1
+        // TODO: make this more efficient
+        val quantifierNum    = c.binders.length - c.a.frame.depth + 1
+        val outerQuantifiers = sort :: (c.boundSorts take (quantifierNum-1))
 
         // flag to add a catch-all frame
         val catchAll = subFor match {
@@ -570,7 +575,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
 
         val newFrame =
           new AbstractionFrame (if (catchAll) null else c.a.frame,
-                                quantifierNum)
+                                outerQuantifiers)
         super.preVisit(t, c(AddDefinitions(newFrame, List())))
       }
 
@@ -619,11 +624,12 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
             // we might have to add also triggers following existential
             // quantifiers. in the presence of multiple sets of triggers, the
             // quantified formula will be duplicated
-            val actualTriggers = if (triggers.isEmpty) List(List()) else triggers
-            val innerQuans = Array.fill(c.a.frame.quantifierNum){Quantifier.EX}
+            val actualTriggers =
+              if (triggers.isEmpty) List(List()) else triggers
             
             connect(for (exprs <- actualTriggers.iterator) yield {
-               val triggerVisitor = new TriggerVisitor(c.a.frame, nextAbstractionNum)
+               val triggerVisitor =
+                 new TriggerVisitor(c.a.frame, nextAbstractionNum)
                for (e <- exprs) triggerVisitor.visit(e, e)
                val withDefs =
                  addAbstractionDefs(abstracted.asInstanceOf[IFormula],
@@ -631,7 +637,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
                                     frame.abstractionList :::
                                       triggerVisitor.localAbstractions.abstractionList,
                                     true)
-               quan(innerQuans, withDefs)
+               ex(c.a.frame.outerQuantifiers, withDefs)
             }, IBinJunctor.Or)
           }
           case _ => {

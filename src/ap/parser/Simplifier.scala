@@ -43,14 +43,14 @@ class Simplifier(splittingLimit : Int = 20,
    * Transformation to negation normal form
    */
   private def toNNF(expr : IExpression) : IExpression = expr match {
-    case INot(INot(f))                  => f
-    case INot(IBinFormula(And, f1, f2)) => (!f1) | !f2
-    case INot(IBinFormula(Or, f1, f2))  => (!f1) & !f2
-    case INot(IBinFormula(Eqv, f1, f2)) => (!f1) <=> f2
-    case INot(IQuantified(q, f))        => IQuantified(q.dual, !f)
-    case INot(IBoolLit(v))              => !v
+    case INot(INot(f))                    => f
+    case INot(IBinFormula(And, f1, f2))   => (!f1) | !f2
+    case INot(IBinFormula(Or, f1, f2))    => (!f1) & !f2
+    case INot(IBinFormula(Eqv, f1, f2))   => (!f1) <=> f2
+    case INot(ISortedQuantified(q, s, f)) => ISortedQuantified(q.dual, s, !f)
+    case INot(IBoolLit(v))                => !v
     case INot(IIntFormula(IIntRelation.GeqZero, t)) => t < 0
-    case _                              => expr
+    case _                                => expr
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -59,33 +59,35 @@ class Simplifier(splittingLimit : Int = 20,
    * Simple mini-scoping, pushing down all quantifiers as far as possible
    */
   private def miniScope(expr : IExpression) : IExpression = expr match {
-    case IQuantified(ALL, IBinFormula(And, f1, f2)) => all(f1) & all(f2)
-    case IQuantified(EX, IBinFormula(Or, f1, f2)) => ex(f1) | ex(f2)
+    case ISortedQuantified(ALL, sort, IBinFormula(And, f1, f2)) =>
+      sort.all(f1) & sort.all(f2)
+    case ISortedQuantified(EX, sort, IBinFormula(Or, f1, f2)) =>
+      sort.ex(f1) | sort.ex(f2)
 
-    case IQuantified(ALL, f@IBinFormula(Or, f1, f2)) => {
-      if (!ContainsSymbol(f1, IVariable(0)))
-        VariableShiftVisitor(f1, 1, -1) | all(f2)
-      else if (!ContainsSymbol(f2, IVariable(0)))
-        all(f1) | VariableShiftVisitor(f2, 1, -1)
+    case ISortedQuantified(ALL, sort, f@IBinFormula(Or, f1, f2)) => {
+      if (!ContainsVariable(f1, 0))
+        shiftVars(f1, 1, -1) | sort.all(f2)
+      else if (!ContainsVariable(f2, 0))
+        sort.all(f1) | shiftVars(f2, 1, -1)
       else if (splitNum < splittingLimit) f match {
         case AndSplitter(f1, f2) => {
           splitNum = splitNum + 1
-          all(f1) & all(f2)
+          sort.all(f1) & sort.all(f2)
         }
         case _ => expr
       } else
         expr
     }
 
-    case IQuantified(EX, f@IBinFormula(And, f1, f2)) => {
-      if (!ContainsSymbol(f1, IVariable(0)))
-        VariableShiftVisitor(f1, 1, -1) & ex(f2)
-      else if (!ContainsSymbol(f2, IVariable(0)))
-        ex(f1) & VariableShiftVisitor(f2, 1, -1)
+    case ISortedQuantified(EX, sort, f@IBinFormula(And, f1, f2)) => {
+      if (!ContainsVariable(f1, 0))
+        shiftVars(f1, 1, -1) & sort.ex(f2)
+      else if (!ContainsVariable(f2, 0))
+        sort.ex(f1) & shiftVars(f2, 1, -1)
       else if (splitNum < splittingLimit) f match {
         case OrSplitter(f1, f2) => {
           splitNum = splitNum + 1
-          ex(f1) | ex(f2)
+          sort.ex(f1) | sort.ex(f2)
         }
         case _ => expr
       } else
@@ -93,8 +95,8 @@ class Simplifier(splittingLimit : Int = 20,
     }
       
     case IQuantified(_, t)
-      if (!ContainsSymbol(t, IVariable(0))) =>
-        VariableShiftVisitor(t, 1, -1)
+      if (!ContainsVariable(t, 0)) =>
+        shiftVars(t, 1, -1)
 
     case _ => expr
   }
@@ -120,8 +122,10 @@ class Simplifier(splittingLimit : Int = 20,
     }
   }
 
-  private val AndSplitter = new FormulaSplitter (IBinJunctor.And, IBinJunctor.Or)
-  private val OrSplitter =  new FormulaSplitter (IBinJunctor.Or, IBinJunctor.And)
+  private val AndSplitter =
+    new FormulaSplitter (IBinJunctor.And, IBinJunctor.Or)
+  private val OrSplitter =
+    new FormulaSplitter (IBinJunctor.Or, IBinJunctor.And)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -131,8 +135,8 @@ class Simplifier(splittingLimit : Int = 20,
   private def elimUnusedQuantifier(expr : IExpression)
                                   : IExpression = expr match {
     case IQuantified(_, t)
-      if (!ContainsSymbol(t, IVariable(0))) =>
-        VariableShiftVisitor(t, 1, -1)
+      if (!ContainsVariable(t, 0)) =>
+        shiftVars(t, 1, -1)
     case _ =>
       expr
   }
@@ -210,16 +214,15 @@ class Simplifier(splittingLimit : Int = 20,
    * <code>EX _0 = t & ...</code>
    */
   private def elimQuantifier(expr : IExpression) : IExpression = expr match {
-    case IQuantified(q, f) => findDefinition(f, 0, q == ALL) match {
+    case ISortedQuantified(q, sort, f) =>
+      findDefinition(f, 0, sort, q == ALL) match {
       
       case NoDefFound => {
         // handle some cases of obviously invalid formulae
-        val VarSum = SymbolSum(IVariable(0))
+        val VarEq = SymbolEquation(v(0))
         expr match {
-          case IQuantified(ALL, IIntFormula(EqZero, VarSum(c, _)))
-            if (!c.isZero) => false
-          case IQuantified(EX, INot(IIntFormula(EqZero, VarSum(c, _))))
-            if (!c.isZero) => true
+          case IQuantified(ALL, VarEq(c, _))       if (!c.isZero) => false
+          case IQuantified(EX, INot(VarEq(c, _)))  if (!c.isZero) => true
           case _ => expr
         }
       }
@@ -231,12 +234,14 @@ class Simplifier(splittingLimit : Int = 20,
         var prenexF = PullUpQuantifiers.visit(f, q)
         
         // check how many inner quantifiers we have
-        var cont = true
-        var quanNum = 0
+        var cont      = true
+        var quanNum   = 0
+        var quanSorts = List[Sort]()
         while (cont) prenexF match {
-          case IQuantified(`q`, f) => {
-            prenexF = f
-            quanNum = quanNum + 1
+          case ISortedQuantified(`q`, s, f) => {
+            prenexF   = f
+            quanSorts = s :: quanSorts
+            quanNum   = quanNum + 1
           }
           case _ =>
             cont = false
@@ -244,15 +249,15 @@ class Simplifier(splittingLimit : Int = 20,
         
         // permute the variables (the quantifier to be eliminated will be the
         // innermost one)
-        val shifts = IVarShift(List.fill(quanNum)(1) ::: List(-quanNum), 0)
+        val shifts   = IVarShift(List.fill(quanNum)(1) ::: List(-quanNum), 0)
         val shiftedF = VariablePermVisitor(prenexF, shifts)
         
-        val substitutedF = findDefinition(shiftedF, 0, q == ALL) match {
+        val substitutedF = findDefinition(shiftedF, 0, sort, q == ALL) match {
           case GoodDef(t) => VariableSubstVisitor(shiftedF, (List(t), -1))
           case _ => { assert(false); null }
         }
 
-        quan(Array.fill(quanNum)(q), substitutedF)
+        quanWithSorts(q, quanSorts, substitutedF)
       }
     }
     case _ => expr
@@ -264,41 +269,43 @@ class Simplifier(splittingLimit : Int = 20,
   /** A defining equation was found */
   private case class  GoodDef(t : ITerm) extends Def
   /** A defining equation was found, but contains bound variables that have to
-      be moved first*/
+      be moved first */
   private case object DefRequiresShifting extends Def
   
   private def findDefinition(f : IFormula,
-                             varIndex : Int, universal : Boolean) : Def =
+                             varIndex : Int, sort : Sort,
+                             universal : Boolean) : Def =
     f match {
       case IQuantified(q, subF)
         if (q == Quantifier(universal)) =>
-          findDefinition(subF, varIndex + 1, universal)
+          findDefinition(subF, varIndex + 1, sort, universal)
       case IBinFormula(j, f1, f2)
         if (j == (if (universal) Or else And)) =>
-          findDefinition(f1, varIndex, universal) match {
-            case d : GoodDef         => d
-            case NoDefFound          => findDefinition(f2, varIndex, universal)
+          findDefinition(f1, varIndex, sort, universal) match {
+            case d : GoodDef =>
+              d
+            case NoDefFound =>
+              findDefinition(f2, varIndex, sort, universal)
             case DefRequiresShifting =>
-              findDefinition(f2, varIndex, universal) match {
+              findDefinition(f2, varIndex, sort, universal) match {
                 case d : GoodDef => d
                 case _ => DefRequiresShifting
               }
           }
 
-      case INot(eq @ IIntFormula(EqZero, _)) if (universal) =>
-        findDefinition(eq, varIndex, false)
+      case INot(eq @ (IIntFormula(EqZero, _) | IEquation(_, _)))
+          if (universal) =>
+        findDefinition(eq, varIndex, sort, false)
 
       case _ => {
         // check for equations that represent definitions
-        val VarIndexSum = SymbolSum(IVariable(varIndex))
+        val VarIndexEq = SymbolEquation(v(varIndex, sort))
         
         f match {
-          case IIntFormula(EqZero, VarIndexSum(coeff, t))
-            if ((coeff == IdealInt.ONE || coeff == IdealInt.MINUS_ONE) &&
-                !universal) =>
+          case VarIndexEq(coeff, t)
+            if (coeff.isUnit && !universal) =>
               if (allIndexesLargerThan(t, varIndex))
-                GoodDef(VariableShiftVisitor(t *** (-coeff),
-                                             varIndex + 1, -varIndex - 1))
+                GoodDef(shiftVars(t *** coeff, varIndex + 1, -varIndex - 1))
               else
                 DefRequiresShifting
         
@@ -333,29 +340,30 @@ class Simplifier(splittingLimit : Int = 20,
       case f @ IBinFormula(And | Or, _, _) => {
         var Seq(left, right) = subres
         
-        var cont = true
-        var quanNum = 0
+        var cont      = true
+        var quanSorts = List[Sort]()
         while (cont) (left, right) match {
-          case (IQuantified(Quan, l), IQuantified(Quan, r)) => {
-            quanNum = quanNum + 1
-            left = l
-            right = r
+          case (ISortedQuantified(Quan, s1, l), ISortedQuantified(Quan, s2, r))
+              if s1 == s2 => {
+            quanSorts = s1 :: quanSorts
+            left      = l
+            right     = r
           }
-          case (IQuantified(Quan, l), _) => {
-            quanNum = quanNum + 1
-            left = l
-            right = VariableShiftVisitor(right, 0, 1)
+          case (ISortedQuantified(Quan, s, l), _) => {
+            quanSorts = s :: quanSorts
+            left      = l
+            right     = shiftVars(right, 1)
           }
-          case (_, IQuantified(Quan, r)) => {
-            quanNum = quanNum + 1
-            left = VariableShiftVisitor(left, 0, 1)
-            right = r
+          case (_, ISortedQuantified(Quan, s, r)) => {
+            quanSorts = s :: quanSorts
+            left      = shiftVars(left, 1)
+            right     = r
           }
           case _ =>
             cont = false
         }
         
-        quan(Array.fill(quanNum)(Quan), f update List(left, right))
+        quanWithSorts(Quan, quanSorts, f update List(left, right))
       }
         
       case f @ IQuantified(Quan, _) => f update subres
@@ -369,7 +377,8 @@ class Simplifier(splittingLimit : Int = 20,
    * equations and inequalities of the form <code>t - t = 0</code>,
    * <code>t - t >= 0</code>
    */
-  private def elimSimpleLiterals(expr : IExpression) : IExpression = expr match {
+  private def elimSimpleLiterals(expr : IExpression)
+                               : IExpression = expr match {
     case IBinFormula(And, IBoolLit(true), f) => f
     case IBinFormula(And, f, IBoolLit(true)) => f
     case IBinFormula(And, IBoolLit(false), f) => false
@@ -410,7 +419,9 @@ class Simplifier(splittingLimit : Int = 20,
     
     case IIntFormula(EqZero, IIntLit(v)) => v.isZero
     case IIntFormula(GeqZero, IIntLit(v)) => (v.signum >= 0)
-      
+
+    case IEquation(t1, t2) if t1 == t2 => true
+
     case _ => expr
   }
   
