@@ -204,6 +204,19 @@ class Simplifier(splittingLimit : Int = 20,
           expr
       }
 
+    case IEquation(left, right) =>
+      iteSplitter(left) match {
+        case Some((cond, left1, left2)) =>
+          (cond & (left1 === right)) | (!cond & (left2 === right))
+        case None =>
+          iteSplitter(right) match {
+            case Some((cond, right1, right2)) =>
+              (cond & (left === right1)) | (!cond & (left === right2))
+            case None =>
+              expr
+          }
+      }
+
     case _ => expr
   }
 
