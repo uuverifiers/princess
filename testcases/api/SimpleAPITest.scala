@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,7 @@
 
 import ap._
 import ap.parser._
+import ap.theories.ADT
 
 object SimpleAPITest extends App {
   ap.util.Debug.enableAllAssertions(true)
@@ -332,31 +333,41 @@ object SimpleAPITest extends App {
             pp(simplify(ex(x => 5 < x & x < 2*y))))
   }
 
+  scope {
+    val x = createConstant("x", Sort.Bool)
+    val y = createConstant("y", Sort.Bool)
+
+    println("Project x ==> y universally to " + y + ": " +
+            pp(projectAll(eqZero(x) ==> eqZero(y), List(y))))
+    println("Project x === True existentially to empty set: " +
+            pp(projectEx(x === ADT.BoolADT.True, List())))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   part("Asynchronous interface")
   
+  val okStatus = Set(ProverStatus.Sat, ProverStatus.Running)
+
   !! (true)
-  println(p checkSat false)        // non-blocking, Running
-  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
-              ProverStatus.Running) contains (p getStatus false))
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
+  println(okStatus(p getStatus false))           // non-blocking, Running or Sat
   println(p getStatus true)        // blocking, equivalent to println(???), Sat
   
   part("Asynchronous interface, timeouts")
   
   !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
-              ProverStatus.Running) contains (p getStatus false))
-  println(p getStatus 30)    // blocking for up to 30ms, Sat
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
+  println(okStatus(p getStatus false))           // non-blocking, Running or Sat
+  println(p getStatus 30)                        // blocking for up to 30ms, Sat
   p getStatus true
   
   part("Asynchronous interface, busy waiting")
   
   !! (true)
-  println(p checkSat false) // Running
+  println(okStatus(p checkSat false))            // non-blocking, Running or Sat
   while ((p getStatus false) == ProverStatus.Running) {}
-  println(p getStatus false) // Sat
+  println(p getStatus false)                     // Sat
   
   part("Stopping computations")
   

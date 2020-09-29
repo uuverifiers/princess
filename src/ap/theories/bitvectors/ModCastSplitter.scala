@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ package ap.theories.bitvectors
 
 import ap.theories._
 
-import ap.theories.nia.IntervalPropagator
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
@@ -58,7 +57,7 @@ object ModCastSplitter extends TheoryProcedure {
 
       Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
 
-      val propagator = IntervalPropagator(goal)
+      val propagator = goal.reduceWithFacts
       implicit val order = goal.order
       import TerForConvenience._
 
@@ -89,8 +88,7 @@ object ModCastSplitter extends TheoryProcedure {
 
         val lBound =
           if (proofs)
-            for ((b, assum) <-
-                   propagator lowerBoundWithAssumptions a(2)) yield {
+            for ((b, assum) <- propagator.lowerBound(a(2), true)) yield {
               addInEqAssumption(assum)
               b
             }
@@ -100,8 +98,7 @@ object ModCastSplitter extends TheoryProcedure {
         val uBound =
           if (lBound.isDefined) {
             if (proofs)
-              for ((b, assum) <-
-                     propagator upperBoundWithAssumptions a(2)) yield {
+              for ((b, assum) <- propagator.upperBound(a(2), true)) yield {
                 addInEqAssumption(assum)
                 b
               }

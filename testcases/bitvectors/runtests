@@ -33,6 +33,7 @@ TESTS="existential.pri \
        shift12b.pri \
        shift12c.pri \
        shift13.pri \
+       shift14.smt2 \
        bench_977.smt2 \
        bench_977b.smt2 \
        bench_977c.smt2 \
@@ -71,7 +72,9 @@ TESTS="existential.pri \
        problem_24.smt2 \
        large_shift.smt2 \
        bvashr.smt2 \
-       arith-extracts.pri"
+       arith-extracts.pri \
+       bvsrem-bug.smt2 \
+       reducer-bug.smt2"
 
 $PRI "$@" $TESTS
 

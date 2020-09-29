@@ -51,7 +51,7 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2020")
-    println("Contributions by Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen.")
+    println("(contributions by Angelo Brillout, Peter Backeman, Peter Baumgartner, Zafer Esen)")
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println
@@ -162,6 +162,9 @@ object CmdlMain {
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
     println("                             bitShift: shift-and-add axiom")
     println("                             native:   built-in theory solver       (default)")
+    println(" -mulSplitting=val         Splitting in nonlinear integer formulae")
+    println("                             sign:        +/-/interval splitting    (default)")
+    println("                             signMinimal: +/-/interval, minimal var set")
     println(" -adtMeasure=val           Measure to ensure acyclicity of ADTs")
     println("                             relDepth: relative depth of terms")
     println("                             size:     size of terms                (default)")
@@ -543,7 +546,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }

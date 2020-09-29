@@ -99,6 +99,8 @@ object Theory {
     (extraPredicates ++ funPredicates, formula, newOrder, functionTranslation)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Apply preprocessing to a formula over some set of
    * theories, prior to sending the formula to a prover.
@@ -121,6 +123,42 @@ object Theory {
 //  ap.util.Timer.measure("theory preprocessing") {
     (theories :\ f) { case (t, f) => t.preprocess(f, order) }
 //  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Optionally, a post-processor that is applied to formulas output by the
+   * prover, for instance to interpolants or the result of quantifier
+   * elimination.
+   * This method will be called form within
+   * <code>ap.parser.Postprocessing</code>.
+   */
+  def iPostprocess(f : IFormula,
+                  theories : Seq[Theory], signature : Signature)
+                 : IFormula =
+//  ap.util.Timer.measure("theory iPostprocessing") {
+    (f /: theories) { case (f, t) => t.iPostprocess(f, signature) }
+//  }
+
+  /**
+   * Optionally, a post-processor that is applied to formulas output by the
+   * prover, for instance to interpolants or the result of quantifier
+   * elimination.
+   * This method will be called form within
+   * <code>ap.parser.Postprocessing</code>.
+   */
+  def postprocess(f : Conjunction,
+                  theories : Seq[Theory],
+                  order : TermOrder) : Conjunction =
+//  ap.util.Timer.measure("theory postprocessing") {
+    (f /: theories) { case (f, t) => t.postprocess(f, order) }
+//  }
+
+  /**
+   * Compute the list of simplifiers defined by the theories.
+   */
+  def postSimplifiers(theories : Seq[Theory]) : Seq[IExpression => IExpression]=
+    for (t <- theories; s <- t.postSimplifiers) yield s
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -211,6 +249,10 @@ object Theory {
     def getDataFor(t : Theory) : TheoryDecoderData
   }
 
+  /**
+   * Decoder context that will extract all data from the given
+   * <code>model</code>.
+   */
   class DefaultDecoderContext(model : Conjunction) extends DecoderContext {
     private val decoderDataCache = new MHashMap[Theory, TheoryDecoderData]
     def getDataFor(t : Theory) : TheoryDecoderData =
@@ -345,6 +387,29 @@ trait Theory {
    * theory, prior to sending the formula to a prover.
    */
   def preprocess(f : Conjunction, order : TermOrder) : Conjunction = f
+
+  /**
+   * Optionally, a post-processor that is applied to formulas output by the
+   * prover, for instance to interpolants or the result of quantifier
+   * elimination. This method will be applied to the raw formulas, before
+   * calling <code>Internal2Inputabsy</code>.
+   */
+  def postprocess(f : Conjunction, order : TermOrder) : Conjunction = f
+
+  /**
+   * Optionally, a post-processor that is applied to formulas output by the
+   * prover, for instance to interpolants or the result of quantifier
+   * elimination. This method will be applied to the formula after
+   * calling <code>Internal2Inputabsy</code>.
+   */
+  def iPostprocess(f : IFormula, signature : Signature) : IFormula = f
+
+  /**
+   * Optionally, simplifiers that are applied to formulas output by the
+   * prover, for instance to interpolants or the result of quantifier. Such
+   * simplifiers are invoked by with <code>ap.parser.Simplifier</code>.
+   */
+  def postSimplifiers : Seq[IExpression => IExpression] = List()
 
   /**
    * Optionally, a plugin for the reducer applied to formulas both before

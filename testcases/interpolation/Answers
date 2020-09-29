@@ -86,7 +86,7 @@ Found proof (size 8), simplifying (8), interpolating ...
 VALID
 
 Interpolants:
-\exists int v0; 5*v0 + y = -1 | \exists int v0; 5*v0 + y = 0
+\exists int v0; 5*v0 + y = -1 | \exists int v0; y = -5*v0
 
 Loading inEqProof0.pri ...
 Preprocessing ...
@@ -309,8 +309,8 @@ Found proof (size 50), simplifying (87), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0, v1; (v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1 | h'(f(v0)) + -1*h'(f(v1)) >= 0)
-\exists int v0, v1; (n >= v0 & v0 >= v1 & v1 >= 0 & -1*h'(f(v0)) + h'(f(v1)) >= 1)
+\forall int v0, v1; (v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1 | h'(f(v0)) >= h'(f(v1)))
+\exists int v0, v1; (n >= v0 & v0 >= v1 & v1 >= 0 & h'(f(v1)) - h'(f(v0)) >= 1)
 
 Loading quan.pri ...
 Preprocessing ...
@@ -527,8 +527,8 @@ Found proof (size 57), simplifying (55), interpolating ...
 VALID
 
 Interpolants:
-a = 49.\as[signed bv[8]] | a = 0.\as[signed bv[8]] | (48 >= a & a >= 2)
-3*b.\as[int] >= a & 24 >= b & b >= 0
+a = 49.\as[signed bv[8]] | a = 0.\as[signed bv[8]] | (48 >= a.\as[int] & a.\as[int] >= 2)
+3*b.\as[int] >= a.\as[int] & 24 >= b.\as[int] & b.\as[int] >= 0
 c.\as[int] - a.\as[int] >= 1
 
 Loading bv-interpolation-2.pri ...
@@ -539,8 +539,8 @@ Found proof (size 47), simplifying (41), interpolating ...
 VALID
 
 Interpolants:
-a = 0.\as[signed bv[8]] | a >= 2
-3*b.\as[int] >= a
+a = 0.\as[signed bv[8]] | a.\as[int] >= 2
+3*b.\as[int] >= a.\as[int]
 c.\as[int] - a.\as[int] >= 1
 
 Loading bv-interpolation-3.smt2 ...
@@ -550,8 +550,8 @@ Found proof (size 18), simplifying (21), interpolating ...
 
 unsat
 (
-  (or (bvuge b (_ bv1000 16)) (bvuge a b))
-  (bvuge b (_ bv1000 16))
+  (or (<= 0 (+ (- 1000) (bv2nat b))) (<= 0 (+ (* (- 1) (bv2nat b)) (bv2nat a))))
+  (<= 0 (+ (- 1000) (bv2nat b)))
 )
 
 Loading bv-interpolation-4.smt2 ...
@@ -561,8 +561,8 @@ Found proof (size 89), simplifying (110), interpolating ...
 
 unsat
 (
-  (and (bvuge a (_ bv1 8)) (or (bvsge (bvadd (_ bv4095 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (or (and (= (bvadd (_ bv3841 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvuge b (_ bv128 8))) (and (bvsge (bvadd (_ bv254 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (bvuge b (_ bv128 8))))))
-  (and (and (bvsge (bvadd (_ bv254 10) (bvneg ((_ zero_extend 2) a))) (_ bv0 10)) (bvuge a (_ bv1 8))) (or (and (= (bvadd (_ bv3841 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (and (bvsge (bvadd (_ bv2047 11) (bvadd ((_ zero_extend 3) b) (bvneg ((_ zero_extend 3) a)))) (_ bv0 11)) (bvuge b (_ bv128 8)))) (and (= (bvadd (_ bv1 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvsge (bvadd (_ bv127 11) (bvadd ((_ zero_extend 3) b) (bvneg ((_ zero_extend 3) a)))) (_ bv0 11)))))
+  (and (<= 0 (+ (- 1) (bv2nat a))) (or (<= 0 (+ (- 1) (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (<= 0 (+ (- 128) (bv2nat b)))) (and (<= 0 (+ 254 (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (<= 0 (+ (- 128) (bv2nat b)))))))
+  (and (and (<= 0 (+ 254 (* (- 1) (bv2nat a)))) (<= 0 (+ (- 1) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (and (<= 0 (+ (- 1) (+ (bv2nat b) (* (- 1) (bv2nat a))))) (<= 0 (+ (- 128) (bv2nat b))))) (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) (- 1)) (<= 0 (+ 127 (+ (bv2nat b) (* (- 1) (bv2nat a))))))))
 )
 
 Loading bv-interpolation-5.pri ...
@@ -599,7 +599,19 @@ VALID
 
 Interpolants:
 (2*z.\as[int] + 4*y.\as[int] + 3*x.\as[int]).\as[bv[16]] = 0.\as[bv[16]]
-(2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[16]] != 0.\as[bv[16]]
+(2 + 2*y.\as[int] + 2*x.\as[int]).\as[bv[16]] != 0.\as[bv[16]]
+
+Loading sorts.pri ...
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+Found proof (size 9), simplifying (15), interpolating ...
+
+VALID
+
+Interpolants:
+\forall S v0; f(v0) = b
+c != b
 
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -630,20 +642,17 @@ unsat
 )
 
 Loading pred-unify-bug.smt2 ...
-Warning: treating sort Real as Int
 "starting trace check"
 unsat
 "interpolants-3"
 ((= (select |#length_13| main_~p~4.base_18) 8))
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
-Warning: treating sort Real as Int
 unsat
-((forall ((var0 Int)) (not (= (+ (* 4294967296 var0) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42))) 0))))
+((forall ((var0 Int)) (not (= (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42)) (* (- 4294967296) var0)))))
 Loading function-bug3.smt2 ...
 "Start declaration of constants"
 "Finished declaration of constants"
 "Start declaration of functions"
-Warning: treating sort Real as Int
 "Finished declaration of functions"
 "Start declaration of global variables"
 "Finished declaration global variables"
@@ -652,9 +661,9 @@ Warning: treating sort Real as Int
 "starting trace check"
 unsat
 Loading simplifier.smt2 ...
-Warning: treating sort Real as Int
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+Warning: type clash during inference: int vs SimpleArray
 (true
 true
 (= main_~a~4.offset_2 0)
@@ -668,14 +677,12 @@ true
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))))
 Loading smtTyping.smt2 ...
-Warning: treating sort Real as Int
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
 ((and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
 (and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
 (and (forall ((var0 Int)) (or (not (select |#valid_2| var0)) (select |old(#valid)_-1| var0))) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0)) (and (not (= var0 0)) (forall ((var1 Int)) (or (= var1 var0) (= (select |old(#valid)_-1| var1) (select |#valid_2| var1)))))))))
 Loading matchCheckBug.smt2 ...
-Warning: treating sort Real as Int
 unsat
 Loading treeInterpolation1.smt2 ...
 unsat
@@ -740,8 +747,8 @@ Found proof (size 3014), simplifying (4679), interpolating ...
 VALID
 
 Interpolants:
-((u3 >= u1 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(u1.\as[int] + 1) != 3))) | ((u3 >= u1 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(u1.\as[int] + 1) != 3)))
-(u3.\as[int] - u2.\as[int] != 2 | Union_size(u2.\as[int] + 2) != 3 | Union_size(u2.\as[int] + 1) != 3) & (u3.\as[int] - u2.\as[int] != -2 | Union_size(u2.\as[int] - 2) != 3 | Union_size(u2.\as[int] - 1) != 3) & (u3 >= 2 | u2 >= 2 | (u3 = 1 & (Union_size(2) != 3 | Union_size(1) != 3)) | (u2 = 1 & (\size(u3) != 3 | Union_size(2) != 3))) & ((1 >= u3 & (u3 != 1 | Union_size(1) != 3 | Union_size(0) != 3)) | (1 >= u2 & (u2 != 1 | \size(u3) != 3 | Union_size(0) != 3)))
+((u3 >= u1 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(1 + u1.\as[int]) != 3))) | ((u3 >= u1 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(1 + u1.\as[int]) != 3)))
+(u3.\as[int] - u2.\as[int] != 2 | Union_size(2 + u2.\as[int]) != 3 | Union_size(1 + u2.\as[int]) != 3) & (u3.\as[int] - u2.\as[int] != -2 | Union_size(u2.\as[int] - 2) != 3 | Union_size(u2.\as[int] - 1) != 3) & (u3 >= 2 | u2 >= 2 | (u3 = 1 & (Union_size(2) != 3 | Union_size(1) != 3)) | (u2 = 1 & (\size(u3) != 3 | Union_size(2) != 3))) & ((1 >= u3 & (u3 != 1 | Union_size(1) != 3 | Union_size(0) != 3)) | (1 >= u2 & (u2 != 1 | \size(u3) != 3 | Union_size(0) != 3)))
 
 Loading surprising25.pri ...
 Preprocessing ...
@@ -761,7 +768,7 @@ Found proof (size 289), interpolating ...
 VALID
 
 Interpolants:
-x4 >= 19670160000*x1 | x4 >= 16039976000*x1 | x4 >= 12890400000*x1 | x4 >= 10511440000*x1 | x4 >= 7999 | \exists int v0; (4000*v0 >= 4000 & 4000*v0 - x4 >= -3998 & x4 >= 4000*v0)
+x4 >= 19670160000*x1 | x4 >= 16039976000*x1 | x4 >= 12890400000*x1 | x4 >= 10511440000*x1 | x4 >= 7999 | \exists int v0; (-4000 >= -4000*v0 & 4000*v0 - x4 >= -3998 & x4 >= 4000*v0)
 
 Loading ring_2exp10_3vars_0ite_unsat.pri ...
 Preprocessing ...
@@ -778,7 +785,7 @@ Found proof (size 24), simplifying (21), interpolating ...
 VALID
 
 Interpolants:
--1*inv_main4_1_0 - inv_main4_1_1 >= 1
+-1*inv_main4_1_0 + -1*inv_main4_1_1 >= 1
 inv_main4_2_1 != 1
 inv_main4_3_1 != 0
 

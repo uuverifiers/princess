@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,8 +31,7 @@ import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
 import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
 import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
-import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
-                        ArraySimplifier}
+import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
@@ -45,7 +44,7 @@ import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
                  MonoSortedIFunction, MonoSortedPredicate,
-                 SortedPredicate, TypeTheory, IntToTermTranslator}
+                 SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -1830,7 +1829,18 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    (new Simplifier (0))(Internal2InputAbsy(c, Map()))
+    postprocessing.processFormula(c)
+
+  private def postprocessing =
+    // TODO: cache?
+    new Postprocessing (toSignature(currentOrder), functionEnc.predTranslation)
+
+  private def processInterpolant(c : Conjunction) : IFormula =
+    postprocessing.processInterpolant(c)
+  private def processModel(c : Conjunction) : IFormula =
+    postprocessing.processModel(c)
+  private def processConstraint(c : Conjunction) : IFormula =
+    postprocessing.processConstraint(c)
 
   /**
    * Pretty-print a formula or term.
@@ -2554,8 +2564,6 @@ class SimpleAPI private (enableAssert : Boolean,
     if (currentSimpCertificate == null)
       currentSimpCertificate = ProofSimplifier(currentCertificate)
 
-    val simp = interpolantSimplifier
-    
     val commonFors =
       for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
@@ -2602,11 +2610,7 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants) yield {
-       implicit val _ = new Theory.DefaultDecoderContext(c)
-       IntToTermTranslator(
-         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
-    }
+    interpolants map processInterpolant
   }
 
   /**
@@ -2649,8 +2653,6 @@ class SimpleAPI private (enableAssert : Boolean,
     val commonFors =
       for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
-    val simp = interpolantSimplifier
-
     def computeInts(names : Tree[Set[Int]],
                     intKnown : Option[(Conjunction, IFormula)])
                    : Tree[(Conjunction, IFormula)] = {
@@ -2678,13 +2680,7 @@ class SimpleAPI private (enableAssert : Boolean,
                            reducerSettings)
             }
 
-          val simpInt = {
-            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
-            IntToTermTranslator(
-              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
-          }
-
-          (rawInt, simpInt)
+          (rawInt, processInterpolant(rawInt))
         }
 
       if (thisInt._1.isTrue) {
@@ -2737,8 +2733,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
     interpolants
   }
-  
-  private def interpolantSimplifier = new ArraySimplifier
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2869,7 +2863,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (needExhaustiveProver)
-      asIFormula(TypeTheory filterTypeConstraints currentConstraint)
+      processConstraint(currentConstraint)
     else
       IBoolLit(true)
   }
@@ -2895,8 +2889,7 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    asIFormula(PresburgerTools.minimiseFormula(
-                 TypeTheory filterTypeConstraints currentConstraint))
+    processConstraint(PresburgerTools.minimiseFormula(currentConstraint))
   }
 
   /**
@@ -2989,7 +2982,10 @@ class SimpleAPI private (enableAssert : Boolean,
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
-      asIFormula(asConjunction(f))
+      // TODO: this won't work if the formula contains theories
+      // that are not yet loaded
+
+      processInterpolant(asConjunction(f))
 
     } else if ((ContainsSymbol isPresburgerBV f) &&
                (ContainsSymbol isClosed f)) {
@@ -3217,20 +3213,14 @@ class SimpleAPI private (enableAssert : Boolean,
                     currentModel.negatedConjs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit val _ = currentModel.order
-    val remainingPredConj = currentModel.predConj filter {
-      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
-    }
-    val remaining = currentModel.updatePredConj(remainingPredConj)
-    
-    val simp = Internal2InputAbsy(remaining, functionEnc.predTranslation)
-    IntToTermTranslator(simp)(decoderContext)
+    processModel(currentModel)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Decoding data needed (and implicitly read) by theories.
+   * Decoding data needed (and implicitly read) by theories; this will
+   * access the current model to extract the relevant decoding data.
    */
   val decoderContext = new Theory.DecoderContext {
     def getDataFor(t : Theory) : Theory.TheoryDecoderData =
@@ -4212,14 +4202,17 @@ class SimpleAPI private (enableAssert : Boolean,
       c
     }
 
+  private def toSignature(order : TermOrder) =
+    Signature(Set(),
+              existentialConstants,
+              order.orderedConstants -- existentialConstants,
+              Map(), // TODO: also handle predicate_match_config
+              order,
+              theoryCollector.theories)
+
   private def toInternalNoAxioms(f : IFormula,
                                  order : TermOrder) : Conjunction = {
-    val sig = Signature(Set(),
-                        existentialConstants,
-                        order.orderedConstants -- existentialConstants,
-                        Map(), // TODO: also handle predicate_match_config
-                        order,
-                        theoryCollector.theories)
+    val sig = toSignature(order)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
                     functionEnc)
@@ -4242,14 +4235,10 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
-    val sig = Signature(Set(),
-                        existentialConstants,
-                        currentOrder.orderedConstants -- existentialConstants,
-                        Map(), // TODO: also handle predicate_match_config
-                        currentOrder,
-                        theoryCollector.theories)
+    val sig = toSignature(currentOrder)
     val (fors, _, newSig) =
-      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig,
+                    preprocSettings, functionEnc)
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

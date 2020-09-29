@@ -22,6 +22,7 @@
 package ap.theories.strings
 
 import ap.basetypes.IdealInt
+import ap.algebra.Monoid
 import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
@@ -196,6 +197,8 @@ trait StringTheory extends Theory {
 
   val str_to_re      : IFunction    // StringSort -> RegexSort
 
+  val re_from_str    : IFunction    // StringSort -> RegexSort
+
   val re_none        : IFunction    // -> RegexSort
   val re_eps         : IFunction    // -> RegexSort
   val re_all         : IFunction    // -> RegexSort
@@ -309,6 +312,20 @@ trait StringTheory extends Theory {
 
     Some(DecoderData(stringMap.toMap))
   }
-
 }
 
+/**
+ * Every string theory gives rise to a monoid.
+ */
+case class StringMonoid(stringTheory : StringTheory) extends Monoid {
+
+  val dom =
+    stringTheory.StringSort
+
+  def op(s : ITerm, t : ITerm) : ITerm =
+    IFunApp(stringTheory.str_++, List(s, t))
+  
+  def identity : ITerm =
+    IFunApp(stringTheory.str_empty, List())
+
+}

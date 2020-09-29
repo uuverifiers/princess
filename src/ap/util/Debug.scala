@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -74,6 +74,7 @@ object Debug {
   case object AC_ENVIRONMENT extends ASSERTION_CATEGORY
   case object AC_INPUT_ABSY extends ASSERTION_CATEGORY
   case object AC_TYPES extends ASSERTION_CATEGORY
+  case object AC_VAR_TYPES extends ASSERTION_CATEGORY
   case object AC_PARAMETERS extends ASSERTION_CATEGORY
   case object AC_CLAUSE_MATCHER extends ASSERTION_CATEGORY
   case object AC_CONSTANT_FREEDOM extends ASSERTION_CATEGORY
@@ -89,6 +90,7 @@ object Debug {
   case object AC_NIA extends ASSERTION_CATEGORY
   case object AC_ADT extends ASSERTION_CATEGORY
   case object AC_MODULO_ARITHMETIC extends ASSERTION_CATEGORY
+  case object AC_ALGEBRA extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true
@@ -114,6 +116,12 @@ object Debug {
   def withoutAssertions[A](comp : => A) : A =
     enabledAssertions.withValue(everythingDisabled) { comp }
   
+  def whenAssertionsOn[A](ac : ASSERTION_CATEGORY)(comp : => A) : Unit = {
+    if (enabledAssertions.value(AT_METHOD_INTERNAL, ac))
+      comp
+    ()
+  }
+
   def withDisabledAssertions[A](disabledAssertions : Set[ASSERTION_CATEGORY])
                                (comp : => A) : A = {
     val oldEnabled = enabledAssertions.value

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -51,7 +51,8 @@ object SimpleClausifier {
                  extends CollectingVisitor[Boolean, IFormula] {
     def apply(f : IFormula) : IFormula = this.visit(f, false)
     
-    override def preVisit(t : IExpression, underneathEx : Boolean) : PreVisitResult =
+    override def preVisit(t : IExpression,
+                          underneathEx : Boolean) : PreVisitResult =
       t match {
         case Literal(t) =>
           // do not look into atoms
@@ -68,7 +69,7 @@ object SimpleClausifier {
     def postVisit(t : IExpression, underneathEx : Boolean,
                   subres : Seq[IFormula]) : IFormula =
       t match {
-        case t@IQuantified(q, _) if (underneathEx || q == EX) =>
+        case t@IQuantified(EX, _) if underneathEx =>
           PushDownQuantifier(t update subres)
         case t : IFormula =>
           t update subres
@@ -87,7 +88,8 @@ object SimpleClausifier {
     def apply(f : IFormula) : IFormula = this.visit(f, (Quantifier.ALL, null))
     
     override def preVisit(t : IExpression,
-                          lastOps : (Quantifier, IBinJunctor.Value)) : PreVisitResult =
+                          lastOps : (Quantifier, IBinJunctor.Value))
+                        : PreVisitResult =
       t match {
         case Literal(t) =>
           // do not look into atoms
@@ -100,7 +102,8 @@ object SimpleClausifier {
           KeepArg
       }
   
-    def postVisit(t : IExpression, lastOps : (Quantifier, IBinJunctor.Value),
+    def postVisit(t : IExpression,
+                  lastOps : (Quantifier, IBinJunctor.Value),
                   subres : Seq[IFormula]) : IFormula =
       t match {
         case t@IBinFormula(j, _, _) if (j != lastOps._2) => {
@@ -113,38 +116,7 @@ object SimpleClausifier {
                 case IQuantified(`lastQuan`, _) => true
                 case _ => false
                }) {
-
-            val bodyQuans = parts map (sepQuan(_, lastQuan, List()))
-
-            if (j == And && lastQuan == ALL || j == Or && lastQuan == EX) {
-              // find maximum number of quantifiers in any component
-
-              val maxQuans = (bodyQuans map (_._2)) maxBy (_.size)
-              val maxQuansSize = maxQuans.size
-              val shiftedBodies =
-                for ((body, quans) <- bodyQuans)
-                yield VariableShiftVisitor(body, 0, maxQuansSize - quans.size)
-              quan(maxQuans, connect(shiftedBodies, j))
-
-            } else {
-              // find total number of required quantifiers
-
-              val allQuans = for ((_, qs) <- bodyQuans; q <- qs) yield q
-              val allQuansSize = allQuans.size
-              var offset = 0
-              val shiftedBodies = for ((body, quans) <- bodyQuans) yield {
-                val quansSize = quans.size
-                val newBody =
-                  VariablePermVisitor(body,
-                                      IVarShift(List.fill(quansSize)(offset),
-                                                allQuansSize - quansSize))
-                offset = offset + quansSize
-                newBody
-              }
-
-              quan(allQuans, connect(shiftedBodies, j))
-            }
-
+            undistributeQuantifier(lastQuan, j, parts)
           } else {
             newT
           }
@@ -153,7 +125,50 @@ object SimpleClausifier {
           t update subres
       }
   }
-  
+
+  /**
+   * Pull up the outermost quantifiers <code>quan</code> in the
+   * <code>parts</code> formulas to the top.
+   */
+  private def undistributeQuantifier(quan : Quantifier,
+                                     junctor : IBinJunctor.Value,
+                                     parts : Seq[IFormula]) : IFormula = {
+    // determine the sorts of quantifiers
+    val bodyQuans = parts map (quanSorts(_, quan, List()))
+    val uniSort   = uniformSorts(bodyQuans)
+
+    if ((junctor == And && quan == ALL || junctor == Or && quan == EX) &&
+          uniSort.isDefined) {
+      // find maximum number of quantifiers in any component
+
+      val maxQuans = (bodyQuans map (_._2)) maxBy (_.size)
+      val maxQuansSize = maxQuans.size
+      val shiftedBodies =
+        for ((body, quans) <- bodyQuans)
+        yield shiftVars(body, maxQuansSize - quans.size)
+      quanWithSorts(quan, maxQuans, connect(shiftedBodies, junctor))
+
+    } else {
+      // find total number of required quantifiers
+
+      // TODO: will this list the sorts in the right order in all cases?
+      val allQuans = for ((_, qs) <- bodyQuans; q <- qs) yield q
+      val allQuansSize = allQuans.size
+      var offset = 0
+      val shiftedBodies = for ((body, quans) <- bodyQuans) yield {
+        val quansSize = quans.size
+        val newBody =
+          VariablePermVisitor(body,
+                              IVarShift(List.fill(quansSize)(offset),
+                                        allQuansSize - quansSize))
+        offset = offset + quansSize
+        newBody
+      }
+
+      quanWithSorts(quan, allQuans, connect(shiftedBodies, junctor))
+    }
+  }
+
   private def sepQuan(f : IFormula,
                       q : Quantifier,
                       quans : List[Quantifier])
@@ -162,6 +177,26 @@ object SimpleClausifier {
       sepQuan(subF, q, q :: quans)
     case f =>
       (f, quans)
+  }
+
+  private def quanSorts(f : IFormula,
+                        q : Quantifier,
+                        sorts : List[Sort])
+                     : (IFormula, List[Sort]) = f match {
+    case ISortedQuantified(`q`, sort, subF) =>
+      quanSorts(subF, q, sort :: sorts)
+    case f =>
+      (f, sorts)
+  }
+
+  private def uniformSorts(sortsFors : Seq[(IFormula, List[Sort])])
+                         : Option[Sort] = {
+    val sorts = for ((_, ss) <- sortsFors.iterator; s <- ss.iterator) yield s
+    val sort = sorts.next
+    if (sorts forall (_ == sort))
+      Some(sort)
+    else
+      None
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -173,7 +208,8 @@ object SimpleClausifier {
   private object ExBodiesToDNF extends CollectingVisitor[Quantifier, IFormula] {
     def apply(f : IFormula) : IFormula = this.visit(f, null)
     
-    override def preVisit(t : IExpression, lastQuan : Quantifier) : PreVisitResult =
+    override def preVisit(t : IExpression,
+                          lastQuan : Quantifier) : PreVisitResult =
       t match {
         case Literal(t) =>
           // do not look into atoms
@@ -199,45 +235,6 @@ object SimpleClausifier {
   //////////////////////////////////////////////////////////////////////////////
   
   /**
-   * Pull up all quantifiers of the kind <code>quanToPullUp</code> one step
-   * over a binary propositional connective. This transforms, e.g.,
-   * <code> (ALL ALL ... ) | (ALL ALL ...)</code> into
-   * <code> ALL ALL ALL ALL .... (... | ...)</code>
-   */
-  private object PullUpQuantifier extends CollectingVisitor[Quantifier, IFormula] {
-    def apply(f : IFormula, quanToPullUp : Quantifier) : IFormula =
-      this.visit(f, quanToPullUp)
-    
-    override def preVisit(t : IExpression, quanToPullUp : Quantifier) : PreVisitResult =
-      t match {
-        case IBinFormula(j,
-                         IQuantified(`quanToPullUp`, f1),
-                         IQuantified(`quanToPullUp`, f2))
-          if (j == And && quanToPullUp == ALL || j == Or && quanToPullUp == EX) =>
-            TryAgain(IQuantified(quanToPullUp, IBinFormula(j, f1, f2)),
-                     quanToPullUp)
-        case IBinFormula(j, IQuantified(`quanToPullUp`, f1), f2) =>
-          TryAgain(IQuantified(quanToPullUp,
-                               IBinFormula(j, f1, VariableShiftVisitor(f2, 0, 1))),
-                   quanToPullUp)
-        case IBinFormula(j, f1, IQuantified(`quanToPullUp`, f2)) =>
-          TryAgain(IQuantified(quanToPullUp,
-                               IBinFormula(j, VariableShiftVisitor(f1, 0, 1), f2)),
-                   quanToPullUp)
-        case IQuantified(`quanToPullUp`, _) =>
-          KeepArg
-        case t : IFormula =>
-          ShortCutResult(t)
-      }
-  
-    def postVisit(t : IExpression, quanToPullUp : Quantifier,
-                  subres : Seq[IFormula]) : IFormula =
-      t.asInstanceOf[IFormula] update subres
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
-  /**
    * Turn a conjunction of two formulae in DNF into a formula in DNF
    * (i.e., one level of multiplying out)
    */
@@ -256,7 +253,8 @@ object SimpleClausifier {
           ShortCutResult(t)
       }
   
-    def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IFormula]) : IFormula =
       t.asInstanceOf[IFormula] update subres
   }
   
@@ -265,7 +263,8 @@ object SimpleClausifier {
   /**
    * Push down one quantifier as far as possible
    */
-  private object PushDownQuantifier extends CollectingVisitor[Boolean, IFormula] {
+  private object PushDownQuantifier
+                 extends CollectingVisitor[Boolean, IFormula] {
     def apply(f : IFormula) : IFormula = this.visit(f, false)
     
     override def preVisit(t : IExpression,
@@ -276,28 +275,28 @@ object SimpleClausifier {
       if (pushed) {
         UniSubArgs(false)
       } else t match {
-        case IQuantified(ALL, IBinFormula(And, f1, f2)) =>
-          TryAgain(all(f1) & all(f2), true)
-        case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
-          TryAgain(ex(f1) | ex(f2), true)
+        case ISortedQuantified(ALL, sort, IBinFormula(And, f1, f2)) =>
+          TryAgain(sort.all(f1) & sort.all(f2), true)
+        case ISortedQuantified(EX, sort, IBinFormula(Or, f1, f2)) =>
+          TryAgain(sort.ex(f1) | sort.ex(f2), true)
         
-        case IQuantified(ALL, IBinFormula(Or, f1, f2))
-          if (!ContainsSymbol(f1, IVariable(0))) =>
-            TryAgain(VariableShiftVisitor(f1, 1, -1) | all(f2), true)
-        case IQuantified(ALL, IBinFormula(Or, f1, f2))
-          if (!ContainsSymbol(f2, IVariable(0))) =>
-            TryAgain(all(f1) | VariableShiftVisitor(f2, 1, -1), true)
+        case ISortedQuantified(ALL, sort, IBinFormula(Or, f1, f2))
+          if (!ContainsVariable(f1, 0)) =>
+            TryAgain(shiftVars(f1, 1, -1) | sort.all(f2), true)
+        case ISortedQuantified(ALL, sort, IBinFormula(Or, f1, f2))
+          if (!ContainsVariable(f2, 0)) =>
+            TryAgain(sort.all(f1) | shiftVars(f2, 1, -1), true)
         
-        case IQuantified(EX, IBinFormula(And, f1, f2))
-          if (!ContainsSymbol(f1, IVariable(0))) =>
-            TryAgain(VariableShiftVisitor(f1, 1, -1) & ex(f2), true)
-        case IQuantified(EX, IBinFormula(And, f1, f2))
-          if (!ContainsSymbol(f2, IVariable(0))) =>
-            TryAgain(ex(f1) & VariableShiftVisitor(f2, 1, -1), true)
+        case ISortedQuantified(EX, sort, IBinFormula(And, f1, f2))
+          if (!ContainsVariable(f1, 0)) =>
+            TryAgain(shiftVars(f1, 1, -1) & sort.ex(f2), true)
+        case ISortedQuantified(EX, sort, IBinFormula(And, f1, f2))
+          if (!ContainsVariable(f2, 0)) =>
+            TryAgain(sort.ex(f1) & shiftVars(f2, 1, -1), true)
       
         case IQuantified(_, t)
-          if (!ContainsSymbol(t, IVariable(0))) =>
-            ShortCutResult(VariableShiftVisitor(t, 1, -1))
+          if (!ContainsVariable(t, 0)) =>
+            ShortCutResult(shiftVars(t, 1, -1))
           
         case t : IFormula =>
           ShortCutResult(t)
@@ -317,16 +316,17 @@ object SimpleClausifier {
       t match {
         case IBinFormula(Or, _, _) =>
           KeepArg
-        case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
-          TryAgain(ex(f1) | ex(f2), ())
+        case ISortedQuantified(EX, sort, IBinFormula(Or, f1, f2)) =>
+          TryAgain(sort.ex(f1) | sort.ex(f2), ())
         case t@IQuantified(_, sub) =>
-          if (ContainsSymbol(sub, IVariable(0)))
+          if (ContainsVariable(sub, 0))
             ShortCutResult(t)
           else
-            ShortCutResult(VariableShiftVisitor(sub, 1, -1))
+            ShortCutResult(shiftVars(sub, 1, -1))
       }
     
-    def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IFormula]) : IFormula =
       t.asInstanceOf[IFormula] update subres
   }
   
@@ -390,13 +390,8 @@ object SimpleClausifier {
         if (withQuans.size <= 1) {
           newT
         } else {
-          val bodyQuans = withQuans map (sepQuan(_, ALL, List()))
-          val maxQuans = (bodyQuans map (_._2)) maxBy (_.size)
-          val maxQuansSize = maxQuans.size
-          val shiftedBodies =
-            for ((body, quans) <- bodyQuans)
-            yield VariableShiftVisitor(body, 0, maxQuansSize - quans.size)
-          and(withoutQuans) &&& quan(maxQuans, and(shiftedBodies))
+          and(withoutQuans) &&&
+          undistributeQuantifier(ALL, IBinJunctor.And, withQuans)
         }
       }
 

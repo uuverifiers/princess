@@ -25,16 +25,19 @@ import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
 import ap.theories.strings.StringTheory
+import ap.theories.rationals.Rationals
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
 import IExpression.Sort
-import ap.types.{MonoSortedIFunction, MonoSortedPredicate, SortedConstantTerm,
-                 SortedIFunction, SortedPredicate, UninterpretedSortTheory}
-import ap.util.{Debug, Seqs}
+import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
+                 SortedConstantTerm, MonoSortedPredicate,
+                 UninterpretedSortTheory}
+import ap.util.{Seqs, Debug}
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer,
-                                 HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet, LinkedHashMap}
+
 import java.io.PrintStream
 
 /**
@@ -167,12 +170,26 @@ object SMTLineariser {
         case (0, c) =>
           res += c
 
-        case _ =>
-          throw new IllegalStringException
+        case (1, c) => {
+          // then we have already seen a \
+          state = 0
+          res += 92
+          res += c
+        }
+
+//        case _ =>
+///          throw new IllegalStringException
       }
 
-    if (state != 0)
-      throw new IllegalStringException
+    state match {
+      case 0 =>
+        // ok
+      case 1 =>
+        // then we have already seen a \
+        res += 92
+      case _ =>
+        throw new IllegalStringException
+    }
 
     res
   }
@@ -277,8 +294,18 @@ object SMTLineariser {
                      formalArgs : Seq[ConstantTerm],
                      body : IExpression) : Unit = {
     val (argSorts, resSort) = functionType
+    print("(define-fun " + quoteIdentifier(f.name) + " ")
+    printArguments(argSorts, formalArgs)
+    print(" ")
+    printSMTType(sort2SMTType(resSort)._1)
+    print(" ")
+    apply(body)
+    println(")")
+  }
 
-    print("(define-fun " + quoteIdentifier(f.name) + " (")
+  def printArguments(argSorts : Seq[Sort],
+                     formalArgs : Seq[ConstantTerm]) : Unit = {
+    print("(")
     var sep = ""
     for ((a, t) <- formalArgs.iterator zip argSorts.iterator) {
       print(sep)
@@ -289,18 +316,14 @@ object SMTLineariser {
       printSMTType(sort2SMTType(t)._1)
       print(")")
     }
-    print(") ")
-    printSMTType(sort2SMTType(resSort)._1)
-    print(" ")
-    apply(body)
-    println(")")
+    print(")")
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
                               SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
-                              SMTHeap, SMTHeapAddress}
+                              SMTADT, SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -348,6 +371,7 @@ object SMTLineariser {
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
+    case SMTReal(_)          => print("Real")
     case t : SMTADT          => print(quoteIdentifier(t.toString))
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
@@ -366,11 +390,16 @@ object SMTLineariser {
     case SMTUnint(sort)    => print(sort)
   }
 
+  def smtTypeAsString(t : SMTType) : String =
+    DialogUtil asString { printSMTType(t) }
+
   def sort2SMTType(sort : Sort) : (SMTType,
                                    Option[ITerm => IFormula]) = sort match {
     case Sort.Integer =>
       (SMTInteger, None)
-    case Sort.Nat | _ : Sort.Interval =>
+    case Sort.Nat =>
+      (SMTInteger, Some(_ >= 0))
+    case sort : Sort.Interval =>
       (SMTInteger, Some(sort.membershipConstraint _))
     case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)
@@ -383,6 +412,8 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
+    case Rationals.FractionSort =>
+      (SMTReal(sort), None)
     case sort : UninterpretedSortTheory.UninterpretedSort =>
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
@@ -391,10 +422,15 @@ object SMTLineariser {
       (SMTHeap(sort.heapTheory), None)
     case sort : Heap.AddressSort =>
       (SMTHeapAddress(sort.heapTheory), None)
+    case Sort.AnySort =>
+      (SMTInteger, None)
+    case s =>
+      throw new Exception (
+        "do not know how to translate " + s + " to an SMT-LIB type")
   }
 
   def sort2SMTString(sort : Sort) : String =
-    DialogUtil asString { printSMTType(sort2SMTType(sort)._1) }
+    smtTypeAsString(sort2SMTType(sort)._1)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -712,6 +748,11 @@ class SMTLineariser(benchmarkName : String,
       case Some(t : ADT)
         if t.termSize != null && (t.termSize contains fun) =>
         "_size"
+      case Some(Rationals) if fun == Rationals.frac =>
+        "/"
+      case Some(ModuloArithmetic) => fun match {
+        case ModuloArithmetic.int_cast => "bv2nat"
+      }
       case _ =>
         if (zeroExtendFuns contains fun)
           fun.name
@@ -784,7 +825,7 @@ class SMTLineariser(benchmarkName : String,
           for (_ <- 1 to pred.arity) yield Sort.Integer
       }
 
-      print((argSorts map sort2SMTString) mkString " ")
+      print((argSorts map (sort2SMTString(_))) mkString " ")
       println(") Bool)")
     }
     
@@ -812,8 +853,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
-    AbsyPrinter(bitvecFormula)
+//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    AbsyPrinter(typedFormula)
   }
   
   def printTerm(term : ITerm) =
@@ -1048,6 +1089,8 @@ class SMTLineariser(benchmarkName : String,
   /**
    * Translate arithmetic constraints back to bit-vectors.
    */
+
+/*
   private class BitVectorTranslator
                 extends CollectingVisitor[Unit, IExpression] {
 
@@ -1180,6 +1223,7 @@ class SMTLineariser(benchmarkName : String,
         t update subres
     }
   }
+ */
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1351,18 +1395,12 @@ class SMTLineariser(benchmarkName : String,
         // strip off the ADT encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
 
-      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+      case IExpression.EqLit(BooleanTerm(t), v) =>
         // strip off the integer encoding
-        TryAgain(t, ctxt)
-
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
+        if (v.isZero)
+          TryAgain(t, ctxt)
+        else
+          TryAgain(!IExpression.eqZero(t), ctxt)
 
       // ADT expression
       case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),

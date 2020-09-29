@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -49,13 +49,15 @@ object BooleanCompactifier {
     import SimpleClausifier.Literal
     import IBinJunctor._
     
-    def apply(f : IFormula) : IFormula = this.visit(f, {}).asInstanceOf[IFormula]
+    def apply(f : IFormula) : IFormula =
+      this.visit(f, {}).asInstanceOf[IFormula]
     
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression =
       t match {
         case t@IBinFormula(j, _, _) => subres match {
-          case Seq(IBinFormula(`j`, _, _), _) | Seq(_, IBinFormula(`j`, _, _)) =>
+          case Seq(IBinFormula(`j`, _, _), _) |
+               Seq(_, IBinFormula(`j`, _, _)) =>
             // look at some larger formula containing this one
             t update subres
             
@@ -65,11 +67,15 @@ object BooleanCompactifier {
               case Or => And
             }
           
-            val leftFors  = LineariseVisitor(subres(0).asInstanceOf[IFormula], oppJ)
-            val rightFors = LineariseVisitor(subres(1).asInstanceOf[IFormula], oppJ)
-            val rightForsSet = rightFors.toSet
-          
-            val commonFors = leftFors filter (rightForsSet contains _)
+            val leftFors =
+              LineariseVisitor(subres(0).asInstanceOf[IFormula], oppJ)
+            val rightFors =
+              LineariseVisitor(subres(1).asInstanceOf[IFormula], oppJ)
+            val rightForsSet =
+              rightFors.toSet
+
+            val commonFors =
+              leftFors filter (rightForsSet contains _)
 
             if (commonFors.isEmpty) {
               t update subres
@@ -77,9 +83,9 @@ object BooleanCompactifier {
               val commonForsSet = commonFors.toSet
             
               val newLeft =
-                connect(leftFors.iterator filterNot (commonForsSet contains _), oppJ)
+                connect(leftFors.iterator filterNot commonForsSet, oppJ)
               val newRight =
-                connect(rightFors.iterator filterNot (commonForsSet contains _), oppJ)
+                connect(rightFors.iterator filterNot commonForsSet, oppJ)
             
               IBinFormula(oppJ, connect(commonFors, oppJ),
                           IBinFormula(j, newLeft, newRight))

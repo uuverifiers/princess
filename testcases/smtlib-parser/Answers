@@ -352,6 +352,19 @@ unknown
   (define-fun h1 () Heap (Heap 45 48))
 )
 
+Loading conjunct-eliminator-bug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading eagerMatchBug.smt2 ...
+Warning: echo is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Proving ...
+
+unsat
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
@@ -444,6 +457,8 @@ Loading missingLazyMatch.smt2 ...
 unknown
 Loading 4BitCounterStruct-safe.c.smt2 ...
 unsat
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
 ((= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12)
 (= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12)
 (= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12)
@@ -464,6 +479,23 @@ unsat
 Loading interpolant-typing-bug.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
+Warning: type clash during inference: int vs SimpleArray
 ((and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1))))
 (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (<= 0 (+ (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1))) (or (not (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1)) (= (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) (select |#memory_int_-1| test_fun_~y_ref~2.base_-1)))))
 (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (<= 0 (+ (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1))) (or (not (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1)) (= (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) (select |#memory_int_-1| test_fun_~y_ref~2.base_-1)))))

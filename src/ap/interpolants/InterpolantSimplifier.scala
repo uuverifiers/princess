@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -80,8 +80,9 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
                         negated : Boolean,
                         depth : Int) : Option[IFormula] = f match {
       
-    case IQuantified(q, subF) if (q == Quantifier(negated)) =>
-      for (res <- translate(subF, negated, depth + 1)) yield IQuantified(q, res)
+    case ISortedQuantified(q, sort, subF) if (q == Quantifier(negated)) =>
+      for (res <- translate(subF, negated, depth + 1))
+      yield ISortedQuantified(q, sort, res)
         
     case IIntFormula(EqZero, t) if (!negated) =>
       rewriteEquation(t, depth)
@@ -148,9 +149,9 @@ class ArraySimplifier extends ap.parser.Simplifier {
       VariableShiftVisitor(f, depth + 1, 1)
 
     f match {
-      case IQuantified(q, subF) if (q == Quantifier(negated)) =>
+      case ISortedQuantified(q, sort, subF) if (q == Quantifier(negated)) =>
         for (res <- translateStore(subF, negated, depth + 1))
-        yield IQuantified(q, res)
+        yield ISortedQuantified(q, sort, res)
   
       case IBinFormula(j, left, right)
           if (j == (if (negated) IBinJunctor.Or else IBinJunctor.And)) =>
@@ -204,8 +205,8 @@ class ArraySimplifier extends ap.parser.Simplifier {
    * Similarly for \exists.
    */
   private def elimQuantifiedSelect(t : IExpression) : IExpression = t match {
-    case IQuantified(q, subF) if (SelectFromVarDetector(subF)) =>
-      IQuantified(q, SelectReplaceVisitor(subF))
+    case ISortedQuantified(q, sort, subF) if (SelectFromVarDetector(subF)) =>
+      ISortedQuantified(q, sort, SelectReplaceVisitor(subF))
     case t => t
   }
 
@@ -287,9 +288,12 @@ class ArraySimplifier extends ap.parser.Simplifier {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val rewritings =
-    Rewriter.combineRewritings(Array(elimStore _ , elimQuantifiedSelect _))
+  val rewritings =
+    Vector(elimStore _ , elimQuantifiedSelect _)
+
+  private val rewritingFun =
+    Rewriter.combineRewritings(rewritings)
   
   protected override def furtherSimplifications(expr : IExpression) =
-    rewritings(expr)
+    rewritingFun(expr)
 }

@@ -109,6 +109,8 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_to_re =
     new MonoSortedIFunction("str_to_re", List(SSo), RSo, true, false)
+  val re_from_str =
+    new MonoSortedIFunction("re_from_str", List(SSo), RSo, true, false)
 
   val re_none =
     new MonoSortedIFunction("re_none", List(), RSo, true, false)
@@ -148,7 +150,7 @@ abstract class AbstractStringTheory extends StringTheory {
          str_++, str_len, str_at, str_char,
          str_substr, str_indexof,
          str_replace, str_replacere, str_replaceall, str_replaceallre,
-         str_to_re, re_none, re_eps, re_all, re_allchar,
+         str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
          re_union, re_inter, re_*, re_+, re_opt, re_comp, re_loop)
 
@@ -227,11 +229,12 @@ abstract class AbstractStringTheory extends StringTheory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private lazy val regexFunctions =
+    Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
+        re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
+        re_*, re_+, re_opt, re_comp, re_loop)
+
   object RegexExtractor {
-    private val regexFunctions =
-      Set(str_empty, str_cons, re_none, str_to_re, re_all, re_allchar,
-          re_charrange, re_range, re_++, re_union, re_inter, re_*, re_+, re_opt,
-          re_comp, re_loop)
     private lazy val regexPredicates =
       regexFunctions map functionPredicateMapping.toMap
 
@@ -264,6 +267,26 @@ abstract class AbstractStringTheory extends StringTheory {
             throw new IllegalRegexException
         }
       }
+  }
+
+  /**
+   * Extractor to identify regular expressions that are completely defined,
+   * i.e., in which no sub-terms are left symbolic.
+   */
+  object ConcreteRegex {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case t@IFunApp(f, args)
+          if ((regexFunctions contains f) &&
+                (args forall { s => ConcreteRegex.unapply(s).isDefined })) =>
+        Some(t)
+      case t@IFunApp(ModuloArithmetic.mod_cast,
+                     Seq(IIntLit(_), IIntLit(_), IIntLit(_))) =>
+        Some(t)
+      case t : IIntLit =>
+        Some(t)
+      case _ =>
+        None
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

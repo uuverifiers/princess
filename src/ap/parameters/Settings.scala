@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -177,6 +177,10 @@ object GlobalSettings {
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.BitShift)
         case ValueOpt("mulProcedure", "native") =>
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
+        case ValueOpt("mulSplitting", "sign") =>
+          Param.NONLINEAR_SPLITTING.set(settings, Param.NonLinearSplitting.Sign)
+        case ValueOpt("mulSplitting", "signMinimal") =>
+          Param.NONLINEAR_SPLITTING.set(settings, Param.NonLinearSplitting.SignMinimal)
         case ValueOpt("adtMeasure", "size") =>
           Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.Size)
         case ValueOpt("adtMeasure", "relDepth") =>
@@ -234,7 +238,7 @@ object GlobalSettings {
          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY, Param.STRING_THEORY_DESC,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.PORTFOLIO, Param.NEG_SOLVING,
-         Param.MUL_PROCEDURE, Param.ADT_MEASURE,
+         Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED)
 
   val DEFAULT =

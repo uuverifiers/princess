@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -138,7 +138,7 @@ class InputDialog extends JPanel {
   ss(frame, 400, 800, 400, 800)
   
   setLayout(new BorderLayout)
-  frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+  frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -409,7 +409,7 @@ class InputDialog extends JPanel {
      println(";; (set-option :inline-definitions false) ; default: true")
      println
      println(";; Introduce totality axiom for functions?")
-     println(";; (set-option :totality-axiom true) ; default: false")
+     println(";; (set-option :totality-axiom false) ; default: true")
      println
      println(";; Introduce functionality axiom for functions?")
      println(";; (set-option :functionality-axiom false) ; default: true")

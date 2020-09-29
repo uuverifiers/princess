@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -182,6 +182,7 @@ class TPTPLineariser(benchmarkName : String) {
     case IBinFormula(IBinJunctor.Or, _, _)              => 0
     case IBinFormula(IBinJunctor.And, _, _)             => 0
     case _ : ITermITE | _ : IFormulaITE                 => 1
+    case _ : IEquation                                  => 2
     case _ : INot | _ : IQuantified | _ : INamedPart |
          _ : ITrigger | _ : IEpsilon                    => 3
     case _ : IIntFormula                                => 4
@@ -234,7 +235,7 @@ class TPTPLineariser(benchmarkName : String) {
         } else {
           oldCtxt
         }
-                            
+
       t match {
         // Terms
         case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
@@ -243,8 +244,11 @@ class TPTPLineariser(benchmarkName : String) {
         }
         case IPlus(s, ITimes(coeff, AtomicTerm(t))) if (coeff.signum < 0) => {
           print("$difference(")
-          TryAgain(s, addClosingString(ctxt,
-                          ", $product(" + coeff.abs + ", " + atomicTerm(t, ctxt) + "))"))
+          TryAgain(
+            s,
+            addClosingString(
+              ctxt,
+              ", $product(" + coeff.abs + ", " + atomicTerm(t, ctxt) + "))"))
         }
         case IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s) => {
           print("$difference(")
@@ -252,8 +256,11 @@ class TPTPLineariser(benchmarkName : String) {
         }
         case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
           print("$difference(")
-          TryAgain(s, addClosingString(ctxt,
-                          ", $product(" + coeff.abs + ", " + atomicTerm(t, ctxt) + "))"))
+          TryAgain(
+            s,
+            addClosingString(
+              ctxt,
+              ", $product(" + coeff.abs + ", " + atomicTerm(t, ctxt) + "))"))
         }
       
         case AtomicTerm(t) => {
@@ -346,6 +353,11 @@ class TPTPLineariser(benchmarkName : String) {
           TryAgain(t, ctxt)
         }
 */
+
+        case IEquation(_, _) => {
+          allButLast(ctxt, " = ", "", 2)
+        }
+
         case IIntFormula(IIntRelation.GeqZero,
                          ITimes(IdealInt.MINUS_ONE, t)) => {
           print("$lesseq(")
