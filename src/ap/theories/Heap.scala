@@ -23,6 +23,7 @@
 package ap.theories
 
 import ap.basetypes._
+import ap.parser.IExpression.Predicate
 import ap.parser._
 import ap.types.{MonoSortedIFunction, Sort, _}
 import ap.util.Debug
@@ -198,6 +199,28 @@ object Heap {
         }
       }
     }
+  }
+
+  /**
+   * Extractor recognising the functions of any Heap theory.
+   */
+  object HeapFunExtractor {
+    def unapply(fun : IFunction) : Option[Heap] =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : Heap) => Some(t)
+        case None => None
+      }
+  }
+
+  /**
+   * Extractor recognising the predicates of any Heap theory.
+   */
+  object HeapPredExtractor {
+    def unapply(pred : Predicate) : Option[Heap] =
+      (TheoryRegistry lookupSymbol pred) match {
+        case Some(t : Heap) => Some(t)
+        case None => None
+      }
   }
 }
 

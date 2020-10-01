@@ -3555,7 +3555,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val query = new IFunction("is-" + ctor.name, 1, true, true)
       env.addFunction(query,
         SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
-      val body = ctorIdTerm === ctorNum
+      val body = ctorIdTerm === datatype.ctorId2PerSortId(ctorNum)
       functionDefs = functionDefs + (query -> (body, SMTBool))
     }
   }
@@ -3576,7 +3576,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                          Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
-    val adtCtors = allCtors flatMap (_._1)
+    val adtCtors = (allCtors map (_._1)).flatten
 
     // Throw an error if the Object sort cannot be found as a datatype
     val (objectSort, _) =
@@ -3615,7 +3615,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                              SMTLineariser.sort2SMTType(fun.resSort)._1))
     }
 
-    addTheory(heap) // todo: is this required?
+    addTheory(heap)
   }
 
   protected def extractHeap(args : Seq[Term])
@@ -3675,16 +3675,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def addAxiomEquation(f : IFunction,
                                body : (IExpression, SMTType)) : Unit = {
-    val argNum = f.arity
+    val (argSorts, resSort) = MonoSortedIFunction.functionType(f)
+    val argNum = argSorts.size
 
-    val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
+    val argVars = for ((s, n) <- argSorts.zipWithIndex) yield v(argNum -n-1, s)
+    val resVar  = v(argNum, resSort)
+    val lhs     = IFunApp(f, argVars)
     val axiom =
       if (argNum == 0)
         lhs === asTerm(body)
       else
-        quan(Array.fill(argNum + 1){Quantifier.ALL}, 
-          ITrigger(List(lhs),
-            (lhs === v(argNum)) ==> (asTerm(body) === v(argNum))))
+        all(argSorts.reverse ++ List(resSort),
+            ITrigger(List(lhs),
+                     (lhs === resVar) ==> (asTerm(body) === resVar)))
 
     addAxiom(axiom)
   }
