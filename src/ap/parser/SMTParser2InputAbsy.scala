@@ -3562,10 +3562,50 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def setupADT(sortNames : Seq[String],
                        allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
-                                       Seq[Seq[SMTType]])]) : Unit = {
-    val adtCtors = allCtors flatMap (_._1)
-    val datatype = new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
-    addADTToEnv(datatype)
+                         Seq[Seq[SMTType]])]) : Unit = {
+    val adtCtors = (allCtors map (_._1)).flatten
+    val datatype =
+      new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
+
+    val smtDataTypes =
+      for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
+
+    // add types to environment
+    for (t <- smtDataTypes)
+      env.addSort(t.toString, t)
+
+    // add adt symbols to the environment
+    val smtCtorFunctionTypes =
+      for (((_, args), num) <- allCtors.zipWithIndex;
+           args2 <- args.iterator;
+           cleanedArgs = for (t <- args2) yield t match {
+             case SMTADT(null, n) => smtDataTypes(n)
+             case t => t
+           })
+        yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
+
+    for ((f, smtType) <-
+           datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
+      env.addFunction(f, smtType)
+
+    for ((sels, smtType) <-
+           datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+         (f, arg) <-
+           sels.iterator zip smtType.arguments.iterator) {
+      env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
+    }
+
+    // generate the is- queries as inlined functions
+    for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+         ctorIdFun = datatype ctorIds adtNum;
+         ctorIdTerm = ctorIdFun(v(0));
+         ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+      val query = new IFunction("is-" + name, 1, true, true)
+      env.addFunction(query,
+        SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
+      val body = ctorIdTerm === ctorNum
+      functionDefs = functionDefs + (query -> (body, SMTBool))
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
