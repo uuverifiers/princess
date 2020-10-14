@@ -111,7 +111,7 @@ class HeapTheoryTests extends FlatSpec {
     TestCase(
       "Deterministic allocation",
       UnsatStep(
-        forall(List(AddressSort), isAlloc(h, v(0)) <=> isAlloc(h1, v(0))),
+        AddressSort.all(x => isAlloc(h, x) <=> isAlloc(h1, x)),
         alloc(h, o) === ar,
         alloc(h1, o1) === ar1,
         newAddr(ar) =/= newAddr(ar1)
