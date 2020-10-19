@@ -20,7 +20,7 @@ CLASSPATH:=$(CLASSPATH):$(PARSER_BASEDIR):$(JLEX_PATH)
 all: smt-parser.jar ap/parser/smtlib/Test.class
 
 
-smt-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.class $(PARSER_BINDIR)/ap/parser/smtlib/sym.class $(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinterNonStatic.class $(PARSER_BINDIR)/ap/parser/smtlib/parser.class
+smt-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.class $(PARSER_BINDIR)/ap/parser/smtlib/sym.class $(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinterNonStatic.class $(PARSER_BINDIR)/ap/parser/smtlib/parser.class $(PARSER_BINDIR)/ap/parser/smtlib/AllVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/AbstractVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/ComposVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/FoldVisitor.class
 	cd $(PARSER_BINDIR) && jar cf $(PARSER_BASEDIR)/smt-parser.jar ap/parser/smtlib
 
 
@@ -78,6 +78,18 @@ $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinterNonStatic.class: ap/parser/smtlib
 
 ap/parser/smtlib/Test.class: ap/parser/smtlib/Test.java $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class $(PARSER_BINDIR)/ap/parser/smtlib/parser.class $(PARSER_BINDIR)/ap/parser/smtlib/sym.class
 	${JAVAC} ${JAVAC_FLAGS} ap/parser/smtlib/Test.java
+
+$(PARSER_BINDIR)/ap/parser/smtlib/AllVisitor.class: ap/parser/smtlib/AllVisitor.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/AllVisitor.java
+
+$(PARSER_BINDIR)/ap/parser/smtlib/AbstractVisitor.class: ap/parser/smtlib/AbstractVisitor.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/AbstractVisitor.java
+
+$(PARSER_BINDIR)/ap/parser/smtlib/ComposVisitor.class: ap/parser/smtlib/ComposVisitor.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/ComposVisitor.java
+
+$(PARSER_BINDIR)/ap/parser/smtlib/FoldVisitor.class: ap/parser/smtlib/FoldVisitor.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/FoldVisitor.java
 
 smtlib.dvi: smtlib.tex
 	${LATEX} smtlib.tex
