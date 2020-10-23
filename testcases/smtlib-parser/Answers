@@ -344,7 +344,7 @@ Warning: get-model is only supported in incremental mode (option +incremental), 
 Preprocessing ...
 Constructing countermodel ...
 
-unknown
+sat
 (model
   (define-fun o () Obj (WrappedInt 42))
   (define-fun p1 () Int 45)
