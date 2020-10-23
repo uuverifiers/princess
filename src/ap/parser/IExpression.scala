@@ -1153,28 +1153,32 @@ object IExpression {
   def updateAndSimplify(t : IFormula,
                         newSubExpr : Seq[IExpression]) : IFormula = t match {
     case t : IEquation => newSubExpr match {
-      case Seq(IIntLit(c), IIntLit(d)) => IBoolLit(c == d)
-      case _ => t update newSubExpr
+      case Seq(IIntLit(c), IIntLit(d))                 => IBoolLit(c == d)
+      case Seq(s : IConstant, t : IConstant) if s == t => IBoolLit(true)
+      case Seq(s : IVariable, t : IVariable) if s == t => IBoolLit(true)
+      case _                                           => t update newSubExpr
     }
 
     case t@IIntFormula(IIntRelation.EqZero, _) => newSubExpr match {
-      case Seq(IIntLit(value)) => IBoolLit(value.isZero)
+      case Seq(IIntLit(value)) =>
+        IBoolLit(value.isZero)
       case Seq(ITermITE(cond, IIntLit(value1), t2)) if (!value1.isZero) =>
         ~cond &&& updateAndSimplify(t, List(t2))
       case Seq(ITermITE(cond, t1, IIntLit(value2))) if (!value2.isZero) =>
         cond &&& updateAndSimplify(t, List(t1))
-      case _ => t update newSubExpr
+      case _ =>
+        t update newSubExpr
     }
     
     case t@IIntFormula(IIntRelation.GeqZero, _) => newSubExpr match {
       case Seq(IIntLit(value)) => IBoolLit(value.signum >= 0)
-      case _ => t update newSubExpr
+      case _                   => t update newSubExpr
     }
     
     case t@INot(_) => newSubExpr match {
       case Seq(IBoolLit(value)) => IBoolLit(!value)
-      case Seq(INot(f)) => f
-      case _ => t update newSubExpr
+      case Seq(INot(f))         => f
+      case _                    => t update newSubExpr
     }
 
     case t@IBinFormula(IBinJunctor.And, _, _) => newSubExpr match {
@@ -1182,7 +1186,7 @@ object IExpression {
       case Seq(_, s@IBoolLit(false))         => s
       case Seq(IBoolLit(true), s : IFormula) => s
       case Seq(s : IFormula, IBoolLit(true)) => s
-      case _ => t update newSubExpr
+      case _                                 => t update newSubExpr
     }
     
     case t@IBinFormula(IBinJunctor.Or, _, _) => newSubExpr match {
@@ -1202,15 +1206,15 @@ object IExpression {
     }
     
     case t : IFormulaITE => newSubExpr match {
-      case Seq(IBoolLit(true), left : IFormula, _) => left
-      case Seq(IBoolLit(false), _, right : IFormula) => right
+      case Seq(IBoolLit(true), left : IFormula, _)        => left
+      case Seq(IBoolLit(false), _, right : IFormula)      => right
       case Seq(_, s@IBoolLit(a), IBoolLit(b)) if (a == b) => s
-      case _ => t update newSubExpr
+      case _                                              => t update newSubExpr
     }
     
     case _ : IQuantified | _ : ITrigger => newSubExpr match {
       case Seq(b : IBoolLit) => b
-      case _ => t update newSubExpr
+      case _                 => t update newSubExpr
     }
 
     case t@IAtom(p, _) => {
