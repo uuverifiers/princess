@@ -35,3 +35,5 @@ for testname in $TESTS; do
     scalac $OPTIONS $testname.scala
     scala $RUNOPTIONS $testname
 done
+
+rm -f *.class

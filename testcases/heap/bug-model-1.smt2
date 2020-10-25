@@ -18,8 +18,8 @@
 (declare-const A addr)
 (declare-const A2 addr)
 
-(assert (isAlloc H A))
-(assert (isAlloc H A2))
+(assert (valid H A))
+(assert (valid H A2))
 
 (assert (distinct A A2))
 

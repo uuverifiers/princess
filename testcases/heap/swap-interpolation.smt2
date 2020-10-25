@@ -23,7 +23,7 @@
 (declare-const z addr)
 (declare-const obj HeapObject)
 
-(define-fun is-int ((H heap) (x addr)) Bool (and (isAlloc H x) (is-WrappedInt (read H x))))
+(define-fun is-int ((H heap) (x addr)) Bool (and (valid H x) (is-WrappedInt (read H x))))
 
 (push 1)
 (assert (not (= (is-int H x) (is-WrappedInt (read H x)))))

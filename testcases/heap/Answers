@@ -39,16 +39,16 @@ HeapTests1
 Test 1: All locations on the empty heap are unallocated.
 --------------------------------------------------------------------------------
 Step 1.1 (expected: Unsat)
-  isAlloc(emptyheap, p) --> Unsat
+  valid(emptyheap, p) --> Unsat
 --------------------------------------------------------------------------------
 Step 1.2 (expected: Sat)
-  !isAlloc(emptyheap, p) --> Sat
+  !valid(emptyheap, p) --> Sat
 ================================================================================
 ================================================================================
 Test 2: For all heaps, null pointer always points to an unallocated location.
 --------------------------------------------------------------------------------
 Step 2.1 (expected: Unsat)
-  isAlloc(h, nulladdr) --> Unsat
+  valid(h, nulladdr) --> Unsat
 ================================================================================
 ================================================================================
 Test 3: For all heaps, trying to read the null pointer returns the defined object.
@@ -76,10 +76,10 @@ Common assertion:
   alloc(h, o) = ar
 --------------------------------------------------------------------------------
 Step 5.1 (expected: Sat)
-  isAlloc(newheap(ar), newaddr(ar)) --> Sat
+  valid(newheap(ar), newaddr(ar)) --> Sat
 --------------------------------------------------------------------------------
 Step 5.2 (expected: Unsat)
-  !isAlloc(newheap(ar), newaddr(ar)) --> Unsat
+  !valid(newheap(ar), newaddr(ar)) --> Unsat
 ================================================================================
 ================================================================================
 Test 6: After alloc, previously allocated addresses are the same in both heaps.
@@ -89,18 +89,18 @@ Common assertion:
   alloc(h, o) = ar
 --------------------------------------------------------------------------------
 Step 6.1 (expected: Unsat)
-  isAlloc(h, p) & !isAlloc(newheap(ar), p) --> Unsat
+  valid(h, p) & !valid(newheap(ar), p) --> Unsat
 --------------------------------------------------------------------------------
 Step 6.2 (expected: Unsat)
   p != newaddr(ar) &
-  !isAlloc(h, p) &
-  isAlloc(newheap(ar), p) --> Unsat
+  !valid(h, p) &
+  valid(newheap(ar), p) --> Unsat
 ================================================================================
 ================================================================================
 Test 7: Deterministic allocation
 --------------------------------------------------------------------------------
 Step 7.1 (expected: Unsat)
-  \forall addr v0; (isAlloc(h, v0) <-> isAlloc(h', v0)) &
+  \forall addr v0; (valid(h, v0) <-> valid(h', v0)) &
   alloc(h, o) = ar &
   alloc(h', o') = ar' &
   newaddr(ar) != newaddr(ar') --> Unsat
@@ -110,7 +110,7 @@ Test 8: Reading from a previously written (alloc.) location returns that value.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  isAlloc(h, p)
+  valid(h, p)
 --------------------------------------------------------------------------------
 Step 8.1 (expected: Sat)
   read(write(h, p, o), p) = o --> Sat
@@ -165,7 +165,7 @@ Test 12: Reading an unallocated location returns the defined object
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  !isAlloc(h, p)
+  !valid(h, p)
 --------------------------------------------------------------------------------
 Step 12.1 (expected: Sat)
   read(h, p) = defObj --> Sat
@@ -179,8 +179,8 @@ Test 13: Writing to a location does not modify the rest of the locations
 --------------------------------------------------------------------------------
 Common assertion: 
   p != p'
-  isAlloc(h, p)
-  isAlloc(h, p')
+  valid(h, p)
+  valid(h, p')
 --------------------------------------------------------------------------------
 Step 13.1 (expected: Sat)
   read(write(h, p', o), p) = read(h, p) --> Sat
@@ -193,7 +193,7 @@ Test 14: Writing to an unallocated location returns the same heap.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  !isAlloc(h, p)
+  !valid(h, p)
 --------------------------------------------------------------------------------
 Step 14.1 (expected: Sat)
   write(h, p, o) = h --> Sat
@@ -276,7 +276,7 @@ Test 19: Extensionality over write (only valid writes)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  isAlloc(h, p)
+  valid(h, p)
 --------------------------------------------------------------------------------
 Step 19.1 (expected: Sat)
   write(h, p, o) = write(write(h, p, o'), p, o) --> Sat
@@ -292,10 +292,10 @@ Common assertion:
   counteraddr(h) = counteraddr(h') & h != h'
 --------------------------------------------------------------------------------
 Step 20.1 (expected: Sat)
-  \exists addr v0; (isAlloc(h, v0) & read(h, v0) != read(h', v0)) --> Sat
+  \exists addr v0; (valid(h, v0) & read(h, v0) != read(h', v0)) --> Sat
 --------------------------------------------------------------------------------
 Step 20.2 (expected: Unsat)
-  \forall addr v0; (isAlloc(h, v0) & read(h, v0) = read(h', v0)) --> Unsat
+  \forall addr v0; (valid(h, v0) & read(h, v0) = read(h', v0)) --> Unsat
 ================================================================================
 
 HeapTests2
@@ -307,7 +307,7 @@ Common assertion:
   ar = alloc(newheap(alloc(emptyheap, WrappedInt(0))), WrappedInt(3))
 --------------------------------------------------------------------------------
 Step 1.1 (expected: Sat)
-  isAlloc(newheap(ar), newaddr(ar)) --> Sat
+  valid(newheap(ar), newaddr(ar)) --> Sat
 --------------------------------------------------------------------------------
 Step 1.2 (expected: Sat)
   getInt(read(newheap(ar), newaddr(ar))) = 3 --> Sat
@@ -329,7 +329,7 @@ Step 1.6 (expected: Unsat)
   read(h, nthaddr(2)) = read(newheap(ar), nthaddr(2)) --> Unsat
 --------------------------------------------------------------------------------
 Step 1.7 (expected: Sat)
-  isAlloc(h, newaddr(ar)) --> Sat
+  valid(h, newaddr(ar)) --> Sat
 --------------------------------------------------------------------------------
 Step 1.8 (expected: Unsat)
   getInt(read(h, newaddr(ar))) = 0 --> Unsat
