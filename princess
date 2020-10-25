@@ -9,8 +9,6 @@ export JAVA_OPTS="-Xss20000k -Xmx1500m"
 if [ -f $ASSEMBLY ]; then
     exec java $JAVA_OPTS -jar $ASSEMBLY "$@"
 else
-    export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar    
-    exec scala ap.CmdlMain "$@"    
+    export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+    exec scala ap.CmdlMain "$@"
 fi
-
-

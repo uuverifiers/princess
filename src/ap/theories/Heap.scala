@@ -364,22 +364,13 @@ class Heap(heapSortName : String, addressSortName : String,
           parent.ctor(args : _*)
       }
     }
-    def sortOf(t : ITerm) : Sort = {
-      t match {
-        case c : IConstant if c.c.isInstanceOf[SortedConstantTerm] =>
-          c.c.asInstanceOf[SortedConstantTerm].sort
-        case f : IFunApp if f.fun.isInstanceOf[MonoSortedIFunction] =>
-          f.fun.asInstanceOf[MonoSortedIFunction].resSort
-        case _ => throw new HeapException("Cannot find sort of " + t)
-      }
-    }
 
     val (adtStack, rootTerm) = generateADTUpdateStack(lhs)
     val newTerm = updateADT(adtStack, rootTerm, rhs)
     val readArgs = rootTerm.asInstanceOf[IFunApp].args.head.asInstanceOf[IFunApp].args // todo: to be fixed
     val wrapper : MonoSortedIFunction =
       ObjectADT.constructors.find(f => f.argSorts.size == 1 &&
-                                    f.argSorts.head == sortOf(rootTerm)) match {
+                                    f.argSorts.head == Sort.sortOf(rootTerm)) match {
       case None => throw new HeapException(
         "Could not find a wrapper for " + rootTerm)
       case Some(f) => f

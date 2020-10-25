@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Princess",
     organization := "uuverifiers",
-    version := "unstable-SNAPSHOT",
+    version := "heap-SNAPSHOT",
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.10"),
     fork in run := true,
@@ -37,9 +37,6 @@ lazy val smtParser = (project in file("smt-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
-// Do not run scalatest during assembly
-// test in assembly := {}
-
 // Actual project
 
 lazy val root = (project in file(".")).
@@ -51,8 +48,6 @@ lazy val root = (project in file(".")).
     scalaSource in Compile := baseDirectory.value / "src",
 //
     mainClass in Compile := Some("ap.CmdlMain"),
-//
-    scalaSource in Test := baseDirectory.value / "test/scala",
 //
     scalacOptions in Compile ++=
       List("-feature",
@@ -66,8 +61,4 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
-//
-    libraryDependencies +=
-      "org.scalatest" %% "scalatest" % "3.1.0" % "test")
-
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
