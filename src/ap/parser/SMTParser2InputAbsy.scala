@@ -2742,7 +2742,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
-    case PlainSymbol(name@"isAlloc") =>
+    case PlainSymbol(name@"valid") =>
       extractHeap(args) match {
         case Some((heapTerm, heapTheory)) => {
           val argTypes  = List(SMTHeapAddress(heapTheory))
@@ -2750,7 +2750,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
           if (argTypes != (transArgs map (_._2)))
             throw new TranslationException(
-              "isAlloc cannot be applied to arguments of type " +
+              name + " cannot be applied to arguments of type " +
               heapTheory.HeapSort + ", " +
               (transArgs map (_._2) mkString ", "))
 
@@ -3645,7 +3645,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // Add heap functions to the environment
 
     // Some of the heap functions are overloaded, and have to be handled
-    // directly in symApp: alloc, read, write, isAlloc
+    // directly in symApp: alloc, read, write, valid
 
     for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.nullAddr,
                      heap.counter, heap.nthAddr)) {

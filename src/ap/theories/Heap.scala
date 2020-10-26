@@ -292,20 +292,22 @@ class Heap(heapSortName : String, addressSortName : String,
   def containsADTSort(adt : ADT) = adt == ObjectADT || adt == AllocResADT
 
   /** Functions and predicates of the theory
+   * Assuming Address as address sort name, Heap as heap sort name, and
+   * Obj as the selected object sort.
+   * Some function / predicate names incorporate the defined / selected names.
    * ***************************************************************************
    * Public functions and predicates
    * ***************************************************************************
-   * empty<heapSortName>  : ()                   --> Heap
-   * alloc                : Heap x Obj           --> Heap x Address (allocRes)
+   * emptyHeap            : ()                   --> Heap
+   * alloc                : Heap x Obj           --> Heap x Address (allocResHeap)
    * read                 : Heap x Address       --> Obj
    * write                : Heap x Address x Obj --> Heap
-   * isAlloc              : Heap x Address       --> Bool
-   * nth<addressSortName> : Nat                  --> Address
+   * valid (isAlloc)      : Heap x Address       --> Bool
+   * nthAddress           : Nat                  --> Address
    *
    *             0     1
    * writeADT : Obj x Obj --> Heap
-   * * Updates the ADT's field (described by a read to 0) using value (1).
-   *
+   * * Updates the ADT's field (described by a read to 0) using value (1)
    * ***************************************************************************
    * Private functions and predicates
    * ***************************************************************************
@@ -315,10 +317,10 @@ class Heap(heapSortName : String, addressSortName : String,
    * * They return a single value instead of the pair <Heap x Addr>.
    * * This is done to get rid of quantifiers related to the ADT in the
    * * generated interpolants.
-   * alloc<heapSortName>   : Heap x Obj           --> Heap
-   * allocAddr             : Heap x Obj           --> Addr
+   * alloc<heapSortName>    : Heap x Obj           --> Heap
+   * alloc<addressSortName> : Heap x Obj           --> Address
    *
-   * * allocAddr is further removed by reducing it to counter(h) + 1
+   * * allocAddress is further removed by reducing it to counter(h) + 1
    * ***************************************************************************
    * */
   val alloc = new MonoSortedIFunction("alloc", List(HeapSort, ObjectSort),
@@ -330,7 +332,7 @@ class Heap(heapSortName : String, addressSortName : String,
     ObjectSort, false, false)
   val write = new MonoSortedIFunction("write",
     List(HeapSort, AddressSort, ObjectSort), HeapSort, false, false)
-  val isAlloc = new MonoSortedPredicate("isAlloc", List(HeapSort, AddressSort))
+  val isAlloc = new MonoSortedPredicate("valid", List(HeapSort, AddressSort))
   val nullAddr = new MonoSortedIFunction("null" + addressSortName,
     List(), AddressSort, false, false)
 
