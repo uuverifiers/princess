@@ -126,14 +126,8 @@ class SimpleArray private (arity : Int) extends Theory {
                              config : Theory.SatSoundnessConfig.Value) : Boolean =
     config match {
       case Theory.SatSoundnessConfig.Elementary |
-           Theory.SatSoundnessConfig.Existential =>
-        theories forall {
-          t => t == TypeTheory ||
-               t.isInstanceOf[SimpleArray] ||
-               t.isInstanceOf[MulTheory]
-        }
-      case Theory.SatSoundnessConfig.General =>
-        false
+           Theory.SatSoundnessConfig.Existential => true
+      case Theory.SatSoundnessConfig.General     => false
     }
 
   //////////////////////////////////////////////////////////////////////////////
