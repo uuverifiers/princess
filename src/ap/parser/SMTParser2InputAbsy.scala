@@ -3287,6 +3287,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
        }, stringType)
     }
+
+    case c : StringSQConstant => {
+      import IExpression._
+
+      val escSeq =
+        c.smtstringsq_.substring(1, c.smtstringsq_.size - 1)
+
+      ((escSeq :\ stringTheory.str_empty()) {
+         case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
+       }, stringType)
+    }
   }
   
   private def translateChainableRealIntPred(

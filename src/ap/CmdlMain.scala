@@ -542,11 +542,11 @@ object CmdlMain {
       }
       case e : Throwable => {
         if (format == Param.InputFormat.SMTLIB) {
-          println("(error \"" + e.getMessage.replace("\"", "\"\"") + "\")")
+          println("(error \"" + SMTLineariser.escapeString(e.getMessage) +"\")")
 	} else {
           println("ERROR: " + e.getMessage)
         }
-         e.printStackTrace
+//         e.printStackTrace
         None
       }
     }
