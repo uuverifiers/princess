@@ -2600,6 +2600,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("re.*") =>
       (translateStringFun(stringTheory.re_*, args,
                           List(regexType)), regexType)
+    case PlainSymbol("re.*?") =>
+      (translateStringFun(stringTheory.re_*?, args,
+                          List(regexType)), regexType)
 
     case PlainSymbol("str.<=") =>
       translateStringPred(stringTheory.str_<=, args,
@@ -2654,6 +2657,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case PlainSymbol("re.+") =>
       (translateStringFun(stringTheory.re_+, args,
+                          List(regexType)), regexType)
+    case PlainSymbol("re.+?") =>
+      (translateStringFun(stringTheory.re_+?, args,
                           List(regexType)), regexType)
     case PlainSymbol("re.opt") =>
       (translateStringFun(stringTheory.re_opt, args,
