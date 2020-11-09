@@ -632,7 +632,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * redefinable in subclasses
    */
   protected def neverInline(expr : IExpression) : Boolean =
-    SizeVisitor(expr) > 100
+    SizeVisitor(expr) > inlineSizeLimit
 
   private def checkIncremental(thing : String) =
     if (!incremental)
@@ -754,6 +754,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * Inline functions introduced using define-fun?
    */
   private var inlineDefinedFuns = true
+  /**
+   * Limit beyond which let-expressions or functions are never inlined
+   */
+  private var inlineSizeLimit = 100
   /**
    * Totality axioms?
    */
@@ -897,6 +901,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
     inlineLetExpressions = true
     inlineDefinedFuns    = true
+    inlineSizeLimit      = 100
     totalityAxiom        = true
     functionalityAxiom   = true
     genProofs            = false
@@ -1051,6 +1056,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         } ||
         handleBooleanAnnot(":inline-definitions", annot) {
           value => inlineDefinedFuns = value
+        } ||
+        handleNumAnnot(":inline-size-limit", annot) {
+          value => inlineSizeLimit = value.intValueSafe
         } ||
         handleBooleanAnnot(":totality-axiom", annot) {
           value => totalityAxiom = value
@@ -3312,6 +3320,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTLineariser.unescapeIt(
           c.smtstring_.substring(1, c.smtstring_.size - 1)
                       .iterator.map(_.toInt))
+
+      ((escSeq :\ stringTheory.str_empty()) {
+         case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
+       }, stringType)
+    }
+
+    case c : StringSQConstant => {
+      import IExpression._
+
+      val escSeq =
+        c.smtstringsq_.substring(1, c.smtstringsq_.size - 1)
 
       ((escSeq :\ stringTheory.str_empty()) {
          case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
