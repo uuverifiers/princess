@@ -2566,14 +2566,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     // str.<
 
-    case PlainSymbol("str.to-re" | "str.to.re") =>
+    case PlainSymbol("str.to_re" | "str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
                           List(stringType)), regexType)
     case PlainSymbol("re.from.str") =>
       (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
-    case PlainSymbol("str.in-re" | "str.in.re") =>
+    case PlainSymbol("str.in_re" | "str.in-re" | "str.in.re") =>
       translateStringPred(stringTheory.str_in_re, args,
                           List(stringType, regexType))
     case PlainSymbol("re.none") =>
