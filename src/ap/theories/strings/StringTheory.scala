@@ -161,7 +161,7 @@ trait StringTheory extends Theory {
 
   // SMT-LIB String functions
 
-  val str            : IFunction    // CharSort -> StringSort
+  val str_from_char  : IFunction    // CharSort -> StringSort
 
   val str_from_code  : IFunction    // Int -> StringSort
   val str_to_code    : IFunction    // StringSort -> Int
@@ -169,6 +169,10 @@ trait StringTheory extends Theory {
   val str_++         : IFunction    // StringSort x StringSort -> StringSort
 
   val str_len        : IFunction    // StringSort -> Nat
+
+  // Conversion between strings and numbers in decimal notation
+  val str_to_int     : IFunction    // StringSort -> Int
+  val int_to_str     : IFunction    // Int -> StringSort
 
   // missing: val str_< : Predicate   // StringSort x StringSort -> Boolean
   val str_<=         : Predicate    // StringSort x StringSort -> Boolean
