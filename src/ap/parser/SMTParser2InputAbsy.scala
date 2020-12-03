@@ -2539,8 +2539,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
-    case PlainSymbol("str") =>
-      (translateStringFun(stringTheory.str, args,
+    case PlainSymbol("str.from.char") =>
+      (translateStringFun(stringTheory.str_from_char, args,
                           List(charType)), stringType)
 
     case PlainSymbol("str.from_code") =>
@@ -2556,6 +2556,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.len") =>
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
+
+    case PlainSymbol("str.to.int") =>
+      (translateStringFun(stringTheory.str_to_int, args,
+                          List(stringType)), SMTInteger)
+    case PlainSymbol("int.to.str") =>
+      (translateStringFun(stringTheory.int_to_str, args,
+                          List(SMTInteger)), stringType)
 
     // str.<
 
