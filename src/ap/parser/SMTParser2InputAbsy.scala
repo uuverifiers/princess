@@ -3307,7 +3307,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       import IExpression._
 
       val escSeq =
-        c.smtstringsq_.substring(1, c.smtstringsq_.size - 1)
+        SMTLineariser.unescapeSQString(
+          c.smtstringsq_.substring(1, c.smtstringsq_.size - 1))
 
       ((escSeq :\ stringTheory.str_empty()) {
          case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)

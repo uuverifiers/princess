@@ -209,6 +209,20 @@ object SMTLineariser {
   def unescapeString(str : String) : String =
     (unescapeIt(str.iterator map (_.toInt)) map (_.toChar)).mkString
 
+  /**
+   * Unescape a single-quoted string; the only recognised escape
+   * sequence is ''
+   */
+  def escapeSQString(str : String) : String =
+    str.replace("'", "''")
+
+  /**
+   * Unescape a single-quoted string; the only recognised escape
+   * sequence is ''
+   */
+  def unescapeSQString(str : String) : String =
+    str.replace("''", "'")
+
   //////////////////////////////////////////////////////////////////////////////
 
   def toSMTExpr(value : IdealInt) : String =
