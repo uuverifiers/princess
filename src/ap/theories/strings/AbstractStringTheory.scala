@@ -59,8 +59,8 @@ abstract class AbstractStringTheory extends StringTheory {
   val str_head_code =
     new MonoSortedIFunction("str_head_code", List(SSo), Integer, true, false)
 
-  val str =
-    new MonoSortedIFunction("str", List(CSo), SSo, true, false)
+  val str_from_char =
+    new MonoSortedIFunction("str_from_char", List(CSo), SSo, true, false)
 
   val str_from_code =
     new MonoSortedIFunction("str_from_code", List(Integer), SSo, true, false)
@@ -71,6 +71,11 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("str_++", List(SSo, SSo), SSo, true, false)
   val str_len =
     new MonoSortedIFunction("str_len", List(SSo), Nat, true, false)
+
+  val str_to_int =
+    new MonoSortedIFunction("str_to_int", List(SSo), Integer, true, false)
+  val int_to_str =
+    new MonoSortedIFunction("int_to_str", List(Integer), SSo, true, false)
 
   val str_<= =
     new MonoSortedPredicate("char_<=", List(SSo, SSo))
@@ -172,8 +177,8 @@ abstract class AbstractStringTheory extends StringTheory {
                             true, false)
 
   protected def predefFunctions =
-    List(str_head_code, str, str_from_code, str_to_code,
-         str_++, str_len, str_at, str_char,
+    List(str_head_code, str_from_char, str_from_code, str_to_code,
+         str_++, str_len, str_to_int, int_to_str, str_at, str_char,
          str_substr, str_indexof,
          str_replace, str_replacere, str_replacecg,
          str_replaceall, str_replaceallre, str_replaceallcg,
