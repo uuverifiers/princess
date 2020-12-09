@@ -641,7 +641,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * redefinable in subclasses
    */
   protected def neverInline(expr : IExpression) : Boolean =
-    SizeVisitor(expr) > 100
+    SizeVisitor(expr) > inlineSizeLimit
 
   private def checkIncremental(thing : String) =
     if (!incremental)
@@ -763,6 +763,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * Inline functions introduced using define-fun?
    */
   private var inlineDefinedFuns = true
+  /**
+   * Limit beyond which let-expressions or functions are never inlined
+   */
+  private var inlineSizeLimit = 100
   /**
    * Totality axioms?
    */
@@ -906,6 +910,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
     inlineLetExpressions = true
     inlineDefinedFuns    = true
+    inlineSizeLimit      = 100
     totalityAxiom        = true
     functionalityAxiom   = true
     genProofs            = false
@@ -1060,6 +1065,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         } ||
         handleBooleanAnnot(":inline-definitions", annot) {
           value => inlineDefinedFuns = value
+        } ||
+        handleNumAnnot(":inline-size-limit", annot) {
+          value => inlineSizeLimit = value.intValueSafe
         } ||
         handleBooleanAnnot(":totality-axiom", annot) {
           value => totalityAxiom = value
@@ -2577,8 +2585,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
-    case PlainSymbol("str") =>
-      (translateStringFun(stringTheory.str, args,
+    case PlainSymbol("str.from.char") =>
+      (translateStringFun(stringTheory.str_from_char, args,
                           List(charType)), stringType)
 
     case PlainSymbol("str.from_code") =>
@@ -2595,16 +2603,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
 
+    case PlainSymbol("str.to.int") =>
+      (translateStringFun(stringTheory.str_to_int, args,
+                          List(stringType)), SMTInteger)
+    case PlainSymbol("int.to.str") =>
+      (translateStringFun(stringTheory.int_to_str, args,
+                          List(SMTInteger)), stringType)
+
     // str.<
 
-    case PlainSymbol("str.to-re" | "str.to.re") =>
+    case PlainSymbol("str.to_re" | "str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
                           List(stringType)), regexType)
     case PlainSymbol("re.from.str") =>
       (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
-    case PlainSymbol("str.in-re" | "str.in.re") =>
+    case PlainSymbol("str.in_re" | "str.in-re" | "str.in.re") =>
       translateStringPred(stringTheory.str_in_re, args,
                           List(stringType, regexType))
     case PlainSymbol("re.none") =>
@@ -3372,6 +3387,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTLineariser.unescapeIt(
           c.smtstring_.substring(1, c.smtstring_.size - 1)
                       .iterator.map(_.toInt))
+
+      ((escSeq :\ stringTheory.str_empty()) {
+         case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
+       }, stringType)
+    }
+
+    case c : StringSQConstant => {
+      import IExpression._
+
+      val escSeq =
+        SMTLineariser.unescapeSQString(
+          c.smtstringsq_.substring(1, c.smtstringsq_.size - 1))
 
       ((escSeq :\ stringTheory.str_empty()) {
          case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)

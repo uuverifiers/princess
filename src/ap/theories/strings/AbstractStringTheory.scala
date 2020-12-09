@@ -24,7 +24,8 @@ package ap.theories.strings
 import ap.basetypes.IdealInt
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
-import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
+import ap.parser.{IFunction, ITerm, IExpression, IFunApp, IIntLit,
+                  CollectingVisitor}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
 import ap.types.{Sort, MonoSortedPredicate, MonoSortedIFunction, ProxySort}
@@ -58,8 +59,8 @@ abstract class AbstractStringTheory extends StringTheory {
   val str_head_code =
     new MonoSortedIFunction("str_head_code", List(SSo), Integer, true, false)
 
-  val str =
-    new MonoSortedIFunction("str", List(CSo), SSo, true, false)
+  val str_from_char =
+    new MonoSortedIFunction("str_from_char", List(CSo), SSo, true, false)
 
   val str_from_code =
     new MonoSortedIFunction("str_from_code", List(Integer), SSo, true, false)
@@ -70,6 +71,11 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("str_++", List(SSo, SSo), SSo, true, false)
   val str_len =
     new MonoSortedIFunction("str_len", List(SSo), Nat, true, false)
+
+  val str_to_int =
+    new MonoSortedIFunction("str_to_int", List(SSo), Integer, true, false)
+  val int_to_str =
+    new MonoSortedIFunction("int_to_str", List(Integer), SSo, true, false)
 
   val str_<= =
     new MonoSortedPredicate("char_<=", List(SSo, SSo))
@@ -146,8 +152,8 @@ abstract class AbstractStringTheory extends StringTheory {
                             true, false)
 
   protected def predefFunctions =
-    List(str_head_code, str, str_from_code, str_to_code,
-         str_++, str_len, str_at, str_char,
+    List(str_head_code, str_from_char, str_from_code, str_to_code,
+         str_++, str_len, str_to_int, int_to_str, str_at, str_char,
          str_substr, str_indexof,
          str_replace, str_replacere, str_replaceall, str_replaceallre,
          str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
@@ -232,7 +238,10 @@ abstract class AbstractStringTheory extends StringTheory {
   private lazy val regexFunctions =
     Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
         re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
-        re_*, re_+, re_opt, re_comp, re_loop)
+        re_*, re_+, re_opt, re_comp, re_loop, re_eps) ++
+    (for ((_, Left(f : MonoSortedIFunction)) <- extraOps.iterator;
+          if f.resSort == RegexSort)
+     yield f)
 
   object RegexExtractor {
     private lazy val regexPredicates =
@@ -274,19 +283,31 @@ abstract class AbstractStringTheory extends StringTheory {
    * i.e., in which no sub-terms are left symbolic.
    */
   object ConcreteRegex {
-    def unapply(t : ITerm) : Option[ITerm] = t match {
-      case t@IFunApp(f, args)
-          if ((regexFunctions contains f) &&
-                (args forall { s => ConcreteRegex.unapply(s).isDefined })) =>
+    def unapply(t : ITerm) : Option[ITerm] =
+      try {
+        ConcreteRegexVisitor.visitWithoutResult(t, ())
         Some(t)
-      case t@IFunApp(ModuloArithmetic.mod_cast,
-                     Seq(IIntLit(_), IIntLit(_), IIntLit(_))) =>
-        Some(t)
+      } catch {
+        case NonConcreteRegexException => None
+      }
+  }
+
+  private object NonConcreteRegexException extends Exception
+
+  private object ConcreteRegexVisitor extends CollectingVisitor[Unit, Unit] {
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = t match {
+      case IFunApp(f, _) if regexFunctions contains f =>
+        KeepArg
+      case IFunApp(ModuloArithmetic.mod_cast, _) =>
+        KeepArg
       case t : IIntLit =>
-        Some(t)
+        KeepArg
       case _ =>
-        None
+        throw NonConcreteRegexException
     }
+
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
 
   //////////////////////////////////////////////////////////////////////////////

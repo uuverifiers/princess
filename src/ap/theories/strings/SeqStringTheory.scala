@@ -120,7 +120,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     def postVisit(t : IExpression,
                   arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
-      case IFunApp(`str`, _) =>
+      case IFunApp(`str_from_char`, _) =>
         str_cons(subres.head.asInstanceOf[ITerm], str_empty())
       case IFunApp(`str_len`, _) =>
         adtSize(subres.head.asInstanceOf[ITerm]) - 1
