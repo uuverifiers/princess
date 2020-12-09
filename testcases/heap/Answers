@@ -16,6 +16,16 @@ sat
   (define-fun H () heap (newheap (alloc (newheap (alloc emptyheap defObj)) defObj)))
 )
 
+Loading read-interpolation.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 30), simplifying (40), interpolating ...
+
+unsat
+(
+  (= (getInt (read h2 a)) 42)
+)
+
 Loading incremental-heap.smt2 ...
 unsat
 unsat
