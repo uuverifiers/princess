@@ -1369,4 +1369,16 @@ object Seqs {
   def mapValuesStrict[A, B, C](m : Map[A, B], f : B => C) : Map[A, C] =
     m.view.mapValues(f).toMap
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Convert a sequence of options to an optional sequence.
+   */
+  def so2os[T](l : Seq[Option[T]]) : Option[Seq[T]] =
+    if (l contains None) {
+      None
+    } else {
+      Some(l map (_.get))
+    }
+
 }

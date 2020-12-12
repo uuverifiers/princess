@@ -1928,6 +1928,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // TODO: probably those functions should be removed, point to ExtArray
+
   /**
    * <code>select</code> function of the theory of arrays.
    */
@@ -3994,33 +3996,33 @@ class SimpleAPI private (enableAssert : Boolean,
          oldTheoryPlugin, oldTheories,
          oldAbbrevFunctions, oldAbbrevPredicates) =
       storedStates.pop
-    currentProver = oldProver
-    needExhaustiveProver = oldNeedExhaustiveProver
-    matchedTotalFunctions = oldMatchedTotalFunctions
-    ignoredQuantifiers = oldIgnoredQuantifiers
-    currentOrder = oldOrder
-    existentialConstants = oldExConstants
-    functionalPreds = oldFunctionalPreds
-    functionEnc = oldFunctionEnc
-    formulaeInProver = oldFormulaeInProver
-    currentPartitionNum = oldPartitionNum
-    constructProofs = oldConstructProofs
+    currentProver          = oldProver
+    needExhaustiveProver   = oldNeedExhaustiveProver
+    matchedTotalFunctions  = oldMatchedTotalFunctions
+    ignoredQuantifiers     = oldIgnoredQuantifiers
+    currentOrder           = oldOrder
+    existentialConstants   = oldExConstants
+    functionalPreds        = oldFunctionalPreds
+    functionEnc            = oldFunctionEnc
+    formulaeInProver       = oldFormulaeInProver
+    currentPartitionNum    = oldPartitionNum
+    constructProofs        = oldConstructProofs
     mostGeneralConstraints = oldMGCs
-    formulaeTodo = false
-    rawFormulaeTodo = LazyConjunction.FALSE
-    validityMode = oldValidityMode
-    lastStatus = oldStatus
-    decoderDataCache.clear
-    proofThreadStatus = ProofThreadStatus.Init
-    theoryPlugin = oldTheoryPlugin
-    theoryCollector = oldTheories
-    abbrevFunctions = oldAbbrevFunctions
-    abbrevPredicates = oldAbbrevPredicates
-    currentModel = null
-    lastPartialModel = null
-    currentConstraint = null
-    currentCertificate = null
+    formulaeTodo           = false
+    rawFormulaeTodo        = LazyConjunction.FALSE
+    validityMode           = oldValidityMode
+    lastStatus             = oldStatus
+    proofThreadStatus      = ProofThreadStatus.Init
+    theoryPlugin           = oldTheoryPlugin
+    theoryCollector        = oldTheories
+    abbrevFunctions        = oldAbbrevFunctions
+    abbrevPredicates       = oldAbbrevPredicates
+    currentModel           = null
+    lastPartialModel       = null
+    currentConstraint      = null
+    currentCertificate     = null
     currentSimpCertificate = null
+    decoderDataCache.clear
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -4128,12 +4130,12 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private def resetModel = {
-    currentModel = null
-    lastPartialModel = null
-    currentConstraint = null
-    currentCertificate = null
+    currentModel           = null
+    lastPartialModel       = null
+    currentConstraint      = null
+    currentCertificate     = null
     currentSimpCertificate = null
-    lastStatus = ProverStatus.Unknown
+    lastStatus             = ProverStatus.Unknown
     decoderDataCache.clear
   }
   
