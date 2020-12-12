@@ -87,9 +87,14 @@ object ExtArray {
   case class ArraySort(theory : ExtArray) extends ProxySort(Sort.Integer) {
     import theory.{indexSorts, objSort,
                    select, store, const,_select, _store, _const}
+    import IExpression._
 
     override val name : String =
       "ExtArray[" + (indexSorts mkString ", ") + ", " + objSort + "]"
+
+    override def individuals : Stream[ITerm] =
+      // TODO: generalise this
+      for (t <- objSort.individuals) yield const(t)
 
     override def decodeToTerm(
                    d : IdealInt,
@@ -153,8 +158,6 @@ object ExtArray {
           }
         }
       }
-
-      import IExpression._
 
       val allIndexes = (defaults.keysIterator ++ contents.keysIterator).toSet
 
