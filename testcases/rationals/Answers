@@ -101,7 +101,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun Constructed_Argument_2 () (Array Int Int) 124)
+  (define-fun Constructed_Argument_2 () (Array Int String) (store ((as const (Array Int String)) "") 0 "\u{0}"))
   (define-fun Constructed_Argument_2_Array_Length () Int 2)
   (define-fun Constructed_Argument_2_t () String "array_string")
   (define-fun ExpandObjSwitcher () Real (/ 0 1))

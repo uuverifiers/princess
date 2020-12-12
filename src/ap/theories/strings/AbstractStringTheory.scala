@@ -266,7 +266,10 @@ abstract class AbstractStringTheory extends StringTheory {
     Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
         re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
         re_*, re_*?, re_+, re_+?, re_opt, re_comp, re_loop, re_eps,
-        re_capture, re_reference)
+        re_capture, re_reference) ++
+    (for ((_, Left(f : MonoSortedIFunction)) <- extraOps.iterator;
+          if f.resSort == RegexSort)
+     yield f)
 
   object RegexExtractor {
     private lazy val regexPredicates =
