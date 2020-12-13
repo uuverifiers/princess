@@ -39,7 +39,7 @@ trait Semigroup {
   def op(s : ITerm, t : ITerm) : ITerm
 
   /**
-   * <code>num * s</code>, for <code>n > 0</code>
+   * <code>num * s</code>, for <code>num > 0</code>
    */
   def times(num : IdealInt, s : ITerm) : ITerm = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -68,6 +68,20 @@ trait Semigroup {
 }
 
 /**
+ * Semigroups that provide a symbolic <code>times</code> operator,
+ * which accepts terms as both arguments.
+ */
+trait SymbolicTimes extends Semigroup {
+
+  /**
+   * <code>num * s</code>, where the integer <code>num</code>
+   * is symbolically represented by a term.
+   */
+  def times(num : ITerm, s : ITerm) : ITerm
+
+}
+
+/**
  * Abelian/commutative semigroups
  */
 trait Abelian extends Semigroup
@@ -83,7 +97,7 @@ trait Monoid extends Semigroup {
   def identity : ITerm
 
   /**
-   * <code>num * s</code>, for <code>n >= 0</code>
+   * <code>num * s</code>, for <code>num >= 0</code>
    */
   override def times(num : IdealInt, s : ITerm) : ITerm = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
