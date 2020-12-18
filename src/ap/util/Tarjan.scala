@@ -32,6 +32,9 @@ object Tarjan {
     def successors(n : Node) : Iterator[Node]
   }
 
+  def apply[Node](graph : Graph[Node]) : IndexedSeq[Seq[Node]] =
+    (new Tarjan (graph)).components
+
   /*
   def main(args : Array[String]) : Unit = {
     println("Computing strongly connected components ...")
