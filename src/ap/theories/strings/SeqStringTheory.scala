@@ -161,8 +161,12 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     implicit val o = order
     import TerForConvenience._
 
-    if (!Seqs.disjoint(f.predicates, unsupportedPreds))
+    if (!Seqs.disjoint(f.predicates, unsupportedPreds)) {
+      Console.err.println(
+        "Warning: string predicates not supported: " +
+          (f.predicates & unsupportedPreds).toSeq.sortBy(_.name).mkString(", "))
       Incompleteness.set
+    }
 
 //    println("init: " + f)
 

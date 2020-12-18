@@ -98,15 +98,18 @@ trait PseudoRing {
   /**
    * Addition gives rise to an Abelian group
    */
-  def additiveGroup : Group with Abelian = new Group with Abelian {
-    val dom                      = PseudoRing.this.dom
-    def identity                 = PseudoRing.this.zero
-    def op(s : ITerm, t : ITerm) = PseudoRing.this.plus(s, t)
-    def inverse(s : ITerm)       = PseudoRing.this.minus(s)
+  def additiveGroup : Group with Abelian with SymbolicTimes =
+    new Group with Abelian with SymbolicTimes {
+      val dom                      = PseudoRing.this.dom
+      def identity                 = PseudoRing.this.zero
+      def op(s : ITerm, t : ITerm) = PseudoRing.this.plus(s, t)
+      def inverse(s : ITerm)       = PseudoRing.this.minus(s)
 
-    override def times(num : IdealInt, s : ITerm) : ITerm =
-      PseudoRing.this.times(num, s)
-  }
+      override def times(num : IdealInt, s : ITerm) : ITerm =
+        PseudoRing.this.times(num, s)
+      def times(num : ITerm, s : ITerm) : ITerm =
+        mul(int2ring(num), s)
+    }
 
   override def toString = dom.toString
 

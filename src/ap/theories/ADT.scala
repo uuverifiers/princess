@@ -36,7 +36,8 @@ import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 import ap.parameters.{Param, ReducerSettings}
-import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs, LRUCache}
+import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs, LRUCache,
+                Tarjan}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
@@ -397,6 +398,10 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
   // Compute cardinality of domains, to handle finite ADTs
 
+  /**
+   * The number of elements per sort, or <code>None</code> for infinite
+   * sorts.
+   */
   val cardinalities : Seq[Option[IdealInt]] = {
     val cardinalities = Array.fill[Option[IdealInt]](sortNames.size)(null)
 
@@ -441,8 +446,55 @@ class ADT (sortNames : Seq[String],
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  // Determine recursive sorts
+
+  private lazy val subsortMap =
+    (for (sortId <- 0 until sortNames.size) yield {
+       val subSortIds =
+         (for (ctorId <- globalCtorIdsPerSort(sortId).iterator;
+               sig = ctorSignatures(ctorId)._2;
+               (_, ADTSort(n)) <- sig.arguments.iterator)
+          yield n).toList.distinct
+       sortId -> subSortIds
+     }).toMap
+
+  /**
+   * The strongly connected components among the ADTs sorts.
+   */
+  lazy val sortSCCs : IndexedSeq[Seq[Int]] = {
+    val graph = new Tarjan.Graph[Int] {
+      val nodes = 0 until sortNames.size
+      def successors(sortId : Int) = subsortMap(sortId).iterator
+    }
+
+    Tarjan(graph)
+  }
+
+  private lazy val sortId2SCCId : Map[Int, Int] =
+    (for ((component, sccId) <- sortSCCs.iterator.zipWithIndex;
+          sortId <- component.iterator)
+     yield (sortId -> sccId)).toMap
+
+  private def sameSortSCC(id1 : Int, id2 : Int) =
+    sortId2SCCId(id1) == sortId2SCCId(id2)
+
+  /**
+   * Recursive sorts, i.e., sorts that can appear (directly or indirectly) as
+   * sort of subterms of its own terms.
+   */
+  lazy val isRecursive : IndexedSeq[Boolean] =
+    (for (sortId <- 0 until sortNames.size) yield {
+       val component = sortSCCs(sortId2SCCId(sortId))
+       component.size > 1 ||
+       (subsortMap(sortId) contains sortId)
+     }).toIndexedSeq
+
+  //////////////////////////////////////////////////////////////////////////////
   // Enumerations
 
+  /**
+   * Enum sorts, i.e., sorts with only nullary constructors.
+   */
   val isEnum : IndexedSeq[Boolean] = {
     val isEnum = Array.fill[Boolean](sortNames.size)(true)
 
@@ -978,7 +1030,7 @@ class ADT (sortNames : Seq[String],
         val adtArgs =
           for ((arg, (_, ADTSort(sortN))) <-
                  arguments zip ctorSignatures(ctorNum)._2.arguments;
-               if !isEnum(sortN))
+               if sameSortSCC(sortNum, sortN))
           yield (arg, sortN)
 
         if (adtArgs.isEmpty) {

@@ -33,13 +33,13 @@ import ap.terfor.{Term, Formula, TermOrder, TerForConvenience}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.Seqs
+import ap.util.{Seqs, Tarjan}
 
 import scala.collection.{Map => GMap}
 import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  ArrayBuffer, Map => MMap, ArrayStack,
-                                 LinkedHashMap, LinkedHashSet, Set => MSet}
+                                 LinkedHashMap, Set => MSet}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -370,7 +370,7 @@ abstract class AbstractStringTheory extends StringTheory {
       val removedAtoms = new ArrayBuffer[Atom]
 
       {
-        val successors =
+        val successorsMap =
           ((predConj positiveLitsWithPred _str_++) ++
            (predConj positiveLitsWithPred _str_cons)) groupBy (_.last)
 
@@ -380,101 +380,69 @@ abstract class AbstractStringTheory extends StringTheory {
             case `_str_++`   => Seqs.doubleIterator(a(0), a(1))
           }
 
-        val index, lowlink = new MHashMap[LinearCombination, Int]
-        val stack = new LinkedHashSet[LinearCombination]
-        val component = new MHashSet[LinearCombination]
+        val graph = new Tarjan.Graph[LinearCombination] {
+          val nodes = successorsMap.keys
+          def successors(lc : LinearCombination) =
+            for (a <- successorsMap.getOrElse(lc, List()).iterator;
+                 w <- successorsOf(a))
+            yield w
+        }
+
+        val components = (new Tarjan (graph)).components
         val cycle = new LinkedHashMap[LinearCombination,
                                       (Atom, LinearCombination)]
 
-        def connect(v : LinearCombination) : Unit = {
-          val vIndex = index.size
-          index.put(v, vIndex)
-          lowlink.put(v, vIndex)
-          stack += v
+        for (component <- components) {
+          // check whether we can construct a cycle within the
+          // component
+          var curNode = component.head
+          while (curNode != null && !(cycle contains curNode)) {
+            val it = successorsMap.getOrElse(curNode, List()).iterator
+            var atom : Atom = null
+            var nextNode : LinearCombination = null
 
-          for (a <- successors.getOrElse(v, List()).iterator;
-               w <- successorsOf(a))
-            (index get w) match {
-              case Some(wIndex) =>
-                if (stack contains w)
-                  lowlink.put(v, lowlink(v) min index(w))
-              case None => {
-                connect(w)
-                lowlink.put(v, lowlink(v) min lowlink(w))
-              }
-            }
+            while (atom == null && it.hasNext) {
+              val a = it.next
+              val argIt = successorsOf(a)
 
-          if (lowlink(v) == vIndex) {
-            // found a strongly connected component
-            var next = stack.last
-            stack remove next
-            component += next
-            while (next != v) {
-              next = stack.last
-              stack remove next
-              component += next
-            }
-
-//              println(component.toList)
-
-            // check whether we can construct a cycle within the
-            // component
-            var curNode = v
-            while (curNode != null && !(cycle contains curNode)) {
-              val it = successors.getOrElse(curNode, List()).iterator
-              var atom : Atom = null
-              var nextNode : LinearCombination = null
-
-              while (atom == null && it.hasNext) {
-                val a = it.next
-                val argIt = successorsOf(a)
-
-                val arg1 = argIt.next
-                if (component contains arg1) {
+              val arg1 = argIt.next
+              if (component contains arg1) {
+                atom = a
+                nextNode = arg1
+              } else if (argIt.hasNext) {
+                val arg2 = argIt.next
+                if (component contains arg2) {
                   atom = a
-                  nextNode = arg1
-                } else if (argIt.hasNext) {
-                  val arg2 = argIt.next
-                  if (component contains arg2) {
-                    atom = a
-                    nextNode = arg2
-                  }
+                  nextNode = arg2
                 }
-              }
-
-              if (atom != null)
-                cycle.put(curNode, (atom, nextNode))
-              curNode = nextNode
-            }
-
-            if (curNode != null) {
-              // then we have found a cycle
-              var started = false
-              for ((v, (a, w)) <- cycle) {
-                if (!started && v == curNode) {
-                  removedAtoms += a
-                  started = true
-                }
-
-                if (started)
-                  a.pred match {
-                    case `_str_cons` =>
-                      // an immediate contradiction
-                      newAtoms += Conjunction.FALSE
-                    case `_str_++` =>
-                      newAtoms += _str_empty(List(a(if (w == a(0)) 1 else 0)))
-                  }
               }
             }
 
-            component.clear
-            cycle.clear
+            if (atom != null)
+              cycle.put(curNode, (atom, nextNode))
+            curNode = nextNode
+          }
+
+          if (curNode != null) {
+            // then we have found a cycle
+            var started = false
+            for ((v, (a, w)) <- cycle) {
+              if (!started && v == curNode) {
+                removedAtoms += a
+                started = true
+              }
+
+              if (started)
+                a.pred match {
+                  case `_str_cons` =>
+                    // an immediate contradiction
+                    newAtoms += Conjunction.FALSE
+                  case `_str_++` =>
+                    newAtoms += _str_empty(List(a(if (w == a(0)) 1 else 0)))
+                }
+            }
           }
         }
-
-        for (v <- successors.keysIterator)
-          if (!(index contains v))
-            connect(v)
       }
 
       ////////////////////////////////////////////////////////////////////////

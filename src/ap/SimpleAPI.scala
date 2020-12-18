@@ -646,26 +646,26 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def resetFormulasHelp = {
-    currentProver = null
-    needExhaustiveProver = false
-    matchedTotalFunctions = false
-    ignoredQuantifiers = false
-    formulaeTodo = false
-    currentModel = null
-    decoderDataCache.clear
-    lastPartialModel = null
-    currentConstraint = null
-    currentCertificate = null
+    currentProver          = null
+    needExhaustiveProver   = false
+    matchedTotalFunctions  = false
+    ignoredQuantifiers     = false
+    formulaeTodo           = false
+    currentModel           = null
+    lastPartialModel       = null
+    currentConstraint      = null
+    currentCertificate     = null
     currentSimpCertificate = null
-    lastStatus = ProverStatus.Unknown
-    validityMode = false
-    proofThreadStatus = ProofThreadStatus.Init
-    currentPartitionNum = COMMON_PART_NR
+    lastStatus             = ProverStatus.Unknown
+    validityMode           = false
+    proofThreadStatus      = ProofThreadStatus.Init
+    currentPartitionNum    = COMMON_PART_NR
+    decoderDataCache.clear
   }
 
   private def resetOptionsHelp = {
-    existentialConstants = Set()
-    constructProofs = false
+    existentialConstants   = Set()
+    constructProofs        = false
     mostGeneralConstraints = false
   }
 
