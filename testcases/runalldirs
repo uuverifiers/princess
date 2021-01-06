@@ -1,7 +1,6 @@
 #!/bin/sh
 
 ./rundir rationals "" -logo +assert +model -timeout=30000
-./rundir heap "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 ./rundir strings "" -logo +assert +model -timeout=30000
 ./rundir bitvectors "" -logo +assert +model -timeout=30000
 ./rundir nia "" -logo +assert +model -timeout=5000 -clausifier=none +posUnitResolution

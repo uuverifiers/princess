@@ -110,9 +110,9 @@ Step 6.2 (expected: Unsat)
 Test 7: Deterministic allocation
 --------------------------------------------------------------------------------
 Step 7.1 (expected: Unsat)
-  \forall addr v0; (valid(h, v0) <-> valid(h', v0)) &
+  \forall addr v0; (valid(h, v0) <-> valid(h1, v0)) &
   alloc(h, o) = ar &
-  alloc(h', o') = ar' &
+  alloc(h1, o') = ar' &
   newaddr(ar) != newaddr(ar') --> Unsat
 ================================================================================
 ================================================================================
@@ -161,14 +161,14 @@ Test 11: Reading a newly allocated location returns the allocated value (v2)
 --------------------------------------------------------------------------------
 Common assertion: 
   alloc(h, o) = ar
-  h' = newheap(ar)
+  h1 = newheap(ar)
   p = newaddr(ar)
 --------------------------------------------------------------------------------
 Step 11.1 (expected: Sat)
-  read(h', p) = o --> Sat
+  read(h1, p) = o --> Sat
 --------------------------------------------------------------------------------
 Step 11.2 (expected: Unsat)
-  read(h', p) != o --> Unsat
+  read(h1, p) != o --> Unsat
 ================================================================================
 ================================================================================
 Test 12: Reading an unallocated location returns the defined object
@@ -238,13 +238,13 @@ Common assertion:
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  alloc(h, WrappedAddr(p)) = ar' & p' = newaddr(ar') & h' = newheap(ar')
+  alloc(h, WrappedAddr(p)) = ar' & p' = newaddr(ar') & h1 = newheap(ar')
 --------------------------------------------------------------------------------
 Step 15.1 (expected: Sat)
-  read(h, getAddr(read(h', p'))) = WrappedInt(42) --> Sat
+  read(h, getAddr(read(h1, p'))) = WrappedInt(42) --> Sat
 --------------------------------------------------------------------------------
 Step 15.2 (expected: Unsat)
-  read(h, getAddr(read(h', p'))) != WrappedInt(42) --> Unsat
+  read(h, getAddr(read(h1, p'))) != WrappedInt(42) --> Unsat
 ================================================================================
 ================================================================================
 Test 16: Extensionality over write
@@ -299,13 +299,26 @@ Test 20: Extensionality
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  counteraddr(h) = counteraddr(h') & h != h'
+  counteraddr(h) = counteraddr(h1) & h != h1
 --------------------------------------------------------------------------------
 Step 20.1 (expected: Sat)
-  \exists addr v0; (valid(h, v0) & read(h, v0) != read(h', v0)) --> Sat
+  \exists addr v0; (valid(h, v0) & read(h, v0) != read(h1, v0)) --> Sat
 --------------------------------------------------------------------------------
 Step 20.2 (expected: Unsat)
-  \forall addr v0; (valid(h, v0) & read(h, v0) = read(h', v0)) --> Unsat
+  \forall addr v0; (valid(h, v0) & read(h, v0) = read(h1, v0)) --> Unsat
+================================================================================
+================================================================================
+Test 21: ROW-Upward
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+Common assertion: 
+  valid(h, p) & valid(h, p') & p != p'
+--------------------------------------------------------------------------------
+Step 21.1 (expected: Sat)
+  write(write(h, p, WrappedInt(1)), p', WrappedInt(42)) = h1 & write(write(h, p, WrappedInt(2)), p', WrappedInt(42)) = h2 --> Sat
+--------------------------------------------------------------------------------
+Step 21.2 (expected: Unsat)
+  write(write(h, p, WrappedInt(1)), p', WrappedInt(42)) = write(write(h, p, WrappedInt(2)), p', WrappedInt(42)) --> Unsat
 ================================================================================
 
 HeapTests2

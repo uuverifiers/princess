@@ -3,6 +3,8 @@ lazy val commonSettings = Seq(
     name := "Princess",
     organization := "uuverifiers",
     version := "heap-SNAPSHOT",
+    homepage := Some(url("https://philipp.ruemmer.org/princess.shtml")),
+    licenses := Seq("GNU Lesser General Public License v2.1 or later" -> url("http://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html")),
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.10"),
     fork in run := true,
@@ -61,4 +63,6 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")//,
+// remove below dependency before push
+//    libraryDependencies += "uuverifiers" %% "eldarica" % "2.0.4-heap")

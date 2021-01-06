@@ -134,7 +134,8 @@ object HeapTests1 extends App {
     import heap._
 
     val h = createConstant("h", HeapSort)
-    val h1 = createConstant("h'", HeapSort)
+    val h1 = createConstant("h1", HeapSort)
+    val h2 = createConstant("h2", HeapSort)
     val p =  createConstant("p", AddressSort)
     val p1 =  createConstant("p'", AddressSort)
     val ar = createConstant("ar", AllocResSort)
@@ -349,6 +350,15 @@ object HeapTests1 extends App {
         isAlloc(h, a) & (read(h, a) =/= read(h1, a)))),
       UnsatStep(AddressSort.all(a =>
         isAlloc(h, a) & (read(h, a) === read(h1, a))))
+    )
+
+    TestCase(
+      "ROW-Upward",
+      CommonAssert(isAlloc(h, p) & isAlloc(h, p1) & p =/= p1),
+      SatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) === h1 &
+              write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)) === h2),
+      UnsatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) ===
+                write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)))
     )
   }
 }

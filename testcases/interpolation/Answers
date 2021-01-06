@@ -663,7 +663,6 @@ unsat
 Loading simplifier.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-Warning: type clash during inference: int vs SimpleArray
 (true
 true
 (= main_~a~4.offset_2 0)
@@ -691,6 +690,7 @@ unsat
 Loading treeInterpolation2.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+Warning: type clash during inference: MultipleValueBool vs int
 ((= |#valid_4| |old(#valid)_4|)
 (and (forall ((var0 Int)) (or (not (select |#valid_13| var0)) (select |old(#valid)_5| var0))) (forall ((var0 Int)) (or (select |#valid_13| var0) (not (select |old(#valid)_5| var0))))))
 Loading enum-interpolation.smt2 ...

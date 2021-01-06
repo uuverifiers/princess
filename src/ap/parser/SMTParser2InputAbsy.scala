@@ -32,7 +32,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
-import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory, Heap}
+import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.rationals.Rationals
 import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
@@ -67,7 +67,8 @@ object SMTParser2InputAbsy {
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
-    def toSort = SimpleArray(arguments.size).sort
+    val theory = ExtArray(arguments map (_.toSort), result.toSort)
+    def toSort = theory.sort
   }
   case class SMTBitVec(width : Int)                extends SMTType {
     def toSort = ModuloArithmetic.UnsignedBVSort(width)
@@ -2375,8 +2376,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("select") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       transArgs.head._2 match {
-        case SMTArray(_, resultType) =>
-          (IFunApp(SimpleArray(args.size - 1).select,
+        case s@SMTArray(_, resultType) =>
+          (IFunApp(s.theory.select,
                    for (a <- transArgs) yield asTerm(a)),
            resultType)
         case s =>
@@ -2389,7 +2390,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       transArgs.head._2 match {
         case s : SMTArray =>
-          (IFunApp(SimpleArray(args.size - 2).store,
+          (IFunApp(s.theory.store,
                    for (a <- transArgs) yield asTerm(a)),
            s)
         case s =>
@@ -2397,6 +2398,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             "store has to be applied to an array expression, not " + s)
       }
     }
+
+    case CastSymbol("const", sort) =>
+      translateSort(sort) match {
+        case s : SMTArray => {
+          checkArgNum("const", 1, args)
+          val transArg = translateTerm(args(0), 0)
+          if (transArg._2 != s.result)
+            throw new Parser2InputAbsy.TranslationException(
+              "const has to be applied to an expression of the object type")
+          (s.theory.const(asTerm(transArg)), s)
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "const can only be used with array types")
+      }
 
     ////////////////////////////////////////////////////////////////////////////
     // Bit-vector operations
@@ -2806,9 +2822,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
                           polarity : Int) : IFormula =
     t match {
-      case SMTArray(argTypes, resType) if (polarity > 0) => {
+      case s@SMTArray(argTypes, resType) if (polarity > 0) => {
         val arity = argTypes.size
-        val theory = SimpleArray(arity)
+        val theory = s.theory
         val args = (for (n <- 0 until arity) yield v(n))
         val matrix =
           translateEq(IFunApp(theory.select,
@@ -3285,13 +3301,26 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       expr.listsexpr_.head match {
         case funExpr : SymbolSExpr => asString(funExpr.symbol_) match {
-          case "select" =>
-            IFunApp(SimpleArray(expr.listsexpr_.size - 2).select,
-                    translateSExprTail(expr.listsexpr_))
-          case "store" =>
-            IFunApp(SimpleArray(expr.listsexpr_.size - 3).store,
-                    translateSExprTail(expr.listsexpr_))
-
+          case "select" => {
+            val args = translateSExprTail(expr.listsexpr_)
+            (TSort sortOf args.head) match {
+              case ExtArray.ArraySort(t) =>
+                IFunApp(t.select, args)
+              case s =>
+                throw new Parser2InputAbsy.TranslationException(
+                  "select in a trigger has to be applied to an array term ")
+            }
+          }
+          case "store" => {
+            val args = translateSExprTail(expr.listsexpr_)
+            (TSort sortOf args.head) match {
+              case ExtArray.ArraySort(t) =>
+                IFunApp(t.store, args)
+              case s =>
+                throw new Parser2InputAbsy.TranslationException(
+                  "store in a trigger has to be applied to an array term ")
+            }
+          }
           case funName => lookupSym(funName) match {
             case Environment.Function(fun, _) => {
               checkArgNumSExpr(printer print funExpr.symbol_, fun.arity,
@@ -3589,50 +3618,50 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def setupADT(sortNames : Seq[String],
                        allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
-                         Seq[Seq[SMTType]])]) : Unit = {
-    val adtCtors = (allCtors map (_._1)).flatten
-    val datatype =
-      new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
+                                       Seq[Seq[SMTType]])]) : Unit = {
+        val adtCtors = (allCtors map (_._1)).flatten
+        val datatype =
+          new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
 
-    val smtDataTypes =
-      for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
+        val smtDataTypes =
+          for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
 
-    // add types to environment
-    for (t <- smtDataTypes)
-      env.addSort(t.toString, t)
+        // add types to environment
+        for (t <- smtDataTypes)
+          env.addSort(t.toString, t)
 
-    // add adt symbols to the environment
-    val smtCtorFunctionTypes =
-      for (((_, args), num) <- allCtors.zipWithIndex;
-           args2 <- args.iterator;
-           cleanedArgs = for (t <- args2) yield t match {
-             case SMTADT(null, n) => smtDataTypes(n)
-             case t => t
-           })
-        yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
+        // add adt symbols to the environment
+        val smtCtorFunctionTypes =
+          for (((_, args), num) <- allCtors.zipWithIndex;
+               args2 <- args.iterator;
+               cleanedArgs = for (t <- args2) yield t match {
+                 case SMTADT(null, n) => smtDataTypes(n)
+                 case t => t
+               })
+          yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
 
-    for ((f, smtType) <-
-           datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
-      env.addFunction(f, smtType)
+        for ((f, smtType) <-
+             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
+          env.addFunction(f, smtType)
 
-    for ((sels, smtType) <-
-           datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
-         (f, arg) <-
-           sels.iterator zip smtType.arguments.iterator) {
-      env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
-    }
+        for ((sels, smtType) <-
+               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+             (f, arg) <-
+               sels.iterator zip smtType.arguments.iterator) {
+          env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
+        }
 
-    // generate the is- queries as inlined functions
-    for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
-         ctorIdFun = datatype ctorIds adtNum;
-         ctorIdTerm = ctorIdFun(v(0));
-         ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
-      val query = new IFunction("is-" + name, 1, true, true)
-      env.addFunction(query,
-        SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
-      val body = ctorIdTerm === ctorNum
-      functionDefs = functionDefs + (query -> (body, SMTBool))
-    }
+        // generate the is- queries as inlined functions
+        for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+             ctorIdFun = datatype ctorIds adtNum;
+             ctorIdTerm = ctorIdFun(v(0));
+             ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+          val query = new IFunction("is-" + name, 1, true, true)
+          env.addFunction(query,
+                          SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
+          val body = ctorIdTerm === ctorNum
+          functionDefs = functionDefs + (query -> (body, SMTBool))
+        }
   }
 
   //////////////////////////////////////////////////////////////////////////////

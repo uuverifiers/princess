@@ -1032,8 +1032,9 @@ object IExpression {
       sum(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2))
 
     def unary_- : Seq[ITerm] = for (t <- terms) yield -t
-    def ===(that : Seq[ITerm]) = and((this --- that) map (eqZero(_)))
-    def ===(that : ITerm) = and((this --- that) map (eqZero(_)))
+    def ===(that : Seq[ITerm]) = and(
+      for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 === t2))
+    def ===(that : ITerm) = and(for (t <- terms.iterator) yield (t === that))
     def >=(that : Seq[ITerm]) = and((this --- that) map (geqZero(_)))
     def >=(that : ITerm) = and((this --- that) map (geqZero(_)))
     def >(that : Seq[ITerm]) = and((this --- that --- 1) map (geqZero(_)))

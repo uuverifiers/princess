@@ -210,7 +210,7 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
 token QuotedSymbolT ('|' (char - ["\\|"])* '|');
 
 token SMTString       ('"' ((char - '"') | {"\"\""})* '"');
-token SMTStringSQ     ('\'' (char - '\'')* '\'');
+token SMTStringSQ     ('\'' ((char - '\'') | {"\'\'"})* '\'');
 
 separator Symbol "";
 

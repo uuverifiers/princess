@@ -426,6 +426,10 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
+    case ExtArray.ArraySort(theory) =>
+      (SMTArray((for (s <- theory.indexSorts) yield sort2SMTType(s)._1).toList,
+                sort2SMTType(theory.objSort)._1),
+       None)
     case Rationals.FractionSort =>
       (SMTReal(sort), None)
     case sort : UninterpretedSortTheory.UninterpretedSort =>
@@ -754,7 +758,11 @@ class SMTLineariser(benchmarkName : String,
     (TheoryRegistry lookupSymbol fun) match {
       case Some(t : SimpleArray) => fun match {
         case t.select => "select"
-        case t.store => "store"
+        case t.store  => "store"
+      }
+      case Some(t : ExtArray) => fun match {
+        case t.select => "select"
+        case t.store  => "store"
       }
       case Some(t : MulTheory) => fun match {
         case t.mul => "*"
@@ -938,6 +946,8 @@ class SMTLineariser(benchmarkName : String,
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: remove the next classes, they are not needed anymore
 
   private val type2Predicate = new MHashMap[SMTType, Predicate]
   private val predicate2Type = new MHashMap[Predicate, SMTType]
@@ -1327,6 +1337,11 @@ class SMTLineariser(benchmarkName : String,
         print(escapeString(str))
         print("\"")
         shortCut(ctxt)
+      }
+
+      case IFunApp(ExtArray.Const(t), Seq(value)) => {
+        print("((as const " + sort2SMTString(t.sort) + ") ")
+        TryAgain(value, ctxt addParentOp ")")
       }
 
       case IFunApp(f, _) if emptyHeapFuns contains f =>

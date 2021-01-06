@@ -95,19 +95,3 @@ Constructing countermodel ...
 
 unsat
 
-Loading arrays.smt2 ...
-Preprocessing ...
-Constructing countermodel ...
-
-sat
-(model
-  (define-fun Constructed_Argument_2 () (Array Int Int) 124)
-  (define-fun Constructed_Argument_2_Array_Length () Int 2)
-  (define-fun Constructed_Argument_2_t () String "array_string")
-  (define-fun ExpandObjSwitcher () Real (/ 0 1))
-  (define-fun Constructed_Argument_t () String "boolean")
-  (define-fun CreateAsClass_2 () Bool false)
-  (define-fun Constructed_Argument () Bool false)
-  (define-fun CreateAsClass () Bool false)
-)
-

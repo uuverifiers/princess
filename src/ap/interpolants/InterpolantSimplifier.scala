@@ -25,7 +25,7 @@ package ap.interpolants
 import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.theories.SimpleArray
+import ap.theories.{SimpleArray, ExtArray}
 
 
 /**
@@ -282,6 +282,200 @@ class ArraySimplifier extends ap.parser.Simplifier {
     }
 
     def postVisit(t : IExpression, context : Context[Unit],
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val rewritings =
+    Vector(elimStore _ , elimQuantifiedSelect _)
+
+  private val rewritingFun =
+    Rewriter.combineRewritings(rewritings)
+  
+  protected override def furtherSimplifications(expr : IExpression) =
+    rewritingFun(expr)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Even more extended version of the InputAbsy simplifier that also
+ * rewrites certain array expression.
+ */
+class ExtArraySimplifier extends ap.parser.Simplifier {
+  import IBinJunctor._
+  import IIntRelation._
+  import IExpression._
+  import Quantifier._
+
+  /**
+   *    \exists a; (x = store(a, b, c) & phi)
+   * is replaced with
+   *    \exists d, a; (select(x, b) = c & a = store(x, b, d) & phi)
+   */
+  private def elimStore(expr : IExpression) : IExpression = expr match {
+    case IFunApp(ExtArray.Select(theory1),
+                 Seq(IFunApp(ExtArray.Store(theory2),
+                             Seq(ar, storeArgs @ _*)),
+                     selectArgs @ _*))
+        if theory1 == theory2 =>
+      ite(selectArgs === storeArgs.init,
+          storeArgs.last,
+          IFunApp(theory1.select, List(ar) ++ selectArgs))
+
+    case ISortedQuantified(EX,  ExtArray.ArraySort(theory), f) =>
+      (for (res <- translateStore(f, false, 0))
+       yield theory.objSort.ex(theory.sort.ex(res))) getOrElse expr
+    case ISortedQuantified(ALL, ExtArray.ArraySort(theory), f) =>
+      (for (res <- translateStore(f, true, 0))
+       yield theory.objSort.all(theory.sort.all(res))) getOrElse expr
+    case _ => expr
+  }
+
+  private def translateStore(f : IFormula,
+                             negated : Boolean,
+                             depth : Int) : Option[IFormula] = {
+
+    def shiftTerm(t : ITerm) : ITerm       =
+      VariableShiftVisitor(t, depth + 1, 1)
+    def shiftFor (f : IFormula) : IFormula =
+      VariableShiftVisitor(f, depth + 1, 1)
+
+    f match {
+      case ISortedQuantified(q, sort, subF) if (q == Quantifier(negated)) =>
+        for (res <- translateStore(subF, negated, depth + 1))
+        yield ISortedQuantified(q, sort, res)
+  
+      case IBinFormula(j, left, right)
+          if (j == (if (negated) IBinJunctor.Or else IBinJunctor.And)) =>
+        (for (newLeft <- translateStore(left, negated, depth))
+         yield IBinFormula(j, newLeft, shiftFor(right))) orElse
+        (for (newRight <- translateStore(right, negated, depth))
+         yield IBinFormula(j, shiftFor(left), newRight))
+  
+      case INot(f) =>
+        for (res <- translateStore(f, !negated, depth)) yield INot(res)
+
+      case Eq(IFunApp(ExtArray.Store(theory),
+                      Seq(w@IVariable(`depth`), args @ _*)), ar)
+          if (!negated && !ContainsSymbol(ar, w) &&
+              (args forall { t => !ContainsSymbol(t, w) })) => {
+        val shiftedAr = shiftTerm(ar)
+        val shiftedArgs = for (t <- args) yield shiftTerm(t)
+        Some((IFunApp(theory.select, List(shiftedAr) ++ shiftedArgs.init) ===
+                shiftedArgs.last) &
+             (IFunApp(theory.store,
+                      List(shiftedAr) ++ shiftedArgs.init ++
+                      List(v(depth + 1, theory.objSort))) === w))
+      }
+  
+      case Eq(ar, IFunApp(ExtArray.Store(theory),
+                          Seq(w@IVariable(`depth`), args @ _*)))
+          if (!negated && !ContainsSymbol(ar, w) &&
+              (args forall { t => !ContainsSymbol(t, w) })) => {
+        val shiftedAr = shiftTerm(ar)
+        val shiftedArgs = for (t <- args) yield shiftTerm(t)
+        Some((IFunApp(theory.select, List(shiftedAr) ++ shiftedArgs.init) ===
+                shiftedArgs.last) &
+             (IFunApp(theory.store,
+                      List(shiftedAr) ++ shiftedArgs.init ++
+                      List(v(depth + 1, theory.objSort))) === w))
+      }
+  
+      case _ => None
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   *    \forall int a; phi[select(a, x)]
+   * is replaced with
+   *    \forall int y; phi[y]
+   *
+   * Similarly for \exists.
+   */
+  private def elimQuantifiedSelect(t : IExpression) : IExpression = t match {
+    case ISortedQuantified(q, ExtArray.ArraySort(theory), subF)
+           if SelectFromVarDetector(subF) =>
+      ISortedQuantified(q, theory.objSort, SelectReplaceVisitor(subF, theory))
+    case t => t
+  }
+
+  private object SelectFromVarDetector
+          extends ContextAwareVisitor[Unit, Unit] {
+    def apply(t : IFormula) : Boolean =
+      try {
+        uniqueArgs = null
+        visitWithoutResult(t, Context(()))
+        true
+      } catch {
+        case FoundBadVarOccurrence => false
+      }
+
+    private var uniqueArgs : Seq[ITerm] = null
+
+    private object FoundBadVarOccurrence extends Exception
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = t match {
+      case IFunApp(ExtArray.Select(_),
+                   Seq(IVariable(depth), selectArgs @ _*))
+        if (depth == ctxt.binders.size) => {
+
+        val badSymbol = (t : IExpression) => t match {
+          case IVariable(ind) if (ind <= depth) => true
+          case _ => false
+        }
+
+        if (selectArgs exists (ContainsSymbol(_, badSymbol)))
+          throw FoundBadVarOccurrence
+
+        val shiftedArgs =
+          (for (a <- selectArgs.iterator)
+           yield VariableShiftVisitor(a, depth, -depth)).toList
+
+        if (uniqueArgs == null)
+          uniqueArgs = shiftedArgs
+        else if (uniqueArgs != shiftedArgs)
+          throw FoundBadVarOccurrence
+
+        ShortCutResult(())
+      }
+
+      case IVariable(depth) if (depth == ctxt.binders.size) =>
+        throw FoundBadVarOccurrence
+
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+
+    def postVisit(t : IExpression, context : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()
+  }
+
+  private object SelectReplaceVisitor
+          extends ContextAwareVisitor[ExtArray, IExpression] {
+
+    def apply(t : IFormula, theory : ExtArray) : IFormula =
+      visit(t, Context(theory)).asInstanceOf[IFormula]
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[ExtArray]) : PreVisitResult = t match {
+      case IFunApp(ExtArray.Select(_), Seq(IVariable(depth), _*))
+        if depth == ctxt.binders.size =>
+          ShortCutResult(v(depth, ctxt.a.objSort))
+
+      case IVariable(depth) if depth == ctxt.binders.size =>
+        throw new Exception
+
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+
+    def postVisit(t : IExpression, context : Context[ExtArray],
                   subres : Seq[IExpression]) : IExpression =
       t update subres
   }
