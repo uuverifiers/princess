@@ -99,16 +99,16 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_replace =
     new MonoSortedIFunction("str_replace",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replacere =
     new MonoSortedIFunction("str_replacere",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
   val str_replaceall =
     new MonoSortedIFunction("str_replaceall",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replaceallre =
     new MonoSortedIFunction("str_replaceallre",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
 
   val str_in_re =
     new MonoSortedPredicate("str_in_re", List(SSo, RSo))
