@@ -241,6 +241,9 @@ abstract class AbstractStringTheory extends StringTheory {
         re_*, re_+, re_opt, re_comp, re_loop, re_eps) ++
     (for ((_, Left(f : MonoSortedIFunction)) <- extraOps.iterator;
           if f.resSort == RegexSort)
+     yield f) ++
+    (for ((_, Left(f : MonoSortedIFunction)) <- extraIndexedOps.iterator;
+          if f.resSort == RegexSort)
      yield f)
 
   object RegexExtractor {

@@ -226,7 +226,10 @@ trait StringTheory extends Theory {
 
   // Further functions or predicates that a string theory might define
 
-  val extraOps : Map[String, Either[IFunction, Predicate]]
+  val extraOps        : Map[String, Either[IFunction, Predicate]]
+
+  // Further indexed functions
+  val extraIndexedOps : Map[(String, Int), Either[IFunction, Predicate]]
 
   //////////////////////////////////////////////////////////////////////////////
 

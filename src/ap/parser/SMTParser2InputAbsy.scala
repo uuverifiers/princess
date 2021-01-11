@@ -2724,6 +2724,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           throw new TranslationException("cannot handle string operator " + u)
       }
 
+    case IndexedSymbol(id, indexes @ _*)
+      if usingStrings &&
+         (stringTheory.extraIndexedOps contains (id, indexes.size)) =>
+      stringTheory.extraIndexedOps((id, indexes.size)) match {
+        case Left(f : MonoSortedIFunction) => {
+          val argTypes   = f.argSorts map (stringSort2SMTType _)
+          val stringArgs = translateStringArgs(f.name, args, argTypes)
+          val indexArgs  = for (ind <- indexes) yield i(IdealInt(ind))
+          val resType    = stringSort2SMTType(f.resSort)
+          (IFunApp(f, indexArgs ++ stringArgs), resType)
+        }
+        case Right(p : MonoSortedPredicate) => {
+          val argTypes   = p.argSorts map (stringSort2SMTType _)
+          val stringArgs = translateStringArgs(p.name, args, argTypes)
+          val indexArgs  = for (ind <- indexes) yield i(IdealInt(ind))
+          (IAtom(p, indexArgs ++ stringArgs), SMTBool)
+        }
+        case u =>
+          throw new TranslationException("cannot handle string operator " + u)
+      }
+
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
