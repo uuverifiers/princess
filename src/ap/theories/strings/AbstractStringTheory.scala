@@ -100,16 +100,16 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_replace =
     new MonoSortedIFunction("str_replace",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replacere =
     new MonoSortedIFunction("str_replacere",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
   val str_replaceall =
     new MonoSortedIFunction("str_replaceall",
-                            List(SSo, SSo, SSo), CSo, true, false)
+                            List(SSo, SSo, SSo), SSo, true, false)
   val str_replaceallre =
     new MonoSortedIFunction("str_replaceallre",
-                            List(SSo, RSo, SSo), CSo, true, false)
+                            List(SSo, RSo, SSo), SSo, true, false)
 
   val str_in_re =
     new MonoSortedPredicate("str_in_re", List(SSo, RSo))
@@ -241,6 +241,9 @@ abstract class AbstractStringTheory extends StringTheory {
         re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
         re_*, re_+, re_opt, re_comp, re_loop, re_eps) ++
     (for ((_, Left(f : MonoSortedIFunction)) <- extraOps.iterator;
+          if f.resSort == RegexSort)
+     yield f) ++
+    (for ((_, Left(f : MonoSortedIFunction)) <- extraIndexedOps.iterator;
           if f.resSort == RegexSort)
      yield f)
 

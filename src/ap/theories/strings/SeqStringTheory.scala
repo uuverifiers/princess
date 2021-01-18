@@ -83,6 +83,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   def char2Int(t : ITerm) : ITerm = t
 
   val extraOps : Map[String, Either[IFunction, Predicate]] = Map()
+  val extraIndexedOps : Map[(String, Int), Either[IFunction, Predicate]] = Map()
   
   //////////////////////////////////////////////////////////////////////////////
 
