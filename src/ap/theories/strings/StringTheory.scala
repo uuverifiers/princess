@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -211,11 +211,10 @@ trait StringTheory extends Theory {
   val re_charrange   : IFunction    // CharSort x CharSort -> RegexSort
   val re_range       : IFunction    // StringSort x StringSort -> RegexSort
 
-  // missing: re_diff
-
   val re_++          : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_union       : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_inter       : IFunction    // RegexSort x RegexSort -> RegexSort
+  val re_diff        : IFunction    // RegexSort x RegexSort -> RegexSort
 
   val re_*           : IFunction    // RegexSort -> RegexSort
   val re_+           : IFunction    // RegexSort -> RegexSort
