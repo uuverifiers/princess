@@ -1344,10 +1344,11 @@ class SMTLineariser(benchmarkName : String,
         TryAgain(value, ctxt addParentOp ")")
       }
 
-      case IFunApp(f, _) if emptyHeapFuns contains f =>
+      case IFunApp(f, _) if emptyHeapFuns contains f => {
         val fun = f.asInstanceOf[MonoSortedIFunction]
         print("(as " + fun.name + " " + fun.resSort.name + ")")
         shortCut(ctxt)
+      }
 
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded

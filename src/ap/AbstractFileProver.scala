@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -356,7 +356,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     ////////////////////////////////////////////////////////////////////////////
 
     private lazy val getSatSoundnessConfig : Theory.SatSoundnessConfig.Value =
-      if (!canUseModelSearchProver || matchedTotalFunctions)
+      // TODO: this does not really capture the case where we use
+      // the model-search prover, but also e-matching to instantiate
+      // quantified axioms (and not just functional consistency)
+      if (!canUseModelSearchProver /* || matchedTotalFunctions */)
         Theory.SatSoundnessConfig.General
       else if (formulas forall (_.predicates.isEmpty))
         Theory.SatSoundnessConfig.Elementary

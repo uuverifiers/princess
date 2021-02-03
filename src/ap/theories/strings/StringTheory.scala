@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -211,11 +211,10 @@ trait StringTheory extends Theory {
   val re_charrange   : IFunction    // CharSort x CharSort -> RegexSort
   val re_range       : IFunction    // StringSort x StringSort -> RegexSort
 
-  // missing: re_diff
-
   val re_++          : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_union       : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_inter       : IFunction    // RegexSort x RegexSort -> RegexSort
+  val re_diff        : IFunction    // RegexSort x RegexSort -> RegexSort
 
   val re_*           : IFunction    // RegexSort -> RegexSort
   val re_+           : IFunction    // RegexSort -> RegexSort
@@ -226,7 +225,10 @@ trait StringTheory extends Theory {
 
   // Further functions or predicates that a string theory might define
 
-  val extraOps : Map[String, Either[IFunction, Predicate]]
+  val extraOps        : Map[String, Either[IFunction, Predicate]]
+
+  // Further indexed functions
+  val extraIndexedOps : Map[(String, Int), Either[IFunction, Predicate]]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -274,48 +276,13 @@ trait StringTheory extends Theory {
   /**
    * Translate a numeric value from a model to a string.
    */
-  val asString = new Theory.Decoder[String] {
-    def apply(d : IdealInt)
-             (implicit ctxt : Theory.DecoderContext) : String =
-      asStringPartial(d).get
-  }
+  val asString : Theory.Decoder[String]
 
   /**
    * Translate a numeric value from a model to a string.
    */
-  val asStringPartial = new Theory.Decoder[Option[String]] {
-    def apply(d : IdealInt)
-             (implicit ctxt : Theory.DecoderContext) : Option[String] =
-      (ctxt getDataFor StringTheory.this) match {
-        case DecoderData(m) =>
-          for (s <- m get d)
-          yield ("" /: s) { case (res, c) => res + c.intValueSafe.toChar }
-      }
-  }
+  val asStringPartial : Theory.Decoder[Option[String]]
 
-  case class DecoderData(m : Map[IdealInt, Seq[IdealInt]])
-       extends Theory.TheoryDecoderData
-
-  override def generateDecoderData(model : Conjunction)
-                                  : Option[Theory.TheoryDecoderData] = {
-    val atoms = model.predConj
-
-    val stringMap = new MHashMap[IdealInt, List[IdealInt]]
-
-    for (a <- atoms positiveLitsWithPred _str_empty)
-      stringMap.put(a(0).constant, List())
-
-    var oldMapSize = 0
-    while (stringMap.size != oldMapSize) {
-      oldMapSize = stringMap.size
-      for (a <- atoms positiveLitsWithPred _str_cons) {
-        for (s1 <- stringMap get a(1).constant)
-          stringMap.put(a(2).constant, a(0).constant :: s1)
-      }
-    }
-
-    Some(DecoderData(stringMap.toMap))
-  }
 }
 
 /**

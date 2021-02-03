@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -2665,6 +2665,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("re.inter") =>
       (translateNAryStringFun(stringTheory.re_inter, args,
                               regexType), regexType)
+    case PlainSymbol("re.diff") =>
+      (translateNAryStringFun(stringTheory.re_diff, args,
+                              regexType), regexType)
     
     case PlainSymbol("re.*") =>
       (translateStringFun(stringTheory.re_*, args,
@@ -2769,6 +2772,29 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         case u =>
           throw new TranslationException("cannot handle string operator " + u)
       }
+
+    case IndexedSymbol(id, indexes @ _*)
+      if usingStrings &&
+         (stringTheory.extraIndexedOps contains (id, indexes.size)) => {
+      val IndNum = indexes.size
+      stringTheory.extraIndexedOps((id, IndNum)) match {
+        case Left(f : MonoSortedIFunction) => {
+          val argTypes   = f.argSorts.drop(IndNum) map (stringSort2SMTType _)
+          val stringArgs = translateStringArgs(f.name, args, argTypes)
+          val indexArgs  = for (ind <- indexes) yield i(IdealInt(ind))
+          val resType    = stringSort2SMTType(f.resSort)
+          (IFunApp(f, indexArgs ++ stringArgs), resType)
+        }
+        case Right(p : MonoSortedPredicate) => {
+          val argTypes   = p.argSorts.drop(IndNum) map (stringSort2SMTType _)
+          val stringArgs = translateStringArgs(p.name, args, argTypes)
+          val indexArgs  = for (ind <- indexes) yield i(IdealInt(ind))
+          (IAtom(p, indexArgs ++ stringArgs), SMTBool)
+        }
+        case u =>
+          throw new TranslationException("cannot handle string operator " + u)
+      }
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations

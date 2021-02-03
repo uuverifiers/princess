@@ -63,6 +63,4 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")//,
-// remove below dependency before push
-//    libraryDependencies += "uuverifiers" %% "eldarica" % "2.0.4-heap")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
