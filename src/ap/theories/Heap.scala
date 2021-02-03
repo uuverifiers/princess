@@ -25,8 +25,7 @@ package ap.theories
 import ap.basetypes._
 import ap.parser.IExpression.Predicate
 import ap.parser._
-import ap.terfor.conjunctions.Quantifier.{ALL, EX}
-import ap.types.{MonoSortedIFunction, Sort, _}
+import ap.types._
 import ap.util.Debug
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MMap, Set => MSet}
@@ -356,6 +355,7 @@ class Heap(heapSortName : String, addressSortName : String,
    * @return    : the new ADT term
    */
   def writeADT (lhs : IFunApp, rhs : ITerm) : ITerm = {
+    import IExpression.toFunApplier
     def updateADT(adtStack : List[ADTFieldPath], parentTerm : ITerm,
                   newVal : ITerm) : ITerm = {
       adtStack match {
@@ -373,16 +373,29 @@ class Heap(heapSortName : String, addressSortName : String,
 
     val (adtStack, rootTerm) = generateADTUpdateStack(lhs)
     val newTerm = updateADT(adtStack, rootTerm, rhs)
-    val readArgs = rootTerm.asInstanceOf[IFunApp].args.head.asInstanceOf[IFunApp].args // todo: to be fixed
-    val wrapper : MonoSortedIFunction =
-      ObjectADT.constructors.find(f => f.argSorts.size == 1 &&
-                                    f.argSorts.head == Sort.sortOf(rootTerm)) match {
-      case None => throw new HeapException(
-        "Could not find a wrapper for " + rootTerm)
-      case Some(f) => f
+    rootTerm match {
+      case IFunApp(f, args) =>
+        f match {
+          case sortedF: MonoSortedIFunction // Object read (read(h, p))
+            if sortedF.resSort == ObjectSort =>
+            write(args(0), args(1), newTerm)
+          case sortedF: MonoSortedIFunction // getter read (getInt(read(h, p)))
+            if ObjectADT.selectors.exists(s => s contains sortedF) =>
+            val readArgs = args.head.asInstanceOf[IFunApp].args
+            val wrapper: MonoSortedIFunction =
+              ObjectADT.constructors.find(f => f.argSorts.size == 1 &&
+                f.argSorts.head == Sort.sortOf(rootTerm)) match {
+                case None => throw new HeapException(
+                  "Could not find a wrapper for " + rootTerm)
+                case Some(f) => f
+              }
+            write(readArgs(0), readArgs(1), wrapper(newTerm))
+          case _ => throw new HeapException("Could not determine write from " +
+            "the lhs: " + lhs)
+        }
+      case _ => throw new HeapException("Could not determine write from " +
+        "the lhs: " + lhs)
     }
-    import IExpression.toFunApplier
-    write(readArgs(0), readArgs(1), wrapper(newTerm))
   }
 
   private case class ADTFieldPath (ctor : MonoSortedIFunction,
