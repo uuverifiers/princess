@@ -3,7 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1287,10 +1288,6 @@ class SMTLineariser(benchmarkName : String,
     private def closeWithParen(ctxt : PrintContext, arity : Int = 1) =
       allButLast(ctxt, " ", ")", arity)
 
-    val emptyHeapFuns =
-      for (theory <- theoriesToDeclare; if (theory.isInstanceOf[Heap]))
-        yield theory.asInstanceOf[Heap].emptyHeap
-
     override def preVisit(t : IExpression,
                           ctxt : PrintContext) : PreVisitResult = {
     import ctxt.variableType
@@ -1342,12 +1339,6 @@ class SMTLineariser(benchmarkName : String,
       case IFunApp(ExtArray.Const(t), Seq(value)) => {
         print("((as const " + sort2SMTString(t.sort) + ") ")
         TryAgain(value, ctxt addParentOp ")")
-      }
-
-      case IFunApp(f, _) if emptyHeapFuns contains f => {
-        val fun = f.asInstanceOf[MonoSortedIFunction]
-        print("(as " + fun.name + " " + fun.resSort.name + ")")
-        shortCut(ctxt)
       }
 
       case t@IFunApp(fun, args) => {
