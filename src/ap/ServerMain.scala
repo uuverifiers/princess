@@ -125,6 +125,7 @@ object ServerMain {
                     try {
                       CmdlMain.doMain(arguments.toArray, {
                         checkNum = checkNum + 1
+                        watchdogCounter = WatchdogInit
                         cancel || (checkNum % 50 == 0 && {
                           val currentTime = System.currentTimeMillis
                           while (inputReader.ready) {
