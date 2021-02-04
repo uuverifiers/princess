@@ -208,7 +208,7 @@ object Heap {
     def unapply(fun : IFunction) : Option[Heap] =
       (TheoryRegistry lookupSymbol fun) match {
         case Some(t : Heap) => Some(t)
-        case None => None
+        case _ => None
       }
   }
 
@@ -219,7 +219,7 @@ object Heap {
     def unapply(pred : Predicate) : Option[Heap] =
       (TheoryRegistry lookupSymbol pred) match {
         case Some(t : Heap) => Some(t)
-        case None => None
+        case _ => None
       }
   }
 }
