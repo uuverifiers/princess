@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -2625,6 +2625,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                               regexType), regexType)
     case PlainSymbol("re.inter") =>
       (translateNAryStringFun(stringTheory.re_inter, args,
+                              regexType), regexType)
+    case PlainSymbol("re.diff") =>
+      (translateNAryStringFun(stringTheory.re_diff, args,
                               regexType), regexType)
     
     case PlainSymbol("re.*") =>

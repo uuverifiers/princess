@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,6 +35,7 @@ object ServerMain {
   private val TicketLength = 40
   private val MaxThreadNum = 16
   private val MaxWaitNum   = 32
+  private val WatchdogInit = 300
 
   private var lastActiveTime = System.currentTimeMillis
   private val serverSem = new Semaphore (MaxThreadNum)
@@ -85,7 +86,9 @@ object ServerMain {
           val inputReader =
             new java.io.BufferedReader(
             new java.io.InputStreamReader(clientSocket.getInputStream))
-    
+          val outStream =
+            clientSocket.getOutputStream
+
           val receivedTicket = inputReader.readLine
           if (ticket == receivedTicket) {
             val arguments = new ArrayBuffer[String]
@@ -96,23 +99,45 @@ object ServerMain {
               str.trim match {
                 case "PROVE_AND_EXIT" => {
                   done = true
-                  Console.withOut(clientSocket.getOutputStream) {
+                  Console.withOut(outStream) {
                     var checkNum = 0
                     var lastPing = System.currentTimeMillis
                     var cancel = false
-  
-                    CmdlMain.doMain(arguments.toArray, {
-                      checkNum = checkNum + 1
-                      cancel || (checkNum % 50 == 0 && {
-                        val currentTime = System.currentTimeMillis
-                        while (inputReader.ready) {
-                          inputReader.read
-                          lastPing = currentTime
+                    var watchdogCounter = WatchdogInit
+                    var watchdogCont = true
+
+                    // watchdog that makes sure that the system
+                    // is shut down eventually, in case the normal
+                    // timeout fails
+                    val watchdog = new Thread(new Runnable { def run : Unit = {
+                      while (watchdogCont) {
+                        Thread sleep 1000
+                        watchdogCounter = watchdogCounter - 1
+                        if (watchdogCounter <= 0) {
+                          println("ERROR: hanging system, shutting down")
+                          java.lang.System exit 1
                         }
-                        cancel = currentTime - lastPing > 3000
-                        cancel
+                      }
+                    }})
+
+                    watchdog.start
+ 
+                    try {
+                      CmdlMain.doMain(arguments.toArray, {
+                        checkNum = checkNum + 1
+                        cancel || (checkNum % 50 == 0 && {
+                          val currentTime = System.currentTimeMillis
+                          while (inputReader.ready) {
+                            inputReader.read
+                            lastPing = currentTime
+                          }
+                          cancel = currentTime - lastPing > 3000
+                          cancel
+                        })
                       })
-                    })
+                    } finally {
+                      watchdogCont = false
+                    }
                   }
                 }
                 case str =>
@@ -125,6 +150,8 @@ object ServerMain {
           }
     
           inputReader.close
+          outStream.flush
+          clientSocket.close
   
           // Put back the token
           lastActiveTime = System.currentTimeMillis

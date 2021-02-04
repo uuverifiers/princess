@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -138,6 +138,8 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("re_union", List(RSo, RSo), RSo, true, false)
   val re_inter =
     new MonoSortedIFunction("re_inter", List(RSo, RSo), RSo, true, false)
+  val re_diff =
+    new MonoSortedIFunction("re_diff", List(RSo, RSo), RSo, true, false)
 
   val re_* =
     new MonoSortedIFunction("re_*", List(RSo), RSo, true, false)
@@ -159,7 +161,7 @@ abstract class AbstractStringTheory extends StringTheory {
          str_replace, str_replacere, str_replaceall, str_replaceallre,
          str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
-         re_union, re_inter, re_*, re_+, re_opt, re_comp, re_loop)
+         re_union, re_inter, re_diff, re_*, re_+, re_opt, re_comp, re_loop)
 
   protected def predefPredicates =
     List(char_is_digit, str_<=, str_prefixof,
@@ -238,7 +240,7 @@ abstract class AbstractStringTheory extends StringTheory {
 
   private lazy val regexFunctions =
     Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
-        re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
+        re_allchar, re_charrange, re_range, re_++, re_union, re_inter, re_diff,
         re_*, re_+, re_opt, re_comp, re_loop, re_eps) ++
     (for ((_, Left(f : MonoSortedIFunction)) <- extraOps.iterator;
           if f.resSort == RegexSort)
