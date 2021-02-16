@@ -51,7 +51,7 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2021")
-    println("(contributions by Angelo Brillout, Peter Backeman, Peter Baumgartner)")
+    println("(contributions by Angelo Brillout, Peter Backeman, Peter Baumgartner, Zafer Esen)")
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println

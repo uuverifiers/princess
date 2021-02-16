@@ -1,5 +1,6 @@
 #!/bin/sh
 
+./rundir heap "" -logo +assert +model -timeout=30000
 ./rundir rationals "" -logo +assert +model -timeout=30000
 ./rundir strings "" -logo +assert +model -timeout=30000
 ./rundir bitvectors "" -logo +assert +model -timeout=30000

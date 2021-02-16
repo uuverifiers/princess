@@ -3,7 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -338,7 +339,7 @@ object SMTLineariser {
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
                               SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
-                              SMTADT}
+                              SMTADT, SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -400,7 +401,9 @@ object SMTLineariser {
       printSMTType(res)
       print(")")
     }
-    case SMTUnint(sort)      => print(sort)
+    case SMTHeap(s)        => print(s.HeapSort.name)
+    case SMTHeapAddress(s) => print(s.AddressSort.name)
+    case SMTUnint(sort)    => print(sort)
   }
 
   def smtTypeAsString(t : SMTType) : String =
@@ -435,6 +438,10 @@ object SMTLineariser {
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
+    case sort : Heap.HeapSort =>
+      (SMTHeap(sort.heapTheory), None)
+    case sort : Heap.AddressSort =>
+      (SMTHeapAddress(sort.heapTheory), None)
     case Sort.AnySort =>
       (SMTInteger, None)
     case s =>
@@ -512,6 +519,38 @@ object SMTLineariser {
       print(")")
     }
     println(")")
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def printHeapDeclarations(heaps : Seq[Heap]) : Unit = {
+      for (heap <- heaps) printHeapDeclaration(heap)
+  }
+
+  def printHeapDeclaration(heap : Heap) : Unit = {
+    print("(declare-heap ")
+    println(heap.HeapSort.name + " " + heap.AddressSort.name + " " +
+          heap.ObjectSort.name)
+    println(" " ++ asString(heap._defObj))
+    print(" (")
+    print((for(s <- heap.ObjectADT.sorts)
+      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+    println(") (")
+    for (num <- heap.ObjectADT.sorts.indices) {
+      println("  (")
+      for ((f, sels) <- heap.ObjectADT.constructors zip heap.ObjectADT.selectors;
+           if (f.resSort match {
+             case s: ADT.ADTProxySort =>
+               s.sortNum == num && s.adtTheory == heap.ObjectADT
+             case _ =>
+               false
+           })) {
+        print(" ")
+        printADTCtor(f, sels)
+      }
+      println("  )")
+    }
+    println("))")
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -714,7 +753,8 @@ class SMTLineariser(benchmarkName : String,
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge,
-                        printADTDeclarations, sort2SMTString}
+                        printADTDeclarations, printHeapDeclarations,
+                        sort2SMTString}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -775,10 +815,20 @@ class SMTLineariser(benchmarkName : String,
     println("(set-info :status " + status + ")")
 
     // declare the required theories
+    val heaps = for (theory <- theoriesToDeclare;
+                     if (theory match {
+                       case _ : ADT  => false // will be handled later
+                       case _ : Heap => true
+                       case _ => false
+                     }))
+      yield theory.asInstanceOf[Heap]
+    printHeapDeclarations(heaps)
+
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
-                      case _ : ADT =>
-                        true
+                      case adt : ADT =>
+                        !heaps.forall(h => h.containsADTSort(adt))
+                      case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
                                             "declare " + theory)
