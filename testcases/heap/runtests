@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# tests in SMT-LIB format
+
+PRI=../../princess
+
+TESTS="simple-heap.smt2 \
+       bug-model-1.smt2 \
+       read-interpolation.smt2"
+
+$PRI "$@" $TESTS
+
+TESTS="incremental-heap.smt2 \
+       swap-interpolation.smt2"
+
+$PRI "$@" +incremental $TESTS
+
+
+# tests using Princess API
+
+unset CLASSPATH
+
+rm -f *.class
+
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin"
+RUNOPTIONS="-cp `pwd`/../../bin:."
+
+export JAVA_OPTS="-Xss20000k -Xmx1500m"
+
+TESTS=""
+TESTS="HeapTests1 HeapTests2"
+
+for testname in $TESTS; do
+    echo
+    echo $testname
+    scalac $OPTIONS $testname.scala
+    scala $RUNOPTIONS $testname
+done
+
+rm -f *.class

@@ -752,7 +752,7 @@ class ADT (sortNames : Seq[String],
     else
       null
 
-  private val ctorId2PerSortId : IndexedSeq[Int] = {
+  protected[ap] val ctorId2PerSortId : IndexedSeq[Int] = {
     val adtCtorNums = Array.fill[Int](sortNames.size)(0)
     (for ((_, CtorSignature(_, ADTSort(sortNum))) <- ctorSignatures)
      yield {
