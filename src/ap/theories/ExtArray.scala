@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,7 +27,8 @@ import ap.parser._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
-import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort}
+import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort,
+                 UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
 import ap.util.Seqs
 
@@ -278,8 +279,15 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
 //  println(axiom1 & axiom2 & axiom3)
 
+  // TODO: we need a more generic way to discover theories a sort belongs to
+  override val dependencies =
+    for (s <- indexSorts ++ List(objSort);
+         if s.isInstanceOf[UninterpretedSortTheory.UninterpretedSort])
+    yield s.asInstanceOf[UninterpretedSortTheory.UninterpretedSort].theory
+
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions,
+                     otherTheories = dependencies,
                      theoryAxioms = axiom1 & axiom2 & axiom3)
 
   val Seq(_select, _store, _const) = predicates

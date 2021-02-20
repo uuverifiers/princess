@@ -2601,7 +2601,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
-    case PlainSymbol("str.from.char") =>
+    case PlainSymbol("str.from.char" | "str.from_char") =>
       (translateStringFun(stringTheory.str_from_char, args,
                           List(charType)), stringType)
 
@@ -2619,10 +2619,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
 
-    case PlainSymbol("str.to.int") =>
+    case PlainSymbol("str.to.int" | "str.to_int") =>
       (translateStringFun(stringTheory.str_to_int, args,
                           List(stringType)), SMTInteger)
-    case PlainSymbol("int.to.str") =>
+    case PlainSymbol("int.to.str" | "int.to_str" | "str.from_int") =>
       (translateStringFun(stringTheory.int_to_str, args,
                           List(SMTInteger)), stringType)
 
@@ -2631,7 +2631,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.to_re" | "str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
                           List(stringType)), regexType)
-    case PlainSymbol("re.from.str") =>
+    case PlainSymbol("re.from.str" | "re.from_str") =>
       (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
@@ -2754,8 +2754,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (stringTheory.str_from_code(asTerm(translateTerm(args(0), 0))),
        stringType)
     }
-
-    // str.to-int, str.from-int
 
     case PlainSymbol(id)
       if usingStrings && (stringTheory.extraOps contains id) =>
