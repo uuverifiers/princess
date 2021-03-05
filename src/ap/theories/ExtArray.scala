@@ -295,7 +295,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions,
-                     otherTheories = dependencies,
+                     otherTheories = dependencies.toSeq,
                      theoryAxioms = axiom1 & axiom2 & axiom3)
 
   val Seq(_select, _store, _const) = predicates
