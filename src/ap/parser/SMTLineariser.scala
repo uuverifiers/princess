@@ -1409,12 +1409,16 @@ class SMTLineariser(benchmarkName : String,
       case IExpression.Eq(t, ADT.BoolADT.True) =>
         // strip off the ADT encoding
         TryAgain(t, ctxt)
-      case IExpression.Eq(ADT.BoolADT.False, t) =>
+      case IExpression.Eq(ADT.BoolADT.False, t) => {
         // strip off the ADT encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IExpression.Eq(t, ADT.BoolADT.False) =>
+        print("(not ")
+        TryAgain(t, ctxt addParentOp ")")
+      }
+      case IExpression.Eq(t, ADT.BoolADT.False) => {
         // strip off the ADT encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
+        print("(not ")
+        TryAgain(t, ctxt addParentOp ")")
+      }
 
       case IExpression.EqLit(BooleanTerm(t), v) =>
         // strip off the integer encoding
@@ -1434,7 +1438,7 @@ class SMTLineariser(benchmarkName : String,
       }
 
       // General equations
-      case IExpression.Eq(s, t) =>
+      case x@IExpression.Eq(s, t) =>
         // rewrite to a proper equation
         TryAgain(IAtom(eqPredicate, List(s, t)), ctxt)
       case IIntFormula(rel, _) => {

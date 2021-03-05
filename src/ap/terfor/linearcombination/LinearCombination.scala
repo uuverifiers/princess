@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -170,6 +170,21 @@ object LinearCombination {
       case lc : LinearCombination0 => Some(lc.constant)
       case _ => None
     }    
+  }
+
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are the
+   * difference between two non-constant terms; with the term with
+   * positive coefficient coming first.
+   */
+  object Difference {
+    def unapply(lc : LinearCombination) : Option[(Term, Term)] = lc match {
+      case lc : LinearCombination2
+          if lc.coeff0.isOne && lc.coeff1.isMinusOne && lc.constant.isZero =>
+        Some(lc.term0, lc.term1)
+      case _ =>
+        None
+    }
   }
   
   /**

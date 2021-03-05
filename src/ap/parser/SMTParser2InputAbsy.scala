@@ -67,7 +67,8 @@ object SMTParser2InputAbsy {
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
-    val theory = ExtArray(arguments map (_.toSort), result.toSort)
+    val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
+                          toNormalBool(result.toSort))
     def toSort = theory.sort
   }
   case class SMTBitVec(width : Int)                extends SMTType {
@@ -102,6 +103,11 @@ object SMTParser2InputAbsy {
   case class SMTRegLan(sort : TSort)               extends SMTType {
     def toSort = sort
     override def toString = "RegLan"
+  }
+
+  private def toNormalBool(s : TSort) : TSort = s match {
+    case TSort.MultipleValueBool => TSort.Bool
+    case s => s
   }
 
   case class SMTFunctionType(arguments : List[SMTType],
@@ -2846,6 +2852,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
                           polarity : Int) : IFormula =
     t match {
+      /*
       case s@SMTArray(argTypes, resType) if (polarity > 0) => {
         val arity = argTypes.size
         val theory = s.theory
@@ -2859,6 +2866,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         quan(for (_ <- 0 until arity) yield Quantifier.ALL, matrix)
       }
+       */
 
       case SMTBool =>
         eqZero(a) <=> eqZero(b)
