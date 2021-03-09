@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.theories
@@ -24,15 +36,20 @@ package ap.theories
 import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._
-import ap.terfor.{Formula, TermOrder}
+import ap.proof.goal.Goal
+import ap.proof.theoryPlugins.Plugin
+import ap.terfor.{Formula, TermOrder, ConstantTerm, TerForConvenience}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
-import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort}
+import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort,
+                 UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
 import ap.util.Seqs
 
 import scala.collection.{Map => GMap}
-import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet}
+import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
+                                 HashSet => MHashSet, ArrayBuffer}
 
 object ExtArray {
 
@@ -197,8 +214,6 @@ object ExtArray {
 class ExtArray private (val indexSorts : Seq[Sort],
                         val objSort : Sort) extends Theory {
 
-  import IExpression._
-
   private val (prefix, suffix) = ("", "")
 //    if (arity == 1) ("", "") else ("_", "_" + arity)
 
@@ -230,6 +245,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
   val arity = indexSorts.size
   
   val axiom1 = {
+    import IExpression._
+
     val arrayVar  = v(0, sort)
     val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
     val objVar    = v(indexVars.size + 1, objSort)
@@ -245,6 +262,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
   }
 
   val axiom2 = {
+    import IExpression._
+
     val arrayVar   = v(0, sort)
     val indexVars1 =
       for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
@@ -265,6 +284,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
   }
 
   val axiom3 = {
+    import IExpression._
+
     val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n, s)
     val objVar    = v(indexVars.size, objSort)
     val allVars   = indexVars ++ List(objVar)
@@ -278,8 +299,15 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
 //  println(axiom1 & axiom2 & axiom3)
 
+  // TODO: we need a more generic way to discover theories a sort belongs to
+  override val dependencies =
+    for (s <- indexSorts ++ List(objSort);
+         if s.isInstanceOf[UninterpretedSortTheory.UninterpretedSort])
+    yield s.asInstanceOf[UninterpretedSortTheory.UninterpretedSort].theory
+
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions,
+                     otherTheories = dependencies.toSeq,
                      theoryAxioms = axiom1 & axiom2 & axiom3)
 
   val Seq(_select, _store, _const) = predicates
@@ -294,7 +322,78 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
   val functionalPredicates = predicates.toSet
 
-  val plugin = None
+  //////////////////////////////////////////////////////////////////////////////
+  // The extensionality axiom is implemented using a plugin that rewrites
+  // negated equations about arrays.
+
+  val plugin = Some(
+    new Plugin {
+      // not used
+      def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+        None
+
+      override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+        if (goalState(goal) == Plugin.GoalState.Final) {
+          val facts = goal.facts
+
+          if (!facts.arithConj.negativeEqs.isTrue) {
+            val predConj    = facts.predConj
+            val arrayConsts = new MHashSet[ConstantTerm]
+
+            for (a <- predConj.positiveLitsWithPred(_select))
+              arrayConsts ++= a.head.constants
+            for (a <- predConj.positiveLitsWithPred(_store)) {
+              arrayConsts ++= a.head.constants
+              arrayConsts ++= a.last.constants
+            }
+            for (a <- predConj.positiveLitsWithPred(_const))
+              arrayConsts ++= a.last.constants
+
+            if (!arrayConsts.isEmpty) {
+              implicit val order = goal.order
+              import TerForConvenience._
+
+              val eqs =
+                facts.arithConj.negativeEqs filter {
+                  case LinearCombination.Difference(c : ConstantTerm,
+                                                    d : ConstantTerm)
+                      if (arrayConsts contains c) && (arrayConsts contains d) =>
+                    true
+                  case _ =>
+                    false
+                }
+
+              val axioms =
+                for (LinearCombination.Difference(c, d) <- eqs) yield {
+                  val indexes = for (n <- 0 until indexSorts.size) yield l(v(n))
+                  val result1 = l(v(indexSorts.size))
+                  val result2 = l(v(indexSorts.size + 1))
+                  val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
+                                _select(List(l(d)) ++ indexes ++ List(result2)) &
+                                (result1 =/= result2)
+                  val axiom   = existsSorted(indexSorts ++ List(objSort, objSort),
+                                             matrix)
+
+                  Plugin.AddAxiom(List(c =/= d), axiom, ExtArray.this)
+                }
+
+              if (eqs.isEmpty)
+                List()
+              else
+                axioms ++ List(Plugin.RemoveFacts(unEqZ(eqs)))
+            } else {
+              List()
+            }
+          } else {
+            List()
+          }
+        } else {
+          List()
+        }
+
+    })
+
+  //////////////////////////////////////////////////////////////////////////////
 
   override def isSoundForSat(theories : Seq[Theory],
                              config : Theory.SatSoundnessConfig.Value) : Boolean =

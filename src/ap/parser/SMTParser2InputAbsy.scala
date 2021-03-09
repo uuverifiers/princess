@@ -6,18 +6,30 @@
  * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.parser;
@@ -68,7 +80,8 @@ object SMTParser2InputAbsy {
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
-    val theory = ExtArray(arguments map (_.toSort), result.toSort)
+    val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
+                          toNormalBool(result.toSort))
     def toSort = theory.sort
   }
   case class SMTBitVec(width : Int)                extends SMTType {
@@ -103,6 +116,11 @@ object SMTParser2InputAbsy {
   case class SMTRegLan(sort : TSort)               extends SMTType {
     def toSort = sort
     override def toString = "RegLan"
+  }
+
+  private def toNormalBool(s : TSort) : TSort = s match {
+    case TSort.MultipleValueBool => TSort.Bool
+    case s => s
   }
 
   case class SMTFunctionType(arguments : List[SMTType],
@@ -2608,7 +2626,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
-    case PlainSymbol("str.from.char") =>
+    case PlainSymbol("str.from.char" | "str.from_char") =>
       (translateStringFun(stringTheory.str_from_char, args,
                           List(charType)), stringType)
 
@@ -2626,10 +2644,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
 
-    case PlainSymbol("str.to.int") =>
+    case PlainSymbol("str.to.int" | "str.to_int") =>
       (translateStringFun(stringTheory.str_to_int, args,
                           List(stringType)), SMTInteger)
-    case PlainSymbol("int.to.str") =>
+    case PlainSymbol("int.to.str" | "int.to_str" | "str.from_int") =>
       (translateStringFun(stringTheory.int_to_str, args,
                           List(SMTInteger)), stringType)
 
@@ -2638,7 +2656,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.to_re" | "str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
                           List(stringType)), regexType)
-    case PlainSymbol("re.from.str") =>
+    case PlainSymbol("re.from.str" | "re.from_str") =>
       (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
@@ -2762,8 +2780,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        stringType)
     }
 
-    // str.to-int, str.from-int
-
     case PlainSymbol(id)
       if usingStrings && (stringTheory.extraOps contains id) =>
       stringTheory.extraOps(id) match {
@@ -2855,6 +2871,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
                           polarity : Int) : IFormula =
     t match {
+      /*
       case s@SMTArray(argTypes, resType) if (polarity > 0) => {
         val arity = argTypes.size
         val theory = s.theory
@@ -2868,6 +2885,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         quan(for (_ <- 0 until arity) yield Quantifier.ALL, matrix)
       }
+       */
 
       case SMTBool =>
         eqZero(a) <=> eqZero(b)
