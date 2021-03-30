@@ -38,7 +38,8 @@ import ap.Signature
 import ap.parser._
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
-import ap.terfor.{Formula, TermOrder, ConstantTerm, TerForConvenience}
+import ap.terfor.{Formula, TermOrder, ConstantTerm, TerForConvenience,
+                  AliasStatus}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
@@ -141,6 +142,17 @@ object ExtArray {
                   a.last.constant)
       }
 
+      // extract store literals and add the written values
+      for (a <- model.predConj positiveLitsWithPred _store) {
+        val toIndex =
+          a.last.constant
+        val toMap =
+          contents.getOrElseUpdate(toIndex,
+                                   new MHashMap[Seq[IdealInt], IdealInt])
+        toMap.put(for (lc <- a.slice(1, a.size - 2)) yield lc.constant,
+                  a(a.size - 2).constant)
+      }
+
       // extract store literals, propagate maps
       var changed = true
       while (changed) {
@@ -155,9 +167,16 @@ object ExtArray {
           val toMap = contents.getOrElseUpdate(toIndex,
                                        new MHashMap[Seq[IdealInt], IdealInt])
 
+          val indexes = for (lc <- a.slice(1, a.size - 2)) yield lc.constant
+
           for ((key, value) <- fromMap)
-            if (!(toMap contains key)) {
+            if (key != indexes && !(toMap contains key)) {
               toMap.put(key, value)
+              changed = true
+            }
+          for ((key, value) <- toMap)
+            if (key != indexes && !(fromMap contains key)) {
+              fromMap.put(key, value)
               changed = true
             }
 
@@ -239,11 +258,20 @@ class ExtArray private (val indexSorts : Seq[Sort],
       List(objSort),
       sort,
       partial, false)
+
+  // Store function used for bidirectional propagation
+  val store2 =
+    MonoSortedIFunction(
+      prefix + "store2" + suffix,
+      List(sort) ++ indexSorts ++ List(objSort),
+      sort,
+      partial, false)
   
-  val functions = List(select, store, const)
+  val functions = List(select, store, const, store2)
 
   val arity = indexSorts.size
-  
+
+  // select(store(ar, ind, obj), ind) == obj
   val axiom1 = {
     import IExpression._
 
@@ -254,13 +282,14 @@ class ExtArray private (val indexSorts : Seq[Sort],
     val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
 
     val storeExp  = store(allVars : _*)
+    val selExp    = IFunApp(select, List(storeExp) ++ indexVars)
 
-    val matrix =
-      ITrigger(List(storeExp),
-               IFunApp(select, List(storeExp) ++ indexVars) === objVar)
+    val matrix    = ITrigger(List(selExp), selExp === objVar)
     all(varSorts, matrix)
   }
 
+  // Upward propagation:
+  // ind1 != ind2 => select(store(ar, ind1, obj), ind2) == select(ar, ind2)
   val axiom2 = {
     import IExpression._
 
@@ -283,6 +312,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
     all(varSorts, matrix)
   }
 
+  // Reading from constant array:
+  // select(const(obj), ind) == obj
   val axiom3 = {
     import IExpression._
 
@@ -297,7 +328,78 @@ class ExtArray private (val indexSorts : Seq[Sort],
     all(varSorts, matrix)
   }
 
-//  println(axiom1 & axiom2 & axiom3)
+  // Saturation with select atoms:
+  // store2(ar, ind, obj) == ar2 => select(ar2, ind) == obj
+  val axiom4 = {
+    import IExpression._
+
+    val arrayVar  = v(0, sort)
+    val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
+    val objVar    = v(indexVars.size + 1, objSort)
+    val allVars   = List(arrayVar) ++ indexVars ++ List(objVar)
+    val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
+
+    val storeExp  = store2(allVars : _*)
+    val selExp    = IFunApp(select, List(storeExp) ++ indexVars)
+
+    val matrix    = ITrigger(List(storeExp), selExp === objVar)
+    all(varSorts, matrix)
+  }
+
+  // Upward propagation for store2:
+  // ind1 != ind2 => select(store2(ar, ind1, obj), ind2) == select(ar, ind2)
+  val axiom5 = {
+    import IExpression._
+
+    val arrayVar   = v(0, sort)
+    val indexVars1 =
+      for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
+    val indexVars2 =
+      for ((s, n) <- indexSorts.zipWithIndex) yield v(n + arity + 1, s)
+    val objVar     = v(2*arity + 1, objSort)
+    val allVars    = List(arrayVar) ++ indexVars1 ++ indexVars2 ++ List(objVar)
+    val varSorts   = for (ISortedVariable(_, s) <- allVars) yield s
+
+    val selectExp  = select(List(arrayVar) ++ indexVars2 : _*)
+    val storeExp   = store2(List(arrayVar) ++ indexVars1 ++ List(objVar) : _*)
+    val selStoExp  = select(List(storeExp) ++ indexVars2 : _*)
+
+    val matrix =
+      ITrigger(List(selStoExp),
+               indexVars1 === indexVars2 | selectExp === selStoExp)
+    all(varSorts, matrix)
+  }
+
+  // Downward propagation for store2:
+  // ind1 != ind2 => store2(ar, ind1, obj) == ar2
+  //              => select(ar, ind2) == obj2 => select(ar2, ind2) == obj2
+  val axiom6 = {
+    import IExpression._
+
+    val arrayVar   = v(0, sort)
+    val indexVars1 =
+      for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
+    val indexVars2 =
+      for ((s, n) <- indexSorts.zipWithIndex) yield v(n + arity + 1, s)
+    val objVar     = v(2*arity + 1, objSort)
+    val allVars    = List(arrayVar) ++ indexVars1 ++ indexVars2 ++ List(objVar)
+    val varSorts   = for (ISortedVariable(_, s) <- allVars) yield s
+
+    val selectExp  = select(List(arrayVar) ++ indexVars2 : _*)
+    val storeExp   = store2(List(arrayVar) ++ indexVars1 ++ List(objVar) : _*)
+    val selStoExp  = select(List(storeExp) ++ indexVars2 : _*)
+
+    val matrix =
+      ITrigger(List(selectExp, storeExp),
+               indexVars1 === indexVars2 | selectExp === selStoExp)
+    all(varSorts, matrix)
+  }
+
+  val allAxioms = axiom1 & axiom2 & axiom3 & axiom4 & axiom5 & axiom6
+
+//  println(allAxioms)
+  
+  //////////////////////////////////////////////////////////////////////////////
 
   // TODO: we need a more generic way to discover theories a sort belongs to
   override val dependencies =
@@ -308,9 +410,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions,
                      otherTheories = dependencies.toSeq,
-                     theoryAxioms = axiom1 & axiom2 & axiom3)
+                     theoryAxioms = allAxioms)
 
-  val Seq(_select, _store, _const) = predicates
+  val Seq(_select, _store, _const, _store2) = predicates
 
   val functionPredicateMapping = functions zip predicates
   val totalityAxioms = Conjunction.TRUE
@@ -323,8 +425,6 @@ class ExtArray private (val indexSorts : Seq[Sort],
   val functionalPredicates = predicates.toSet
 
   //////////////////////////////////////////////////////////////////////////////
-  // The extensionality axiom is implemented using a plugin that rewrites
-  // negated equations about arrays.
 
   val plugin = Some(
     new Plugin {
@@ -334,64 +434,156 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
         if (goalState(goal) == Plugin.GoalState.Final) {
-          val facts = goal.facts
-
-          if (!facts.arithConj.negativeEqs.isTrue) {
-            val predConj    = facts.predConj
-            val arrayConsts = new MHashSet[ConstantTerm]
-
-            for (a <- predConj.positiveLitsWithPred(_select))
-              arrayConsts ++= a.head.constants
-            for (a <- predConj.positiveLitsWithPred(_store)) {
-              arrayConsts ++= a.head.constants
-              arrayConsts ++= a.last.constants
-            }
-            for (a <- predConj.positiveLitsWithPred(_const))
-              arrayConsts ++= a.last.constants
-
-            if (!arrayConsts.isEmpty) {
-              implicit val order = goal.order
-              import TerForConvenience._
-
-              val eqs =
-                facts.arithConj.negativeEqs filter {
-                  case LinearCombination.Difference(c : ConstantTerm,
-                                                    d : ConstantTerm)
-                      if (arrayConsts contains c) && (arrayConsts contains d) =>
-                    true
-                  case _ =>
-                    false
-                }
-
-              val axioms =
-                for (LinearCombination.Difference(c, d) <- eqs) yield {
-                  val indexes = for (n <- 0 until indexSorts.size) yield l(v(n))
-                  val result1 = l(v(indexSorts.size))
-                  val result2 = l(v(indexSorts.size + 1))
-                  val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
-                                _select(List(l(d)) ++ indexes ++ List(result2)) &
-                                (result1 =/= result2)
-                  val axiom   = existsSorted(indexSorts ++ List(objSort, objSort),
-                                             matrix)
-
-                  Plugin.AddAxiom(List(c =/= d), axiom, ExtArray.this)
-                }
-
-              if (eqs.isEmpty)
-                List()
-              else
-                axioms ++ List(Plugin.RemoveFacts(unEqZ(eqs)))
-            } else {
-              List()
-            }
-          } else {
-            List()
+          expandExtensionality(goal) match {
+            case Seq()   => store2store2Lazy(goal)
+            case actions => actions
           }
         } else {
-          List()
+          store2store2Eager(goal)
         }
 
     })
+
+  //////////////////////////////////////////////////////////////////////////////
+  // The extensionality axiom is implemented by rewriting negated
+  // equations about arrays.
+
+  private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts
+
+    if (!facts.arithConj.negativeEqs.isTrue) {
+      val predConj    = facts.predConj
+      val arrayConsts = new MHashSet[ConstantTerm]
+
+      for (a <- predConj.positiveLitsWithPred(_select))
+        arrayConsts ++= a.head.constants
+      for (a <- predConj.positiveLitsWithPred(_store)) {
+        arrayConsts ++= a.head.constants
+        arrayConsts ++= a.last.constants
+      }
+      for (a <- predConj.positiveLitsWithPred(_store2)) {
+        arrayConsts ++= a.head.constants
+        arrayConsts ++= a.last.constants
+      }
+      for (a <- predConj.positiveLitsWithPred(_const))
+        arrayConsts ++= a.last.constants
+
+      if (!arrayConsts.isEmpty) {
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val eqs =
+          facts.arithConj.negativeEqs filter {
+            case LinearCombination.Difference(c : ConstantTerm,
+                                              d : ConstantTerm)
+                if (arrayConsts contains c) && (arrayConsts contains d) =>
+              true
+            case _ =>
+              false
+          }
+
+        val axioms =
+          for (LinearCombination.Difference(c, d) <- eqs) yield {
+            val indexes = for (n <- 0 until indexSorts.size) yield l(v(n))
+            val result1 = l(v(indexSorts.size))
+            val result2 = l(v(indexSorts.size + 1))
+            val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
+                          _select(List(l(d)) ++ indexes ++ List(result2)) &
+                          (result1 =/= result2)
+            val axiom   = existsSorted(indexSorts ++ List(objSort, objSort),
+                                       matrix)
+
+            Plugin.AddAxiom(List(c =/= d), axiom, ExtArray.this)
+          }
+
+        if (eqs.isEmpty)
+          List()
+        else
+          axioms ++ List(Plugin.RemoveFacts(unEqZ(eqs)))
+      } else {
+        List()
+      }
+    } else {
+      List()
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // When the "store" literals form a graph that is not tree-shaped,
+  // start replacing "store" with "store2" to initiate bidirectional propagation
+  //
+  // TODO: do we have to do something special about cycles in the graph?
+
+  private def store2store2Lazy(goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val facts      = goal.facts.predConj
+    val mayAlias   = goal.mayAlias
+
+    val storeAtoms = facts.positiveLitsWithPred(_store)
+    val allAtoms   = storeAtoms ++ facts.positiveLitsWithPred(_store2)
+
+    def couldAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+
+    def needBi(a1 : Atom) : Boolean =
+      allAtoms exists { a2 => a1 != a2 && couldAlias(a1.last, a2.last) }
+
+    val actions =
+      for (a1 <- storeAtoms;
+           if needBi(a1);
+           action <- storeConversionActions(a1, goal))
+      yield action
+
+//    println(actions)
+
+    actions
+  }
+
+  private def storeConversionActions(a : Atom,
+                                     goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val newA = _store2(a.toSeq)
+    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, ExtArray.this))
+  }
+
+  private def store2store2Eager(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts.predConj
+
+    val store2Arrays =
+      (for (a <- facts.positiveLitsWithPred(_store2).iterator)
+       yield a.head).toSet
+
+    if (!store2Arrays.isEmpty) {
+      val mayAlias = goal.mayAlias
+      implicit val order = goal.order
+      import TerForConvenience._
+
+      def couldAlias(a : LinearCombination, b : LinearCombination) =
+        mayAlias(a, b, true) match {
+          case AliasStatus.May | AliasStatus.Must => true
+          case _ => false
+        }
+
+      val actions =
+        for (a <- facts.positiveLitsWithPred(_store);
+             if store2Arrays exists { t => couldAlias(t, a.last) };
+             action <- storeConversionActions(a, goal))
+        yield action
+
+//      println(actions)
+
+      actions
+    } else {
+      List()
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

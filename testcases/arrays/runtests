@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# test the array solver
+
+PRI=../../princess
+
+TESTS="downwardsPropagation.smt2 \
+       downwardsPropagation2.smt2"
+
+$PRI "$@" $TESTS
+
