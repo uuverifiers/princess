@@ -11,20 +11,19 @@ TESTS="bignum_quant.smt2 \
        ite.smt2 ite2.smt2 ite3.smt2 \
        for_in_term.smt2 for_in_term2.smt2 \
        let.smt2 let2.smt2 let3.smt2 \
-       divmod.smt2 arrays.smt2 arrays2.smt2 arrays3.smt2 \
-       arrays4.smt2 arrays5.smt2 arrays6.smt2 \
+       divmod.smt2 \
        patternBug.smt2 correct-eq.smt2 \
        define-fun.smt2 define-fun2.smt2 define-fun3.smt2 \
        define-fun-interpolation.smt2 \
        seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
        define-fun-bug.smt2 define-fun-bug2.smt2 define-fun-bug3.smt2 \
-       boolean-array.smt2 distinctBug.smt2 \
+       distinctBug.smt2 \
        reductionBug.smt2 epsilon.smt2 \
        define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2 bv1.smt2 bv1b.smt2 \
        bitops1.smt2 division_by_zero0.smt2 bvmul.smt2 \
        modelConstructionBug2.smt2 conjunct-eliminator-bug.smt2 \
-       eagerMatchBug.smt2 array-sorted.smt2"
+       eagerMatchBug.smt2"
 
 $PRI "$@" $TESTS
 
