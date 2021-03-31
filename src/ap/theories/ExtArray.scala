@@ -39,10 +39,12 @@ import ap.parser._
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.{Formula, TermOrder, ConstantTerm, TerForConvenience,
-                  AliasStatus}
-import ap.terfor.conjunctions.Conjunction
+                  AliasStatus, Term, ComputationLogger}
+import ap.terfor.arithconj.ArithConj
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+                               ReducerPluginFactory, ReducerPlugin}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, PredConj}
 import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort,
                  UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
@@ -277,7 +279,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
     val arrayVar  = v(0, sort)
     val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
-    val objVar    = v(indexVars.size + 1, objSort)
+    val objVar    = v(arity + 1, objSort)
     val allVars   = List(arrayVar) ++ indexVars ++ List(objVar)
     val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
 
@@ -318,7 +320,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
     import IExpression._
 
     val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n, s)
-    val objVar    = v(indexVars.size, objSort)
+    val objVar    = v(arity, objSort)
     val allVars   = indexVars ++ List(objVar)
     val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
 
@@ -335,7 +337,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
     val arrayVar  = v(0, sort)
     val indexVars = for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
-    val objVar    = v(indexVars.size + 1, objSort)
+    val objVar    = v(arity + 1, objSort)
     val allVars   = List(arrayVar) ++ indexVars ++ List(objVar)
     val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
 
@@ -484,9 +486,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
         val axioms =
           for (LinearCombination.Difference(c, d) <- eqs) yield {
-            val indexes = for (n <- 0 until indexSorts.size) yield l(v(n))
-            val result1 = l(v(indexSorts.size))
-            val result2 = l(v(indexSorts.size + 1))
+            val indexes = for (n <- 0 until arity) yield l(v(n))
+            val result1 = l(v(arity))
+            val result2 = l(v(arity + 1))
             val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
                           _select(List(l(d)) ++ indexes ++ List(result2)) &
                           (result1 =/= result2)
@@ -582,6 +584,215 @@ class ExtArray private (val indexSorts : Seq[Sort],
       actions
     } else {
       List()
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Reducer for propagating array constraints
+
+  private class ReducerState(
+    // this map lists known selects for a given array
+    val selects  : Map[(Term, Seq[Term]), Term],
+    // this map lists the known store operations that generate the array
+    val stores   : Map[Term, List[(Seq[Term], Term)]],
+    val consts   : Map[Term, List[Term]]) {
+
+    def lookupValue(ar : Term,
+                    indexes : Seq[Term]) : Option[Term] = {
+      (selects get (ar, indexes)) orElse
+      (for (value :: _ <- consts get ar) yield value)
+    }
+
+    override def toString : String =
+      "ReducerState(" + selects + ", " + stores + ", " + consts + ")"
+  }
+
+  private val EmptyReducerState =
+    new ReducerState(Map(), Map(), Map())
+
+  /**
+   * Add all reads to the reducer state: select.
+   */
+  private def addSelectsToState(preds : PredConj,
+                                state : ReducerState) : ReducerState = {
+    var newSelects = state.selects
+    var changed    = false
+
+    for (a <- (preds positiveLitsWithPred _select).iterator;
+         if a.variables.isEmpty) {
+      val resAr   = a.head
+      val indexes = a.slice(1, arity + 1)
+      newSelects  = newSelects + ((resAr, indexes) -> a.last)
+      changed     = true
+    }
+
+    if (changed)
+      new ReducerState(newSelects, state.stores, state.consts)
+    else
+      state
+  }
+
+  /**
+   * Add all writes to the reducer state: store, store2, and const.
+   */
+  private def addStoresToState(preds : PredConj,
+                               state : ReducerState) : ReducerState = {
+    var newSelects = state.selects
+    var newStores  = state.stores
+    var newConsts  = state.consts
+    var changed    = false
+
+    for (a <- (preds positiveLitsWithPred _store).iterator;
+         if a.variables.isEmpty) {
+      val resAr   = a.last
+      val indexes = a.slice(1, arity + 1)
+      newSelects  =
+        newSelects + ((resAr, indexes) -> a(arity + 1))
+      newStores   =
+        newStores + (resAr ->  ((indexes, a.head) ::
+                                  newStores.getOrElse(resAr, List())))
+      changed = true
+    }
+
+    for (a <- (preds positiveLitsWithPred _const).iterator;
+         if a.variables.isEmpty) {
+      val resAr = a.last
+      newConsts =
+        newConsts + (resAr -> (a.head :: newConsts.getOrElse(resAr, List())))
+      changed = true
+    }
+
+    if (changed)
+      new ReducerState(newSelects, newStores, newConsts)
+    else
+      state
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  object ReducerFactory extends ReducerPluginFactory {
+    def apply(conj : Conjunction, order : TermOrder) = {
+      val preds  = conj.predConj
+      val state1 = addStoresToState(preds, EmptyReducerState)
+      val state2 = addSelectsToState(preds, state1)
+      new Reducer(state2, ReduceWithConjunction(conj, order))
+    }
+  }
+
+  override val reducerPlugin = ReducerFactory
+
+  class Reducer(state : ReducerState,
+                baseReducer : ReduceWithConjunction) extends ReducerPlugin {
+    val factory = ReducerFactory
+
+    def passQuantifiers(num : Int) = this
+
+    def addAssumptions(arithConj : ArithConj,
+                       mode : ReducerPlugin.ReductionMode.Value) = this
+
+    def addAssumptions(preds : PredConj,
+                       mode : ReducerPlugin.ReductionMode.Value) =
+      if (mode == ReducerPlugin.ReductionMode.Contextual) {
+        val state1 = addStoresToState(preds, state)
+        val state2 = addSelectsToState(preds, state1)
+        if (state2 eq state)
+          this
+        else
+          new Reducer(state2, baseReducer)
+      } else {
+        this
+      }
+  
+    def finalReduce(conj : Conjunction) = conj
+
+    def reduce(predConj : PredConj,
+               reducer : ReduceWithConjunction,
+               logger : ComputationLogger,
+               mode : ReducerPlugin.ReductionMode.Value)
+             : ReducerPlugin.ReductionResult =
+      if (!logger.isLogging) {
+        reduceStores (predConj, logger, mode) orElse
+        reduceSelects(predConj, logger, mode)
+      } else {
+        ReducerPlugin.UnchangedResult
+      }
+
+    def reduceStores(predConj : PredConj,
+                     logger : ComputationLogger,
+                     mode : ReducerPlugin.ReductionMode.Value)
+                   : ReducerPlugin.ReductionResult = {
+      implicit val order = predConj.order
+      import TerForConvenience._
+
+      ReducerPlugin.rewritePreds(predConj,
+                                 List(_store, _store2),
+                                 order, logger) {
+        a => {
+          if (a.head == a.last) {
+            // TODO: also rewrite longer cycles?
+            _select(List(a.head) ++ a.slice(1, arity + 2))
+          } else {
+            a
+          }
+        }
+      }
+    }
+
+    def reduceSelects(predConj : PredConj,
+                      logger : ComputationLogger,
+                      mode : ReducerPlugin.ReductionMode.Value)
+                    : ReducerPlugin.ReductionResult = {
+      implicit val order = predConj.order
+      import TerForConvenience._
+
+      val newState =
+        if (mode == ReducerPlugin.ReductionMode.Contextual)
+          addStoresToState(predConj, state)
+        else
+          state
+//println(newState)
+      ReducerPlugin.rewritePreds(predConj, List(_select), order, logger) {
+        a => {
+          val indexes          = a.slice(1, arity + 1)
+          val stores           = newState.stores
+          var ar               = a.head
+          var result : Formula = null
+
+          // TODO: handle the case that we end up in a cycle
+
+          while (result == null)
+            newState.lookupValue(ar, indexes) match {
+              case Some(v) =>
+                result = a.last === v
+              case None =>
+                (stores get ar) match {
+                  // Note that we have to use the baseReducer at this point
+                  // to check distinctness of the indexes; using the reducer
+                  // that is passed as argument to the reduce function does not
+                  // work, since then contextual reduction will have more
+                  // information than non-contextual reduction, and the
+                  // tentativeReduce method will have incorrect behaviour.
+                  // UGLY.
+                  case Some(List((storeIndexes, sourceAr)))
+                    if baseReducer(indexes === storeIndexes).isFalse => {
+                      ar = sourceAr
+                  }
+                  case _ => {
+                    result =
+                      if (ar == a.head)
+                        a
+                      else
+                        _select(List(ar) ++ (a drop 1))
+                  }
+                }
+            }
+
+//          if (a != result)
+//            println("rewriting: " + a + " -> " + result)
+
+          result
+        }
+      }
     }
   }
 
