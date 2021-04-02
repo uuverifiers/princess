@@ -33,7 +33,7 @@
 
 package ap.theories
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, UnionFind}
 import ap.Signature
 import ap.parser._
 import ap.proof.goal.Goal
@@ -45,8 +45,8 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory, ReducerPlugin}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Atom, PredConj}
-import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction, Sort,
-                 UninterpretedSortTheory}
+import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction,
+                 MonoSortedPredicate, Sort, UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
 import ap.util.Seqs
 
@@ -269,6 +269,11 @@ class ExtArray private (val indexSorts : Seq[Sort],
       sort,
       partial, false)
   
+  // A predicate to record that we have added constraints that express
+  // distinctness of two arrays
+  val distinctArrays =
+    MonoSortedPredicate(prefix + "distinct" + suffix, List(sort, sort))
+
   val functions = List(select, store, const, store2)
 
   val arity = indexSorts.size
@@ -409,22 +414,25 @@ class ExtArray private (val indexSorts : Seq[Sort],
          if s.isInstanceOf[UninterpretedSortTheory.UninterpretedSort])
     yield s.asInstanceOf[UninterpretedSortTheory.UninterpretedSort].theory
 
-  val (predicates, axioms, _, _) =
+  val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
+                     extraPredicates = List(distinctArrays),
                      otherTheories = dependencies.toSeq,
                      theoryAxioms = allAxioms)
 
-  val Seq(_select, _store, _const, _store2) = predicates
-
-  val functionPredicateMapping = functions zip predicates
   val totalityAxioms = Conjunction.TRUE
+
+  val Seq(_select, _store, _const, _store2) = functions map funPredMap
+
+  val functionPredicateMapping =
+    for (f <- functions) yield (f -> funPredMap(f))
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
 
   val triggerRelevantFunctions : Set[IFunction] = functions.toSet
 
-  val functionalPredicates = predicates.toSet
+  val functionalPredicates = (functions map funPredMap).toSet
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -436,15 +444,88 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
         if (goalState(goal) == Plugin.GoalState.Final) {
-          expandExtensionality(goal) match {
-            case Seq()   => store2store2Lazy(goal)
-            case actions => actions
-          }
+          expandExtensionality(goal) elseDo
+          store2store2Lazy(goal)     elseDo
+          equalityPropagation(goal)
         } else {
           store2store2Eager(goal)
         }
 
     })
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Equality propagation: if any array constants also occur in other formulas,
+  // we have to make sure that we infer equalities between those constants
+
+  private def equalityPropagation(goal : Goal) : Seq[Plugin.Action] = {
+    val predConj = goal.facts.predConj
+    val allAtoms = predConj.positiveLits ++ predConj.negativeLits
+    val nonTheoryAtoms =
+      allAtoms filterNot { a => predicates contains a.pred }
+
+    // relevant are only constants which also occur in atoms that do not
+    // belong to string constraints
+    val interestingConstants =
+      (for (a <- nonTheoryAtoms; c <- a.constants) yield c).toSet
+
+    if (interestingConstants.isEmpty)
+      return List()
+
+    // collect array terms that are connected by a chain of stores; for
+    // those we have to check whether their equality might follow from
+    // the constraints
+    val mayAlias        = goal.mayAlias
+    val arrayPartitions = new UnionFind[LinearCombination]
+    val positiveLitSet  = predConj.positiveLitsAsSet
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    def couldAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a , b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+
+    for (a <- (predConj positiveLitsWithPred _store) ++
+              (predConj positiveLitsWithPred _store2)) {
+      arrayPartitions makeSetIfNew a.head
+      arrayPartitions makeSetIfNew a.last
+      arrayPartitions.union(a.head, a.last)
+    }
+
+    val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
+
+    // check whether further terms might alias; those terms have to be
+    // considered for equality as well
+    for (n1 <- 0 until (arrayTerms.size - 1);
+         n2 <- (n1 + 1) until arrayTerms.size;
+         a = arrayTerms(n1); b = arrayTerms(n2))
+      if (arrayPartitions(a) != arrayPartitions(b) && couldAlias(a, b))
+        arrayPartitions.union(a, b)
+
+    val interestingPairs =
+      for (n1 <- (0 until (arrayTerms.size - 1)).iterator;
+           n2 <- ((n1 + 1) until arrayTerms.size).iterator;
+           a = arrayTerms(n1); b = arrayTerms(n2);
+           if arrayPartitions(a) == arrayPartitions(b);
+           if !Seqs.disjoint(a.constants, interestingConstants);
+           if !Seqs.disjoint(b.constants, interestingConstants);
+           if !(positiveLitSet contains distinctArrays(List(a, b)));
+           if !(positiveLitSet contains distinctArrays(List(b, a))))
+      yield (a, b)
+
+    if (interestingPairs.hasNext) {
+      val (a, b) = interestingPairs.next
+      val split = Plugin.AxiomSplit(List(),
+                                    List((distinctArraysAxiom(a, b), List()),
+                                         (a === b,                   List())),
+                                    ExtArray.this)
+      List(split)
+    } else {
+      List()
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // The extensionality axiom is implemented by rewriting negated
@@ -478,24 +559,15 @@ class ExtArray private (val indexSorts : Seq[Sort],
           facts.arithConj.negativeEqs filter {
             case LinearCombination.Difference(c : ConstantTerm,
                                               d : ConstantTerm)
-                if (arrayConsts contains c) && (arrayConsts contains d) =>
-              true
-            case _ =>
-              false
+              if (arrayConsts contains c) && (arrayConsts contains d) => true
+            case _ => false
           }
 
         val axioms =
           for (LinearCombination.Difference(c, d) <- eqs) yield {
-            val indexes = for (n <- 0 until arity) yield l(v(n))
-            val result1 = l(v(arity))
-            val result2 = l(v(arity + 1))
-            val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
-                          _select(List(l(d)) ++ indexes ++ List(result2)) &
-                          (result1 =/= result2)
-            val axiom   = existsSorted(indexSorts ++ List(objSort, objSort),
-                                       matrix)
-
-            Plugin.AddAxiom(List(c =/= d), axiom, ExtArray.this)
+            Plugin.AddAxiom(List(c =/= d),
+                            distinctArraysAxiom(c, d),
+                            ExtArray.this)
           }
 
         if (eqs.isEmpty)
@@ -508,6 +580,21 @@ class ExtArray private (val indexSorts : Seq[Sort],
     } else {
       List()
     }
+  }
+
+  def distinctArraysAxiom(c : Term, d : Term)
+                         (implicit order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+
+    val indexes = for (n <- 0 until arity) yield l(v(n))
+    val result1 = l(v(arity))
+    val result2 = l(v(arity + 1))
+    val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
+                  _select(List(l(d)) ++ indexes ++ List(result2)) &
+                  (result1 =/= result2) &
+                  distinctArrays(List(l(c), l(d)))
+
+    existsSorted(indexSorts ++ List(objSort, objSort), matrix)
   }
 
   //////////////////////////////////////////////////////////////////////////////
