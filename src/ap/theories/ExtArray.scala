@@ -705,13 +705,13 @@ class ExtArray private (val indexSorts : Seq[Sort],
     var newSelects = state.selects
     var changed    = false
 
-    for (a <- (preds positiveLitsWithPred _select).iterator;
-         if a.variables.isEmpty) {
-      val resAr   = a.head
-      val indexes = a.slice(1, arity + 1)
-      newSelects  = newSelects + ((resAr, indexes) -> a.last)
-      changed     = true
-    }
+    for (a <- preds positiveLitsWithPred _select)
+      if (a.variables.isEmpty) {
+        val resAr   = a.head
+        val indexes = a.slice(1, arity + 1)
+        newSelects  = newSelects + ((resAr, indexes) -> a.last)
+        changed     = true
+      }
 
     if (changed)
       new ReducerState(newSelects, state.stores, state.consts)
@@ -729,25 +729,25 @@ class ExtArray private (val indexSorts : Seq[Sort],
     var newConsts  = state.consts
     var changed    = false
 
-    for (a <- (preds positiveLitsWithPred _store).iterator;
-         if a.variables.isEmpty) {
-      val resAr   = a.last
-      val indexes = a.slice(1, arity + 1)
-      newSelects  =
-        newSelects + ((resAr, indexes) -> a(arity + 1))
-      newStores   =
-        newStores + (resAr ->  ((indexes, a.head) ::
-                                  newStores.getOrElse(resAr, List())))
-      changed = true
-    }
+    for (a <- preds positiveLitsWithPred _store)
+      if (a.variables.isEmpty) {
+        val resAr   = a.last
+        val indexes = a.slice(1, arity + 1)
+        newSelects  =
+          newSelects + ((resAr, indexes) -> a(arity + 1))
+        newStores   =
+          newStores + (resAr ->  ((indexes, a.head) ::
+                                    newStores.getOrElse(resAr, List())))
+        changed     = true
+      }
 
-    for (a <- (preds positiveLitsWithPred _const).iterator;
-         if a.variables.isEmpty) {
-      val resAr = a.last
-      newConsts =
-        newConsts + (resAr -> (a.head :: newConsts.getOrElse(resAr, List())))
-      changed = true
-    }
+    for (a <- preds positiveLitsWithPred _const)
+      if (a.variables.isEmpty) {
+        val resAr = a.last
+        newConsts =
+          newConsts + (resAr -> (a.head :: newConsts.getOrElse(resAr, List())))
+        changed   = true
+      }
 
     if (changed)
       new ReducerState(newSelects, newStores, newConsts)
@@ -829,6 +829,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
                       logger : ComputationLogger,
                       mode : ReducerPlugin.ReductionMode.Value)
                     : ReducerPlugin.ReductionResult = {
+      if (!(predConj.predicates contains _select))
+        return ReducerPlugin.UnchangedResult
+
       implicit val order = predConj.order
       import TerForConvenience._
 
@@ -837,15 +840,14 @@ class ExtArray private (val indexSorts : Seq[Sort],
           addStoresToState(predConj, state)
         else
           state
-//println(newState)
+
       ReducerPlugin.rewritePreds(predConj, List(_select), order, logger) {
         a => {
           val indexes          = a.slice(1, arity + 1)
           val stores           = newState.stores
           var ar               = a.head
           var result : Formula = null
-
-          // TODO: handle the case that we end up in a cycle
+          var cnt              = 0
 
           while (result == null)
             newState.lookupValue(ar, indexes) match {
@@ -862,8 +864,13 @@ class ExtArray private (val indexSorts : Seq[Sort],
                   // UGLY.
                   case Some(List((storeIndexes, sourceAr)))
                     if baseReducer(indexes === storeIndexes).isFalse => {
-                      ar = sourceAr
-                  }
+                      ar  = sourceAr
+                      cnt = cnt + 1
+                      if (cnt > stores.size)
+                        // then we must have ended up in a cycle, stop
+                        // the rewriting
+                        result = a
+                    }
                   case _ => {
                     result =
                       if (ar == a.head)
