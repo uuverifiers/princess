@@ -774,8 +774,10 @@ class SMTLineariser(benchmarkName : String,
         case t.store  => "store"
       }
       case Some(t : ExtArray) => fun match {
-        case t.select => "select"
-        case t.store  => "store"
+        case t.select           => "select"
+        case t.store            => "store"
+        case t.store2           => "store2"
+        case t.distinctArrays   => "distinctArrays"
       }
       case Some(t : MulTheory) => fun match {
         case t.mul => "*"
