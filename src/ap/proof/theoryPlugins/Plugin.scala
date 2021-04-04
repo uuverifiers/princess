@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,6 +45,7 @@ import ap.terfor.arithconj.ReducableModelElement
 import ap.parameters.{Param, ReducerSettings}
 import ap.util.Debug
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{Stack, ArrayBuffer}
 
 object Plugin {
@@ -170,6 +171,14 @@ trait TheoryProcedure {
   def goalState(goal : Goal) : GoalState.Value =
     if (goal.tasks.finalEagerTask) GoalState.Final else GoalState.Intermediate
 
+  /**
+   * An implicit function to simplify cascading of possible actions.
+   */
+  protected implicit def richActionSeq(acts : Seq[Plugin.Action]) = new AnyRef {
+    def elseDo(otherwise : => Seq[Plugin.Action]) : Seq[Plugin.Action] =
+      if (acts.isEmpty) otherwise else acts
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -245,10 +254,14 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
 
   override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
     val it = plugins.iterator
-    var res : Seq[Plugin.Action] = List()
-    while (it.hasNext && !splittingActions(res))
-      res = (it.next handleGoal goal) ++ res
-    res
+    val res = new VectorBuilder[Plugin.Action]
+    var cont = true
+    while (cont && it.hasNext) {
+      val newActions = it.next handleGoal goal
+      res ++= newActions
+      cont = !splittingActions(newActions)
+    }
+    res.result
   }
 
   private def splittingActions(actions : Seq[Plugin.Action]) =

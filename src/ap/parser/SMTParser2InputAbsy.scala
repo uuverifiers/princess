@@ -185,6 +185,7 @@ object SMTParser2InputAbsy {
     private val LParen : Int     = '('
     private val RParen : Int     = ')'
     private val Quote : Int      = '"'
+    private val SQuote : Int     = '\''
     private val Pipe : Int       = '|'
     private val Semicolon : Int  = ';'
     private val Backslash : Int  = '\\'
@@ -221,6 +222,11 @@ object SMTParser2InputAbsy {
               read = read + 1
               state = 1
             }
+            case SQuote => {
+              cbuf(off + read) = SQuote.toChar
+              read = read + 1
+              state = 2
+            }
             case Pipe => {
               cbuf(off + read) = Pipe.toChar
               read = read + 1
@@ -242,12 +248,8 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // process a double-quoted string "..."
           case 1 => input.read match {
-            case Backslash => {
-              cbuf(off + read) = Backslash.toChar
-              read = read + 1
-              state = 2
-            }
             case Quote => {
               cbuf(off + read) = Quote.toChar
               read = read + 1
@@ -265,20 +267,26 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // process a single-quoted string '...'
           case 2 => input.read match {
+            case SQuote => {
+              cbuf(off + read) = SQuote.toChar
+              read = read + 1
+              state = 0
+            }
+            case CR => // nothing, read next character
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
               state = 7
             }
-            case CR => // nothing, read next character
             case next => {
               cbuf(off + read) = next.toChar
               read = read + 1
-              state = 1
             }
           }
 
+          // parse a quoted identified |...|
           case 3 => input.read match {
             case Pipe => {
               cbuf(off + read) = Pipe.toChar
@@ -297,6 +305,7 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // parse a comment ;...
           case 4 => input.read match {
             case LF => {
               cbuf(off + read) = LF.toChar
@@ -315,12 +324,14 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // output (
           case 5 => {
             cbuf(off + read) = LParen.toChar
             read = read + 1
             state = 6
           }
 
+          // output )
           case 6 => {
             cbuf(off + read) = RParen.toChar
             read = read + 1
