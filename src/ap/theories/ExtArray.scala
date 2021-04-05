@@ -645,11 +645,11 @@ class ExtArray private (val indexSorts : Seq[Sort],
   private def store2store2Eager(goal : Goal) : Seq[Plugin.Action] = {
     val facts = goal.facts.predConj
 
-    val store2Arrays =
-      (for (a <- facts.positiveLitsWithPred(_store2).iterator)
-       yield a.head).toSet
+    if (facts.predicates contains _store2) {
+      val store2Arrays =
+        (for (a <- facts.positiveLitsWithPred(_store2).iterator)
+         yield a.head).toSet
 
-    if (!store2Arrays.isEmpty) {
       val mayAlias = goal.mayAlias
       implicit val order = goal.order
       import TerForConvenience._
@@ -690,12 +690,16 @@ class ExtArray private (val indexSorts : Seq[Sort],
       (for (value :: _ <- consts get ar) yield value)
     }
 
+    def isEmpty : Boolean = false
+
     override def toString : String =
       "ReducerState(" + selects + ", " + stores + ", " + consts + ")"
   }
 
   private val EmptyReducerState =
-    new ReducerState(Map(), Map(), Map())
+    new ReducerState(Map(), Map(), Map()) {
+      override def isEmpty : Boolean = true
+    }
 
   /**
    * Add all reads to the reducer state: select.
@@ -762,15 +766,19 @@ class ExtArray private (val indexSorts : Seq[Sort],
       val preds  = conj.predConj
       val state1 = addStoresToState(preds, EmptyReducerState)
       val state2 = addSelectsToState(preds, state1)
-      new Reducer(state2, ReduceWithConjunction(conj, order))
+      new Reducer(state2, conj, order)
     }
   }
 
   override val reducerPlugin = ReducerFactory
 
   class Reducer(state : ReducerState,
-                baseReducer : ReduceWithConjunction) extends ReducerPlugin {
-    val factory = ReducerFactory
+                baseAssumptions : Conjunction,
+                baseOrder : TermOrder) extends ReducerPlugin {
+    val factory =
+      ReducerFactory
+    lazy val baseReducer =
+      ReduceWithConjunction(baseAssumptions, baseOrder)
 
     def passQuantifiers(num : Int) = this
 
@@ -785,7 +793,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
         if (state2 eq state)
           this
         else
-          new Reducer(state2, baseReducer)
+          new Reducer(state2, baseAssumptions, baseOrder)
       } else {
         this
       }
@@ -840,6 +848,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
           addStoresToState(predConj, state)
         else
           state
+
+      if (newState.isEmpty)
+        return ReducerPlugin.UnchangedResult
 
       ReducerPlugin.rewritePreds(predConj, List(_select), order, logger) {
         a => {
