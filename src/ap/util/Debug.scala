@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,56 +53,63 @@ object Debug {
   /** Categories of assertions, essentially the software unit that the assertion
    * belongs to */
   abstract class ASSERTION_CATEGORY
-  case object AC_MAIN extends ASSERTION_CATEGORY
-  case object AC_SIMPLE_API extends ASSERTION_CATEGORY
-  case object AC_BASE_TYPE extends ASSERTION_CATEGORY
-  case object AC_SEQ_UTILS extends ASSERTION_CATEGORY
-  case object AC_MAP_UTILS extends ASSERTION_CATEGORY
-  case object AC_SET_UTILS extends ASSERTION_CATEGORY
-  case object AC_PO_GRAPH extends ASSERTION_CATEGORY
-  case object AC_QUEUE_WITH_ITERATORS extends ASSERTION_CATEGORY  
-  case object AC_TERM_ORDER extends ASSERTION_CATEGORY
-  case object AC_LINEAR_COMB extends ASSERTION_CATEGORY
-  case object AC_EQUATIONS extends ASSERTION_CATEGORY
-  case object AC_INEQUALITIES extends ASSERTION_CATEGORY
-  case object AC_OMEGA extends ASSERTION_CATEGORY
-  case object AC_PROPAGATION extends ASSERTION_CATEGORY
-  case object AC_MODEL_FINDER extends ASSERTION_CATEGORY
-  case object AC_PROP_CONNECTIVES extends ASSERTION_CATEGORY
-  case object AC_ELIM_CONJUNCTS extends ASSERTION_CATEGORY  
-  case object AC_VARIABLES extends ASSERTION_CATEGORY
-  case object AC_SUBSTITUTIONS extends ASSERTION_CATEGORY
-  case object AC_PREDICATES extends ASSERTION_CATEGORY
-  case object AC_PROOF_TREE extends ASSERTION_CATEGORY
-  case object AC_CONSTRAINT_SIMPLIFIER extends ASSERTION_CATEGORY
-  case object AC_PROVER extends ASSERTION_CATEGORY
-  case object AC_SIGNATURE extends ASSERTION_CATEGORY
-  case object AC_GOAL extends ASSERTION_CATEGORY
-  case object AC_FACTS_TASK extends ASSERTION_CATEGORY
-  case object AC_ELIM_FACTS_TASK extends ASSERTION_CATEGORY  
-  case object AC_COMPLEX_FORMULAS_TASK extends ASSERTION_CATEGORY
-  case object AC_BLOCKED_FORMULAS_TASK extends ASSERTION_CATEGORY
-  case object AC_PARSER extends ASSERTION_CATEGORY
-  case object AC_ENVIRONMENT extends ASSERTION_CATEGORY
-  case object AC_INPUT_ABSY extends ASSERTION_CATEGORY
-  case object AC_TYPES extends ASSERTION_CATEGORY
-  case object AC_VAR_TYPES extends ASSERTION_CATEGORY
-  case object AC_PARAMETERS extends ASSERTION_CATEGORY
-  case object AC_CLAUSE_MATCHER extends ASSERTION_CATEGORY
-  case object AC_CONSTANT_FREEDOM extends ASSERTION_CATEGORY
-  case object AC_ALIAS_ANALYSER extends ASSERTION_CATEGORY
-  case object AC_PRESBURGER_TOOLS extends ASSERTION_CATEGORY
-  case object AC_CERTIFICATES extends ASSERTION_CATEGORY
-  case object AC_CERTIFICATE_LINEARISER extends ASSERTION_CATEGORY
-  case object AC_COMPUTATION_LOGGER extends ASSERTION_CATEGORY
-  case object AC_INTERPOLATION extends ASSERTION_CATEGORY
+  case object AC_MAIN                             extends ASSERTION_CATEGORY
+  case object AC_BASE_TYPE                        extends ASSERTION_CATEGORY
+  case object AC_SEQ_UTILS                        extends ASSERTION_CATEGORY
+  case object AC_MAP_UTILS                        extends ASSERTION_CATEGORY
+  case object AC_SET_UTILS                        extends ASSERTION_CATEGORY
+  case object AC_QUEUE_WITH_ITERATORS             extends ASSERTION_CATEGORY  
+  case object AC_PO_GRAPH                         extends ASSERTION_CATEGORY
+
+  case object AC_TERM_ORDER                       extends ASSERTION_CATEGORY
+  case object AC_LINEAR_COMB                      extends ASSERTION_CATEGORY
+  case object AC_EQUATIONS                        extends ASSERTION_CATEGORY
+  case object AC_INEQUALITIES                     extends ASSERTION_CATEGORY
+  case object AC_OMEGA                            extends ASSERTION_CATEGORY
+  case object AC_PROPAGATION                      extends ASSERTION_CATEGORY
+  case object AC_PROP_CONNECTIVES                 extends ASSERTION_CATEGORY
+  case object AC_ELIM_CONJUNCTS                   extends ASSERTION_CATEGORY  
+  case object AC_VARIABLES                        extends ASSERTION_CATEGORY
+  case object AC_SUBSTITUTIONS                    extends ASSERTION_CATEGORY
+  case object AC_PREDICATES                       extends ASSERTION_CATEGORY
+
+  case object AC_SIGNATURE                        extends ASSERTION_CATEGORY
+  case object AC_PARSER                           extends ASSERTION_CATEGORY
+  case object AC_INPUT_ABSY                       extends ASSERTION_CATEGORY
+  case object AC_TYPES                            extends ASSERTION_CATEGORY
+  case object AC_VAR_TYPES                        extends ASSERTION_CATEGORY
+
+  case object AC_PROOF_TREE                       extends ASSERTION_CATEGORY
+  case object AC_GOAL                             extends ASSERTION_CATEGORY
+  case object AC_CONSTRAINT_SIMPLIFIER            extends ASSERTION_CATEGORY
+  case object AC_FACTS_TASK                       extends ASSERTION_CATEGORY
+  case object AC_ELIM_FACTS_TASK                  extends ASSERTION_CATEGORY  
+  case object AC_COMPLEX_FORMULAS_TASK            extends ASSERTION_CATEGORY
+  case object AC_BLOCKED_FORMULAS_TASK            extends ASSERTION_CATEGORY
+  case object AC_ENVIRONMENT                      extends ASSERTION_CATEGORY
+  case object AC_PARAMETERS                       extends ASSERTION_CATEGORY
+  case object AC_CLAUSE_MATCHER                   extends ASSERTION_CATEGORY
+  case object AC_CONSTANT_FREEDOM                 extends ASSERTION_CATEGORY
+  case object AC_ALIAS_ANALYSER                   extends ASSERTION_CATEGORY
+  case object AC_MODEL_FINDER                     extends ASSERTION_CATEGORY
+
+  case object AC_PROVER                           extends ASSERTION_CATEGORY
+  case object AC_PRESBURGER_TOOLS                 extends ASSERTION_CATEGORY
+  case object AC_CERTIFICATES                     extends ASSERTION_CATEGORY
+  case object AC_CERTIFICATE_LINEARISER           extends ASSERTION_CATEGORY
+  case object AC_COMPUTATION_LOGGER               extends ASSERTION_CATEGORY
+  case object AC_SIMPLE_API                       extends ASSERTION_CATEGORY
+
+  case object AC_INTERPOLATION                    extends ASSERTION_CATEGORY
   case object AC_INTERPOLATION_IMPLICATION_CHECKS extends ASSERTION_CATEGORY
-  case object AC_THEORY extends ASSERTION_CATEGORY
-  case object AC_PLUGIN extends ASSERTION_CATEGORY
-  case object AC_NIA extends ASSERTION_CATEGORY
-  case object AC_ADT extends ASSERTION_CATEGORY
-  case object AC_MODULO_ARITHMETIC extends ASSERTION_CATEGORY
-  case object AC_ALGEBRA extends ASSERTION_CATEGORY
+
+  case object AC_THEORY                           extends ASSERTION_CATEGORY
+  case object AC_PLUGIN                           extends ASSERTION_CATEGORY
+  case object AC_NIA                              extends ASSERTION_CATEGORY
+  case object AC_ADT                              extends ASSERTION_CATEGORY
+  case object AC_MODULO_ARITHMETIC                extends ASSERTION_CATEGORY
+  case object AC_ALGEBRA                          extends ASSERTION_CATEGORY
+  case object AC_ARRAY                            extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true

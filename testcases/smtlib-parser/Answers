@@ -401,6 +401,7 @@ unsat
 ((and proc_x_0_2 (myFunc2 true)))
 unsat
 ((and (= proc_x_0 7) (select ar 7)))
+Warning: arrays over finite domains are not fully supported yet
 unsat
 ((and (select ar true) proc_x_0_2))
 unsat
