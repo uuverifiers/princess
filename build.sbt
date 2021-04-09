@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Princess",
     organization := "uuverifiers",
-    version := "unstable-SNAPSHOT",
+    version := "2021-04-09",
     homepage := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
     scalaVersion := "2.11.12",
