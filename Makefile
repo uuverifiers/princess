@@ -29,7 +29,7 @@ JAVA_OPTS=-Xmx1G
 SCALABASEDIR:=/usr/local/scala
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
-JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
+JARSIGNERCMD:=jarsigner -keystore ../../myKeys -storepass ../../myPass -keypass ../../myPass
 JARSIGNERALIAS:=mykey2015
 
 PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
