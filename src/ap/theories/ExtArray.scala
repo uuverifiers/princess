@@ -48,13 +48,15 @@ import ap.terfor.preds.{Atom, PredConj}
 import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction,
                  MonoSortedPredicate, Sort, UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
-import ap.util.Seqs
+import ap.util.{Seqs, Debug}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
                                  HashSet => MHashSet, ArrayBuffer}
 
 object ExtArray {
+
+  val AC = Debug.AC_ARRAY
 
   import IExpression.Sort
   
@@ -234,6 +236,9 @@ object ExtArray {
  */
 class ExtArray private (val indexSorts : Seq[Sort],
                         val objSort : Sort) extends Theory {
+  import ExtArray.AC
+
+  private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
 
   private val (prefix, suffix) = ("", "")
 //    if (arity == 1) ("", "") else ("_", "_" + arity)
@@ -268,13 +273,22 @@ class ExtArray private (val indexSorts : Seq[Sort],
       List(sort) ++ indexSorts ++ List(objSort),
       sort,
       partial, false)
+
+  // A partial function mapping arrays with infinite index domain
+  // to a value that is stored at almost all indexes
+  val valueAlmostEverywhere =
+    MonoSortedIFunction(
+      prefix + "valueAlmostEverywhere" + suffix,
+      List(sort),
+      objSort,
+      true, false)
   
   // A predicate to record that we have added constraints that express
   // distinctness of two arrays
   val distinctArrays =
     MonoSortedPredicate(prefix + "distinct" + suffix, List(sort, sort))
 
-  val functions = List(select, store, const, store2)
+  val functions = List(select, store, const, store2, valueAlmostEverywhere)
 
   val arity = indexSorts.size
 
@@ -402,7 +416,53 @@ class ExtArray private (val indexSorts : Seq[Sort],
     all(varSorts, matrix)
   }
 
-  val allAxioms = axiom1 & axiom2 & axiom3 & axiom4 & axiom5 & axiom6
+  // Inference of valueAlmostEverywhere atoms for constant arrays:
+  // valueAlmostEverywhere(const(obj)) == obj
+  val axiom7 = {
+    import IExpression._
+
+    if (infiniteIndex) {
+      val obj = v(0, objSort)
+      objSort.all(ITrigger(List(const(obj)),
+                           valueAlmostEverywhere(const(obj)) === obj))
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, {
+        Console.err.println("Warning: arrays over finite domains are not fully "
+                              + "supported yet")
+        true
+      })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      i(true)
+    }
+  }
+
+  // Downward propagation for valueAlmostEverywhere:
+  // valueAlmostEverywhere(ar) == obj
+  //    => valueAlmostEverywhere(store2(ar, ind, obj2)) == obj
+  val axiom8 = {
+    import IExpression._
+
+    val arrayVar   = v(0, sort)
+    val indexVars  =
+      for ((s, n) <- indexSorts.zipWithIndex) yield v(n + 1, s)
+    val objVar     = v(arity + 1, objSort)
+    val obj2Var    = v(arity + 2, objSort)
+    val allVars    = List(arrayVar) ++ indexVars ++ List(objVar, obj2Var)
+    val varSorts   = for (ISortedVariable(_, s) <- allVars) yield s
+
+    val vaeExp     = valueAlmostEverywhere(arrayVar)
+    val storeExp   = store2(List(arrayVar) ++ indexVars ++ List(obj2Var) : _*)
+
+    val matrix =
+      ITrigger(List(vaeExp, storeExp),
+               (vaeExp === objVar) ==>
+               (valueAlmostEverywhere(storeExp) === objVar))
+    all(varSorts, matrix)
+  }
+
+  val allAxioms =
+    axiom1 & axiom2 & axiom3 & axiom4 & axiom5 & axiom6 & axiom7 & axiom8
 
 //  println(allAxioms)
   
@@ -417,12 +477,13 @@ class ExtArray private (val indexSorts : Seq[Sort],
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
                      extraPredicates = List(distinctArrays),
-                     otherTheories = dependencies.toSeq,
-                     theoryAxioms = allAxioms)
+                     otherTheories   = dependencies.toSeq,
+                     theoryAxioms    = allAxioms)
 
   val totalityAxioms = Conjunction.TRUE
 
-  val Seq(_select, _store, _const, _store2) = functions map funPredMap
+  val Seq(_select, _store, _const, _store2, _valueAlmostEverywhere) =
+    functions map funPredMap
 
   val functionPredicateMapping =
     for (f <- functions) yield (f -> funPredMap(f))
@@ -611,7 +672,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
     val mayAlias   = goal.mayAlias
 
     val storeAtoms = facts.positiveLitsWithPred(_store)
-    val allAtoms   = storeAtoms ++ facts.positiveLitsWithPred(_store2)
+    val allAtoms   = storeAtoms ++
+                     facts.positiveLitsWithPred(_store2) ++
+                     facts.positiveLitsWithPred(_const)
 
     def couldAlias(a : LinearCombination, b : LinearCombination) =
       mayAlias(a, b, true) match {
