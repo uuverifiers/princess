@@ -52,7 +52,7 @@ lazy val commonSettings = Seq(
 // Jar files for the parsers
 
 lazy val parserSettings = Seq(
-    publishArtifact in packageDoc := false,
+//    publishArtifact in packageDoc := false,
 //    publishArtifact in packageSrc := false,
     exportJars := true,
     crossPaths := true 
