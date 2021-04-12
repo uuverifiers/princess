@@ -1,22 +1,59 @@
 
 lazy val commonSettings = Seq(
-    name := "Princess",
-    organization := "uuverifiers",
-    version := "unstable-SNAPSHOT",
-    homepage := Some(url("https://philipp.ruemmer.org/princess.shtml")),
-    licenses := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
-    scalaVersion := "2.13.4",
-    crossScalaVersions := Seq("2.13.4"),
-    fork in run := true,
+    name                 := "Princess",
+    organization         := "uuverifiers",
+    version              := "unstable-SNAPSHOT",
+    homepage             := Some(url("https://philipp.ruemmer.org/princess.shtml")),
+    licenses             := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
+    scmInfo              := Some(ScmInfo(
+                                   url("https://github.com/uuverifiers/princess"),
+                                   "scm:git@github.com/uuverifiers/princess.git")),
+    developers           := List(
+                              Developer(
+                                id    = "p_ruemmer",
+                                name  = "Philipp Ruemmer",
+                                email = "ph_r@gmx.net",
+                                url   = url("https://philipp.ruemmer.org")
+                              ),
+                              Developer(
+                                id    = "zafer.esen",
+                                name  = "Zafer Esen",
+                                email = "zafer.esen@it.uu.se",
+                                url   = url("https://katalog.uu.se/empinfo/?id=N18-2424")
+                              ),
+                              Developer(
+                                id    = "angelo.brillout",
+                                name  = "Angelo Brillout",
+                                email = "angelo.brillout@gmail.com",
+                                url   = url("https://ch.linkedin.com/in/angelo-brillout-2942bb7")
+                              ),
+                              Developer(
+                                id    = "peter.backeman",
+                                name  = "Peter Backeman",
+                                email = "peter@backeman.se",
+                                url   = url("http://www.es.mdh.se/staff/4393-Peter__Backeman")
+                              ),
+                              Developer(
+                                id    = "peter.baumgartner",
+                                name  = "Peter Baumgartner",
+                                email = "Peter.Baumgartner@data61.csiro.au",
+                                url   = url("http://users.cecs.anu.edu.au/~baumgart/")
+                              )
+                            ),
+    description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
+    scalaVersion         := "2.13.4",
+    crossScalaVersions   := Seq("2.13.4"),
+    fork in run          := true,
     cancelable in Global := true,
-    publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
+    publishTo := Some(Resolver.file("file", new File( "/tmp/shared-repo" )) )
 )
 
+////////////////////////////////////////////////////////////////////////////////
 // Jar files for the parsers
 
 lazy val parserSettings = Seq(
-    publishArtifact in packageDoc := false,
-    publishArtifact in packageSrc := false,
+//    publishArtifact in packageDoc := false,
+//    publishArtifact in packageSrc := false,
     exportJars := true,
     crossPaths := true 
 )
