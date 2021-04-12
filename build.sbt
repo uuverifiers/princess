@@ -16,6 +16,12 @@ lazy val commonSettings = Seq(
                                 url   = url("https://philipp.ruemmer.org")
                               ),
                               Developer(
+                                id    = "zafer.esen",
+                                name  = "Zafer Esen",
+                                email = "zafer.esen@it.uu.se",
+                                url   = url("https://katalog.uu.se/empinfo/?id=N18-2424")
+                              ),
+                              Developer(
                                 id    = "angelo.brillout",
                                 name  = "Angelo Brillout",
                                 email = "angelo.brillout@gmail.com",
@@ -32,12 +38,6 @@ lazy val commonSettings = Seq(
                                 name  = "Peter Baumgartner",
                                 email = "Peter.Baumgartner@data61.csiro.au",
                                 url   = url("http://users.cecs.anu.edu.au/~baumgart/")
-                              ),
-                              Developer(
-                                id    = "zafer.esen",
-                                name  = "Zafer Esen",
-                                email = "zafer.esen@it.uu.se",
-                                url   = url("https://katalog.uu.se/empinfo/?id=N18-2424")
                               )
                             ),
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
