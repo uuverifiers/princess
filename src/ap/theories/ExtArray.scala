@@ -292,6 +292,38 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
   val arity = indexSorts.size
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Direct evaluation of some ground terms.
+   */
+  override def evalFun(f : IFunApp) : Option[ITerm] =
+    f match {
+      case IFunApp(`const` | `store`, _) =>
+        Some(f)
+      case IFunApp(`select`,
+                   Seq(IFunApp(`store`, Seq(ar, storeArgs@_*)), selArgs@_*))
+          if storeArgs.init == selArgs =>
+        Some(storeArgs.last)
+      case IFunApp(`select`,
+                   Seq(IFunApp(`store`, Seq(ar, storeArgs@_*)), selArgs@_*))
+          if distinctIndexes(storeArgs, selArgs) =>
+        evalFun(IFunApp(select, List(ar) ++ selArgs))
+      case IFunApp(`select`, Seq(IFunApp(`const`, Seq(constVal)), _*)) =>
+        Some(constVal)
+      case _ =>
+        None
+  }
+
+  private def distinctIndexes(inds1 : Seq[ITerm],
+                              inds2 : Seq[ITerm]) : Boolean =
+    (inds1.iterator zip inds2.iterator) exists {
+      case (IExpression.Const(v1), IExpression.Const(v2)) => v1 != v2
+      case _ => false
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   // select(store(ar, ind, obj), ind) == obj
   val axiom1 = {
     import IExpression._

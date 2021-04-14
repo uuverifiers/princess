@@ -249,6 +249,22 @@ Sat
 Sat
 {y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
 
+TestExtArray
+
+-- Test 1
+Some term: store(ar, x, 42)
+Sat
+Unsat
+
+-- Test 2
+Sat
+ar = store(const(0), 1, 1)
+ar2 = const(0)
+m.evalToTerm(ar): Some(store(const(0), 1, 1))
+m.evalToTerm(select(ar, 0)): Some(0)
+m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
+
 interpolation-bug.scala
 0: Unsat
 1: Vector(rootjthen_fwd, false)
