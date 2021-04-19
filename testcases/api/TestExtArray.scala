@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,53 +31,58 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import ap._
+//package ap.theories
+
 import ap.parser._
+import ap.SimpleAPI
+import ap.theories.ExtArray
 
-object SimpleAPITest9 extends App {
+object TestExtArray extends App {
 
-  ap.util.Debug.enableAllAssertions(true)
-  val p = SimpleAPI.spawnWithAssertions
+  def part(str : String) = {
+    println
+    println("-- " + str)
+  }
 
-  import IExpression._
-  import SimpleAPI.ProverStatus
-  import p._
+  SimpleAPI.withProver(enableAssert = true) { p =>
+    import p._
+    import IExpression._
 
-  val x = createConstant("x")
-  val y = createConstant("y")
-  val z = createConstant("z")
+    val IntArray = ExtArray(List(Sort.Integer), Sort.Integer)
+    import IntArray.{select, store, const}
 
-  val t1 = abbrev(x + 2*y)
+    val x   = createConstant("x")
+    val y   = createConstant("y")
+    val ar  = createConstant("ar", IntArray.sort)
+    val ar2 = createConstant("ar2", IntArray.sort)
 
-  scope {
-    !! (t1 === 5)
-    println(???)   // Sat
     scope {
-      ?? (t1 > 0)
-      println(???) // Valid
+      part("Test 1")
+      println("Some term: " + store(ar, x, 42))
+
+      !! (ar === store(const(0), 1, 1))
+      println(???)
+
+      !! (select(ar, 1) > 1)
+      println(???)
     }
-    !! (x < -5)
-    !! (y < 0)
-    println(???)   // Unsat
-  }
 
-  scope {
-    val t2 = abbrev(z + 2*x)
-    !! (t1 + t2 === 3)
-    println(???)   // Sat
-  }
+    scope {
+      part("Test 2")
 
-  scope {
-    var f1 = abbrev(t1 > 0)
-    for (_ <- 0 until 100)
-      f1 = abbrev(f1 & f1)
-    !! (f1)
-    println(???)   // Sat
-    !! (x < -5)
-    !! (y < 0)
-    println(???)   // Unsat
-  }
+      !! (ar === store(ar2, 1, 1))
+      println(???)
+      println("ar = " + evalToTerm(ar))
+      println("ar2 = " + evalToTerm(ar2))
 
-  p.shutDown
+      val m = partialModel
+      println("m.evalToTerm(ar): " + m.evalToTerm(ar))
+      println("m.evalToTerm(select(ar, 0)): " + m.evalToTerm(select(ar, 0)))
+      println("m.evalToTerm(select(store(const(0), 1, 2), 1)): " +
+                m.evalToTerm(select(store(const(0), 1, 2), 1)))
+      println("m.evalToTerm(select(store(const(0), 1, 2), 2)): " + 
+                m.evalToTerm(select(store(const(0), 1, 2), 2)))
+    }
+  }
 
 }

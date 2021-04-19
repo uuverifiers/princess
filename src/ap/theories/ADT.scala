@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -294,6 +294,35 @@ object ADT {
                List((name, ADT.CtorSignature(ctorArgs, ADT.ADTSort(0)))),
                ADT.TermMeasure.RelDepth)
     (adt.sorts.head, adt.constructors.head, adt.selectors.head.toIndexedSeq)
+  }
+
+  /**
+   * Create an ADT that implements lists. The return tuple provides the
+   * list sort, and the functions for nil, cons, head, tail. If the
+   * <code>withSize</code> option is set, the last returned function is the
+   * size function of the ADT; it computes the number of constructor symbols
+   * of a term.
+   */
+  def createListType(name : String, elementSort : Sort,
+                     withSize : Boolean = false)
+                  : (Sort,                    // list sort
+                     IFunction, IFunction,    // nil, cons
+                     IFunction, IFunction,    // head, tail
+                     Option[IFunction]) = {   // size
+    val adt =
+      new ADT (List(name),
+               List((name + "_nil",
+                     ADT.CtorSignature(List(), ADT.ADTSort(0))),
+                    (name + "_cons",
+                     ADT.CtorSignature(
+                       List((name + "_head", ADT.OtherSort(elementSort)),
+                            (name + "_tail", ADT.ADTSort(0))),
+                       ADT.ADTSort(0)))),
+               measure = if (withSize) TermMeasure.Size else TermMeasure.RelDepth)
+    (adt.sorts.head,
+     adt.constructors(0), adt.constructors(1),
+     adt.selectors(1)(0), adt.selectors(1)(1),
+     if (withSize) Some(adt.termSize.head) else None)
   }
 
   //////////////////////////////////////////////////////////////////////////////
