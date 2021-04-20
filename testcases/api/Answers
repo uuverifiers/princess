@@ -206,6 +206,9 @@ SimpleAPITest11
 Inconclusive
 0
 
+SimpleAPITest12
+\exists int v0; x * v0 >= 1
+
 TestRat
 Rat_int(0)
 Rat_int(1)

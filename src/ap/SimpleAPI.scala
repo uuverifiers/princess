@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2996,10 +2996,11 @@ class SimpleAPI private (enableAssert : Boolean,
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
-      // TODO: this won't work if the formula contains theories
-      // that are not yet loaded
-
-      processInterpolant(asConjunction(f))
+      scope {
+        theoryCollector(f)
+        addTheoryAxioms
+        processInterpolant(asConjunction(f))
+      }
 
     } else if ((ContainsSymbol isPresburgerBV f) &&
                (ContainsSymbol isClosed f)) {
