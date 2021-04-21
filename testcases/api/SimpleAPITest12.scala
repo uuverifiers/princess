@@ -44,6 +44,7 @@ object SimpleAPITest12 extends App {
   val x = createConstant("x")
 
   println(pp(simplify(ex(y => x ** y > 0))))
+  println(pp(simplify(ex(y => x > y ** v(0)))))
 
   p.shutDown
 }

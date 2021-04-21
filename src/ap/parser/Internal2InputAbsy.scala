@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -160,7 +160,7 @@ class Internal2InputAbsy(
 
 /**
  * Visitor to replace quantifiers of sort <code>Any</code> with sorted
- * quantifiers, by inferring the sort of the quantifiers variables.
+ * quantifiers, by inferring the sort of the quantified variables.
  */
 object VariableSortInferenceVisitor
        extends CollectingVisitor[IExpression.Sort, IExpression] {

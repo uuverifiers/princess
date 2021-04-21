@@ -208,6 +208,7 @@ Inconclusive
 
 SimpleAPITest12
 \exists int v0; x * v0 >= 1
+\exists int v0; x - v0 * _0 >= 1
 
 TestRat
 Rat_int(0)
