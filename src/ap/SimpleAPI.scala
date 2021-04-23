@@ -3539,7 +3539,8 @@ class SimpleAPI private (enableAssert : Boolean,
     evalPartialHelp(c) getOrElse {
       // then we have to extend the model
     
-      if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
+      if (!(currentOrder.orderedPredicates forall (_.arity == 0)) ||
+          Sort.sortOf(c) != Sort.Integer) {
         // we assume 0 as default value, but have to store this value
         import TerForConvenience._
         implicit val o = order
