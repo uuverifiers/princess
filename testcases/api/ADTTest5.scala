@@ -57,6 +57,7 @@
 
   val Seq(tupleSort) = adt.sorts
   val Seq(tuple)     = adt.constructors
+  val Seq(Seq(t1))   = adt.selectors
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
@@ -88,6 +89,14 @@
       println(expect(???, ProverStatus.Sat))
       println(evalToTerm(c))
       println(evalToTerm(d))
+    }
+
+    println("Test 3")
+    scope {
+      !! (ar.select(t1(d), 1) > 10)
+      println(expect(???, ProverStatus.Sat))
+      println(evalToTerm(d))
+      println(evalToTerm(c))
     }
 
   }

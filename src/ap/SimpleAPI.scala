@@ -3546,6 +3546,7 @@ class SimpleAPI private (enableAssert : Boolean,
         implicit val o = order
         currentModel = currentModel & (c === 0)
         lastPartialModel = null
+        decoderDataCache.clear
       }
       
       IdealInt.ZERO

@@ -585,6 +585,10 @@ Test 2
 Sat
 tuple(const(1))
 tuple(const(0))
+Test 3
+Sat
+tuple(store(const(0), 1, 11))
+tuple(const(0))
 
 pred-simplify.scala
 starting
