@@ -180,12 +180,13 @@ object ADT {
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       if (adtTheory.isEnum(sortNum)) {
-        val index = d.intValueSafe
         val ctors = adtTheory.constructorsPerSort(sortNum)
-        if (0 <= index && index < ctors.size)
-          Some(IFunApp(ctors(index), List()))
-        else
-          None
+        d match {
+          case IdealInt(index) if 0 <= index && index < ctors.size =>
+            Some(IFunApp(ctors(index), List()))
+          case _ =>
+            None
+        }
       } else {
         assignment get ((d, this))
       }

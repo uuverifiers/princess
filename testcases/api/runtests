@@ -11,7 +11,8 @@ export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
 TESTS="SimpleAPITest SimpleAPITest2 SimpleAPITest3 SimpleAPITest4 \
        SimpleAPITest5 SimpleAPITest6 SimpleAPITest7 SimpleAPITest8 \
-       SimpleAPITest9 SimpleAPITest10 SimpleAPITest11 TestRat TestExtArray"
+       SimpleAPITest9 SimpleAPITest10 SimpleAPITest11 SimpleAPITest12 \
+       TestRat TestExtArray"
 
 for testname in $TESTS; do
   echo
@@ -27,6 +28,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        deadlock.scala exception.scala incremental.scala \
        divmodprint.scala \
        ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
+       ADTTest5.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala TestStrings.scala TestBVEval.scala \

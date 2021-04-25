@@ -206,6 +206,10 @@ SimpleAPITest11
 Inconclusive
 0
 
+SimpleAPITest12
+\exists int v0; x * v0 >= 1
+\exists int v0; x - v0 * _0 >= 1
+
 TestRat
 Rat_int(0)
 Rat_int(1)
@@ -569,6 +573,22 @@ Some(red)
 Some(red)
 Some(red)
 Some(7)
+
+ADTTest5.scala
+Test 1
+Sat
+tuple(const(0))
+Sat
+tuple(const(0))
+tuple(const(0))
+Test 2
+Sat
+tuple(const(1))
+tuple(const(0))
+Test 3
+Sat
+tuple(store(const(0), 1, 11))
+tuple(const(0))
 
 pred-simplify.scala
 starting
