@@ -110,9 +110,9 @@ Found proof (size 40), simplifying (58), interpolating ...
 
 unsat
 (
-  (<= 0 (+ (- 3) (bv2nat x)))
-  (and (<= 0 (+ 6 (* (- 1) (bv2nat x)))) (<= 0 (+ (- 3) (bv2nat x))))
-  (<= 0 (+ (- 8) (bv2nat y)))
+  (bvule (_ bv3 8) x)
+  (and (bvule x (_ bv6 8)) (bvule (_ bv3 8) x))
+  (bvule (_ bv8 8) y)
 )
 
 Loading shift2.pri ...

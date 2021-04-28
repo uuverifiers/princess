@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,15 +33,19 @@
 
 package ap.theories.bitvectors
 
+import ap.basetypes.IdealInt
 import ap.parser._
 import ap.theories._
 import ap.types.{SortedIFunction, SortedPredicate}
+import ap.util.Debug
 
 /**
  * Post-processing of bit-vector formulas to make them correctly typed.
  */
 object ModPostprocessor
        extends CollectingVisitor[IExpression.Sort, IExpression] {
+
+  private val AC = Debug.AC_MODULO_ARITHMETIC
 
   import IExpression._
   import ModuloArithmetic._
@@ -73,7 +77,7 @@ object ModPostprocessor
   def postVisit(t : IExpression,
                 ctxt : Sort,
                 subres : Seq[IExpression]) : IExpression = t match {
-    case _ : IConstant | _ : IFunApp => {
+    case AtomicTerm(t) => {
       val newT = t.asInstanceOf[ITerm] update subres
       (Sort sortOf newT, ctxt) match {
         case (_, null)                   => newT
@@ -103,6 +107,234 @@ object ModPostprocessor
       }
     case _ =>
       t update subres
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Turn as sub-formulas, as far as possible, into pure formulas only
+   * containing bit-vector operations; avoid the use of <code>int_cast</code>
+   * in this case.
+   */
+  def purifyFormula(f : IFormula) : IFormula =
+    Purifier.visit(f, ()).asInstanceOf[IFormula]
+
+  private object Purifier extends CollectingVisitor[Unit, IExpression] {
+
+    override def preVisit(t : IExpression,
+                          ctxt : Unit) : PreVisitResult = t match {
+      case Eq(left, right) => {
+        val res =
+          for (w1 <- BitWidthInferrer(left);
+               w2 <- BitWidthInferrer(right);
+               if left.isInstanceOf[IPlus] || right.isInstanceOf[IPlus];
+               w = w1 max w2)
+          yield TryAgain(IEquation(BitVectorPadder(left, w),
+                                   BitVectorPadder(right, w)), ())
+
+        res getOrElse KeepArg
+      }
+
+      case Geq(MaybeCastAtomicTerm(left ::: UnsignedBVSort(w)), Const(value))
+          if value.signum >= 0 && value <= pow2MinusOne(w) =>
+        TryAgain(IAtom(bv_ule, List(w, bv(w, value), left)), ())
+
+      case Geq(Const(value), MaybeCastAtomicTerm(right ::: UnsignedBVSort(w)))
+          if value.signum >= 0 && value <= pow2MinusOne(w) =>
+        TryAgain(IAtom(bv_ule, List(w, right, bv(w, value))), ())
+
+      case Geq(left, right) => {
+        val res =
+          for (w1 <- BitWidthInferrer(left);
+               w2 <- BitWidthInferrer(right);
+               w = w1 max w2)
+          yield TryAgain(IAtom(bv_sle,
+                               List(w,
+                                    BitVectorPadder(right, w),
+                                    BitVectorPadder(left, w))), ())
+        res getOrElse KeepArg
+      }
+
+      case IIntFormula(IIntRelation.GeqZero, s) =>
+        BitWidthInferrer(s) match {
+          case Some(w) =>
+            TryAgain(IAtom(bv_sle,
+                           List(w, bv(w, 0), BitVectorPadder(s, w))), ())
+          case None =>
+            KeepArg
+      }
+
+      case IIntFormula(IIntRelation.EqZero, s) =>
+        BitWidthInferrer(s) match {
+          case Some(w) =>
+            TryAgain(IEquation(BitVectorPadder(s, w), bv(w, 0)), ())
+          case None =>
+            KeepArg
+        }
+
+      case _ =>
+        KeepArg
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+
+  }
+
+/*
+    case _ : IEquation =>
+      UniSubArgs(null)
+
+    case Eq(left, right) =>
+      (for (w1 <- BitWidthInferrer(left);
+            w2 <- BitWidthInferrer(right);
+            if left.isInstanceOf[IPlus] || right.isInstanceOf[IPlus];
+            w = w1 max w2)
+       yield TryAgain(IEquation(BitVectorPadder(left, w),
+                                BitVectorPadder(right, w)), null)) getOrElse
+      TryAgain(IEquation(left, right), null)
+
+    case Geq(AtomicTerm(left ::: UnsignedBVSort(w)), Const(value))
+        if value.signum >= 0 && value <= pow2MinusOne(w) =>
+      TryAgain(IAtom(bv_ule, List(w, bv(w, value), left)), null)
+
+    case Geq(Const(value), AtomicTerm(right ::: UnsignedBVSort(w)))
+        if value.signum >= 0 && value <= pow2MinusOne(w) =>
+      TryAgain(IAtom(bv_ule, List(w, right, bv(w, value))), null)
+
+    case Geq(left, right) =>
+      (for (w1 <- BitWidthInferrer(left);
+            w2 <- BitWidthInferrer(right);
+            w = w1 max w2)
+       yield TryAgain(IAtom(bv_sle,
+                            List(w,
+                                 BitVectorPadder(right, w),
+                                 BitVectorPadder(left, w))), null)) getOrElse
+      UniSubArgs(Sort.Integer)
+
+    case IIntFormula(IIntRelation.GeqZero, s) =>
+      BitWidthInferrer(s) match {
+        case Some(w) =>
+          TryAgain(IAtom(bv_sle,
+                         List(w, bv(w, 0), BitVectorPadder(s, w))), null)
+        case None =>
+          UniSubArgs(Sort.Integer)
+      }
+
+    case IIntFormula(IIntRelation.EqZero, s) =>
+      BitWidthInferrer(s) match {
+        case Some(w) =>
+          TryAgain(IEquation(BitVectorPadder(s, w), bv(w, 0)), null)
+        case None =>
+          UniSubArgs(Sort.Integer)
+      }
+ */
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Infer the signed bit-vector format needed to perform some computation
+   * without overflows.
+   */
+  private object BitWidthInferrer
+                 extends CollectingVisitor[Unit, Option[Int]] {
+    def apply(t : ITerm) : Option[Int] = visit(t, ())
+
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = t match {
+      case MaybeCastAtomicTerm(t) =>
+        ShortCutResult(
+          (Sort sortOf t) match {
+            case UnsignedBVSort(width) => Some(width + 1)
+            case _                     => None
+          }
+        )
+      case IIntLit(value) =>
+        ShortCutResult(Some(bitWidth(value)))
+      case IFunApp(`mod_cast`,
+                   Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) =>
+        ShortCutResult(Some(bitWidth(evalModCast(lower, upper, value))))
+      case _ =>
+        KeepArg
+    }
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[Option[Int]]) : Option[Int] = t match {
+      case t : IPlus =>
+        for (left <- subres(0); right <- subres(1))
+        yield ((left max right) + 1)
+      case ITimes(coeff, _) =>
+        for (bits <- subres(0))
+        yield (bits + coeff.abs.getHighestSetBit)
+      case _ =>
+        None
+    }
+  }
+
+  private def bitWidth(v : IdealInt) : Int = v match {
+    case IdealInt.ZERO => 1
+    case v             => v.abs.getHighestSetBit + 1
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object AtomicTerm {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case t : IVariable => Some(t)
+      case t : IConstant => Some(t)
+      case t : IFunApp   => Some(t)
+      case _             => None
+    }
+  }
+
+  private object MaybeCastAtomicTerm {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case IFunApp(`int_cast`, Seq(AtomicTerm(t))) => Some(t)
+      case AtomicTerm(t)                           => Some(t)
+      case _                                       => None
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object BitVectorPadder
+                 extends CollectingVisitor[Int, ITerm] {
+    def apply(t : ITerm, newWidth : Int) : ITerm = visit(t, newWidth)
+
+    override def preVisit(t : IExpression,
+                          newWidth : Int) : PreVisitResult = t match {
+      case MaybeCastAtomicTerm(t) => {
+        val UnsignedBVSort(oldWidth) = Sort sortOf t
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, oldWidth <= newWidth)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        if (oldWidth < newWidth)
+          ShortCutResult(zero_extend(newWidth - oldWidth,
+                                     t.asInstanceOf[ITerm]))
+        else
+          ShortCutResult(t.asInstanceOf[ITerm])
+      }
+      case t : IIntLit =>
+        ShortCutResult(ModuloArithmetic.cast2UnsignedBV(newWidth, t))
+      case IFunApp(`mod_cast`,
+                   Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) =>
+        ShortCutResult(bv(newWidth, evalModCast(lower, upper, value)))
+      case _ =>
+        KeepArg
+    }
+    def postVisit(t : IExpression,
+                  newWidth : Int,
+                  subres : Seq[ITerm]) : ITerm = t match {
+      case _ : IPlus =>
+        bvadd(subres(0), subres(1))
+      case ITimes(IdealInt.MINUS_ONE, _) =>
+        bvneg(subres(0))
+      case ITimes(coeff, _) =>
+        bvmul(ModuloArithmetic.cast2UnsignedBV(newWidth, coeff), subres(0))
+    }
   }
 
 }

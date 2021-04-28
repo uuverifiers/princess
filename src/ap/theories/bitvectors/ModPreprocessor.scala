@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -322,6 +322,12 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt.multMod(pow2(end), pow2(begin + 1))))
 
+      case IFunApp(`zero_extend`,
+                   Seq(IIntLit(IdealInt(width)),
+                       IIntLit(IdealInt(addWidth)), _)) =>
+        SubArgs(List(ctxt.noMod, ctxt.noMod,
+                     ctxt addMod pow2(width + addWidth)))
+
       case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
@@ -488,6 +494,11 @@ object ModPreprocessor {
             VisitorRes(evalExtract(start, end, subres(2).lowerBound))
           else
             VisitorRes.update(t, subres)
+
+        case IFunApp(`zero_extend`,
+                     Seq(IIntLit(IdealInt(width)),
+                         IIntLit(IdealInt(addWidth)), _)) =>
+          subres.last.modCastPow2(width + addWidth, ctxt)
 
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
                                       IIntLit(IdealInt(bits2)), _*)) =>

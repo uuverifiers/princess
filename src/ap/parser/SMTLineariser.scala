@@ -39,6 +39,7 @@ import ap.basetypes.IdealInt
 import ap.theories._
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
+import ap.theories.bitvectors.ModPostprocessor
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -387,11 +388,8 @@ object SMTLineariser {
   private val falseConstant = IConstant(Sort.Bool newConstant "false")
   private val eqPredicate   = new Predicate ("=", 2)
 
-  private val bvadd = new IFunction("bvadd", 2, true, true)
-  private val bvmul = new IFunction("bvmul", 2, true, true)
-  private val bvneg = new IFunction("bvneg", 1, true, true)
-  private val bvuge = new Predicate("bvuge", 2)
-  private val bvsge = new Predicate("bvsge", 2)
+  private val invisible1    = new IFunction("", 1, true, false)
+  private val invisible2    = new IFunction("", 2, true, false)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -739,6 +737,66 @@ object SMTLineariser {
     lineariser.close
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def theoryFun2Identifier(fun : IFunction) : Option[String] =
+    (TheoryRegistry lookupSymbol fun) match {
+      case Some(t : SimpleArray) => fun match {
+        case t.select => Some("select")
+        case t.store  => Some("store")
+      }
+      case Some(t : ExtArray) => fun match {
+        case t.select           => Some("select")
+        case t.store            => Some("store")
+        case fun                => Some(fun.name)
+      }
+      case Some(t : MulTheory) => fun match {
+        case t.mul => Some("*")
+      }
+      case Some(t : ADT)
+        if t.termSize != null && (t.termSize contains fun) =>
+        Some("_size")
+      case Some(Rationals) if fun == Rationals.frac =>
+        Some("/")
+      case Some(ModuloArithmetic) => fun match {
+        case ModuloArithmetic.int_cast => Some("bv2nat")
+        case ModuloArithmetic.bv_add   => Some("bvadd")
+      }
+      case _ =>
+        None
+    }
+
+  private val bvSimpleUnFunction : Map[IFunction, String] = Map(
+    ModuloArithmetic.bv_not  -> "bvnot",
+    ModuloArithmetic.bv_neg  -> "bvneg"
+  )
+
+  private val bvSimpleBinFunction : Map[IFunction, String] = Map(
+    ModuloArithmetic.bv_and  -> "bvand",
+    ModuloArithmetic.bv_or   -> "bvor",
+    ModuloArithmetic.bv_add  -> "bvadd",
+    ModuloArithmetic.bv_sub  -> "bvsub",
+    ModuloArithmetic.bv_mul  -> "bvmul",
+    ModuloArithmetic.bv_udiv -> "bvudiv",
+    ModuloArithmetic.bv_sdiv -> "bvsdiv",
+    ModuloArithmetic.bv_urem -> "bvurem",
+    ModuloArithmetic.bv_srem -> "bvsrem",
+    ModuloArithmetic.bv_smod -> "bvsmod",
+    ModuloArithmetic.bv_shl  -> "bvshl",
+    ModuloArithmetic.bv_lshr -> "bvlshr",
+    ModuloArithmetic.bv_ashr -> "bvashr",
+    ModuloArithmetic.bv_xor  -> "bvxor",
+    ModuloArithmetic.bv_xnor -> "bvxnor",
+    ModuloArithmetic.bv_comp -> "bvcomp"
+  )
+
+  private val bvSimpleBinPred : Map[Predicate, String] = Map(
+    ModuloArithmetic.bv_ult  -> "bvult",
+    ModuloArithmetic.bv_ule  -> "bvule",
+    ModuloArithmetic.bv_slt  -> "bvslt",
+    ModuloArithmetic.bv_sle  -> "bvsle"
+  )
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -763,38 +821,13 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge,
+                        printSMTType,
                         printADTDeclarations, printHeapDeclarations,
-                        sort2SMTString}
+                        sort2SMTString, theoryFun2Identifier,
+                        bvSimpleUnFunction, bvSimpleBinFunction,
+                        bvSimpleBinPred, invisible1, invisible2}
 
-  private def fun2Identifier(fun : IFunction) =
-    (TheoryRegistry lookupSymbol fun) match {
-      case Some(t : SimpleArray) => fun match {
-        case t.select => "select"
-        case t.store  => "store"
-      }
-      case Some(t : ExtArray) => fun match {
-        case t.select           => "select"
-        case t.store            => "store"
-        case fun                => fun.name
-      }
-      case Some(t : MulTheory) => fun match {
-        case t.mul => "*"
-      }
-      case Some(t : ADT)
-        if t.termSize != null && (t.termSize contains fun) =>
-        "_size"
-      case Some(Rationals) if fun == Rationals.frac =>
-        "/"
-      case Some(ModuloArithmetic) => fun match {
-        case ModuloArithmetic.int_cast => "bv2nat"
-      }
-      case _ =>
-        if (zeroExtendFuns contains fun)
-          fun.name
-        else
-          quoteIdentifier(funPrefix + fun.name)
-    }
+  //////////////////////////////////////////////////////////////////////////////
 
   private def pred2Identifier(pred : Predicate) =
     if (pred == eqPredicate)
@@ -805,17 +838,8 @@ class SMTLineariser(benchmarkName : String,
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
   
-  private val zeroExtendFunsMap = new MHashMap[Int, IFunction]
-  private val zeroExtendFuns    = new MHashSet[IFunction]
-
-  private def getZeroExtend(addedBits : Int) : IFunction =
-    zeroExtendFunsMap.getOrElseUpdate(addedBits, {
-      val f = new IFunction("(_ zero_extend " + addedBits + ")", 1, true, true)
-      zeroExtendFuns += f
-      f
-    })
-
-  //////////////////////////////////////////////////////////////////////////////
+  private def fun2Identifier(fun : IFunction) =
+    theoryFun2Identifier(fun) getOrElse quoteIdentifier(funPrefix + fun.name)
 
   def open {
     println("(set-logic " + logic + ")")
@@ -882,6 +906,11 @@ class SMTLineariser(benchmarkName : String,
   def printFormula(formula : IFormula) = {
     // first derive types of variables
     var typedFormula = formula
+
+//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    if (prettyBitvectors)
+      typedFormula = ModPostprocessor.purifyFormula(typedFormula)
+
     var oldTypedFormula : IFormula = null
     while (!(typedFormula eq oldTypedFormula)) {
       oldTypedFormula = typedFormula
@@ -889,7 +918,6 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
     AbsyPrinter(typedFormula)
   }
   
@@ -1275,7 +1303,6 @@ class SMTLineariser(benchmarkName : String,
   }
 
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
-
     def apply(e : IExpression) : Unit = {
 //      spaceSkipped = false
       visitWithoutResult(e, PrintContext(List(), ""))
@@ -1327,6 +1354,37 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
       
+      case IFunApp(`invisible1`, _) => {
+        print(" ")
+        closeWithParen(ctxt, 1)
+      }
+
+      case IFunApp(`invisible2`, _) => {
+        print(" ")
+        closeWithParen(ctxt, 2)
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      // Bit-vectors
+
+      case IFunApp(f, Seq(_, arg1)) if bvSimpleUnFunction contains f => {
+        print("(")
+        print(bvSimpleUnFunction(f))
+        TryAgain(IFunApp(invisible1, List(arg1)), ctxt)
+      }
+
+      case IFunApp(f, Seq(_, arg1, arg2)) if bvSimpleBinFunction contains f => {
+        print("(")
+        print(bvSimpleBinFunction(f))
+        TryAgain(IFunApp(invisible2, List(arg1, arg2)), ctxt)
+      }
+
+      case IAtom(p, Seq(_, arg1, arg2)) if bvSimpleBinPred contains p => {
+        print("(")
+        print(bvSimpleBinPred(p))
+        TryAgain(IFunApp(invisible2, List(arg1, arg2)), ctxt)
+      }
+
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
@@ -1342,6 +1400,14 @@ class SMTLineariser(benchmarkName : String,
         TryAgain(arg, ctxt addParentOp ")")
       }
 
+      case IFunApp(ModuloArithmetic.zero_extend,
+                   Seq(IIntLit(_), IIntLit(addWidth), arg)) => {
+        print("((_ zero_extend " + addWidth + ") ")
+        TryAgain(arg, ctxt addParentOp ")")
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
       case StringTheory.ConcreteString(str) => {
         print("\"")
         print(escapeString(str))
@@ -1353,6 +1419,8 @@ class SMTLineariser(benchmarkName : String,
         print("((as const " + sort2SMTString(t.sort) + ") ")
         TryAgain(value, ctxt addParentOp ")")
       }
+
+      //////////////////////////////////////////////////////////////////////////
 
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
