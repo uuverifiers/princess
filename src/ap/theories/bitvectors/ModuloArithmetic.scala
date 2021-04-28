@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -164,7 +164,7 @@ object ModuloArithmetic extends Theory {
   def bvsge(t1 : ITerm, t2 : ITerm) : IFormula = bvsge(t2, t1)
 
   def zero_extend(addWidth : Int, t : ITerm) : ITerm =
-    cast2UnsignedBV(extractBitWidth(t) + addWidth, t)
+    IFunApp(zero_extend, List(extractBitWidth(t), addWidth, t))
   def sign_extend(addWidth : Int, t : ITerm) : ITerm = {
     val w = extractBitWidth(t)
     cast2UnsignedBV(w + addWidth, cast2SignedBV(w, t))
@@ -480,13 +480,7 @@ object ModuloArithmetic extends Theory {
       val indexes =
         for (lc <- arguments take indexArity)
         yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-      if (indexes.size < indexArity) {
-        // this means that some of the indexes are symbolic, we just specify
-        // argument sorts to be AnySort
-        anySorts
-      } else {
-        computeSorts(indexes)
-      }
+      computeSorts(indexes)
     }
 
     private lazy val anySorts =
@@ -549,6 +543,21 @@ object ModuloArithmetic extends Theory {
   }
 
   val bv_extract = BVExtract
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Arguments: old_width, additional_bits, number
+  // Result:    number mod 2^(old_width + additional_bits)
+
+  object ZeroExtend
+         extends IndexedBVOp("zero_extend", 2, 1) {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+      (List(Sort.Integer, Sort.Integer, UnsignedBVSort(indexes(0))),
+       UnsignedBVSort(indexes(0) + indexes(1)))
+    }
+  }
+
+  val zero_extend = ZeroExtend
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -600,10 +609,33 @@ object ModuloArithmetic extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
   // Arguments: N, number mod 2^N, number mod 2^N
-  val bv_ult           = new Predicate("bv_ult", 3) // X
-  val bv_ule           = new Predicate("bv_ule", 3) // X
-  val bv_slt           = new Predicate("bv_slt", 3) // X
-  val bv_sle           = new Predicate("bv_sle", 3) // X
+
+  class BVOrder(_name : String) extends SortedPredicate(_name, 3) {
+    def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] =
+      arguments.head match {
+        case IIntLit(IdealInt(n)) =>
+          List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+        case _ =>
+          // this means that some of the indexes are symbolic, we just specify
+          // argument sorts to be AnySort
+          List(Sort.Integer, Sort.AnySort, Sort.AnySort)
+      }
+        
+    def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
+      val n = arguments.head.asInstanceOf[LinearCombination0]
+                       .constant.intValueSafe
+      List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+    }
+        
+    override def sortConstraints(arguments : Seq[Term])
+                                (implicit order : TermOrder) : Formula =
+      argumentSorts(arguments).last membershipConstraint arguments.last
+  }
+
+  val bv_ult           = new BVOrder("bv_ult")
+  val bv_ule           = new BVOrder("bv_ule")
+  val bv_slt           = new BVOrder("bv_slt")
+  val bv_sle           = new BVOrder("bv_sle")
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -631,7 +663,8 @@ object ModuloArithmetic extends Theory {
     bv_ashr,
     bv_xor,
     bv_xnor,
-    bv_comp
+    bv_comp,
+    zero_extend
   )
 
   val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)

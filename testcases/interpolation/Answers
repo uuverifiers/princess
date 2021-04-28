@@ -550,8 +550,8 @@ Found proof (size 18), simplifying (21), interpolating ...
 
 unsat
 (
-  (or (<= 0 (+ (- 1000) (bv2nat b))) (<= 0 (+ (* (- 1) (bv2nat b)) (bv2nat a))))
-  (<= 0 (+ (- 1000) (bv2nat b)))
+  (or (bvule (_ bv1000 16) b) (bvsle ((_ zero_extend 1) b) ((_ zero_extend 1) a)))
+  (bvule (_ bv1000 16) b)
 )
 
 Loading bv-interpolation-4.smt2 ...
@@ -561,8 +561,8 @@ Found proof (size 89), simplifying (110), interpolating ...
 
 unsat
 (
-  (and (<= 0 (+ (- 1) (bv2nat a))) (or (<= 0 (+ (- 1) (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (<= 0 (+ (- 128) (bv2nat b)))) (and (<= 0 (+ 254 (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (<= 0 (+ (- 128) (bv2nat b)))))))
-  (and (and (<= 0 (+ 254 (* (- 1) (bv2nat a)))) (<= 0 (+ (- 1) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (and (<= 0 (+ (- 1) (+ (bv2nat b) (* (- 1) (bv2nat a))))) (<= 0 (+ (- 128) (bv2nat b))))) (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) (- 1)) (<= 0 (+ 127 (+ (bv2nat b) (* (- 1) (bv2nat a))))))))
+  (and (bvule (_ bv1 8) a) (or (bvsle (_ bv1 11) (bvadd (bvmul (_ bv2046 11) ((_ zero_extend 3) b)) ((_ zero_extend 3) a))) (or (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv255 11)) (bvule (_ bv128 8) b)) (and (bvsle (_ bv1794 11) (bvadd (bvmul (_ bv2046 11) ((_ zero_extend 3) b)) ((_ zero_extend 3) a))) (bvule (_ bv128 8) b)))))
+  (and (and (bvule a (_ bv254 8)) (bvule (_ bv1 8) a)) (or (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv255 11)) (and (bvsle (_ bv1 10) (bvadd ((_ zero_extend 2) b) (bvneg ((_ zero_extend 2) a)))) (bvule (_ bv128 8) b))) (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv2047 11)) (bvsle (_ bv897 10) (bvadd ((_ zero_extend 2) b) (bvneg ((_ zero_extend 2) a)))))))
 )
 
 Loading bv-interpolation-5.pri ...
