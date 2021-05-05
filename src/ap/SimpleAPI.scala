@@ -2975,7 +2975,7 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (~f)
         ??? match {
-          case ProverStatus.Valid   => ~getConstraint
+          case ProverStatus.Valid   => Transform2NNF(~getConstraint)
           case ProverStatus.Invalid => IBoolLit(true)
         }
     } else {
@@ -3028,7 +3028,12 @@ class SimpleAPI private (enableAssert : Boolean,
 
       val consts =
         for (c <- SymbolCollector constantsSorted substF) yield IConstant(c)
-      projectAll(substF, consts)
+
+      if (!(QuantifierCollectingVisitor(substF) contains
+              IExpression.Quantifier.ALL))
+        projectEx(substF, consts)
+      else
+        projectAll(substF, consts)
 
     } else {
 
@@ -3055,7 +3060,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
       val allConsts =
         for (c <- SymbolCollector constantsSorted substF2) yield IConstant(c)
-      val res = projectAll(substF2, allConsts)
+
+      val res =
+        if (!(QuantifierCollectingVisitor(substF2) contains
+                IExpression.Quantifier.ALL))
+          projectEx(substF2, allConsts)
+        else
+          projectAll(substF2, allConsts)
 
       // substitute back predicates
       val backSubst =

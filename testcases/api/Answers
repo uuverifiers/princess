@@ -100,7 +100,7 @@ Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 -- Simplification, projection
 Project 5 < x & x < 2*y existentially to y: 3 < y
 Project x > y | x < 0 universally to x: -1 >= x
-Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
+Simplify ex(x => 5 < x & x < 2*y) to: 3 < y
 Project x ==> y universally to y: y
 Project x === True existentially to empty set: true
 
@@ -327,7 +327,7 @@ Unsat
 Valid
 \exists int[0, 9] v0; v0 - x >= 1
 \exists int[0, 9] v0; v0 - x >= 1
-8 >= x
+x < 9
 Valid
 Unsat
 x1 = x2
@@ -626,13 +626,13 @@ Unsat
 Vector((x = mod_cast(0, 1, 1)), (y = mod_cast(0, 1, 1)))
 Test 8
 \exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
-x = 1.\as[bv[2]] | x.\as[int] >= 3
+x = 1.\as[bv[2]] | 2 < x.\as[int]
 Valid
 Test 9
 Unsat
 Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
 Test 10
-!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b.\as[int] & b.\as[int] >= 1) | (a.\as[int] - b.\as[int] >= -1 & b.\as[int] >= 245))
+(b != 0.\as[bv[8]] | a != 255.\as[bv[8]]) & (a != 255.\as[bv[8]] | 244 < b.\as[int] | b.\as[int] < 1) & (a.\as[int] - b.\as[int] < -1 | b.\as[int] < 245)
 
 TreeInterpolation.scala
 Unsat
@@ -649,7 +649,7 @@ Unsat
 Sat
 Inconclusive
 Unsat
-x - y >= 2
+y - x < -1
 
 dnfTest.scala
 List((P1 != 0), (P0 != 0), (P4 = 0), (P3 = 0), (P2 = 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P11 != 0 & P6 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P11 = 0 & P6 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P11 != 0 & P6 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P11 = 0 & P6 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P10 != 0 & P7 != 0 & P5 != 0), (P6 != 0 & P7 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P11 != 0 & P6 != 0 & P5 != 0))

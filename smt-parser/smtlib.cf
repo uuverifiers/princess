@@ -86,6 +86,7 @@ GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
 GetAssignmentCommand.   Command	        ::= "(" "get-assignment" ")";
 GetModelCommand.        Command	        ::= "(" "get-model" ")";
 GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" [SExpr] ")";
+SimplifyCommand.        Command	        ::= "(" "simplify" Term ")";
 GetInfoCommand.         Command	        ::= "(" "get-info" AnnotAttribute ")";
 GetOptionCommand.       Command	        ::= "(" "get-option" AnnotAttribute ")";
 EchoCommand.            Command	        ::= "(" "echo" SMTString ")";

@@ -1579,6 +1579,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
+      case cmd : SimplifyCommand => {
+        checkIncremental("simplify")
+        checkNotExtracting("simplify")
+        val f = asFormula(translateTerm(cmd.term_, -1))
+        try {
+          val simpF = prover.withTimeout(timeoutPer) { prover simplify f }
+          smtLinearise(simpF)
+          println
+        } catch {
+          case SimpleAPI.TimeoutException =>
+            error("timeout while simplifying expression")
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
       case cmd : CheckSatCommand => if (incrementalNoExtract) try {
         var res = prover checkSat false
         val startTime = System.currentTimeMillis
