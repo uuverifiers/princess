@@ -3,6 +3,7 @@
 PRI=../../princess
 
 TESTS="division.pri \
+       division2.pri \
        inconsistent_basis.pri \
        ineqs_simplify0.pri \
        ineqs_simplify1.pri \

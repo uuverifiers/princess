@@ -180,6 +180,5 @@ Warning: exit is only supported in incremental mode (option +incremental), ignor
 Preprocessing ...
 Constructing satisfying assignment for the existential constants ...
 
-unknown
-Cancelled or timeout
+sat
 
