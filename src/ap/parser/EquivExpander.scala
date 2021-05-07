@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,8 +53,10 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
 
         val iteSearcher = new ITESearcher
         iteSearcher.visit(t, true) match {
-          case Some((thenFor : IFormula, elseFor : IFormula)) =>
-            expandITE(iteSearcher.iteCond, thenFor, elseFor, c)
+          case Some(p) =>
+            expandITE(iteSearcher.iteCond,
+                      p._1.asInstanceOf[IFormula], p._2.asInstanceOf[IFormula],
+                      c)
           
           case None => {
             // check whether there are any epsilon terms that we have to expand
@@ -71,7 +73,7 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
               // variables upwards
               val shiftedBody = new VariableShiftVisitor(0, 1) {
                 override def postVisit(t : IExpression, quantifierNum : Int,
-                                       subres : Seq[IExpression]) : IExpression =
+                                       subres : Seq[IExpression]) : IExpression=
                   t match {
                     case IConstant(c) if (c == epsSearcher.epsConst) =>
                       v(quantifierNum, sort)
@@ -184,13 +186,15 @@ private class EPSSearcher extends CollectingVisitor[Boolean, IExpression] {
   override def preVisit(t : IExpression,
                         descendIntoFors : Boolean) : PreVisitResult =
     t match {
-      case t if (foundEPS != null) =>
-        ShortCutResult(t)
       case t : IEpsilon if (foundEPS == null) => {
         foundEPS = t
         epsConst = t.sort newConstant "eps"
         ShortCutResult(epsConst)
       }
+      case t : IEpsilon if (foundEPS == t) =>
+        ShortCutResult(epsConst)
+      case t : IEpsilon if (foundEPS != null) =>
+        ShortCutResult(t)
       case t : ITerm =>
         UniSubArgs(false)
       case t : IFormula =>
@@ -212,21 +216,22 @@ private class EPSSearcher extends CollectingVisitor[Boolean, IExpression] {
  * one for the else-branch)
  */
 private class ITESearcher
-              extends CollectingVisitor[Boolean, Option[(IExpression, IExpression)]] {
+              extends CollectingVisitor[Boolean,
+                                        Option[(IExpression, IExpression)]] {
   
   import IExpression._
   
-  var iteCond : IFormula = _
+  var iteCond  : IFormula = _
   
   override def preVisit(t : IExpression,
                         descendIntoFors : Boolean) : PreVisitResult =
     t match {
-      case t if (iteCond != null) =>
-        ShortCutResult(None)
       case ITermITE(cond, left, right) if (iteCond == null) => {
         iteCond = cond
         ShortCutResult(Some(left, right))
       }
+      case ITermITE(cond, left, right) if (iteCond == cond) =>
+        ShortCutResult(Some(left, right))
       case t : ITerm =>
         UniSubArgs(false)
       case t : IFormula =>
