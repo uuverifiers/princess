@@ -61,8 +61,10 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
           case None => {
             // check whether there are any epsilon terms that we have to expand
 
-            val epsSearcher = new EPSSearcher
-            val epsLessFor = epsSearcher.visit(t, true).asInstanceOf[IFormula]
+            val epsSearcher =
+              new EPSSearcher2
+            val epsLessFor =
+              epsSearcher.visit(t,Context(())).asInstanceOf[IFormula]
         
             if (epsSearcher.foundEPS == null) {
               ShortCutResult(t)
@@ -206,6 +208,48 @@ private class EPSSearcher extends CollectingVisitor[Boolean, IExpression] {
                 descendIntoFors : Boolean,
                 subres : Seq[IExpression]) : IExpression =
     t update subres
+  
+}
+
+/**
+ * Search for occurrences of EPS in the given formula. The first found
+ * occurrence is stored in the field <code>foundEPS</code> and replaced with a
+ * fresh constant <code>epsConst</code>. This version of the visitor
+ * works inside-out.
+ * 
+ * TODO: replace multiple epsilons simultaneously
+ */
+private class EPSSearcher2 extends ContextAwareVisitor[Unit, IExpression] {
+  
+  import IExpression._
+  
+  var foundEPS : IEpsilon = _
+  var epsConst : ConstantTerm = _
+  
+  def postVisit(t : IExpression,
+                ctxt : Context[Unit],
+                subres : Seq[IExpression]) : IExpression =
+    (t update subres) match {
+      case t : IEpsilon => {
+        val N = ctxt.binders.size
+        if (ContainsSymbol.allVariablesAtLeast(t, N)) {
+          val shiftedT = VariableShiftVisitor(t, N, -N).asInstanceOf[IEpsilon]
+          if (foundEPS == null) {
+            foundEPS = shiftedT
+            epsConst = t.sort newConstant "eps"
+            epsConst
+          } else if (shiftedT == foundEPS) {
+            epsConst
+          } else {
+            t
+          }
+        } else {
+          t
+        }
+      }
+      case t =>
+        t
+    }
   
 }
 
