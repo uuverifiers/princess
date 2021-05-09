@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -835,6 +835,16 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
   def freeFromVariableIndex(t : IExpression, indexes : Set[Int]) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case v : IVariable => indexes contains v.index
+       case _ => false
+     })
+
+  /**
+   * Check that given expression only contains variables with index at
+   * least <code>threshold</code>.
+   */
+  def allVariablesAtLeast(t : IExpression, threshold : Int) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case v : IVariable => v.index < threshold
        case _ => false
      })
   

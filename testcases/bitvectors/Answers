@@ -542,10 +542,10 @@ Assumptions after simplification:
   3 >= x & x >= 0 & \forall any v0, v1, v2; \forall int v3, v4; (v1 = v0 |
     bv_extract(v4, v3, v2) != v1 | bv_extract(v4, v3, v2) != v0) & \exists int
   v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1:1] = v1 & x[0:0] = v0 &
-    \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1 >= v3 & v3 >= 0 & 3 >= v2 &
-      v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 & \exists int v5; (3 >= v5 & v5 >= 0
-        & -1*v4 + -1*v1 >= -1 & v1 >= v4 & -1*v3 + -1*v0 >= -1 & v0 >= v3 &
-        v5[1:1] = 1 - v1 & v5[0:0] = 1 - v0)))
+    \exists int v2; (3 >= v2 & v2 >= 0 & v2[1:1] = 1 - v1 & v2[0:0] = 1 - v0 &
+      \exists int v3, v4, v5; (-1*v5 + -1*v1 >= -1 & v1 >= v5 & 1 >= v5 & v5 >=
+        0 & -1*v4 + -1*v0 >= -1 & v0 >= v4 & 1 >= v4 & v4 >= 0 & 3 >= v3 & v3 >=
+        1 & v3[1:1] = v5 & v3[0:0] = v4)))
 
 Those formulas are unsatisfiable:
 ---------------------------------
@@ -554,54 +554,55 @@ Begin of proof
 | 
 | ALPHA: (axioms) implies:
 |   (1)  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1:1] =
-|          v1 & x[0:0] = v0 & \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1 >=
-|            v3 & v3 >= 0 & 3 >= v2 & v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 &
-|            \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 + -1*v1 >= -1 & v1 >= v4
-|              & -1*v3 + -1*v0 >= -1 & v0 >= v3 & v5[1:1] = 1 - v1 & v5[0:0] = 1
-|              - v0)))
+|          v1 & x[0:0] = v0 & \exists int v2; (3 >= v2 & v2 >= 0 & v2[1:1] = 1 -
+|            v1 & v2[0:0] = 1 - v0 & \exists int v3, v4, v5; (-1*v5 + -1*v1 >=
+|              -1 & v1 >= v5 & 1 >= v5 & v5 >= 0 & -1*v4 + -1*v0 >= -1 & v0 >=
+|              v4 & 1 >= v4 & v4 >= 0 & 3 >= v3 & v3 >= 1 & v3[1:1] = v5 &
+|              v3[0:0] = v4)))
 | 
 | DELTA: instantiating (1) with fresh symbols all_2_0, all_2_1 gives:
 |   (2)  1 >= all_2_0 & all_2_0 >= 0 & 1 >= all_2_1 & all_2_1 >= 0 & x[1:1] =
-|        all_2_0 & x[0:0] = all_2_1 & \exists int v0, v1, v2; (1 >= v2 & v2 >= 0
-|          & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1
-|          & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 &
-|            all_2_0 >= v2 & -1*v1 + -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1]
-|            = 1 - all_2_0 & v3[0:0] = 1 - all_2_1))
+|        all_2_0 & x[0:0] = all_2_1 & \exists int v0; (3 >= v0 & v0 >= 0 &
+|          v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1 & \exists int v1, v2,
+|          v3; (-1*v3 + -1*all_2_0 >= -1 & all_2_0 >= v3 & 1 >= v3 & v3 >= 0 &
+|            -1*v2 + -1*all_2_1 >= -1 & all_2_1 >= v2 & 1 >= v2 & v2 >= 0 & 3 >=
+|            v1 & v1 >= 1 & v1[1:1] = v3 & v1[0:0] = v2))
 | 
 | ALPHA: (2) implies:
-|   (3)  \exists int v0, v1, v2; (1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >=
-|          v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3
-|            & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 & all_2_0 >= v2 & -1*v1 +
-|            -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1] = 1 - all_2_0 & v3[0:0]
-|            = 1 - all_2_1))
+|   (3)  \exists int v0; (3 >= v0 & v0 >= 0 & v0[1:1] = 1 - all_2_0 & v0[0:0] =
+|          1 - all_2_1 & \exists int v1, v2, v3; (-1*v3 + -1*all_2_0 >= -1 &
+|            all_2_0 >= v3 & 1 >= v3 & v3 >= 0 & -1*v2 + -1*all_2_1 >= -1 &
+|            all_2_1 >= v2 & 1 >= v2 & v2 >= 0 & 3 >= v1 & v1 >= 1 & v1[1:1] =
+|            v3 & v1[0:0] = v2))
 | 
-| DELTA: instantiating (3) with fresh symbols all_5_0, all_5_1, all_5_2 gives:
-|   (4)  1 >= all_5_0 & all_5_0 >= 0 & 1 >= all_5_1 & all_5_1 >= 0 & 3 >=
-|        all_5_2 & all_5_2 >= 1 & all_5_2[1:1] = all_5_0 & all_5_2[0:0] =
-|        all_5_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0
-|          >= -1 & all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1
-|          >= all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+| DELTA: instantiating (3) with fresh symbol all_5_0 gives:
+|   (4)  3 >= all_5_0 & all_5_0 >= 0 & all_5_0[1:1] = 1 - all_2_0 & all_5_0[0:0]
+|        = 1 - all_2_1 & \exists int v0, v1, v2; (-1*v2 + -1*all_2_0 >= -1 &
+|          all_2_0 >= v2 & 1 >= v2 & v2 >= 0 & -1*v1 + -1*all_2_1 >= -1 &
+|          all_2_1 >= v1 & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] = v2
+|          & v0[0:0] = v1)
 | 
 | ALPHA: (4) implies:
-|   (5)  all_5_2 >= 1
-|   (6)  3 >= all_5_2
-|   (7)  all_5_1 >= 0
-|   (8)  all_5_2[0:0] = all_5_1
-|   (9)  all_5_2[1:1] = all_5_0
-|   (10)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 &
-|           all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >=
-|           all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+|   (5)  \exists int v0, v1, v2; (-1*v2 + -1*all_2_0 >= -1 & all_2_0 >= v2 & 1
+|          >= v2 & v2 >= 0 & -1*v1 + -1*all_2_1 >= -1 & all_2_1 >= v1 & 1 >= v1
+|          & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1)
 | 
-| DELTA: instantiating (10) with fresh symbol all_8_0 gives:
-|   (11)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 & all_2_0
-|         >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >= all_5_1 &
-|         all_8_0[1:1] = 1 - all_2_0 & all_8_0[0:0] = 1 - all_2_1
+| DELTA: instantiating (5) with fresh symbols all_8_0, all_8_1, all_8_2 gives:
+|   (6)  -1*all_8_0 + -1*all_2_0 >= -1 & all_2_0 >= all_8_0 & 1 >= all_8_0 &
+|        all_8_0 >= 0 & -1*all_8_1 + -1*all_2_1 >= -1 & all_2_1 >= all_8_1 & 1
+|        >= all_8_1 & all_8_1 >= 0 & 3 >= all_8_2 & all_8_2 >= 1 & all_8_2[1:1]
+|        = all_8_0 & all_8_2[0:0] = all_8_1
 | 
-| ALPHA: (11) implies:
-|   (12)  all_2_1 >= all_5_1
-|   (13)  -1*all_5_1 + -1*all_2_1 >= -1
-|   (14)  all_2_0 >= all_5_0
-|   (15)  -1*all_5_0 + -1*all_2_0 >= -1
+| ALPHA: (6) implies:
+|   (7)  all_8_2 >= 1
+|   (8)  3 >= all_8_2
+|   (9)  all_8_1 >= 0
+|   (10)  all_2_1 >= all_8_1
+|   (11)  -1*all_8_1 + -1*all_2_1 >= -1
+|   (12)  all_2_0 >= all_8_0
+|   (13)  -1*all_8_0 + -1*all_2_0 >= -1
+|   (14)  all_8_2[0:0] = all_8_1
+|   (15)  all_8_2[1:1] = all_8_0
 | 
 | THEORY_AXIOM ModuloArithmetic: 
 Warning: type clash during inference: bv[1] vs int
@@ -609,74 +610,74 @@ Warning: type clash during inference: bv[1] vs int
 |   (16)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
 |           v0.\as[bv[2]] = 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
-|              with (8), (9) gives:
-|   (17)  all_5_2.\as[bv[2]] = 2*all_5_0 + all_5_1
+| GROUND_INST: instantiating (16) with all_8_2, all_8_1, all_8_0, simplifying
+|              with (14), (15) gives:
+|   (17)  all_8_2.\as[bv[2]] = 2*all_8_0 + all_8_1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
 |   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
 |           v0.\as[bv[2]] != 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (18) with all_5_2, all_5_1, all_5_0, simplifying
+| GROUND_INST: instantiating (18) with all_8_2, all_8_1, all_8_0, simplifying
 |              with (17) gives:
-|   (19)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2 | all_5_2 < 1
+|   (19)  2*all_8_0 + all_8_1 = all_8_2 | 3 < all_8_2 | all_8_2 < 1
 | 
 | BETA: splitting (19) gives:
 | 
 | Case 1:
 | | 
-| |   (20)  0 >= all_5_2
+| |   (20)  0 >= all_8_2
 | | 
-| | COMBINE_INEQS: (5), (20) imply:
+| | COMBINE_INEQS: (7), (20) imply:
 | |   (21)  false
 | | 
 | | CLOSE: (21) is inconsistent.
 | | 
 | Case 2:
 | | 
-| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2
+| |   (22)  2*all_8_0 + all_8_1 = all_8_2 | 3 < all_8_2
 | | 
 | | BETA: splitting (22) gives:
 | | 
 | | Case 1:
 | | | 
-| | |   (23)  all_5_2 >= 4
+| | |   (23)  all_8_2 >= 4
 | | | 
-| | | COMBINE_INEQS: (6), (23) imply:
+| | | COMBINE_INEQS: (8), (23) imply:
 | | |   (24)  false
 | | | 
 | | | CLOSE: (24) is inconsistent.
 | | | 
 | | Case 2:
 | | | 
-| | |   (25)  2*all_5_0 + all_5_1 = all_5_2
+| | |   (25)  2*all_8_0 + all_8_1 = all_8_2
 | | | 
-| | | REDUCE: (15), (25) imply:
-| | |   (26)  all_5_0 + all_5_1 - all_5_2 - all_2_0 >= -1
+| | | REDUCE: (13), (25) imply:
+| | |   (26)  all_8_0 + all_8_1 - all_8_2 - all_2_0 >= -1
 | | | 
-| | | REDUCE: (14), (25) imply:
-| | |   (27)  all_5_0 + all_5_1 - all_5_2 + all_2_0 >= 0
+| | | REDUCE: (12), (25) imply:
+| | |   (27)  all_8_0 + all_8_1 - all_8_2 + all_2_0 >= 0
 | | | 
 | | | COL_REDUCE: introducing fresh symbol sc_17_1_0 defined by:
-| | |   (28)  all_5_0 - all_5_2 = sc_17_1_0
+| | |   (28)  all_8_0 - all_8_2 = sc_17_1_0
 | | | 
 | | | COMBINE_EQS: (25), (28) imply:
-| | |   (29)  all_5_1 + all_5_2 = -2*sc_17_1_0
+| | |   (29)  all_8_1 + all_8_2 = -2*sc_17_1_0
 | | | 
 | | | REDUCE: (26), (28), (29) imply:
-| | |   (30)  -1*all_5_2 + -1*sc_17_1_0 - all_2_0 >= -1
+| | |   (30)  -1*all_8_2 + -1*sc_17_1_0 - all_2_0 >= -1
 | | | 
 | | | REDUCE: (27), (28), (29) imply:
-| | |   (31)  -1*all_5_2 + -1*sc_17_1_0 + all_2_0 >= 0
+| | |   (31)  -1*all_8_2 + -1*sc_17_1_0 + all_2_0 >= 0
 | | | 
-| | | REDUCE: (13), (29) imply:
-| | |   (32)  all_5_2 + 2*sc_17_1_0 - all_2_1 >= -1
+| | | REDUCE: (11), (29) imply:
+| | |   (32)  all_8_2 + 2*sc_17_1_0 - all_2_1 >= -1
 | | | 
-| | | REDUCE: (12), (29) imply:
-| | |   (33)  all_5_2 + 2*sc_17_1_0 + all_2_1 >= 0
+| | | REDUCE: (10), (29) imply:
+| | |   (33)  all_8_2 + 2*sc_17_1_0 + all_2_1 >= 0
 | | | 
-| | | REDUCE: (7), (29) imply:
-| | |   (34)  -2*sc_17_1_0 >= all_5_2
+| | | REDUCE: (9), (29) imply:
+| | |   (34)  -2*sc_17_1_0 >= all_8_2
 | | | 
 | | | COMBINE_INEQS: (30), (32) imply:
 | | |   (35)  sc_17_1_0 - all_2_0 - all_2_1 >= -2
@@ -690,7 +691,7 @@ Warning: type clash during inference: bv[1] vs int
 | | | COMBINE_INEQS: (31), (33) imply:
 | | |   (38)  sc_17_1_0 + all_2_0 + all_2_1 >= 0
 | | | 
-| | | COMBINE_INEQS: (5), (34) imply:
+| | | COMBINE_INEQS: (7), (34) imply:
 | | |   (39)  -1 >= sc_17_1_0
 | | | 
 | | | SIMP: (39) implies:
