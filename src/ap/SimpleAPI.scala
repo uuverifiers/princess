@@ -2883,6 +2883,32 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * After receiving the result <code>ProverStatus.Unsat</code> or
+   * <code>ProverStates.Valid</code> for a problem that contains
+   * existential constants, return the negation of a (satisfiable)
+   * constraint over the existential constants that describes
+   * satisfying assignments of the existential constants.
+   */
+  def getNegatedConstraint : IFormula = {
+    doDumpSMT {
+      println("; (get-negated-constraint)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getNegatedConstraint)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (needExhaustiveProver)
+      processConstraint(Conjunction.negate(currentConstraint, currentOrder))
+    else
+      IBoolLit(false)
+  }
+
+  /**
    * After receiving the result
    * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
    * for a problem that contains existential constants, return a (satisfiable)
@@ -2975,7 +3001,7 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (~f)
         ??? match {
-          case ProverStatus.Valid   => Transform2NNF(~getConstraint)
+          case ProverStatus.Valid   => getNegatedConstraint
           case ProverStatus.Invalid => IBoolLit(true)
         }
     } else {
