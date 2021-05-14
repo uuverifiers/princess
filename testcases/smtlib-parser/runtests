@@ -36,7 +36,7 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        unsat-core.smt2 define-fun-recs2.smt2 \
        define-fun-bug2.smt2 define-fun-bug3.smt2 \
        run_00007.trace.Alloc_large__008268.smt2 bench_586.smt2 \
-       incremental-bug.smt2 simplify.smt2 simplify2.smt2"
+       incremental-bug.smt2 simplify.smt2 simplify2.smt2 simplify3.smt2"
 
 $PRI "$@" +incremental $TESTS
 
