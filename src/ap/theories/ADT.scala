@@ -824,12 +824,12 @@ class ADT (sortNames : Seq[String],
     constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
 
   /**
-   * Given the index of a sort and the index of a constructor among
-   * the constructors of that sort, return the position of the
-   * constructor in the sequence <code>ctorSignatures</code>.
+   * List the constructors belonging to each sort; the constructors
+   * are identified with the position of a constructor in the sequence
+   * <code>ctorSignatures</code>.
    */
-  def getCtorIdPerSort(sortNum : Int, ctorNum : Int) : Int =
-    globalCtorIdsPerSort(sortNum)(ctorNum)
+  def ctorIdsPerSort : IndexedSeq[IndexedSeq[Int]] =
+    globalCtorIdsPerSort map (_.toIndexedSeq)
 
   /**
    * The sort <code>sorts(n)</code> belonging to the constructor
