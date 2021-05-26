@@ -3781,8 +3781,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // Some of the heap functions are overloaded, and have to be handled
     // directly in symApp: alloc, read, write, valid
 
-    for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.nullAddr,
-                     heap.counter, heap.nthAddr)) {
+    for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.allocAddr,
+                     heap.nullAddr,  heap.counter, heap.nthAddr)) {
       val smtArgSorts = (for (arg <- fun.argSorts) yield
         SMTLineariser.sort2SMTType(arg)._1).toList
       env.addFunction(fun, SMTFunctionType(smtArgSorts,

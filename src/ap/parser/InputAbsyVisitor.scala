@@ -623,6 +623,49 @@ class UniformSubstVisitor(subst : CMap[Predicate, IFormula])
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Visitor to replace occurrences of one expression with another expression.
+ */
+object ExpressionReplacingVisitor
+       extends CollectingVisitor[(IExpression, IExpression), IExpression] {
+
+  def apply(f : IFormula,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith)).asInstanceOf[IFormula]
+
+  def apply(f : ITerm,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith)).asInstanceOf[ITerm]
+
+  def apply(f : IExpression,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith))
+
+  override def preVisit(t : IExpression,
+                        arg : (IExpression, IExpression)) : PreVisitResult =
+    t match {
+      case t : IVariableBinder =>
+        UniSubArgs((IExpression.shiftVars(arg._1, 0, 1),
+                    IExpression.shiftVars(arg._2, 0, 1)))
+      case _ =>
+        KeepArg
+    }
+    
+  def postVisit(t : IExpression,
+                arg : (IExpression, IExpression),
+                subres : Seq[IExpression]) : IExpression = {
+    val res = t update subres
+    if (res == arg._1)
+      arg._2
+    else
+      res
+  }
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 abstract class AbstractVariableSubstVisitor
                extends CollectingVisitor[(List[ITerm], Int), IExpression] {
   def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =

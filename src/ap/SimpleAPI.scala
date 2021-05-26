@@ -2605,21 +2605,31 @@ class SimpleAPI private (enableAssert : Boolean,
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // the following assertions are quite expensive; in case of theories,
+    // they might also fail, because quantifier elimination or the
+    // reducer could rely on further unspecified theory axioms (TODO)
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
       ((List(Conjunction.TRUE) ++ interpolants ++ List(Conjunction.FALSE))
           .sliding(2) zip partitions.iterator) forall {
         case (Seq(left, right), names) => {
-          val transitionFors =
-            for ((f, n) <- formulaeInProver;
-                 if (n < 0 || (names contains n))) yield f.negate
-          val theoryAxioms =
-            currentSimpCertificate.theoryAxioms map (_.toConj)
-          val condition =
-            Conjunction.implies(Conjunction.conj(
-                                  transitionFors ++ theoryAxioms ++ List(left),
-                                  currentOrder),
-                                right, currentOrder)
-          interpolantImpIsValid(condition)
+          val withTheories =
+            currentSimpCertificate.assumedFormulas exists {
+              f => PresburgerTools.containsTheories(f.toFormula) }
+          if (withTheories) {
+            true
+          } else {
+            val transitionFors =
+              for ((f, n) <- formulaeInProver;
+                   if (n < 0 || (names contains n))) yield f.negate
+            val theoryAxioms =
+              currentSimpCertificate.theoryAxioms map (_.toConj)
+            val condition =
+              Conjunction.implies(Conjunction.conj(
+                                   transitionFors ++ theoryAxioms ++ List(left),
+                                   currentOrder),
+                                  right, currentOrder)
+            interpolantImpIsValid(condition)
+          }
         }
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -2724,6 +2734,9 @@ class SimpleAPI private (enableAssert : Boolean,
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // the following assertions are quite expensive; in case of theories,
+    // they might also fail, because quantifier elimination or the
+    // reducer could rely on further unspecified theory axioms (TODO)
     def verifyInts(names : Tree[Set[Int]],
                    ints : Tree[Conjunction]) : Boolean = {
       val transitionFors =
@@ -2741,8 +2754,12 @@ class SimpleAPI private (enableAssert : Boolean,
          case (n, c) => verifyInts(n, c)
        })
     }
-    Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
-                         verifyInts(partitions, rawInterpolants))
+    val withTheories =
+      currentSimpCertificate.assumedFormulas exists {
+        f => PresburgerTools.containsTheories(f.toFormula) }
+    if (!withTheories)
+      Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
+                           verifyInts(partitions, rawInterpolants))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     interpolants
@@ -2883,6 +2900,32 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * After receiving the result <code>ProverStatus.Unsat</code> or
+   * <code>ProverStates.Valid</code> for a problem that contains
+   * existential constants, return the negation of a (satisfiable)
+   * constraint over the existential constants that describes
+   * satisfying assignments of the existential constants.
+   */
+  def getNegatedConstraint : IFormula = {
+    doDumpSMT {
+      println("; (get-negated-constraint)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getNegatedConstraint)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (needExhaustiveProver)
+      processConstraint(Conjunction.negate(currentConstraint, currentOrder))
+    else
+      IBoolLit(false)
+  }
+
+  /**
    * After receiving the result
    * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
    * for a problem that contains existential constants, return a (satisfiable)
@@ -2975,7 +3018,7 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (~f)
         ??? match {
-          case ProverStatus.Valid   => Transform2NNF(~getConstraint)
+          case ProverStatus.Valid   => getNegatedConstraint
           case ProverStatus.Invalid => IBoolLit(true)
         }
     } else {

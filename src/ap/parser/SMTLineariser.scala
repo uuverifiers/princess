@@ -824,7 +824,7 @@ class SMTLineariser(benchmarkName : String,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType,
                         printADTDeclarations, printHeapDeclarations,
-                        sort2SMTString, theoryFun2Identifier,
+                        sort2SMTString, sort2SMTType, theoryFun2Identifier,
                         bvSimpleUnFunction, bvSimpleBinFunction,
                         bvSimpleBinPred, invisible1, invisible2}
 
@@ -912,6 +912,7 @@ class SMTLineariser(benchmarkName : String,
     if (prettyBitvectors)
       typedFormula = ModPostprocessor.purifyFormula(typedFormula)
 
+/*
     var oldTypedFormula : IFormula = null
     while (!(typedFormula eq oldTypedFormula)) {
       oldTypedFormula = typedFormula
@@ -919,6 +920,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
+ */
+
     AbsyPrinter(typedFormula)
   }
   
@@ -991,7 +994,7 @@ class SMTLineariser(benchmarkName : String,
   //////////////////////////////////////////////////////////////////////////////
 
   // TODO: remove the next classes, they are not needed anymore
-
+/*
   private val type2Predicate = new MHashMap[SMTType, Predicate]
   private val predicate2Type = new MHashMap[Predicate, SMTType]
 
@@ -1150,6 +1153,7 @@ class SMTLineariser(benchmarkName : String,
       case _ => t update subres
     }
   }
+*/
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1537,8 +1541,11 @@ class SMTLineariser(benchmarkName : String,
         closeWithParen(ctxt)
       }
 
-      case f@IQuantified(Quantifier.ALL, _) => {
-        print("(forall (")
+      case f@IQuantified(quan, _) => {
+        quan match {
+          case Quantifier.ALL => print("(forall (")
+          case Quantifier.EX  => print("(exists (")
+        }
 
         var curCtxt = ctxt
         var curF : IFormula = f
@@ -1555,53 +1562,8 @@ class SMTLineariser(benchmarkName : String,
 
         var cont = true
         while (cont) curF match {
-          case IQuantified(Quantifier.ALL,
-                           IBinFormula(IBinJunctor.Or,
-                                       INot(TypePredicate(IVariable(0), t)),
-                                       g)) => {
-            pushVar(t)
-            curF = g
-          }
-          case IQuantified(Quantifier.ALL, g) => {
-            pushVar(SMTInteger)
-            curF = g
-          }
-          case _ => {
-            cont = false
-          }
-        }
-
-        print(") ")
-        TryAgain(curF, curCtxt addParentOp ")")
-      }
-
-      case f@IQuantified(Quantifier.EX, _) => {
-        print("(exists (")
-
-        var curCtxt = ctxt
-        var curF : IFormula = f
-        var sep = ""
-
-        def pushVar(t : SMTType) = {
-          val varName = "var" + curCtxt.vars.size
-          curCtxt = curCtxt.pushVar(varName, Some(t), curCtxt.parentOp)
-          print(sep + "(" + varName + " ")
-          printSMTType(t)
-          print(")")
-          sep = " "
-        }
-
-        var cont = true
-        while (cont) curF match {
-          case IQuantified(Quantifier.EX,
-                           IBinFormula(IBinJunctor.And,
-                                       TypePredicate(IVariable(0), t),
-                                       g)) => {
-            pushVar(t)
-            curF = g
-          }
-          case IQuantified(Quantifier.EX, g) => {
-            pushVar(SMTInteger)
+          case ISortedQuantified(`quan`, sort, g) => {
+            pushVar(sort2SMTType(sort)._1)
             curF = g
           }
           case _ => {
@@ -1644,22 +1606,13 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
 
-      case IEpsilon(IBinFormula(IBinJunctor.And,
-                                TypePredicate(IVariable(0), t),
-                                subF)) => {
+      case ISortedEpsilon(sort, f) => {
         val varName = "var" + ctxt.vars.size
         print("(_eps ((" + varName + " ")
+        val (t, None) = sort2SMTType(sort)
         printSMTType(t)
         print(")) ")
-        TryAgain(subF, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
-      }
-
-      case _ : IEpsilon => {
-        val varName = "var" + ctxt.vars.size
-        print("(_eps ((" + varName + " ")
-        printSMTType(SMTInteger)
-        print(")) ")
-        UniSubArgs(ctxt.pushVar(varName, None, ")"))
+        TryAgain(f, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
       }
 
       case ITrigger(trigs, body) => {

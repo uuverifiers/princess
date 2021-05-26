@@ -174,7 +174,10 @@ trait TheoryProcedure {
   /**
    * An implicit function to simplify cascading of possible actions.
    */
-  protected implicit def richActionSeq(acts : Seq[Plugin.Action]) = new AnyRef {
+  protected implicit def richActionSeq(acts : Seq[Plugin.Action]) =
+    new RichActionSeq(acts)
+
+  class RichActionSeq(acts : Seq[Plugin.Action]) {
     def elseDo(otherwise : => Seq[Plugin.Action]) : Seq[Plugin.Action] =
       if (acts.isEmpty) otherwise else acts
   }

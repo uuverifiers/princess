@@ -824,6 +824,14 @@ class ADT (sortNames : Seq[String],
     constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
 
   /**
+   * List the constructors belonging to each sort; the constructors
+   * are identified with the position of a constructor in the sequence
+   * <code>ctorSignatures</code>.
+   */
+  def ctorIdsPerSort : IndexedSeq[IndexedSeq[Int]] =
+    globalCtorIdsPerSort map (_.toIndexedSeq)
+
+  /**
    * The sort <code>sorts(n)</code> belonging to the constructor
    * <code>constructors(ctorNum)</code>.
    */

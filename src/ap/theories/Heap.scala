@@ -215,11 +215,33 @@ object Heap {
 
   /**
    * Extractor recognising the functions of any Heap theory.
+   * Also recognises the selectors and the constructor of AllocResSort ADT
    */
   object HeapFunExtractor {
-    def unapply(fun : IFunction) : Option[Heap] =
+    def unapply(fun: IFunction): Option[Heap] =
       (TheoryRegistry lookupSymbol fun) match {
-        case Some(t : Heap) => Some(t)
+        case Some(t: Heap) => Some(t)
+        case Some(_: ADT) if fun.isInstanceOf[MonoSortedIFunction] =>
+          val sortedFun = fun.asInstanceOf[MonoSortedIFunction]
+          sortedFun.resSort match {
+            case s: Heap.HeapSort =>
+              if (sortedFun == s.heapTheory.newHeap) // newHeap(ar : AllocRes)
+                Some(s.heapTheory)
+              else None
+            case s: Heap.AddressSort =>
+              if (sortedFun == s.heapTheory.newAddr) // newAddr(ar : AllocRes)
+                Some(s.heapTheory)
+              else None
+            case t if sortedFun.arity == 2 => // AllocRes constructor
+              sortedFun.argSorts.head match {
+                case s: Heap.HeapSort =>
+                  if (t == s.heapTheory.AllocResSort)
+                    Some(s.heapTheory)
+                  else None
+                case _ => None
+              }
+            case _ => None
+          }
         case _ => None
       }
   }
@@ -328,18 +350,19 @@ class Heap(heapSortName : String, addressSortName : String,
    *
    * * Below two functions are shorthand functions to get rid of allocRes ADT.
    * * They return a single value instead of the pair <Heap x Addr>.
-   * * This is done to get rid of quantifiers related to the ADT in the
-   * * generated interpolants.
+   * * This also removes some quantifiers related to the ADT in the generated
+   * * interpolants.
    * alloc<heapSortName>    : Heap x Obj           --> Heap
    * alloc<addressSortName> : Heap x Obj           --> Address
    *
-   * * allocAddress is further removed by reducing it to counter(h) + 1
    * ***************************************************************************
    * */
   val alloc = new MonoSortedIFunction("alloc", List(HeapSort, ObjectSort),
     AllocResSort, false, false)
   val allocHeap = new MonoSortedIFunction("alloc" + heapSortName,
     List(HeapSort, ObjectSort), HeapSort, false, false)
+  val allocAddr = new MonoSortedIFunction("alloc" + addressSortName,
+    List(HeapSort, ObjectSort), AddressSort, false, false)
   val deAlloc = new MonoSortedIFunction("deAlloc", List(HeapSort),
     HeapSort, false, false)
 
@@ -453,7 +476,7 @@ class Heap(heapSortName : String, addressSortName : String,
   val counter = new MonoSortedIFunction("counter" + addressSortName,
     List(HeapSort), Sort.Nat, false, false)
 
-  val functions = List(emptyHeap, alloc, allocHeap, /*allocAddr,*/ read, write,
+  val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
                        nullAddr,
                        counter, nthAddr)
   val predefPredicates = List(isAlloc)
@@ -755,6 +778,8 @@ class Heap(heapSortName : String, addressSortName : String,
         val o = subres(1).asInstanceOf[ITerm]
         HeapSort.eps(h2 => h2 === shiftVars(allocHeap(h, o), 1) &
                            counter(h2) === shiftVars(counter(h) + 1, 1))*/
+      case IFunApp(`allocAddr`, _) => //allocAddr(h,_) -> counter(h) + 1
+        counter(subres(0).asInstanceOf[ITerm]) + 1
       case IFunApp(`deAlloc`, _) =>
         val h1 = subres(0).asInstanceOf[ITerm]
         val newt = HeapSort.eps(h2 => ObjectSort.ex(o =>

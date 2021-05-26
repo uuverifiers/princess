@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -157,6 +157,9 @@ class Simplifier(splittingLimit : Int = 20,
 
   private def iteSplitter(t : ITerm)
                          : Option[(IFormula, ITerm, ITerm)] = t match {
+    case ITermITE(cond, left, right) =>
+      Some((cond, left, right))
+
     case IFunApp(fun, args) =>
       for ((cond, args1, args2) <- iteSeqSplitter(args))
       yield (cond, IFunApp(fun, args1), IFunApp(fun, args2))
@@ -476,6 +479,31 @@ class Simplifier(splittingLimit : Int = 20,
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Do simple Boolean propagation.
+   */
+  private def booleanPropagate(expr : IExpression) = expr match {
+    case IBinFormula(And, LeafFormula(left), right) => {
+      val newRight = ExpressionReplacingVisitor(right, left, true)
+      if (newRight eq right) expr else left & newRight
+    }
+    case IBinFormula(And, left, LeafFormula(right)) => {
+      val newLeft = ExpressionReplacingVisitor(left, right, true)
+      if (newLeft eq left) expr else newLeft & right
+    }
+    case IBinFormula(Or, LeafFormula(left), right) => {
+      val newRight = ExpressionReplacingVisitor(right, left, false)
+      if (newRight eq right) expr else left | newRight
+    }
+    case IBinFormula(Or, left, LeafFormula(right)) => {
+      val newLeft = ExpressionReplacingVisitor(left, right, false)
+      if (newLeft eq left) expr else newLeft | right
+    }
+    case _ => expr
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   
   /**
    * Hook for subclasses
@@ -488,7 +516,7 @@ class Simplifier(splittingLimit : Int = 20,
         List(miniScope _)
       else
         List(elimUnusedQuantifier _)) ++
-     List(splitITEs _, furtherSimplifications _)).toArray
+     List(splitITEs _, furtherSimplifications _, booleanPropagate _)).toArray
   
   /**
    * Perform various kinds of simplification to the given formula, in particular
