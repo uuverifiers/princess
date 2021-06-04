@@ -761,9 +761,10 @@ class ADT (sortNames : Seq[String],
    * constructor term
    */
   val ctorIds : IndexedSeq[MonoSortedIFunction] =
-    for (sort <- sorts)
+    for ((sort, ctors) <- sorts zip globalCtorIdsPerSort)
     yield new MonoSortedIFunction(sort.name + "_ctor",
-                                  List(sort), Sort.Integer,
+                                  List(sort),
+                                  Sort.Interval(Some(0), Some(ctors.size - 1)),
                                   true, false)
 
   /**
