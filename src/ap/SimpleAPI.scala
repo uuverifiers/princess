@@ -2990,8 +2990,13 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (f)
         ??? match {
-          case ProverStatus.Valid   => getConstraint
-          case ProverStatus.Invalid => IBoolLit(false)
+          case ProverStatus.Valid =>
+            getConstraint
+          case ProverStatus.Invalid =>
+            IBoolLit(false)
+          case ProverStatus.Inconclusive =>
+            throw new SimpleAPIException(
+              "Could not project formula, possibly because of theories")
         }
     } else {
       // formula that we cannot project at the moment
@@ -3018,8 +3023,13 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (~f)
         ??? match {
-          case ProverStatus.Valid   => getNegatedConstraint
-          case ProverStatus.Invalid => IBoolLit(true)
+          case ProverStatus.Valid =>
+            getNegatedConstraint
+          case ProverStatus.Invalid =>
+            IBoolLit(true)
+          case ProverStatus.Inconclusive =>
+            throw new SimpleAPIException(
+              "Could not project formula, possibly because of theories")
         }
     } else {
       // formula that we cannot project at the moment
