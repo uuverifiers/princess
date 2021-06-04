@@ -722,6 +722,9 @@ false
 ManyEqvs.scala
 Sat
 
+project-bug.scala
+true
+
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat
