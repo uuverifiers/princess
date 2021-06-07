@@ -388,6 +388,88 @@ object ADT {
       }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The preprocessor can sometimes cause solution formulas that are
+   * illegal according to SMT-LIB because they contain the
+   * <code>ADT.CtorId</code> functions in wrong places. This class
+   * rewrites such formulas to only use CtorId functions in equations
+   * <code>ctorId(t) = num</code>.
+   */
+  object CtorIdRewriter extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      t match {
+        case LeafFormula(t) => {
+          // check whether there are any ctorid terms that we have to extract
+          val collector = new CtorIdCollector
+          val newT = collector(t)
+
+          collector.foundFunApp match {
+            case null => {
+              KeepArg
+            }
+            case funapp => {
+              val const = collector.faConst
+              val sort  = ap.types.Sort sortOf funapp
+              TryAgain(
+                or(for (n <- sort.individuals.iterator) yield {
+                     (funapp === n) &&&
+                     SimplifyingConstantSubstVisitor(newT, Map(const -> n))
+                   }),
+                arg)
+            }
+          }
+        }
+        case _ =>
+          KeepArg
+      }
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+  }
+
+  private class CtorIdCollector
+          extends CollectingVisitor[(Boolean, Boolean), IExpression] {
+    import IExpression._
+
+    var foundFunApp : IFunApp = _
+    var faConst : ConstantTerm = _
+
+    def apply(f : IFormula) : IFormula =
+      this.visit(f, (true, false)).asInstanceOf[IFormula]
+
+    override def preVisit(t : IExpression,
+                          ctxt : (Boolean, Boolean)) : PreVisitResult =
+    t match {
+      case Eq(_, Const(_)) | Eq(Const(_), _) =>
+        UniSubArgs((false, true))
+      case t@IFunApp(ADT.CtorId(adt, num), _)
+          if foundFunApp == null && !ctxt._2 => {
+        foundFunApp = t
+        faConst = adt.ctorIds(num).resSort newConstant "fa"
+        ShortCutResult(faConst)
+      }
+      case t : IFunApp if foundFunApp == t =>
+        ShortCutResult(faConst)
+      case t : ITerm =>
+        UniSubArgs((false, false))
+      case t : IFormula =>
+        // only descend into the first level of formulae
+        if (ctxt._1) UniSubArgs((false, false)) else ShortCutResult(t)
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : (Boolean, Boolean),
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -761,9 +843,10 @@ class ADT (sortNames : Seq[String],
    * constructor term
    */
   val ctorIds : IndexedSeq[MonoSortedIFunction] =
-    for (sort <- sorts)
+    for ((sort, ctors) <- sorts zip globalCtorIdsPerSort)
     yield new MonoSortedIFunction(sort.name + "_ctor",
-                                  List(sort), Sort.Integer,
+                                  List(sort),
+                                  Sort.Interval(Some(0), Some(ctors.size - 1)),
                                   true, false)
 
   /**
@@ -1364,8 +1447,13 @@ class ADT (sortNames : Seq[String],
   override def isSoundForSat(
          theories : Seq[Theory],
          config : Theory.SatSoundnessConfig.Value) : Boolean =
-    Set(Theory.SatSoundnessConfig.Elementary,
-        Theory.SatSoundnessConfig.Existential) contains config
+    config match {
+      case Theory.SatSoundnessConfig.Elementary
+         | Theory.SatSoundnessConfig.Existential =>
+        true
+      case Theory.SatSoundnessConfig.General =>
+        !(isEnum contains false)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
