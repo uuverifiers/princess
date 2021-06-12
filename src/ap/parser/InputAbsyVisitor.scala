@@ -1351,7 +1351,7 @@ object Transform2Prenex {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, quantifierNum == v.quantifiersToAdd.size)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      IExpression.quanWithSorts(v.quantifiersToAdd, quantifierFree)
+      IExpression.quanWithSorts(v.quantifiersToAdd.reverse, quantifierFree)
     }
 }
 
