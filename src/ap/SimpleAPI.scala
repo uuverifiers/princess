@@ -1910,11 +1910,12 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def extractSMTLIBAssertionsSymbols(input : java.io.Reader)
              : (Seq[IFormula],
-                Map[IFunction, SMTParser2InputAbsy.SMTFunctionType],
-                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType]) = {
+                Map[IFunction,                SMTParser2InputAbsy.SMTFunctionType],
+                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType],
+                Map[IExpression.Predicate,    SMTParser2InputAbsy.SMTFunctionType]) = {
     val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
     val res = parser.extractAssertions(input)
-    (res, parser.functionTypeMap, parser.constantTypeMap)
+    (res, parser.functionTypeMap, parser.constantTypeMap, parser.predicateTypeMap)
   }
 
   //////////////////////////////////////////////////////////////////////////////
