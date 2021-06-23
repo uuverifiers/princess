@@ -1002,14 +1002,32 @@ abstract sealed class LinearCombination (val order : TermOrder)
   /**
    * Reduce all coefficients of <code>this</code> with
    * <code>IdealInt.reduceAbs(this.leadingCoeff)</code> and return the quotient.
-   * This is supposed to be used for column operations when solving systems of
+   * This is used for column operations when solving systems of
    * linear equations.
    */
   def reduceWithLeadingCoeff : LinearCombination = {
     val lc = this.leadingCoeff
-    val quotientTerms = for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
-                        yield (c.reduceAbs(lc) _1, t)
+    val quotientTerms =
+      for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
+      yield (c.reduceAbs(lc) _1, t)
     LinearCombination.createFromSortedSeq(quotientTerms, order)
+  }
+
+  /**
+   * Reduce all coefficients but the coefficient of the leading term
+   * of <code>this</code> with
+   * <code>IdealInt.reduceAbs(this.leadingCoeff)</code> and return the
+   * remainder. This is used for simplifying divisibility constraints.
+   */
+  def moduloLeadingCoeff : LinearCombination = {
+    val lc       = this.leadingCoeff
+    val it       = this.pairIterator
+    val head     = it.next
+    val modTerms = for ((c, t) <- it;
+                        newC = c.reduceAbs(lc) _2;
+                        if !newC.isZero)
+                   yield (newC, t)
+    LinearCombination.createFromSortedSeq(Iterator(head) ++ modTerms, order)
   }
 
   //////////////////////////////////////////////////////////////////////////////
