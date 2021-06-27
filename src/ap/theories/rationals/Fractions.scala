@@ -312,10 +312,21 @@ class Fractions(name : String,
           extends ContextAwareVisitor[Unit, Unit] {
     def postVisit(t : IExpression, ctxt : Context[Unit],
                   subres : Seq[Unit]) : Unit = t match {
+      case ISortedQuantified(q, `dom`, _)
+          if (ctxt.polarity match {
+                case 0 => true
+                case 1 => q == Quantifier.EX
+                case -1 => q == Quantifier.ALL
+              }) =>
+        throw new Exception(
+          "Universal quantifiers over fractions/rationals are currently not supported")
+
+/*
       case IFunApp(`denom`, _) if ctxt.binders contains Context.EX => {
         Incompleteness.set
         ()
       }
+ */
       case _ =>
         ()
     }
