@@ -627,6 +627,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   def constantTypeMap : Map[ConstantTerm, SMTType] =
     (for (Environment.Constant(c, _, t) <- env.symbols) yield (c -> t)).toMap
 
+  def predicateTypeMap : Map[Predicate, SMTFunctionType] =
+    (for (Environment.Predicate(p, _, t) <- env.symbols) yield (p -> t)).toMap
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -1402,10 +1405,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           resType match {
             case SMTBool =>
               functionDefs =
-                functionDefs + (f -> (prover abbrev asFormula(body), SMTBool))
+                functionDefs + (f -> (prover.abbrev(asFormula(body), name),
+                                      SMTBool))
             case t =>
               functionDefs =
-                functionDefs + (f -> (prover abbrev asTerm(body), t))
+                functionDefs + (f -> (prover.abbrev(asTerm(body), name), t))
           }
         } else {
           // set up a defining equation and formula

@@ -1904,17 +1904,30 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Extract assertions and declared symbols in an SMT-LIB script.
-   * Symbols declared in the script will
-   * be added to the prover; however, if the prover already knows about
-   * symbols with the same name, they will be reused.
+   * Symbols declared in the script will be added to the prover;
+   * however, if the prover already knows about symbols with the same
+   * name, they will be reused. If option <code>fullyInline</code> is
+   * set, let-definitions and defined functions will be inlined in the
+   * extracted formulas.
    */
-  def extractSMTLIBAssertionsSymbols(input : java.io.Reader)
+  def extractSMTLIBAssertionsSymbols(input : java.io.Reader,
+                                     fullyInline : Boolean = false)
              : (Seq[IFormula],
-                Map[IFunction, SMTParser2InputAbsy.SMTFunctionType],
-                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType]) = {
+                Map[IFunction,                SMTParser2InputAbsy.SMTFunctionType],
+                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType],
+                Map[IExpression.Predicate,    SMTParser2InputAbsy.SMTFunctionType]) = {
     val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    if (fullyInline) {
+      val options =
+        "(set-option :inline-size-limit " + Int.MaxValue + ")" +
+        "(set-option :inline-let true)" +
+        "(set-option :inline-definitions true)"
+      val reader =
+        new java.io.StringReader(options)
+      parser.extractAssertions(reader)
+    }
     val res = parser.extractAssertions(input)
-    (res, parser.functionTypeMap, parser.constantTypeMap)
+    (res, parser.functionTypeMap, parser.constantTypeMap, parser.predicateTypeMap)
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -239,7 +239,7 @@ Constructing satisfying assignment for the existential constants ...
 VALID
 
 Under the assignment:
-c = 0
+c = 1
 
 Loading simplify19.pri ...
 Preprocessing ...
@@ -365,7 +365,7 @@ Proving ...
 VALID
 
 Under the constraint:
-x1 >= 31 & ((45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 - x1 = -15) | (44 >= x1 & x0 >= 60))
+x1 >= 31 & ((45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 + x1 = -1) | (44 >= x1 & x0 >= 60))
 
 Concrete witness:
 x1 = 35 & x0 = 60

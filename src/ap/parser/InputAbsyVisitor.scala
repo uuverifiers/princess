@@ -33,7 +33,7 @@
 
 package ap.parser;
 
-import IExpression.{ConstantTerm, Predicate}
+import IExpression.{ConstantTerm, Predicate, Sort}
 import ap.terfor.conjunctions.Quantifier
 import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
@@ -1356,7 +1356,8 @@ object Transform2Prenex {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, quantifierNum == v.quantifiersToAdd.size)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      IExpression.quan(v.quantifiersToAdd.toSeq, quantifierFree)
+      IExpression.quanWithSorts(v.quantifiersToAdd.toSeq.reverse,
+                                quantifierFree)
     }
 }
 
@@ -1367,7 +1368,7 @@ class Transform2Prenex private (finalQuantifierNum : Int,
                                 consideredQuantifiers : Set[Quantifier])
       extends ContextAwareVisitor[List[IVariable], IExpression] {
 
-  private val quantifiersToAdd = new ArrayBuffer[Quantifier]
+  private val quantifiersToAdd = new ArrayBuffer[(Quantifier, Sort)]
 
   override def preVisit(t : IExpression,
                         context : Context[List[IVariable]])
@@ -1381,7 +1382,7 @@ class Transform2Prenex private (finalQuantifierNum : Int,
         val newVars =
           IVariable(finalQuantifierNum - quantifiersToAdd.size - 1,
                     sort) :: context.a
-        quantifiersToAdd += realQuan
+        quantifiersToAdd += ((realQuan, sort))
         super.preVisit(t, context(newVars))
       } else {
         // Don't look underneath this quantifier. We still have to substitute
