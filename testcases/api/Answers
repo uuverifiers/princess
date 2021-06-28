@@ -725,6 +725,16 @@ Sat
 project-bug.scala
 true
 
+printBooleanTerm.scala
+true
+false
+(not true)
+(not false)
+true
+false
+(not true)
+(not false)
+
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat

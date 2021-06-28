@@ -847,8 +847,9 @@ class SMTLineariser(benchmarkName : String,
     println("    Benchmark: " + benchmarkName)
     println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
     println("|)")
-  
-    println("(set-info :status " + status + ")")
+
+    if(status.nonEmpty)
+      println("(set-info :status " + status + ")")
 
     // declare the required theories
     val heaps = for (theory <- theoriesToDeclare;
@@ -863,7 +864,8 @@ class SMTLineariser(benchmarkName : String,
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
                       case adt : ADT =>
-                        !heaps.forall(h => h.containsADTSort(adt))
+                        heaps.isEmpty ||
+                          !heaps.forall(h => h.containsADTSort(adt))
                       case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
@@ -1488,6 +1490,13 @@ class SMTLineariser(benchmarkName : String,
 
       // Terms with Boolean type, which were encoded as integer terms or
       // using ADTs
+      case IExpression.EqLit(BooleanTerm(t), v) =>
+        // strip off the integer encoding
+        if (v.isZero)
+          TryAgain(t, ctxt)
+        else
+          TryAgain(!IExpression.eqZero(t), ctxt)
+
       case IExpression.Eq(ADT.BoolADT.True, t) =>
         // strip off the ADT encoding
         TryAgain(t, ctxt)
@@ -1504,13 +1513,6 @@ class SMTLineariser(benchmarkName : String,
         print("(not ")
         TryAgain(t, ctxt addParentOp ")")
       }
-
-      case IExpression.EqLit(BooleanTerm(t), v) =>
-        // strip off the integer encoding
-        if (v.isZero)
-          TryAgain(t, ctxt)
-        else
-          TryAgain(!IExpression.eqZero(t), ctxt)
 
       // ADT expression
       case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),

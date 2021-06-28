@@ -40,6 +40,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.arithconj.ArithConj
+import ap.theories.Heap
 import ap.types.{SortedIFunction, SortedPredicate}
 import ap.util.Debug
 
@@ -216,11 +217,17 @@ object VariableSortInferenceVisitor
         case ConflictSort =>
           // nothing
         case oldSort if oldSort != effectiveSort => {
-          Debug.whenAssertionsOn(AC) {
-            Console.err.println("Warning: type clash during inference: " +
-                                  oldSort + " vs " + t)
+          val newSort = (oldSort, effectiveSort) match {
+            case (s : Heap.AddressSort, Sort.Integer) => s
+            case (Sort.Integer, s : Heap.AddressSort) => s
+            case _ =>
+              Debug.whenAssertionsOn(AC) {
+                Console.err.println("Warning: type clash during inference: " +
+                  oldSort + " vs " + t)
+              }
+              ConflictSort
           }
-          variableSorts(pos) = ConflictSort
+          variableSorts(pos) = newSort
         }
         case _ =>
           variableSorts(pos) = effectiveSort
@@ -232,6 +239,12 @@ object VariableSortInferenceVisitor
     case (ISortedVariable(ind1, AnySort), t2 ::: sort2) =>
       setVariableSort(ind1, sort2)
     case (t1 ::: sort1, ISortedVariable(ind2, AnySort)) =>
+      setVariableSort(ind2, sort1)
+    case (ISortedVariable(ind1, Numeric(_)), t2 ::: sort2)
+        if sort2.isInstanceOf[Heap.AddressSort] =>
+      setVariableSort(ind1, sort2)
+    case (t1 ::: sort1, ISortedVariable(ind2, Numeric(_)))
+        if sort1.isInstanceOf[Heap.AddressSort] =>
       setVariableSort(ind2, sort1)
     case _ =>
       // nothing
