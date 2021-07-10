@@ -32,7 +32,8 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala TestStrings.scala TestBVEval.scala \
-       simplifier-bug.scala ManyEqvs.scala project-bug.scala"
+       simplifier-bug.scala ManyEqvs.scala project-bug.scala \
+       printBooleanTerm.scala"
 
 for testname in $TESTS; do
   echo
@@ -44,7 +45,7 @@ done
 
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
-TESTS="readSMTLIB.scala"
+TESTS="readSMTLIB.scala ExtArrayCrash.scala"
 
 for testname in $TESTS; do
   echo

@@ -528,4 +528,13 @@ class Simplifier(splittingLimit : Int = 20,
     rewrite(expr, combineRewritings(defaultRewritings)).asInstanceOf[IFormula]
   }
   
+  /**
+   * Simplify the given term.
+   */
+  def apply(expr : ITerm) : ITerm = {
+    import Rewriter._
+    splitNum = 0
+    rewrite(expr, combineRewritings(defaultRewritings)).asInstanceOf[ITerm]
+  }
+  
 }

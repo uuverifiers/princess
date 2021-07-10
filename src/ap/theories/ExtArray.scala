@@ -911,7 +911,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
                      logger : ComputationLogger,
                      mode : ReducerPlugin.ReductionMode.Value)
                    : ReducerPlugin.ReductionResult = {
-      implicit val order = predConj.order
+      implicit val order = baseOrder
       import TerForConvenience._
 
       ReducerPlugin.rewritePreds(predConj,
@@ -935,7 +935,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
       if (!(predConj.predicates contains _select))
         return ReducerPlugin.UnchangedResult
 
-      implicit val order = predConj.order
+      implicit val order = baseOrder
       import TerForConvenience._
 
       val newState =
