@@ -45,7 +45,7 @@ done
 
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
-TESTS="readSMTLIB.scala"
+TESTS="readSMTLIB.scala ExtArrayCrash.scala"
 
 for testname in $TESTS; do
   echo

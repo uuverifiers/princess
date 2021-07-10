@@ -743,3 +743,7 @@ x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
 x - y >= 1 & y - 50 >= 1
+
+ExtArrayCrash.scala
+Warning: arrays over finite domains are not fully supported yet
+Unsat
