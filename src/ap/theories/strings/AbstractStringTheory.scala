@@ -277,7 +277,7 @@ abstract class AbstractStringTheory extends StringTheory {
     }
   }
 
-  class IllegalRegexException extends Exception
+  class IllegalRegexException extends Exception("illegal regular expression")
 
   /**
    * Translator from atoms representing regexes in a goal to the corresponding

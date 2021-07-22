@@ -654,8 +654,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
     val expr = parseWithEntry(input, env, entry _)
     translateTerm(expr, -1) match {
-      case p@(_, SMTBool)    => asFormula(p)
-      case p@(_, SMTInteger) => asTerm(p)
+      case p@(_, SMTBool) => asFormula(p)
+      case p => asTerm(p)
     }
   }
 
