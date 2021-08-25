@@ -1,3 +1,5 @@
+package ap;
+
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.parameters.Param.InputFormat
@@ -378,13 +380,14 @@ object HeapTests1 extends App {
     )*/
 
     TestCase(
-      "batchAlloc2",
+      "first batchAlloc example",
       CommonAssert(
         batchAlloc(h, wrappedInt(3), 10) ===
           BatchAllocResADT.constructors.head(h1, r)),
-      SatStep(read(h1, nth(r, 10)) === defObj), // fails
-      SatStep(read(h1,nullAddr()) === defObj),  // passes
-      SatStep(nth(r, 10) == nullAddr())  // passes
+      SatStep(read(h1, nullAddr()) === defObj), // passes
+      SatStep(nth(r, 10) === nullAddr()),       // passes
+      UnsatStep(nth(r, 10) =/= nullAddr()),     // passes
+      SatStep(read(h1, nth(r, 10)) === defObj)  // fails
     )
   }
 }
