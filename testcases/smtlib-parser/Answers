@@ -118,52 +118,6 @@ Constructing countermodel ...
 
 unsat
 
-Loading arrays.smt2 ...
-Warning: exit is only supported in incremental mode (option +incremental), ignoring it
-Preprocessing ...
-Constructing countermodel ...
-
-unsat
-
-Loading arrays2.smt2 ...
-Warning: exit is only supported in incremental mode (option +incremental), ignoring it
-Preprocessing ...
-Constructing countermodel ...
-
-unsat
-
-Loading arrays3.smt2 ...
-Preprocessing ...
-Constructing countermodel ...
-
-unsat
-
-Loading arrays4.smt2 ...
-Warning: exit is only supported in incremental mode (option +incremental), ignoring it
-Preprocessing ...
-Constructing countermodel ...
-
-sat
-(model
-  (define-fun arr () (Array Int Int) (store (store ((as const (Array Int Int)) 0) 1 2) 2 4))
-)
-
-Loading arrays5.smt2 ...
-Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
-Preprocessing ...
-Constructing countermodel ...
-
-sat
-(model
-  (define-fun arr () (Array Int Bool) (store (store ((as const (Array Int Bool)) true) 1 true) 2 false))
-)
-
-Loading arrays6.smt2 ...
-Preprocessing ...
-Constructing countermodel ...
-
-unsat
-
 Loading patternBug.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -177,16 +131,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
-Loading array-interpolation.smt2 ...
-Preprocessing ...
-Constructing countermodel ...
-Found proof (size 4), simplifying (8), interpolating ...
-
-unsat
-(
-  (= (select b 1) 42)
-)
 
 Loading define-fun.smt2 ...
 Preprocessing ...
@@ -262,15 +206,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
-Loading boolean-array.smt2 ...
-Preprocessing ...
-Constructing countermodel ...
-
-sat
-(model
-  (define-fun a () (Array Int Bool) (store ((as const (Array Int Bool)) true) 42 true))
-)
 
 Loading distinctBug.smt2 ...
 Preprocessing ...
@@ -375,7 +310,7 @@ sat
   (define-fun o () Obj (WrappedInt 42))
   (define-fun p1 () Int 45)
   (define-fun h2 () Heap (Heap 46 (store ((as const (Array Int Obj)) (WrappedInt 0)) 45 (WrappedInt 42))))
-  (define-fun h1 () Heap (Heap 45 ((as const (Array Int Obj)) (WrappedInt 0))))
+  (define-fun h1 () Heap (Heap 45 (store ((as const (Array Int Obj)) (WrappedInt 0)) 45 (WrappedInt 0))))
 )
 
 Loading conjunct-eliminator-bug.smt2 ...
@@ -466,6 +401,7 @@ unsat
 ((and proc_x_0_2 (myFunc2 true)))
 unsat
 ((and (= proc_x_0 7) (select ar 7)))
+Warning: arrays over finite domains are not fully supported yet
 unsat
 ((and (select ar true) proc_x_0_2))
 unsat
@@ -494,12 +430,12 @@ unsat
 (= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|) 12)
 (= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|) 12)
 (= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|) 12)
-(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|) 12)
-(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|) 12)
-(or (= |main_#t~mem5_12| 0) (not (= (select (select |#memory_int_10| main_~fb~1.base_6) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|)) 0)))
-(not (= (select (select |#memory_int_10| main_~fb~1.base_6) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|)) 0))
-(not (= |main_#t~mem16_14| 0))
-(not (= main_~x3Value~1_15 0)))
+(= (select (select |#memory_int_10| main_~fb~1.base_6) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|)) 0)
+(= (select (select |#memory_int_10| main_~fb~1.base_6) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three|)) 0)
+(= |main_#t~mem5_12| 0)
+false
+false
+false)
 Loading interpolant-typing-bug.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
@@ -510,8 +446,8 @@ Warning: not all asserted formulas are mentioned in interpolant specification, p
 (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (and (= (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem13_4|) (<= 0 (+ |test_fun_#t~mem13_4| (+ (* (- 1) |test_fun_#t~mem12_3|) oldRank0_-1)))) (and (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem13_4|)) (or (not (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem13_4|)))))
 (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (<= 0 (+ (- 1) oldRank0_-1)) (and (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1))) (or (not (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1))))))
 (and (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (- 1) oldRank0_-1))) (and (and (= (select (select |#memory_int_-1| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem15_6|) (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem15_6|))) (or (not (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1)) (= (select (select |#memory_int_-1| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) |test_fun_#t~mem15_6|))))
-(and (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (- 1) oldRank0_-1))) (and (or (= (select (select |#memory_int_7| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (and (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1) (or (or (not (= (select |#memory_int_7| test_fun_~y_ref~2.base_-1) (select |#memory_int_7| test_fun_~x_ref~2.base_-1))) (= (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1))) (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1))))))) (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (= (select (select |#memory_int_7| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)))))
-(and (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (- 1) oldRank0_-1))) (and (or (= (select (select |#memory_int_7| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (and (= test_fun_~x_ref~2.base_-1 test_fun_~y_ref~2.base_-1) (or (or (not (= (select |#memory_int_7| test_fun_~y_ref~2.base_-1) (select |#memory_int_7| test_fun_~x_ref~2.base_-1))) (= (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1))) (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1))))))) (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (= (select (select |#memory_int_7| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (or (not (= test_fun_~c~2.offset_-1 test_fun_~y_ref~2.offset_-1)) (<= 0 (+ (- 1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (+ |test_fun_#t~mem18_8| oldRank0_-1))))))))))
+(and (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (- 1) oldRank0_-1))) (and (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1)))) (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1)))) (<= 0 (+ (- 1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (+ (select (select |#memory_int_7| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) oldRank0_-1))))))))
+(and (and (not (= test_fun_~x_ref~2.base_-1 test_fun_~c~2.base_-1)) (<= 0 (+ (- 1) oldRank0_-1))) (and (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~y_ref~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1)))) (or (not (= test_fun_~y_ref~2.base_-1 test_fun_~c~2.base_-1)) (and (<= 0 (+ (- 1) (+ (select (select |#memory_int_7| test_fun_~c~2.base_-1) test_fun_~y_ref~2.offset_-1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) oldRank0_-1)))) (or (<= 0 (+ (- 1) (+ (* (- 1) (select (select |#memory_int_7| test_fun_~x_ref~2.base_-1) test_fun_~x_ref~2.offset_-1)) (+ |test_fun_#t~mem18_8| oldRank0_-1)))) (not (= test_fun_~c~2.offset_-1 test_fun_~y_ref~2.offset_-1))))))))
 Loading modelConstructionBug.smt2 ...
 unsat
 sat
@@ -567,6 +503,16 @@ sat
 (((or (not (<= 0 (+ c13 (- 1)))) (<= 0 (+ c5 (- 1)))) true))
 sat
 (((or (not (<= 0 (+ c13 (- 1)))) (<= 0 (+ c5 (- 1)))) true))
+Loading simplify.smt2 ...
+(= (* 7 z) (* 5 y))
+(and (<= 0 (+ (* (- 7) lo) (* 5 hi))) (and (and (and (or (or (<= 0 (+ 20 (+ (* 7 lo) (* (- 5) hi)))) (<= 0 (+ (- 28) (+ (* (- 7) lo) (* 5 hi))))) (or (or (or (exists ((var0 Int)) (= (+ (* 5 var0) lo) 2)) (exists ((var0 Int)) (= (+ (* 5 var0) lo) (- 2)))) (exists ((var0 Int)) (= (+ (* 5 var0) lo) (- 1)))) (exists ((var0 Int)) (= lo (* (- 5) var0))))) (or (or (<= 0 (+ 13 (+ (* 7 lo) (* (- 5) hi)))) (<= 0 (+ (- 21) (+ (* (- 7) lo) (* 5 hi))))) (or (or (exists ((var0 Int)) (= (+ (* 5 var0) lo) (- 2))) (exists ((var0 Int)) (= (+ (* 5 var0) lo) (- 1)))) (exists ((var0 Int)) (= lo (* (- 5) var0)))))) (or (or (<= 0 (+ 6 (+ (* 7 lo) (* (- 5) hi)))) (<= 0 (+ (- 14) (+ (* (- 7) lo) (* 5 hi))))) (or (exists ((var0 Int)) (= (+ (* 5 var0) lo) (- 1))) (exists ((var0 Int)) (= lo (* (- 5) var0)))))) (or (<= 0 (+ (- 7) (+ (* (- 7) lo) (* 5 hi)))) (exists ((var0 Int)) (= lo (* (- 5) var0))))))
+Loading simplify2.smt2 ...
+(or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (or (= x (_ bv125 7)) (= x (_ bv123 7))) (= x (_ bv121 7))) (= x (_ bv119 7))) (= x (_ bv117 7))) (= x (_ bv115 7))) (= x (_ bv113 7))) (= x (_ bv111 7))) (= x (_ bv109 7))) (= x (_ bv107 7))) (= x (_ bv105 7))) (= x (_ bv103 7))) (= x (_ bv101 7))) (= x (_ bv99 7))) (= x (_ bv97 7))) (= x (_ bv95 7))) (= x (_ bv93 7))) (= x (_ bv91 7))) (= x (_ bv89 7))) (= x (_ bv87 7))) (= x (_ bv85 7))) (= x (_ bv83 7))) (= x (_ bv81 7))) (= x (_ bv79 7))) (= x (_ bv77 7))) (= x (_ bv75 7))) (= x (_ bv73 7))) (= x (_ bv71 7))) (= x (_ bv69 7))) (= x (_ bv67 7))) (= x (_ bv65 7))) (= x (_ bv63 7))) (= x (_ bv61 7))) (= x (_ bv59 7))) (= x (_ bv57 7))) (= x (_ bv55 7))) (= x (_ bv53 7))) (= x (_ bv51 7))) (= x (_ bv49 7))) (= x (_ bv47 7))) (= x (_ bv45 7))) (= x (_ bv43 7))) (= x (_ bv41 7))) (= x (_ bv39 7))) (= x (_ bv37 7))) (= x (_ bv35 7))) (= x (_ bv33 7))) (= x (_ bv31 7))) (= x (_ bv29 7))) (= x (_ bv27 7))) (= x (_ bv25 7))) (= x (_ bv23 7))) (= x (_ bv21 7))) (= x (_ bv19 7))) (= x (_ bv17 7))) (= x (_ bv15 7))) (= x (_ bv13 7))) (= x (_ bv11 7))) (= x (_ bv9 7))) (= x (_ bv7 7))) (= x (_ bv5 7))) (= x (_ bv3 7))) (= x (_ bv1 7))) (bvule (_ bv127 7) x))
+Loading simplify3.smt2 ...
+(exists ((var0 (Array Int Bool))) (and (select var0 k) (and (not (= v i)) (not (select var0 v)))))
+(= i k)
+(not (= (select b k) v))
+(or (not (= iOuter kOuter)) (and (not (= v 7)) (= iInner kInner)))
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

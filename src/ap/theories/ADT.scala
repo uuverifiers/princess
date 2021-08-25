@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.theories
@@ -168,12 +180,13 @@ object ADT {
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       if (adtTheory.isEnum(sortNum)) {
-        val index = d.intValueSafe
         val ctors = adtTheory.constructorsPerSort(sortNum)
-        if (0 <= index && index < ctors.size)
-          Some(IFunApp(ctors(index), List()))
-        else
-          None
+        d match {
+          case IdealInt(index) if 0 <= index && index < ctors.size =>
+            Some(IFunApp(ctors(index), List()))
+          case _ =>
+            None
+        }
       } else {
         assignment get ((d, this))
       }
@@ -284,6 +297,35 @@ object ADT {
     (adt.sorts.head, adt.constructors.head, adt.selectors.head.toIndexedSeq)
   }
 
+  /**
+   * Create an ADT that implements lists. The return tuple provides the
+   * list sort, and the functions for nil, cons, head, tail. If the
+   * <code>withSize</code> option is set, the last returned function is the
+   * size function of the ADT; it computes the number of constructor symbols
+   * of a term.
+   */
+  def createListType(name : String, elementSort : Sort,
+                     withSize : Boolean = false)
+                  : (Sort,                    // list sort
+                     IFunction, IFunction,    // nil, cons
+                     IFunction, IFunction,    // head, tail
+                     Option[IFunction]) = {   // size
+    val adt =
+      new ADT (List(name),
+               List((name + "_nil",
+                     ADT.CtorSignature(List(), ADT.ADTSort(0))),
+                    (name + "_cons",
+                     ADT.CtorSignature(
+                       List((name + "_head", ADT.OtherSort(elementSort)),
+                            (name + "_tail", ADT.ADTSort(0))),
+                       ADT.ADTSort(0)))),
+               measure = if (withSize) TermMeasure.Size else TermMeasure.RelDepth)
+    (adt.sorts.head,
+     adt.constructors(0), adt.constructors(1),
+     adt.selectors(1)(0), adt.selectors(1)(1),
+     if (withSize) Some(adt.termSize.head) else None)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -344,6 +386,88 @@ object ADT {
           }
           case _ => None
       }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The preprocessor can sometimes cause solution formulas that are
+   * illegal according to SMT-LIB because they contain the
+   * <code>ADT.CtorId</code> functions in wrong places. This class
+   * rewrites such formulas to only use CtorId functions in equations
+   * <code>ctorId(t) = num</code>.
+   */
+  object CtorIdRewriter extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      t match {
+        case LeafFormula(t) => {
+          // check whether there are any ctorid terms that we have to extract
+          val collector = new CtorIdCollector
+          val newT = collector(t)
+
+          collector.foundFunApp match {
+            case null => {
+              KeepArg
+            }
+            case funapp => {
+              val const = collector.faConst
+              val sort  = ap.types.Sort sortOf funapp
+              TryAgain(
+                or(for (n <- sort.individuals.iterator) yield {
+                     (funapp === n) &&&
+                     SimplifyingConstantSubstVisitor(newT, Map(const -> n))
+                   }),
+                arg)
+            }
+          }
+        }
+        case _ =>
+          KeepArg
+      }
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+  }
+
+  private class CtorIdCollector
+          extends CollectingVisitor[(Boolean, Boolean), IExpression] {
+    import IExpression._
+
+    var foundFunApp : IFunApp = _
+    var faConst : ConstantTerm = _
+
+    def apply(f : IFormula) : IFormula =
+      this.visit(f, (true, false)).asInstanceOf[IFormula]
+
+    override def preVisit(t : IExpression,
+                          ctxt : (Boolean, Boolean)) : PreVisitResult =
+    t match {
+      case Eq(_, Const(_)) | Eq(Const(_), _) =>
+        UniSubArgs((false, true))
+      case t@IFunApp(ADT.CtorId(adt, num), _)
+          if foundFunApp == null && !ctxt._2 => {
+        foundFunApp = t
+        faConst = adt.ctorIds(num).resSort newConstant "fa"
+        ShortCutResult(faConst)
+      }
+      case t : IFunApp if foundFunApp == t =>
+        ShortCutResult(faConst)
+      case t : ITerm =>
+        UniSubArgs((false, false))
+      case t : IFormula =>
+        // only descend into the first level of formulae
+        if (ctxt._1) UniSubArgs((false, false)) else ShortCutResult(t)
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : (Boolean, Boolean),
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+
   }
 
 }
@@ -719,9 +843,10 @@ class ADT (sortNames : Seq[String],
    * constructor term
    */
   val ctorIds : IndexedSeq[MonoSortedIFunction] =
-    for (sort <- sorts)
+    for ((sort, ctors) <- sorts zip globalCtorIdsPerSort)
     yield new MonoSortedIFunction(sort.name + "_ctor",
-                                  List(sort), Sort.Integer,
+                                  List(sort),
+                                  Sort.Interval(Some(0), Some(ctors.size - 1)),
                                   true, false)
 
   /**
@@ -780,6 +905,14 @@ class ADT (sortNames : Seq[String],
    */
   def getCtorPerSort(sortNum : Int, ctorNum : Int) : MonoSortedIFunction =
     constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
+
+  /**
+   * List the constructors belonging to each sort; the constructors
+   * are identified with the position of a constructor in the sequence
+   * <code>ctorSignatures</code>.
+   */
+  def ctorIdsPerSort : IndexedSeq[IndexedSeq[Int]] =
+    globalCtorIdsPerSort map (_.toIndexedSeq)
 
   /**
    * The sort <code>sorts(n)</code> belonging to the constructor
@@ -1314,8 +1447,13 @@ class ADT (sortNames : Seq[String],
   override def isSoundForSat(
          theories : Seq[Theory],
          config : Theory.SatSoundnessConfig.Value) : Boolean =
-    Set(Theory.SatSoundnessConfig.Elementary,
-        Theory.SatSoundnessConfig.Existential) contains config
+    config match {
+      case Theory.SatSoundnessConfig.Elementary
+         | Theory.SatSoundnessConfig.Existential =>
+        true
+      case Theory.SatSoundnessConfig.General =>
+        !(isEnum contains false)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 

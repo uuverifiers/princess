@@ -6,7 +6,8 @@ PRI=../../princess
 
 TESTS="simple-heap.smt2 \
        bug-model-1.smt2 \
-       read-interpolation.smt2"
+       read-interpolation.smt2 \
+       simple-heap-allocAddr.smt2"
 
 $PRI "$@" $TESTS
 

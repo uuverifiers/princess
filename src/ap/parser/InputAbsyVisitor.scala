@@ -3,25 +3,37 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.parser;
 
-import IExpression.{ConstantTerm, Predicate}
+import IExpression.{ConstantTerm, Predicate, Sort}
 import ap.terfor.conjunctions.Quantifier
 import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
@@ -606,6 +618,49 @@ class UniformSubstVisitor(subst : CMap[Predicate, IFormula])
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Visitor to replace occurrences of one expression with another expression.
+ */
+object ExpressionReplacingVisitor
+       extends CollectingVisitor[(IExpression, IExpression), IExpression] {
+
+  def apply(f : IFormula,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith)).asInstanceOf[IFormula]
+
+  def apply(f : ITerm,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith)).asInstanceOf[ITerm]
+
+  def apply(f : IExpression,
+            replaced : IExpression, replaceWith : IExpression) =
+    visit(f, (replaced, replaceWith))
+
+  override def preVisit(t : IExpression,
+                        arg : (IExpression, IExpression)) : PreVisitResult =
+    t match {
+      case t : IVariableBinder =>
+        UniSubArgs((IExpression.shiftVars(arg._1, 0, 1),
+                    IExpression.shiftVars(arg._2, 0, 1)))
+      case _ =>
+        KeepArg
+    }
+    
+  def postVisit(t : IExpression,
+                arg : (IExpression, IExpression),
+                subres : Seq[IExpression]) : IExpression = {
+    val res = t update subres
+    if (res == arg._1)
+      arg._2
+    else
+      res
+  }
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 abstract class AbstractVariableSubstVisitor
                extends CollectingVisitor[(List[ITerm], Int), IExpression] {
   def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =
@@ -823,6 +878,16 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
   def freeFromVariableIndex(t : IExpression, indexes : Set[Int]) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case v : IVariable => indexes contains v.index
+       case _ => false
+     })
+
+  /**
+   * Check that given expression only contains variables with index at
+   * least <code>threshold</code>.
+   */
+  def allVariablesAtLeast(t : IExpression, threshold : Int) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case v : IVariable => v.index < threshold
        case _ => false
      })
   
@@ -1286,7 +1351,7 @@ object Transform2Prenex {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, quantifierNum == v.quantifiersToAdd.size)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      IExpression.quan(v.quantifiersToAdd, quantifierFree)
+      IExpression.quanWithSorts(v.quantifiersToAdd.reverse, quantifierFree)
     }
 }
 
@@ -1297,7 +1362,7 @@ class Transform2Prenex private (finalQuantifierNum : Int,
                                 consideredQuantifiers : Set[Quantifier])
       extends ContextAwareVisitor[List[IVariable], IExpression] {
 
-  private val quantifiersToAdd = new ArrayBuffer[Quantifier]
+  private val quantifiersToAdd = new ArrayBuffer[(Quantifier, Sort)]
 
   override def preVisit(t : IExpression,
                         context : Context[List[IVariable]])
@@ -1311,7 +1376,7 @@ class Transform2Prenex private (finalQuantifierNum : Int,
         val newVars =
           IVariable(finalQuantifierNum - quantifiersToAdd.size - 1,
                     sort) :: context.a
-        quantifiersToAdd += realQuan
+        quantifiersToAdd += ((realQuan, sort))
         super.preVisit(t, context(newVars))
       } else {
         // Don't look underneath this quantifier. We still have to substitute

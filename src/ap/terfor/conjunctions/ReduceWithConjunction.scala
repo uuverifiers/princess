@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.terfor.conjunctions;
@@ -209,7 +221,24 @@ object ReduceWithConjunction {
                             newNegConjs : NegatedConjunctions,
                             order : TermOrder) : Conjunction =
     quans.headOption match {
+
+      case Some(Quantifier.EX)
+        if (newArithConj.isLiteral &&
+              newPredConj.isTrue &&
+              newNegConjs.isTrue &&
+              newArithConj.positiveEqs.size == 1 &&
+              newArithConj.positiveEqs.head.leadingTerm == VariableTerm(0)) => {
+
+          val res = normDivisibilityConstraint(quans, newArithConj, order)
+          if (oldConj != null && res == oldConj)
+            oldConj
+          else
+            res
+        }
+
       case Some(Quantifier.EX) => {
+        // Try to eliminate literals
+
         var eliminableVars : Set[Term] = Set()
     
         val quansSize = quans.size
@@ -256,15 +285,20 @@ object ReduceWithConjunction {
         }
       }
       
+      // Check whether the negated version of a quantified literal can be
+      // simplified further
       case Some(Quantifier.ALL)
-        if (newArithConj.isLiteral && newPredConj.isTrue && newNegConjs.isTrue) => {
+          if (newArithConj.isLiteral &&
+                newPredConj.isTrue &&
+                newNegConjs.isTrue) => {
 
           // TODO: in which cases can this really work?
 
           val res =
             constructConj(null,
                           for (q <- quans) yield q.dual,
-                          newArithConj.negate, PredConj.TRUE, NegatedConjunctions.TRUE,
+                          newArithConj.negate,
+                          PredConj.TRUE, NegatedConjunctions.TRUE,
                           order).negate
           if (oldConj != null && res == oldConj)
             oldConj
@@ -272,8 +306,12 @@ object ReduceWithConjunction {
             res
       }
       
+      // Check whether the negated version of a quantified literal can be
+      // simplified further
       case Some(Quantifier.ALL)
-        if (newArithConj.isTrue && newPredConj.isTrue && newNegConjs.size == 1) => {
+          if (newArithConj.isTrue &&
+                newPredConj.isTrue &&
+                newNegConjs.size == 1) => {
 
           // TODO: in which cases can this really work?
 
@@ -282,7 +320,8 @@ object ReduceWithConjunction {
           val res =
             constructConj(null,
                           subConj.quans ++ (for (q <- quans) yield q.dual),
-                          subConj.arithConj, subConj.predConj, subConj.negatedConjs,
+                          subConj.arithConj,
+                          subConj.predConj, subConj.negatedConjs,
                           order).negate
 
           if (oldConj != null && res == oldConj)
@@ -292,8 +331,55 @@ object ReduceWithConjunction {
       }
       
       case _ =>
-        createConj(oldConj, quans, newArithConj, newPredConj, newNegConjs, order)
+        createConj(oldConj, quans,
+                   newArithConj, newPredConj, newNegConjs, order)
     }
+
+  private def normDivisibilityConstraint(quans : Seq[Quantifier],
+                                         arithConj : ArithConj,
+                                         order : TermOrder)
+                                       : Conjunction = {
+    val eq = arithConj.positiveEqs.head
+
+    if (eq.leadingCoeff.isUnit) {
+      // This literal can directly be eliminated
+      Conjunction.TRUE
+    } else {
+      // Try to simplify the divisibility constraint
+
+      val newEq  = normDivisibilityLC(eq, order)
+      val newEqs = EquationConj(newEq, order)
+
+      if (newEqs.head.leadingCoeff.isUnit) {
+        Conjunction.TRUE
+      } else {
+        val newAC = arithConj.updatePositiveEqs(newEqs)(order)
+        Conjunction(quans, newAC, PredConj.TRUE,
+                    NegatedConjunctions.TRUE,
+                    order)
+      }
+    }
+  }
+
+  private def normDivisibilityLC(eq1 : LinearCombination, order : TermOrder)
+                               : LinearCombination = {
+    val eq2 = eq1.moduloLeadingCoeff
+
+    // ensure that the leading coefficient and the coefficient of the
+    // second term have different signs
+    val eq3 =
+      if (eq2.size >= 2 &&
+            eq2.leadingCoeff > IdealInt(2) &&
+            (eq2 getCoeff 1).signum < 0) {
+        val it = eq2.pairIterator
+        val (c, t) = it.next
+        LinearCombination.createFromSortedSeq(Iterator((-c, t)) ++ it, order)
+      } else {
+        eq2
+      }
+
+    eq3
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

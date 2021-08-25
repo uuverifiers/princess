@@ -6,18 +6,30 @@
  * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.parser;
@@ -67,7 +79,8 @@ object SMTParser2InputAbsy {
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
-    val theory = ExtArray(arguments map (_.toSort), result.toSort)
+    val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
+                          toNormalBool(result.toSort))
     def toSort = theory.sort
   }
   case class SMTBitVec(width : Int)                extends SMTType {
@@ -102,6 +115,11 @@ object SMTParser2InputAbsy {
   case class SMTRegLan(sort : TSort)               extends SMTType {
     def toSort = sort
     override def toString = "RegLan"
+  }
+
+  private def toNormalBool(s : TSort) : TSort = s match {
+    case TSort.MultipleValueBool => TSort.Bool
+    case s => s
   }
 
   case class SMTFunctionType(arguments : List[SMTType],
@@ -166,6 +184,7 @@ object SMTParser2InputAbsy {
     private val LParen : Int     = '('
     private val RParen : Int     = ')'
     private val Quote : Int      = '"'
+    private val SQuote : Int     = '\''
     private val Pipe : Int       = '|'
     private val Semicolon : Int  = ';'
     private val Backslash : Int  = '\\'
@@ -202,6 +221,11 @@ object SMTParser2InputAbsy {
               read = read + 1
               state = 1
             }
+            case SQuote => {
+              cbuf(off + read) = SQuote.toChar
+              read = read + 1
+              state = 2
+            }
             case Pipe => {
               cbuf(off + read) = Pipe.toChar
               read = read + 1
@@ -223,12 +247,8 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // process a double-quoted string "..."
           case 1 => input.read match {
-            case Backslash => {
-              cbuf(off + read) = Backslash.toChar
-              read = read + 1
-              state = 2
-            }
             case Quote => {
               cbuf(off + read) = Quote.toChar
               read = read + 1
@@ -246,20 +266,26 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // process a single-quoted string '...'
           case 2 => input.read match {
+            case SQuote => {
+              cbuf(off + read) = SQuote.toChar
+              read = read + 1
+              state = 0
+            }
+            case CR => // nothing, read next character
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
               state = 7
             }
-            case CR => // nothing, read next character
             case next => {
               cbuf(off + read) = next.toChar
               read = read + 1
-              state = 1
             }
           }
 
+          // parse a quoted identified |...|
           case 3 => input.read match {
             case Pipe => {
               cbuf(off + read) = Pipe.toChar
@@ -278,6 +304,7 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // parse a comment ;...
           case 4 => input.read match {
             case LF => {
               cbuf(off + read) = LF.toChar
@@ -296,12 +323,14 @@ object SMTParser2InputAbsy {
             }
           }
 
+          // output (
           case 5 => {
             cbuf(off + read) = LParen.toChar
             read = read + 1
             state = 6
           }
 
+          // output )
           case 6 => {
             cbuf(off + read) = RParen.toChar
             read = read + 1
@@ -591,6 +620,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   def constantTypeMap : Map[ConstantTerm, SMTType] =
     (for (Environment.Constant(c, _, t) <- env.symbols) yield (c -> t)).toMap
 
+  def predicateTypeMap : Map[Predicate, SMTFunctionType] =
+    (for (Environment.Predicate(p, _, t) <- env.symbols) yield (p -> t)).toMap
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -615,8 +647,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
     val expr = parseWithEntry(input, env, entry _)
     translateTerm(expr, -1) match {
-      case p@(_, SMTBool)    => asFormula(p)
-      case p@(_, SMTInteger) => asTerm(p)
+      case p@(_, SMTBool) => asFormula(p)
+      case p => asTerm(p)
     }
   }
 
@@ -1366,10 +1398,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           resType match {
             case SMTBool =>
               functionDefs =
-                functionDefs + (f -> (prover abbrev asFormula(body), SMTBool))
+                functionDefs + (f -> (prover.abbrev(asFormula(body), name),
+                                      SMTBool))
             case t =>
               functionDefs =
-                functionDefs + (f -> (prover abbrev asTerm(body), t))
+                functionDefs + (f -> (prover.abbrev(asTerm(body), name), t))
           }
         } else {
           // set up a defining equation and formula
@@ -1539,6 +1572,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
 
         success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : SimplifyCommand => {
+        checkIncremental("simplify")
+        checkNotExtracting("simplify")
+        val f = asFormula(translateTerm(cmd.term_, -1))
+        try {
+          val simpF = prover.withTimeout(timeoutPer) { prover simplify f }
+          smtLinearise(simpF)
+          println
+        } catch {
+          case SimpleAPI.TimeoutException =>
+            error("timeout while simplifying expression")
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -2601,7 +2650,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
-    case PlainSymbol("str.from.char") =>
+    case PlainSymbol("str.from.char" | "str.from_char") =>
       (translateStringFun(stringTheory.str_from_char, args,
                           List(charType)), stringType)
 
@@ -2619,10 +2668,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
 
-    case PlainSymbol("str.to.int") =>
+    case PlainSymbol("str.to.int" | "str.to_int") =>
       (translateStringFun(stringTheory.str_to_int, args,
                           List(stringType)), SMTInteger)
-    case PlainSymbol("int.to.str") =>
+    case PlainSymbol("int.to.str" | "int.to_str" | "str.from_int") =>
       (translateStringFun(stringTheory.int_to_str, args,
                           List(SMTInteger)), stringType)
 
@@ -2631,7 +2680,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.to_re" | "str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
                           List(stringType)), regexType)
-    case PlainSymbol("re.from.str") =>
+    case PlainSymbol("re.from.str" | "re.from_str") =>
       (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
@@ -2755,8 +2804,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        stringType)
     }
 
-    // str.to-int, str.from-int
-
     case PlainSymbol(id)
       if usingStrings && (stringTheory.extraOps contains id) =>
       stringTheory.extraOps(id) match {
@@ -2848,6 +2895,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
                           polarity : Int) : IFormula =
     t match {
+      /*
       case s@SMTArray(argTypes, resType) if (polarity > 0) => {
         val arity = argTypes.size
         val theory = s.theory
@@ -2861,6 +2909,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         quan(for (_ <- 0 until arity) yield Quantifier.ALL, matrix)
       }
+       */
 
       case SMTBool =>
         eqZero(a) <=> eqZero(b)
@@ -3729,8 +3778,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // Some of the heap functions are overloaded, and have to be handled
     // directly in symApp: alloc, read, write, valid
 
-    for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.nullAddr,
-                     heap.counter, heap.nthAddr)) {
+    for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.allocAddr,
+                     heap.nullAddr,  heap.counter, heap.nthAddr)) {
       val smtArgSorts = (for (arg <- fun.argSorts) yield
         SMTLineariser.sort2SMTType(arg)._1).toList
       env.addFunction(fun, SMTFunctionType(smtArgSorts,

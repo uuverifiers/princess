@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap
@@ -1892,17 +1904,30 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Extract assertions and declared symbols in an SMT-LIB script.
-   * Symbols declared in the script will
-   * be added to the prover; however, if the prover already knows about
-   * symbols with the same name, they will be reused.
+   * Symbols declared in the script will be added to the prover;
+   * however, if the prover already knows about symbols with the same
+   * name, they will be reused. If option <code>fullyInline</code> is
+   * set, let-definitions and defined functions will be inlined in the
+   * extracted formulas.
    */
-  def extractSMTLIBAssertionsSymbols(input : java.io.Reader)
+  def extractSMTLIBAssertionsSymbols(input : java.io.Reader,
+                                     fullyInline : Boolean = false)
              : (Seq[IFormula],
-                Map[IFunction, SMTParser2InputAbsy.SMTFunctionType],
-                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType]) = {
+                Map[IFunction,                SMTParser2InputAbsy.SMTFunctionType],
+                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType],
+                Map[IExpression.Predicate,    SMTParser2InputAbsy.SMTFunctionType]) = {
     val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    if (fullyInline) {
+      val options =
+        "(set-option :inline-size-limit " + Int.MaxValue + ")" +
+        "(set-option :inline-let true)" +
+        "(set-option :inline-definitions true)"
+      val reader =
+        new java.io.StringReader(options)
+      parser.extractAssertions(reader)
+    }
     val res = parser.extractAssertions(input)
-    (res, parser.functionTypeMap, parser.constantTypeMap)
+    (res, parser.functionTypeMap, parser.constantTypeMap, parser.predicateTypeMap)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2593,21 +2618,31 @@ class SimpleAPI private (enableAssert : Boolean,
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // the following assertions are quite expensive; in case of theories,
+    // they might also fail, because quantifier elimination or the
+    // reducer could rely on further unspecified theory axioms (TODO)
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
       ((List(Conjunction.TRUE) ++ interpolants ++ List(Conjunction.FALSE))
           .sliding(2) zip partitions.iterator) forall {
         case (Seq(left, right), names) => {
-          val transitionFors =
-            for ((f, n) <- formulaeInProver;
-                 if (n < 0 || (names contains n))) yield f.negate
-          val theoryAxioms =
-            currentSimpCertificate.theoryAxioms map (_.toConj)
-          val condition =
-            Conjunction.implies(Conjunction.conj(
-                                  transitionFors ++ theoryAxioms ++ List(left),
-                                  currentOrder),
-                                right, currentOrder)
-          interpolantImpIsValid(condition)
+          val withTheories =
+            currentSimpCertificate.assumedFormulas exists {
+              f => PresburgerTools.containsTheories(f.toFormula) }
+          if (withTheories) {
+            true
+          } else {
+            val transitionFors =
+              for ((f, n) <- formulaeInProver;
+                   if (n < 0 || (names contains n))) yield f.negate
+            val theoryAxioms =
+              currentSimpCertificate.theoryAxioms map (_.toConj)
+            val condition =
+              Conjunction.implies(Conjunction.conj(
+                                   transitionFors ++ theoryAxioms ++ List(left),
+                                   currentOrder),
+                                  right, currentOrder)
+            interpolantImpIsValid(condition)
+          }
         }
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -2712,6 +2747,9 @@ class SimpleAPI private (enableAssert : Boolean,
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // the following assertions are quite expensive; in case of theories,
+    // they might also fail, because quantifier elimination or the
+    // reducer could rely on further unspecified theory axioms (TODO)
     def verifyInts(names : Tree[Set[Int]],
                    ints : Tree[Conjunction]) : Boolean = {
       val transitionFors =
@@ -2729,8 +2767,12 @@ class SimpleAPI private (enableAssert : Boolean,
          case (n, c) => verifyInts(n, c)
        })
     }
-    Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
-                         verifyInts(partitions, rawInterpolants))
+    val withTheories =
+      currentSimpCertificate.assumedFormulas exists {
+        f => PresburgerTools.containsTheories(f.toFormula) }
+    if (!withTheories)
+      Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
+                           verifyInts(partitions, rawInterpolants))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     interpolants
@@ -2871,6 +2913,32 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * After receiving the result <code>ProverStatus.Unsat</code> or
+   * <code>ProverStates.Valid</code> for a problem that contains
+   * existential constants, return the negation of a (satisfiable)
+   * constraint over the existential constants that describes
+   * satisfying assignments of the existential constants.
+   */
+  def getNegatedConstraint : IFormula = {
+    doDumpSMT {
+      println("; (get-negated-constraint)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getNegatedConstraint)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (needExhaustiveProver)
+      processConstraint(Conjunction.negate(currentConstraint, currentOrder))
+    else
+      IBoolLit(false)
+  }
+
+  /**
    * After receiving the result
    * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
    * for a problem that contains existential constants, return a (satisfiable)
@@ -2935,8 +3003,13 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (f)
         ??? match {
-          case ProverStatus.Valid   => getConstraint
-          case ProverStatus.Invalid => IBoolLit(false)
+          case ProverStatus.Valid =>
+            getConstraint
+          case ProverStatus.Invalid =>
+            IBoolLit(false)
+          case ProverStatus.Inconclusive =>
+            throw new SimpleAPIException(
+              "Could not project formula, possibly because of theories")
         }
     } else {
       // formula that we cannot project at the moment
@@ -2963,8 +3036,13 @@ class SimpleAPI private (enableAssert : Boolean,
         setMostGeneralConstraints(true)
         ?? (~f)
         ??? match {
-          case ProverStatus.Valid   => ~getConstraint
-          case ProverStatus.Invalid => IBoolLit(true)
+          case ProverStatus.Valid =>
+            getNegatedConstraint
+          case ProverStatus.Invalid =>
+            IBoolLit(true)
+          case ProverStatus.Inconclusive =>
+            throw new SimpleAPIException(
+              "Could not project formula, possibly because of theories")
         }
     } else {
       // formula that we cannot project at the moment
@@ -2979,35 +3057,51 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Simplify a formula by eliminating quantifiers.
    */
-  def simplify(f : IFormula) : IFormula =
-    if (!(ContainsSymbol isPresburgerBVWithPreds f)) {
+  def simplify(f : IFormula) : IFormula = scope {
+    import IExpression._
+
+    // Need to replace free variables in the formula with constants
+    val variables = SymbolCollector variables f
+
+    val maxInd =
+      if (variables.isEmpty)
+        -1
+      else
+        (for (IVariable(ind) <- variables) yield ind).max
+
+    val sorts = Array.fill[Sort](maxInd + 1)(Sort.Integer)
+
+    for (ISortedVariable(ind, s) <- variables)
+      sorts(ind) = s
+
+    val constants = (for (s <- sorts) yield createConstant("X", s)).toList
+    val substF    = VariableSubstVisitor(f, (constants, 0))
+
+    // New start the actual simplification
+
+    val simpF =
+    if (!(ContainsSymbol isPresburgerBVWithPreds substF)) {
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
-      // TODO: this won't work if the formula contains theories
-      // that are not yet loaded
+      theoryCollector(substF)
+      addTheoryAxioms
+      processInterpolant(asConjunction(substF))
 
-      processInterpolant(asConjunction(f))
-
-    } else if ((ContainsSymbol isPresburgerBV f) &&
-               (ContainsSymbol isClosed f)) {
+    } else if ((ContainsSymbol isPresburgerBV substF) &&
+               (ContainsSymbol isClosed substF)) {
       // Simplest case, pure Presburger or bit-vector formula
 
       val consts =
-        for (c <- SymbolCollector constantsSorted f) yield IConstant(c)
-      projectAll(f, consts)
+        for (c <- SymbolCollector constantsSorted substF) yield IConstant(c)
 
-    } else scope {
-      import IExpression._
+      if (!(QuantifierCollectingVisitor(substF) contains
+              IExpression.Quantifier.ALL))
+        projectEx(substF, consts)
+      else
+        projectAll(substF, consts)
 
-      // Need to replace free variables in the formula with constants
-      val maxInd =
-        ((Iterator single -1) ++
-         (for (IVariable(v) <- (SymbolCollector variables f).iterator)
-          yield v)).max
-      val subst = createConstants("X", 0 until (maxInd + 1)).toList
-
-      val substF = VariableSubstVisitor(f, (subst, 0))
+    } else {
 
       // Replace remaining predicates in the formula with new constants
       val replacedAtoms = new MHashMap[IAtom, ConstantTerm]
@@ -3032,19 +3126,27 @@ class SimpleAPI private (enableAssert : Boolean,
 
       val allConsts =
         for (c <- SymbolCollector constantsSorted substF2) yield IConstant(c)
-      val res = projectAll(substF2, allConsts)
+
+      val res =
+        if (!(QuantifierCollectingVisitor(substF2) contains
+                IExpression.Quantifier.ALL))
+          projectEx(substF2, allConsts)
+        else
+          projectAll(substF2, allConsts)
 
       // substitute back predicates
       val backSubst =
         (for ((f, c) <- replacedAtoms.iterator) yield (c -> ite(f, 0, 1))).toMap
-      val res2 = SimplifyingConstantSubstVisitor(res, backSubst)
-
-      // substitute back variables
-      val backSubst2 =
-        (for ((IConstant(c), n) <- subst.iterator.zipWithIndex)
-         yield (c, IVariable(n))).toMap
-      ConstantSubstVisitor(res2, backSubst2)
+      SimplifyingConstantSubstVisitor(res, backSubst)
     }
+
+    // substitute back variables
+
+    val backSubst2 =
+      (for ((IConstant(c), n) <- constants.iterator.zipWithIndex)
+       yield (c, IVariable(n, sorts(n)))).toMap
+    ConstantSubstVisitor(simpF, backSubst2)
+  }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -3514,12 +3616,14 @@ class SimpleAPI private (enableAssert : Boolean,
     evalPartialHelp(c) getOrElse {
       // then we have to extend the model
     
-      if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
+      if (!(currentOrder.orderedPredicates forall (_.arity == 0)) ||
+          Sort.sortOf(c) != Sort.Integer) {
         // we assume 0 as default value, but have to store this value
         import TerForConvenience._
         implicit val o = order
         currentModel = currentModel & (c === 0)
         lastPartialModel = null
+        decoderDataCache.clear
       }
       
       IdealInt.ZERO

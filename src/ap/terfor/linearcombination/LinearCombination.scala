@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.terfor.linearcombination;
@@ -170,6 +182,21 @@ object LinearCombination {
       case lc : LinearCombination0 => Some(lc.constant)
       case _ => None
     }    
+  }
+
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are the
+   * difference between two non-constant terms; with the term with
+   * positive coefficient coming first.
+   */
+  object Difference {
+    def unapply(lc : LinearCombination) : Option[(Term, Term)] = lc match {
+      case lc : LinearCombination2
+          if lc.coeff0.isOne && lc.coeff1.isMinusOne && lc.constant.isZero =>
+        Some(lc.term0, lc.term1)
+      case _ =>
+        None
+    }
   }
   
   /**
@@ -975,14 +1002,32 @@ abstract sealed class LinearCombination (val order : TermOrder)
   /**
    * Reduce all coefficients of <code>this</code> with
    * <code>IdealInt.reduceAbs(this.leadingCoeff)</code> and return the quotient.
-   * This is supposed to be used for column operations when solving systems of
+   * This is used for column operations when solving systems of
    * linear equations.
    */
   def reduceWithLeadingCoeff : LinearCombination = {
     val lc = this.leadingCoeff
-    val quotientTerms = for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
-                        yield (c.reduceAbs(lc) _1, t)
+    val quotientTerms =
+      for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
+      yield (c.reduceAbs(lc) _1, t)
     LinearCombination.createFromSortedSeq(quotientTerms, order)
+  }
+
+  /**
+   * Reduce all coefficients but the coefficient of the leading term
+   * of <code>this</code> with
+   * <code>IdealInt.reduceAbs(this.leadingCoeff)</code> and return the
+   * remainder. This is used for simplifying divisibility constraints.
+   */
+  def moduloLeadingCoeff : LinearCombination = {
+    val lc       = this.leadingCoeff
+    val it       = this.pairIterator
+    val head     = it.next
+    val modTerms = for ((c, t) <- it;
+                        newC = c.reduceAbs(lc) _2;
+                        if !newC.isZero)
+                   yield (newC, t)
+    LinearCombination.createFromSortedSeq(Iterator(head) ++ modTerms, order)
   }
 
   //////////////////////////////////////////////////////////////////////////////

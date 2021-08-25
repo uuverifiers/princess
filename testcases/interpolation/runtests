@@ -43,7 +43,7 @@ $PRI "$@" -genTotalityAxioms $TESTS
 
 TESTS="pred-unify-bug.smt2 rule60_list2.c_false-unreach-call_1.cil.c.smt2 \
        function-bug3.smt2 simplifier.smt2 smtTyping.smt2 matchCheckBug.smt2 \
-       treeInterpolation1.smt2 treeInterpolation2.smt2 enum-interpolation.smt2"
+       treeInterpolation1.smt2 enum-interpolation.smt2 assertion-problem.smt2"
 
 $PRI "$@" +incremental $TESTS
 
@@ -54,6 +54,12 @@ TESTS="prp-2-17.pri prp-3-18.pri \
        adt-interpolation-unfold3.pri"
 
 $PRI "$@" -assert $TESTS
+
+# Testing some large examples for which we have to switch off assertions
+
+TESTS="treeInterpolation2.smt2"
+
+$PRI "$@" +incremental -assert $TESTS
 
 # We switch off quantifier elimination in interpolants for those
 # examples, as well as assertions (because just checking that

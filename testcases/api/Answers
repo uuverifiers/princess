@@ -98,7 +98,7 @@ Valid
 Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 
 -- Simplification, projection
-Project 5 < x & x < 2*y existentially to y: 3 < y
+Project 5 < x & x < 2*y existentially to y: y >= 4
 Project x > y | x < 0 universally to x: -1 >= x
 Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 Project x ==> y universally to y: y
@@ -206,6 +206,10 @@ SimpleAPITest11
 Inconclusive
 0
 
+SimpleAPITest12
+\exists int v0; x * v0 >= 1
+\exists int v0; x - v0 * _0 >= 1
+
 TestRat
 Rat_int(0)
 Rat_int(1)
@@ -248,6 +252,22 @@ Sat
 -- Test 9
 Sat
 {y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
+
+TestExtArray
+
+-- Test 1
+Some term: store(ar, x, 42)
+Sat
+Unsat
+
+-- Test 2
+Sat
+ar = store(const(0), 1, 1)
+ar2 = const(0)
+m.evalToTerm(ar): Some(store(const(0), 1, 1))
+m.evalToTerm(select(ar, 0)): Some(0)
+m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
 
 interpolation-bug.scala
 0: Unsat
@@ -554,6 +574,22 @@ Some(red)
 Some(red)
 Some(7)
 
+ADTTest5.scala
+Test 1
+Sat
+tuple(const(0))
+Sat
+tuple(const(0))
+tuple(const(0))
+Test 2
+Sat
+tuple(const(1))
+tuple(const(0))
+Test 3
+Sat
+tuple(store(const(0), 1, 11))
+tuple(const(0))
+
 pred-simplify.scala
 starting
 c = 4 & !p
@@ -596,7 +632,7 @@ Test 9
 Unsat
 Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
 Test 10
-!((b = 0.\as[bv[8]] & a = 255.\as[bv[8]]) | (a = 255.\as[bv[8]] & 244 >= b.\as[int] & b.\as[int] >= 1) | (a.\as[int] - b.\as[int] >= -1 & b.\as[int] >= 245))
+(b != 0.\as[bv[8]] | a != 255.\as[bv[8]]) & (a != 255.\as[bv[8]] | b.\as[int] >= 245 | 0 >= b.\as[int]) & (b.\as[int] - a.\as[int] >= 2 | 244 >= b.\as[int])
 
 TreeInterpolation.scala
 Unsat
@@ -670,7 +706,7 @@ Sat
 25: Some(true)
 26: true
 27: 1
-28: 1 < y.\as[int]
+28: y.\as[int] >= 2
 29: false
 
 simplifier-bug.scala
@@ -686,6 +722,19 @@ false
 ManyEqvs.scala
 Sat
 
+project-bug.scala
+true
+
+printBooleanTerm.scala
+true
+false
+(not true)
+(not false)
+true
+false
+(not true)
+(not false)
+
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat
@@ -694,3 +743,7 @@ x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
 x - y >= 1 & y - 50 >= 1
+
+ExtArrayCrash.scala
+Warning: arrays over finite domains are not fully supported yet
+Unsat

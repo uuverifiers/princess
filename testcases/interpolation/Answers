@@ -6,7 +6,7 @@ Found proof (size 4), simplifying (4), interpolating ...
 VALID
 
 Interpolants:
-\exists int v0; 2*v0 = x
+\exists int v0; x = -2*v0
 
 Loading cryptarithm.pri ...
 Preprocessing ...
@@ -146,7 +146,7 @@ Found proof (size 8), simplifying (8), interpolating ...
 VALID
 
 Interpolants:
-x1 + x2 >= 5 | (x1 + x2 = 4 & \exists int v0; 6*v0 - x2 = -1) | (x1 + x2 = 4 & \exists int v0; 6*v0 + x2 = 2) | (x1 + x2 >= 3 & \exists int v0; 6*v0 - x1 = -1) | (x1 + x2 >= 3 & \exists int v0; 6*v0 = x2) | (\exists int v0; 6*v0 - x1 = -2 & ((x1 + x2 = 3 & \exists int v0; 6*v0 - x2 = -1) | (x1 + x2 = 2 & \exists int v0; 6*v0 = x2))) | (\exists int v0; 6*v0 - x1 = -1 & ((x1 + x2 = 2 & \exists int v0; 6*v0 - x2 = -1) | (x1 + x2 = 1 & \exists int v0; 6*v0 = x2)))
+x1 + x2 >= 5 | (x1 + x2 = 4 & \exists int v0; 6*v0 + x2 = 2) | (x1 + x2 = 4 & \exists int v0; 6*v0 + x2 = 1) | (x1 + x2 >= 3 & \exists int v0; 6*v0 + x1 = 1) | (x1 + x2 >= 3 & \exists int v0; x2 = -6*v0) | (\exists int v0; 6*v0 + x1 = 2 & ((x1 + x2 = 3 & \exists int v0; 6*v0 + x2 = 1) | (x1 + x2 = 2 & \exists int v0; x2 = -6*v0))) | (\exists int v0; 6*v0 + x1 = 1 & ((x1 + x2 = 2 & \exists int v0; 6*v0 + x2 = 1) | (x1 + x2 = 1 & \exists int v0; x2 = -6*v0)))
 
 Loading int_incompleteness3.pri ...
 Preprocessing ...
@@ -156,7 +156,7 @@ Found proof (size 3), simplifying (3), interpolating ...
 VALID
 
 Interpolants:
-\exists int v0; 6*v0 + x1 = 8
+\exists int v0; 6*v0 + x1 = 2
 
 Loading pidgeon.pri ...
 Preprocessing ...
@@ -196,7 +196,7 @@ Found proof (size 8), simplifying (8), interpolating ...
 VALID
 
 Interpolants:
-a >= 3 | (a >= 0 & \exists int v0; 2*v0 = a)
+a >= 3 | (a >= 0 & \exists int v0; a = -2*v0)
 3*b >= a
 c - a >= 1
 
@@ -218,7 +218,7 @@ Found proof (size 19), simplifying (19), interpolating ...
 VALID
 
 Interpolants:
-\exists int v0; 2*v0 = a & (2*c + a - 6*b >= 2 | !p)
+\exists int v0; a = -2*v0 & (2*c + a - 6*b >= 2 | !p)
 
 Loading prop2.pri ...
 Preprocessing ...
@@ -451,7 +451,7 @@ Interpolants:
 Loading div-right-bug.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 16), simplifying (16), interpolating ...
+Found proof (size 15), simplifying (15), interpolating ...
 
 VALID
 
@@ -550,8 +550,8 @@ Found proof (size 18), simplifying (21), interpolating ...
 
 unsat
 (
-  (or (<= 0 (+ (- 1000) (bv2nat b))) (<= 0 (+ (* (- 1) (bv2nat b)) (bv2nat a))))
-  (<= 0 (+ (- 1000) (bv2nat b)))
+  (or (bvule (_ bv1000 16) b) (bvsle ((_ zero_extend 1) b) ((_ zero_extend 1) a)))
+  (bvule (_ bv1000 16) b)
 )
 
 Loading bv-interpolation-4.smt2 ...
@@ -561,8 +561,8 @@ Found proof (size 89), simplifying (110), interpolating ...
 
 unsat
 (
-  (and (<= 0 (+ (- 1) (bv2nat a))) (or (<= 0 (+ (- 1) (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (<= 0 (+ (- 128) (bv2nat b)))) (and (<= 0 (+ 254 (+ (* (- 2) (bv2nat b)) (bv2nat a)))) (<= 0 (+ (- 128) (bv2nat b)))))))
-  (and (and (<= 0 (+ 254 (* (- 1) (bv2nat a)))) (<= 0 (+ (- 1) (bv2nat a)))) (or (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) 255) (and (<= 0 (+ (- 1) (+ (bv2nat b) (* (- 1) (bv2nat a))))) (<= 0 (+ (- 128) (bv2nat b))))) (and (= (+ (* 2 (bv2nat b)) (* (- 1) (bv2nat a))) (- 1)) (<= 0 (+ 127 (+ (bv2nat b) (* (- 1) (bv2nat a))))))))
+  (and (bvule (_ bv1 8) a) (or (bvsle (_ bv1 11) (bvadd (bvmul (_ bv2046 11) ((_ zero_extend 3) b)) ((_ zero_extend 3) a))) (or (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv255 11)) (bvule (_ bv128 8) b)) (and (bvsle (_ bv1794 11) (bvadd (bvmul (_ bv2046 11) ((_ zero_extend 3) b)) ((_ zero_extend 3) a))) (bvule (_ bv128 8) b)))))
+  (and (and (bvule a (_ bv254 8)) (bvule (_ bv1 8) a)) (or (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv255 11)) (and (bvsle (_ bv1 10) (bvadd ((_ zero_extend 2) b) (bvneg ((_ zero_extend 2) a)))) (bvule (_ bv128 8) b))) (and (= (bvadd (bvmul (_ bv2 11) ((_ zero_extend 3) b)) (bvneg ((_ zero_extend 3) a))) (_ bv2047 11)) (bvsle (_ bv897 10) (bvadd ((_ zero_extend 2) b) (bvneg ((_ zero_extend 2) a)))))))
 )
 
 Loading bv-interpolation-5.pri ...
@@ -645,7 +645,7 @@ Loading pred-unify-bug.smt2 ...
 "starting trace check"
 unsat
 "interpolants-3"
-((= (select |#length_13| main_~p~4.base_18) 8))
+((and (not (not (select |#valid_13| main_~p~4.base_18))) (<= 0 (+ (- 8) (select |#length_13| main_~p~4.base_18)))))
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 unsat
 ((forall ((var0 Int)) (not (= (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42)) (* (- 4294967296) var0)))))
@@ -669,7 +669,7 @@ true
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (and (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0)) (not (= (select (select |#memory_int_6| main_~a~4.base_2) 0) 1))))
+(and (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0)) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (not (= (select (select |#memory_int_6| main_~p~4.base_3) 0) 1))))
 (or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
 (or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
 (or (or (not (= |main_#t~mem15_9| 1)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4))) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
@@ -678,24 +678,21 @@ true
 Loading smtTyping.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
-(and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
-(and (forall ((var0 Int)) (or (not (select |#valid_2| var0)) (select |old(#valid)_-1| var0))) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0)) (and (not (= var0 0)) (forall ((var1 Int)) (or (= var1 var0) (= (select |old(#valid)_-1| var1) (select |#valid_2| var1)))))))))
+((and (and (not (= |cstpncpy_~#dst.base_0| 0)) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))) (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0)))) (forall ((var0 Int)) (or (not (not (select |#valid_0| var0))) (not (select |old(#valid)_-1| var0))))))
+(and (and (not (= |cstpncpy_~#dst.base_0| 0)) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))) (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0)))) (forall ((var0 Int)) (or (not (not (select |#valid_0| var0))) (not (select |old(#valid)_-1| var0))))))
+(and (forall ((var0 Int)) (or (not (select |#valid_2| var0)) (select |old(#valid)_-1| var0))) (exists ((var0 Int)) (and (and (not (= var0 0)) (not (select |old(#valid)_-1| var0))) (forall ((var1 Int)) (or (= var1 var0) (or (not (not (select |#valid_2| var1))) (not (select |old(#valid)_-1| var1)))))))))
 Loading matchCheckBug.smt2 ...
 unsat
 Loading treeInterpolation1.smt2 ...
 unsat
 ((<= 0 (f x))
 (<= 0 (+ (- 1) (* (- 1) (f y)))))
-Loading treeInterpolation2.smt2 ...
-unsat
-Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-Warning: type clash during inference: MultipleValueBool vs int
-((= |#valid_4| |old(#valid)_4|)
-(and (forall ((var0 Int)) (or (not (select |#valid_13| var0)) (select |old(#valid)_5| var0))) (forall ((var0 Int)) (or (select |#valid_13| var0) (not (select |old(#valid)_5| var0))))))
 Loading enum-interpolation.smt2 ...
 unsat
 ((= x blue))
+Loading assertion-problem.smt2 ...
+unsat
+((and (= tmp@3 |glob2::pathlim@2|) (and (exists ((var0 Int)) (= (bv2nat |glob2::p@3|) (* (- 4) var0))) (or (and (= (bvadd ((_ zero_extend 2) |glob2::p@3|) (bvneg ((_ zero_extend 2) |glob2::pathlim@2|))) (_ bv17179869180 34)) (and (bvule |glob2::pathlim@2| (_ bv4294967292 32)) (bvule (_ bv8 32) |glob2::pathlim@2|))) (and (= |glob2::p@3| (_ bv4294967292 32)) (= |glob2::pathlim@2| (_ bv0 32)))))))
 Loading prp-2-17.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -750,6 +747,11 @@ Interpolants:
 ((u3 >= u1 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(1 + u1.\as[int]) != 3))) | ((u3 >= u1 | (u3.\as[int] - u1.\as[int] = -1 & Union_size(u1.\as[int] - 1) != 3)) & (u1 >= u3 | \size(u3) != 3 | (u3.\as[int] - u1.\as[int] = 1 & Union_size(1 + u1.\as[int]) != 3)))
 (u3.\as[int] - u2.\as[int] != 2 | Union_size(2 + u2.\as[int]) != 3 | Union_size(1 + u2.\as[int]) != 3) & (u3.\as[int] - u2.\as[int] != -2 | Union_size(u2.\as[int] - 2) != 3 | Union_size(u2.\as[int] - 1) != 3) & (u3 >= 2 | u2 >= 2 | (u3 = 1 & (Union_size(2) != 3 | Union_size(1) != 3)) | (u2 = 1 & (\size(u3) != 3 | Union_size(2) != 3))) & ((1 >= u3 & (u3 != 1 | Union_size(1) != 3 | Union_size(0) != 3)) | (1 >= u2 & (u2 != 1 | \size(u3) != 3 | Union_size(0) != 3)))
 
+Loading treeInterpolation2.smt2 ...
+unsat
+Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+((= |#valid_4| |old(#valid)_4|)
+(= |#valid_13| |old(#valid)_5|))
 Loading surprising25.pri ...
 Preprocessing ...
 Constructing countermodel ...

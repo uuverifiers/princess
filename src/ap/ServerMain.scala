@@ -3,20 +3,32 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap;
@@ -35,6 +47,7 @@ object ServerMain {
   private val TicketLength = 40
   private val MaxThreadNum = 16
   private val MaxWaitNum   = 32
+  private val WatchdogInit = 300
 
   private var lastActiveTime = System.currentTimeMillis
   private val serverSem = new Semaphore (MaxThreadNum)
@@ -85,7 +98,9 @@ object ServerMain {
           val inputReader =
             new java.io.BufferedReader(
             new java.io.InputStreamReader(clientSocket.getInputStream))
-    
+          val outStream =
+            clientSocket.getOutputStream
+
           val receivedTicket = inputReader.readLine
           if (ticket == receivedTicket) {
             val arguments = new ArrayBuffer[String]
@@ -96,23 +111,46 @@ object ServerMain {
               str.trim match {
                 case "PROVE_AND_EXIT" => {
                   done = true
-                  Console.withOut(clientSocket.getOutputStream) {
+                  Console.withOut(outStream) {
                     var checkNum = 0
                     var lastPing = System.currentTimeMillis
                     var cancel = false
-  
-                    CmdlMain.doMain(arguments.toArray, {
-                      checkNum = checkNum + 1
-                      cancel || (checkNum % 50 == 0 && {
-                        val currentTime = System.currentTimeMillis
-                        while (inputReader.ready) {
-                          inputReader.read
-                          lastPing = currentTime
+                    var watchdogCounter = WatchdogInit
+                    var watchdogCont = true
+
+                    // watchdog that makes sure that the system
+                    // is shut down eventually, in case the normal
+                    // timeout fails
+                    val watchdog = new Thread(new Runnable { def run : Unit = {
+                      while (watchdogCont) {
+                        Thread sleep 1000
+                        watchdogCounter = watchdogCounter - 1
+                        if (watchdogCounter <= 0) {
+                          println("ERROR: hanging system, shutting down")
+                          java.lang.System exit 1
                         }
-                        cancel = currentTime - lastPing > 3000
-                        cancel
+                      }
+                    }})
+
+                    watchdog.start
+ 
+                    try {
+                      CmdlMain.doMain(arguments.toArray, {
+                        checkNum = checkNum + 1
+                        watchdogCounter = WatchdogInit
+                        cancel || (checkNum % 50 == 0 && {
+                          val currentTime = System.currentTimeMillis
+                          while (inputReader.ready) {
+                            inputReader.read
+                            lastPing = currentTime
+                          }
+                          cancel = currentTime - lastPing > 3000
+                          cancel
+                        })
                       })
-                    })
+                    } finally {
+                      watchdogCont = false
+                    }
                   }
                 }
                 case str =>
@@ -125,6 +163,8 @@ object ServerMain {
           }
     
           inputReader.close
+          outStream.flush
+          clientSocket.close
   
           // Put back the token
           lastActiveTime = System.currentTimeMillis

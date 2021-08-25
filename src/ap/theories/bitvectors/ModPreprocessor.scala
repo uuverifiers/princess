@@ -3,21 +3,33 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.theories.bitvectors
@@ -310,6 +322,12 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt.multMod(pow2(end), pow2(begin + 1))))
 
+      case IFunApp(`zero_extend`,
+                   Seq(IIntLit(IdealInt(width)),
+                       IIntLit(IdealInt(addWidth)), _)) =>
+        SubArgs(List(ctxt.noMod, ctxt.noMod,
+                     ctxt addMod pow2(width + addWidth)))
+
       case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
@@ -476,6 +494,11 @@ object ModPreprocessor {
             VisitorRes(evalExtract(start, end, subres(2).lowerBound))
           else
             VisitorRes.update(t, subres)
+
+        case IFunApp(`zero_extend`,
+                     Seq(IIntLit(IdealInt(width)),
+                         IIntLit(IdealInt(addWidth)), _)) =>
+          subres.last.modCastPow2(width + addWidth, ctxt)
 
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
                                       IIntLit(IdealInt(bits2)), _*)) =>

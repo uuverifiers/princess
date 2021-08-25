@@ -6,18 +6,30 @@
  * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *               2020      Zafer Esen <zafer.esen@gmail.com>
  *
- * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 2.1 of the License, or
- * (at your option) any later version.
- *
- * Princess is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package ap.parser
@@ -27,6 +39,7 @@ import ap.basetypes.IdealInt
 import ap.theories._
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
+import ap.theories.bitvectors.ModPostprocessor
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -375,11 +388,8 @@ object SMTLineariser {
   private val falseConstant = IConstant(Sort.Bool newConstant "false")
   private val eqPredicate   = new Predicate ("=", 2)
 
-  private val bvadd = new IFunction("bvadd", 2, true, true)
-  private val bvmul = new IFunction("bvmul", 2, true, true)
-  private val bvneg = new IFunction("bvneg", 1, true, true)
-  private val bvuge = new Predicate("bvuge", 2)
-  private val bvsge = new Predicate("bvsge", 2)
+  private val invisible1    = new IFunction("", 1, true, false)
+  private val invisible2    = new IFunction("", 2, true, false)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -727,6 +737,66 @@ object SMTLineariser {
     lineariser.close
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def theoryFun2Identifier(fun : IFunction) : Option[String] =
+    (TheoryRegistry lookupSymbol fun) match {
+      case Some(t : SimpleArray) => fun match {
+        case t.select => Some("select")
+        case t.store  => Some("store")
+      }
+      case Some(t : ExtArray) => fun match {
+        case t.select           => Some("select")
+        case t.store            => Some("store")
+        case fun                => Some(fun.name)
+      }
+      case Some(t : MulTheory) => fun match {
+        case t.mul => Some("*")
+      }
+      case Some(t : ADT)
+        if t.termSize != null && (t.termSize contains fun) =>
+        Some("_size")
+      case Some(Rationals) if fun == Rationals.frac =>
+        Some("/")
+      case Some(ModuloArithmetic) => fun match {
+        case ModuloArithmetic.int_cast => Some("bv2nat")
+        case ModuloArithmetic.bv_add   => Some("bvadd")
+      }
+      case _ =>
+        None
+    }
+
+  private val bvSimpleUnFunction : Map[IFunction, String] = Map(
+    ModuloArithmetic.bv_not  -> "bvnot",
+    ModuloArithmetic.bv_neg  -> "bvneg"
+  )
+
+  private val bvSimpleBinFunction : Map[IFunction, String] = Map(
+    ModuloArithmetic.bv_and  -> "bvand",
+    ModuloArithmetic.bv_or   -> "bvor",
+    ModuloArithmetic.bv_add  -> "bvadd",
+    ModuloArithmetic.bv_sub  -> "bvsub",
+    ModuloArithmetic.bv_mul  -> "bvmul",
+    ModuloArithmetic.bv_udiv -> "bvudiv",
+    ModuloArithmetic.bv_sdiv -> "bvsdiv",
+    ModuloArithmetic.bv_urem -> "bvurem",
+    ModuloArithmetic.bv_srem -> "bvsrem",
+    ModuloArithmetic.bv_smod -> "bvsmod",
+    ModuloArithmetic.bv_shl  -> "bvshl",
+    ModuloArithmetic.bv_lshr -> "bvlshr",
+    ModuloArithmetic.bv_ashr -> "bvashr",
+    ModuloArithmetic.bv_xor  -> "bvxor",
+    ModuloArithmetic.bv_xnor -> "bvxnor",
+    ModuloArithmetic.bv_comp -> "bvcomp"
+  )
+
+  private val bvSimpleBinPred : Map[Predicate, String] = Map(
+    ModuloArithmetic.bv_ult  -> "bvult",
+    ModuloArithmetic.bv_ule  -> "bvule",
+    ModuloArithmetic.bv_slt  -> "bvslt",
+    ModuloArithmetic.bv_sle  -> "bvsle"
+  )
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -751,37 +821,13 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge,
+                        printSMTType,
                         printADTDeclarations, printHeapDeclarations,
-                        sort2SMTString}
+                        sort2SMTString, sort2SMTType, theoryFun2Identifier,
+                        bvSimpleUnFunction, bvSimpleBinFunction,
+                        bvSimpleBinPred, invisible1, invisible2}
 
-  private def fun2Identifier(fun : IFunction) =
-    (TheoryRegistry lookupSymbol fun) match {
-      case Some(t : SimpleArray) => fun match {
-        case t.select => "select"
-        case t.store  => "store"
-      }
-      case Some(t : ExtArray) => fun match {
-        case t.select => "select"
-        case t.store  => "store"
-      }
-      case Some(t : MulTheory) => fun match {
-        case t.mul => "*"
-      }
-      case Some(t : ADT)
-        if t.termSize != null && (t.termSize contains fun) =>
-        "_size"
-      case Some(Rationals) if fun == Rationals.frac =>
-        "/"
-      case Some(ModuloArithmetic) => fun match {
-        case ModuloArithmetic.int_cast => "bv2nat"
-      }
-      case _ =>
-        if (zeroExtendFuns contains fun)
-          fun.name
-        else
-          quoteIdentifier(funPrefix + fun.name)
-    }
+  //////////////////////////////////////////////////////////////////////////////
 
   private def pred2Identifier(pred : Predicate) =
     if (pred == eqPredicate)
@@ -792,17 +838,8 @@ class SMTLineariser(benchmarkName : String,
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
   
-  private val zeroExtendFunsMap = new MHashMap[Int, IFunction]
-  private val zeroExtendFuns    = new MHashSet[IFunction]
-
-  private def getZeroExtend(addedBits : Int) : IFunction =
-    zeroExtendFunsMap.getOrElseUpdate(addedBits, {
-      val f = new IFunction("(_ zero_extend " + addedBits + ")", 1, true, true)
-      zeroExtendFuns += f
-      f
-    })
-
-  //////////////////////////////////////////////////////////////////////////////
+  private def fun2Identifier(fun : IFunction) =
+    theoryFun2Identifier(fun) getOrElse quoteIdentifier(funPrefix + fun.name)
 
   def open {
     println("(set-logic " + logic + ")")
@@ -810,8 +847,9 @@ class SMTLineariser(benchmarkName : String,
     println("    Benchmark: " + benchmarkName)
     println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
     println("|)")
-  
-    println("(set-info :status " + status + ")")
+
+    if(status.nonEmpty)
+      println("(set-info :status " + status + ")")
 
     // declare the required theories
     val heaps = for (theory <- theoriesToDeclare;
@@ -826,7 +864,8 @@ class SMTLineariser(benchmarkName : String,
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
                       case adt : ADT =>
-                        !heaps.forall(h => h.containsADTSort(adt))
+                        heaps.isEmpty ||
+                          !heaps.forall(h => h.containsADTSort(adt))
                       case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
@@ -869,6 +908,12 @@ class SMTLineariser(benchmarkName : String,
   def printFormula(formula : IFormula) = {
     // first derive types of variables
     var typedFormula = formula
+
+//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    if (prettyBitvectors)
+      typedFormula = ModPostprocessor.purifyFormula(typedFormula)
+
+/*
     var oldTypedFormula : IFormula = null
     while (!(typedFormula eq oldTypedFormula)) {
       oldTypedFormula = typedFormula
@@ -876,7 +921,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-//    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+ */
+
     AbsyPrinter(typedFormula)
   }
   
@@ -949,7 +995,7 @@ class SMTLineariser(benchmarkName : String,
   //////////////////////////////////////////////////////////////////////////////
 
   // TODO: remove the next classes, they are not needed anymore
-
+/*
   private val type2Predicate = new MHashMap[SMTType, Predicate]
   private val predicate2Type = new MHashMap[Predicate, SMTType]
 
@@ -1108,6 +1154,7 @@ class SMTLineariser(benchmarkName : String,
       case _ => t update subres
     }
   }
+*/
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1262,7 +1309,6 @@ class SMTLineariser(benchmarkName : String,
   }
 
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
-
     def apply(e : IExpression) : Unit = {
 //      spaceSkipped = false
       visitWithoutResult(e, PrintContext(List(), ""))
@@ -1314,6 +1360,37 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
       
+      case IFunApp(`invisible1`, _) => {
+        print(" ")
+        closeWithParen(ctxt, 1)
+      }
+
+      case IFunApp(`invisible2`, _) => {
+        print(" ")
+        closeWithParen(ctxt, 2)
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      // Bit-vectors
+
+      case IFunApp(f, Seq(_, arg1)) if bvSimpleUnFunction contains f => {
+        print("(")
+        print(bvSimpleUnFunction(f))
+        TryAgain(IFunApp(invisible1, List(arg1)), ctxt)
+      }
+
+      case IFunApp(f, Seq(_, arg1, arg2)) if bvSimpleBinFunction contains f => {
+        print("(")
+        print(bvSimpleBinFunction(f))
+        TryAgain(IFunApp(invisible2, List(arg1, arg2)), ctxt)
+      }
+
+      case IAtom(p, Seq(_, arg1, arg2)) if bvSimpleBinPred contains p => {
+        print("(")
+        print(bvSimpleBinPred(p))
+        TryAgain(IFunApp(invisible2, List(arg1, arg2)), ctxt)
+      }
+
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
@@ -1329,6 +1406,14 @@ class SMTLineariser(benchmarkName : String,
         TryAgain(arg, ctxt addParentOp ")")
       }
 
+      case IFunApp(ModuloArithmetic.zero_extend,
+                   Seq(IIntLit(_), IIntLit(addWidth), arg)) => {
+        print("((_ zero_extend " + addWidth + ") ")
+        TryAgain(arg, ctxt addParentOp ")")
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
       case StringTheory.ConcreteString(str) => {
         print("\"")
         print(escapeString(str))
@@ -1340,6 +1425,8 @@ class SMTLineariser(benchmarkName : String,
         print("((as const " + sort2SMTString(t.sort) + ") ")
         TryAgain(value, ctxt addParentOp ")")
       }
+
+      //////////////////////////////////////////////////////////////////////////
 
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
@@ -1403,25 +1490,29 @@ class SMTLineariser(benchmarkName : String,
 
       // Terms with Boolean type, which were encoded as integer terms or
       // using ADTs
-      case IExpression.Eq(ADT.BoolADT.True, t) =>
-        // strip off the ADT encoding
-        TryAgain(t, ctxt)
-      case IExpression.Eq(t, ADT.BoolADT.True) =>
-        // strip off the ADT encoding
-        TryAgain(t, ctxt)
-      case IExpression.Eq(ADT.BoolADT.False, t) =>
-        // strip off the ADT encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IExpression.Eq(t, ADT.BoolADT.False) =>
-        // strip off the ADT encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-
       case IExpression.EqLit(BooleanTerm(t), v) =>
         // strip off the integer encoding
         if (v.isZero)
           TryAgain(t, ctxt)
         else
           TryAgain(!IExpression.eqZero(t), ctxt)
+
+      case IExpression.Eq(ADT.BoolADT.True, t) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(t, ADT.BoolADT.True) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(ADT.BoolADT.False, t) => {
+        // strip off the ADT encoding
+        print("(not ")
+        TryAgain(t, ctxt addParentOp ")")
+      }
+      case IExpression.Eq(t, ADT.BoolADT.False) => {
+        // strip off the ADT encoding
+        print("(not ")
+        TryAgain(t, ctxt addParentOp ")")
+      }
 
       // ADT expression
       case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
@@ -1434,7 +1525,7 @@ class SMTLineariser(benchmarkName : String,
       }
 
       // General equations
-      case IExpression.Eq(s, t) =>
+      case x@IExpression.Eq(s, t) =>
         // rewrite to a proper equation
         TryAgain(IAtom(eqPredicate, List(s, t)), ctxt)
       case IIntFormula(rel, _) => {
@@ -1451,8 +1542,11 @@ class SMTLineariser(benchmarkName : String,
         closeWithParen(ctxt)
       }
 
-      case f@IQuantified(Quantifier.ALL, _) => {
-        print("(forall (")
+      case f@IQuantified(quan, _) => {
+        quan match {
+          case Quantifier.ALL => print("(forall (")
+          case Quantifier.EX  => print("(exists (")
+        }
 
         var curCtxt = ctxt
         var curF : IFormula = f
@@ -1469,53 +1563,8 @@ class SMTLineariser(benchmarkName : String,
 
         var cont = true
         while (cont) curF match {
-          case IQuantified(Quantifier.ALL,
-                           IBinFormula(IBinJunctor.Or,
-                                       INot(TypePredicate(IVariable(0), t)),
-                                       g)) => {
-            pushVar(t)
-            curF = g
-          }
-          case IQuantified(Quantifier.ALL, g) => {
-            pushVar(SMTInteger)
-            curF = g
-          }
-          case _ => {
-            cont = false
-          }
-        }
-
-        print(") ")
-        TryAgain(curF, curCtxt addParentOp ")")
-      }
-
-      case f@IQuantified(Quantifier.EX, _) => {
-        print("(exists (")
-
-        var curCtxt = ctxt
-        var curF : IFormula = f
-        var sep = ""
-
-        def pushVar(t : SMTType) = {
-          val varName = "var" + curCtxt.vars.size
-          curCtxt = curCtxt.pushVar(varName, Some(t), curCtxt.parentOp)
-          print(sep + "(" + varName + " ")
-          printSMTType(t)
-          print(")")
-          sep = " "
-        }
-
-        var cont = true
-        while (cont) curF match {
-          case IQuantified(Quantifier.EX,
-                           IBinFormula(IBinJunctor.And,
-                                       TypePredicate(IVariable(0), t),
-                                       g)) => {
-            pushVar(t)
-            curF = g
-          }
-          case IQuantified(Quantifier.EX, g) => {
-            pushVar(SMTInteger)
+          case ISortedQuantified(`quan`, sort, g) => {
+            pushVar(sort2SMTType(sort)._1)
             curF = g
           }
           case _ => {
@@ -1558,22 +1607,13 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
 
-      case IEpsilon(IBinFormula(IBinJunctor.And,
-                                TypePredicate(IVariable(0), t),
-                                subF)) => {
+      case ISortedEpsilon(sort, f) => {
         val varName = "var" + ctxt.vars.size
         print("(_eps ((" + varName + " ")
+        val (t, None) = sort2SMTType(sort)
         printSMTType(t)
         print(")) ")
-        TryAgain(subF, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
-      }
-
-      case _ : IEpsilon => {
-        val varName = "var" + ctxt.vars.size
-        print("(_eps ((" + varName + " ")
-        printSMTType(SMTInteger)
-        print(")) ")
-        UniSubArgs(ctxt.pushVar(varName, None, ")"))
+        TryAgain(f, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
       }
 
       case ITrigger(trigs, body) => {

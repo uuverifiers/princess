@@ -26,6 +26,12 @@ unsat
   (= (getInt (read h2 a)) 42)
 )
 
+Loading simple-heap-allocAddr.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
 Loading incremental-heap.smt2 ...
 unsat
 unsat
@@ -40,8 +46,8 @@ Loading swap-interpolation.smt2 ...
 unsat
 unsat
 ((and (and (and (not (= z y)) (not (= z x))) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (<= 0 (+ (counteraddr H) (* (- 1) z))) (<= 0 (+ (counteraddr H) (* (- 1) y)))) (and (and (<= 0 (+ (counteraddr H) (* (- 1) z))) (<= 0 (+ (counteraddr H) (* (- 1) y)))) (<= 0 (+ (counteraddr H) (* (- 1) x))))))
-(and (and (not (= z x)) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (and (and (and (<= 0 (+ (counteraddr H1) (* (- 1) y))) (<= 0 (+ (counteraddr H1) (* (- 1) x)))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y))))))) (and (and (<= 0 (+ (counteraddr H1) (* (- 1) y))) (<= 0 (+ (counteraddr H1) (* (- 1) x)))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y)))))))) (<= 0 (+ (counteraddr H1) (* (- 1) y)))) (= (read H x) (read H1 z))))
-(and (and (<= 0 (+ (- 1) y)) (= (read H x) (read H2 z))) (and (and (<= 0 (+ (counteraddr H2) (* (- 1) y))) (or (and (and (= (read H2 x) (read H y)) (<= 0 (+ (- 1) x))) (or (not (= (read H y) (read H2 z))) (not (= y x)))) (and (and (= (read H2 x) (read H2 z)) (= (read H y) (read H2 z))) (<= 0 (+ (- 1) x))))) (<= 0 (+ (counteraddr H2) (* (- 1) y)))))
+(and (and (not (= z x)) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (and (and (<= 0 (+ (counteraddr H1) (* (- 1) x))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y))))))) (and (<= 0 (+ (counteraddr H1) (* (- 1) x))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y)))))))) (<= 0 (+ (counteraddr H1) (* (- 1) y)))) (= (read H x) (read H1 z))))
+(and (and (<= 0 (+ (- 1) y)) (= (read H x) (read H2 z))) (and (or (and (and (= (read H2 x) (read H y)) (<= 0 (+ (- 1) x))) (or (not (= (read H y) (read H2 z))) (not (= y x)))) (and (and (= (read H2 x) (read H2 z)) (= (read H y) (read H2 z))) (<= 0 (+ (- 1) x)))) (<= 0 (+ (counteraddr H2) (* (- 1) y)))))
 (and (= (read H3 x) (read H y)) (= (read H x) (read H3 y))))
 
 HeapTests1
