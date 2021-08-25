@@ -142,6 +142,12 @@ object HeapTests1 extends App {
     val ar1 = createConstant("ar'", AllocResSort)
     val o = createConstant("o", ObjectSort)
     val o1 = createConstant("o'", ObjectSort)
+    val r = createConstant("r", AddressRangeSort)
+    val r1 = createConstant("r1", AddressRangeSort)
+    val bar = createConstant("bar", BatchAllocResSort)
+    val bar1 = createConstant("bar'", BatchAllocResSort)
+    val n = createConstant("n", Sort.Nat)
+    val n1 = createConstant("n1", Sort.Nat)
 
     import IExpression.{all => forall, _}
 
@@ -360,6 +366,17 @@ object HeapTests1 extends App {
       UnsatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) ===
                 write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)))
     )
+
+    TestCase(
+      "batchAlloc1",
+      CommonAssert(n > 0 & batchAlloc(emptyHeap(), o, n) === bar),
+      SatStep(addrRangeStart(newAddrRange(bar)) =/= nullAddr()),
+      UnsatStep(addrRangeStart(newAddrRange(bar)) === nullAddr()),
+      SatStep(addrRangeSize(newAddrRange(bar)) === n),
+      UnsatStep(addrRangeSize(newAddrRange(bar)) =/= n),
+      UnsatStep(contains(newAddrRange(bar), nullAddr()))
+    )
+
   }
 }
 

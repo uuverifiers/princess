@@ -39,7 +39,7 @@ sat
 (model
   (define-fun A2 () addr (nthaddr 2))
   (define-fun A () addr (nthaddr 1))
-  (define-fun H2 () heap (newheap (alloc (newheap (alloc emptyheap defObj)) (Wrappedsimple (simple 42)))))
+  (define-fun H2 () heap (newheap (alloc (newheap (alloc emptyheap (WrappedInt 10))) (Wrappedsimple (simple 42)))))
   (define-fun H () heap (newheap (alloc emptyheap (WrappedInt 10))))
 )
 Loading swap-interpolation.smt2 ...
@@ -325,6 +325,28 @@ Step 21.1 (expected: Sat)
 --------------------------------------------------------------------------------
 Step 21.2 (expected: Unsat)
   write(write(h, p, WrappedInt(1)), p', WrappedInt(42)) = write(write(h, p, WrappedInt(2)), p', WrappedInt(42)) --> Unsat
+================================================================================
+================================================================================
+Test 22: batchAlloc1
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+Common assertion: 
+  n >= 1 & batchAlloc(emptyheap, o, n) = bar
+--------------------------------------------------------------------------------
+Step 22.1 (expected: Sat)
+  addrRangeStart(newaddrRange(bar)) != nulladdr --> Sat
+--------------------------------------------------------------------------------
+Step 22.2 (expected: Unsat)
+  addrRangeStart(newaddrRange(bar)) = nulladdr --> Unsat
+--------------------------------------------------------------------------------
+Step 22.3 (expected: Sat)
+  addrRangeSize(newaddrRange(bar)) = n --> Sat
+--------------------------------------------------------------------------------
+Step 22.4 (expected: Unsat)
+  addrRangeSize(newaddrRange(bar)) != n --> Unsat
+--------------------------------------------------------------------------------
+Step 22.5 (expected: Unsat)
+  contains(newaddrRange(bar), nulladdr) --> Unsat
 ================================================================================
 
 HeapTests2
