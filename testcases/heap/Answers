@@ -4,18 +4,6 @@ Constructing countermodel ...
 
 unsat
 
-Loading bug-model-1.smt2 ...
-Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
-Preprocessing ...
-Constructing countermodel ...
-
-sat
-(model
-  (define-fun A2 () addr (nthaddr 1))
-  (define-fun A () addr (nthaddr 2))
-  (define-fun H () heap (newBatchheap (batchAlloc emptyheap defObj 2)))
-)
-
 Loading read-interpolation.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -32,6 +20,37 @@ Constructing countermodel ...
 
 unsat
 
+Loading simple-heap-batch.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading simple-heap-batch-dual.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading heap-batch-write-read-1-unsat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading heap-batch-write-read-2-unsat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading bug-model-1.smt2 ...
+sat
+(model
+  (define-fun A2 () addr (nthaddr 1))
+  (define-fun A () addr (nthaddr 2))
+  (define-fun H () heap (newBatchheap (batchAlloc emptyheap defObj 2)))
+)
 Loading incremental-heap.smt2 ...
 unsat
 unsat
@@ -49,6 +68,16 @@ unsat
 (and (and (not (= z x)) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (and (and (<= 0 (+ (counteraddr H1) (* (- 1) x))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y))))))) (and (<= 0 (+ (counteraddr H1) (* (- 1) x))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y)))))))) (<= 0 (+ (counteraddr H1) (* (- 1) y)))) (= (read H x) (read H1 z))))
 (and (and (<= 0 (+ (- 1) y)) (= (read H x) (read H2 z))) (and (or (and (and (= (read H2 x) (read H y)) (<= 0 (+ (- 1) x))) (or (not (= (read H y) (read H2 z))) (not (= y x)))) (and (and (= (read H2 x) (read H2 z)) (= (read H y) (read H2 z))) (<= 0 (+ (- 1) x)))) (<= 0 (+ (counteraddr H2) (* (- 1) y)))))
 (and (= (read H3 x) (read H y)) (= (read H x) (read H3 y))))
+Loading heap-batch-write-read-2-sat.smt2 ...
+sat
+(model
+  (define-fun n () Int 2)
+  (define-fun A2 () Addr (nthAddr 3))
+  (define-fun A1 () Addr (nthAddr 3))
+  (define-fun AR () AddrRange (AddrRange (nthAddr 1) 3))
+  (define-fun H2 () Heap (newBatchHeap (batchAlloc emptyHeap (WrappedInt 42) 3)))
+  (define-fun H () Heap (newBatchHeap (batchAlloc emptyHeap (WrappedInt 3) 3)))
+)
 
 HeapTests1
 ================================================================================
@@ -346,72 +375,72 @@ Step 22.4 (expected: Unsat)
   addrRangeSize(newaddrRange(bar)) != n --> Unsat
 --------------------------------------------------------------------------------
 Step 22.5 (expected: Unsat)
-  contains(newaddrRange(bar), nulladdr) --> Unsat
+  within(newaddrRange(bar), nulladdr) --> Unsat
 ================================================================================
 ================================================================================
 Test 23: batchAlloc tests - 2
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  batchAlloc(h, WrappedInt(3), 10) = BatchAllocResheap(h1, r) & write(h1, nth(r, 3), WrappedInt(42)) = h2
+  batchAlloc(h, WrappedInt(3), 10) = BatchAllocResheap(h1, r) & write(h1, nthaddrRange(r, 3), WrappedInt(42)) = h2
 --------------------------------------------------------------------------------
 Step 23.1 (expected: Sat)
-  read(h2, nth(r, 0)) = WrappedInt(3) --> Sat
+  read(h2, nthaddrRange(r, 0)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
 Step 23.2 (expected: Unsat)
-  read(h2, nth(r, 0)) != WrappedInt(3) --> Unsat
+  read(h2, nthaddrRange(r, 0)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.3 (expected: Sat)
-  read(h2, nth(r, 5)) = WrappedInt(3) --> Sat
+  read(h2, nthaddrRange(r, 5)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
 Step 23.4 (expected: Unsat)
-  read(h2, nth(r, 5)) != WrappedInt(3) --> Unsat
+  read(h2, nthaddrRange(r, 5)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.5 (expected: Sat)
-  read(h2, nth(r, 9)) = WrappedInt(3) --> Sat
+  read(h2, nthaddrRange(r, 9)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
 Step 23.6 (expected: Unsat)
-  read(h2, nth(r, 9)) != WrappedInt(3) --> Unsat
+  read(h2, nthaddrRange(r, 9)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.7 (expected: Sat)
-  valid(h2, nth(r, 9)) --> Sat
+  valid(h2, nthaddrRange(r, 9)) --> Sat
 --------------------------------------------------------------------------------
 Step 23.8 (expected: Unsat)
-  !valid(h2, nth(r, 9)) --> Unsat
+  !valid(h2, nthaddrRange(r, 9)) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.9 (expected: Unsat)
-  valid(h2, nth(r, 10)) --> Unsat
+  valid(h2, nthaddrRange(r, 10)) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.10 (expected: Sat)
-  !valid(h2, nth(r, 10)) --> Sat
+  !valid(h2, nthaddrRange(r, 10)) --> Sat
 --------------------------------------------------------------------------------
 Step 23.11 (expected: Sat)
-  nth(r, 10) = nulladdr --> Sat
+  nthaddrRange(r, 10) = nulladdr --> Sat
 --------------------------------------------------------------------------------
 Step 23.12 (expected: Unsat)
-  nth(r, 10) != nulladdr --> Unsat
+  nthaddrRange(r, 10) != nulladdr --> Unsat
 --------------------------------------------------------------------------------
 Step 23.13 (expected: Sat)
-  read(h2, nth(r, 10)) = defObj --> Sat
+  read(h2, nthaddrRange(r, 10)) = defObj --> Sat
 --------------------------------------------------------------------------------
 Step 23.14 (expected: Unsat)
-  contains(r, nth(r, 10)) --> Unsat
+  within(r, nthaddrRange(r, 10)) --> Unsat
 --------------------------------------------------------------------------------
 Step 23.15 (expected: Unsat)
-  read(h2, nth(r, 10)) != defObj --> Unsat
+  read(h2, nthaddrRange(r, 10)) != defObj --> Unsat
 --------------------------------------------------------------------------------
 Step 23.16 (expected: Sat)
-  read(h2, nth(r, 3)) = WrappedInt(42) --> Sat
+  read(h2, nthaddrRange(r, 3)) = WrappedInt(42) --> Sat
 --------------------------------------------------------------------------------
 Step 23.17 (expected: Unsat)
-  read(h2, nth(r, 3)) != WrappedInt(42) --> Unsat
+  read(h2, nthaddrRange(r, 3)) != WrappedInt(42) --> Unsat
 ================================================================================
 ================================================================================
 Test 24: Reading from a previously batch-written (alloc.) location returns that value.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  valid(h, p) & contains(r, p) & valid(h, addrRangeStart(r)) & valid(h, nth(r, addrRangeSize(r) - 1))
+  valid(h, p) & within(r, p) & valid(h, addrRangeStart(r)) & valid(h, nthaddrRange(r, addrRangeSize(r) - 1))
 --------------------------------------------------------------------------------
 Step 24.1 (expected: Sat)
   read(batchWrite(h, r, o), p) = o --> Sat
@@ -424,7 +453,7 @@ Test 25: batchWrite to a location does not modify the rest of the locations
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  valid(h, p) & !contains(r, p) & addrRangeSize(r) >= 1 & valid(h, nth(r, addrRangeSize(r) - 1))
+  valid(h, p) & !within(r, p) & addrRangeSize(r) >= 1 & valid(h, nthaddrRange(r, addrRangeSize(r) - 1))
 --------------------------------------------------------------------------------
 Step 25.1 (expected: Sat)
   read(batchWrite(h, r, o), p) = read(h, p) --> Sat
@@ -437,7 +466,7 @@ Test 26: batchWrite to a range that contains an unallocated location returns the
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  contains(r, p) & !valid(h, p)
+  within(r, p) & !valid(h, p)
 --------------------------------------------------------------------------------
 Step 26.1 (expected: Sat)
   batchWrite(h, r, o) = h --> Sat
@@ -494,7 +523,7 @@ Test 29: Extensionality over batchWrite (only valid writes)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
-  valid(h, p) & addrRangeSize(r) >= 1 & p = nth(r, addrRangeSize(r) - 1)
+  addrRangeSize(r) >= 1 & p = nthaddrRange(r, addrRangeSize(r) - 1)
 --------------------------------------------------------------------------------
 Step 29.1 (expected: Sat)
   batchWrite(h, r, o) = batchWrite(batchWrite(h, r, o'), r, o) --> Sat

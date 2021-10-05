@@ -112,9 +112,10 @@ object HeapTests2 extends App {
       ("defObj", Heap.CtorSignature(List(), ObjSort))),
     defObjCtor)
 
-  def defObjCtor(objectADT : ADT, allocResADT : ADT) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction],
+                 heapADTs : ADT) : ITerm = {
     import IExpression.toFunApplier
-    objectADT.constructors.last()
+    objectCtors.last()
   }
 
   val Seq(wrappedInt,
@@ -122,12 +123,12 @@ object HeapTests2 extends App {
           wrappedNode,
           struct_S,
           struct_Node,
-          defObj) = heap.ObjectADT.constructors
+          defObj) = heap.userADTCtors
   val Seq(Seq(getInt),
           Seq(getS),
           Seq(getNode),
           Seq(sel_x),
-          Seq(sel_R),_*) = heap.ObjectADT.selectors
+          Seq(sel_R),_*) = heap.userADTSels
 
   SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
@@ -135,7 +136,7 @@ object HeapTests2 extends App {
     val h = HeapSort.newConstant("h")
     val h1 = createConstant("h1", HeapSort)
     val h2 = createConstant("h2", HeapSort)
-    val ar = AllocResSort.newConstant("ar")
+    val ar = allocResSort.newConstant("ar")
     val p1 =  createConstant("p1", AddressSort)
     val p2 =  createConstant("p2", AddressSort)
     val x = createConstant("x")

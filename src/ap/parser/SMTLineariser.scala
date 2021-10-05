@@ -542,15 +542,15 @@ object SMTLineariser {
           heap.ObjectSort.name)
     println(" " ++ asString(heap._defObj))
     print(" (")
-    print((for(s <- heap.ObjectADT.sorts)
+    print((for(s <- heap.userADTSorts)
       yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
     println(") (")
-    for (num <- heap.ObjectADT.sorts.indices) {
+    for (num <- heap.userADTSorts.indices) {
       println("  (")
-      for ((f, sels) <- heap.ObjectADT.constructors zip heap.ObjectADT.selectors;
+      for ((f, sels) <- heap.userADTCtors zip heap.userADTSels; // todo: should probably be just the object ADT ctors
            if (f.resSort match {
              case s: ADT.ADTProxySort =>
-               s.sortNum == num && s.adtTheory == heap.ObjectADT
+               s.sortNum == num && s.adtTheory == heap.heapADTs
              case _ =>
                false
            })) {
@@ -863,9 +863,12 @@ class SMTLineariser(benchmarkName : String,
 
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
-                      case adt : ADT =>
-                        heaps.isEmpty ||
-                          !heaps.forall(h => h.containsADTSort(adt))
+                      case adt : ADT => // declare this theory if
+                        heaps.isEmpty || // there are no heap theories OR
+                          // it is not the case that there exists a heap theory
+                          !heaps.exists(h =>
+                          // which declares all sorts of this ADT theory
+                            adt.sorts.forall(sort => h.containsADTSort(sort)))
                       case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
