@@ -100,9 +100,10 @@ object HeapTests1 extends App {
   val ObjSort = Heap.ADTSort(0)
   val StructSSort = Heap.ADTSort(1)
 
-  def defObjCtor(objectADT : ADT, allocResADT : ADT) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction],
+                 heapADTs : ADT) : ITerm = {
     import IExpression.toFunApplier
-    objectADT.constructors.last()
+    objectCtors.last()
   }
 
   val heap = new Heap("heap", "addr", ObjSort,
@@ -120,11 +121,11 @@ object HeapTests1 extends App {
           wrappedS,
           wrappedAddr,
           struct_S,
-          defObjCtr) = heap.ObjectADT.constructors
+          defObjCtr) = heap.userADTCtors
   val Seq(Seq(getInt),
           Seq(getS),
           Seq(getAddr),
-          Seq(sel_x), _*) = heap.ObjectADT.selectors
+          Seq(sel_x), _*) = heap.userADTSels
 
   import IExpression.toFunApplier
   val defObj = defObjCtr()
@@ -138,10 +139,13 @@ object HeapTests1 extends App {
     val h2 = createConstant("h2", HeapSort)
     val p =  createConstant("p", AddressSort)
     val p1 =  createConstant("p'", AddressSort)
-    val ar = createConstant("ar", AllocResSort)
-    val ar1 = createConstant("ar'", AllocResSort)
+    val ar = createConstant("ar", allocResSort)
+    val ar1 = createConstant("ar'", allocResSort)
     val o = createConstant("o", ObjectSort)
     val o1 = createConstant("o'", ObjectSort)
+    val r = createConstant("r", addressRangeSort)
+    val bar = createConstant("bar", batchAllocResSort)
+    val n = createConstant("n", Sort.Nat)
 
     import IExpression.{all => forall, _}
 
@@ -360,6 +364,113 @@ object HeapTests1 extends App {
       UnsatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) ===
                 write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)))
     )
+
+    TestCase(
+      "batchAlloc tests - 1",
+      CommonAssert(n > 0 & batchAlloc(emptyHeap(), o, n) === bar),
+      SatStep(addrRangeStart(newAddrRange(bar)) =/= nullAddr()),
+      UnsatStep(addrRangeStart(newAddrRange(bar)) === nullAddr()),
+      SatStep(addrRangeSize(newAddrRange(bar)) === n),
+      UnsatStep(addrRangeSize(newAddrRange(bar)) =/= n),
+      UnsatStep(within(newAddrRange(bar), nullAddr()))
+    )
+
+    TestCase(
+      "batchAlloc tests - 2",
+      CommonAssert(
+        batchAlloc(h, wrappedInt(3), 10) ===
+          batchAllocResCtor(h1, r) &
+          write(h1, nth(r, 3), wrappedInt(42)) === h2),
+      SatStep(read(h2, nth(r, 0)) === wrappedInt(3)),
+      UnsatStep(read(h2, nth(r, 0)) =/= wrappedInt(3)),
+      SatStep(read(h2, nth(r, 5)) === wrappedInt(3)),
+      UnsatStep(read(h2, nth(r, 5)) =/= wrappedInt(3)),
+      SatStep(read(h2, nth(r, 9)) === wrappedInt(3)),
+      UnsatStep(read(h2, nth(r, 9)) =/= wrappedInt(3)),
+      SatStep(isAlloc(h2, nth(r, 9))),
+      UnsatStep(!isAlloc(h2, nth(r, 9))),
+      UnsatStep(isAlloc(h2, nth(r, 10))),
+      SatStep(!isAlloc(h2, nth(r, 10))),
+      SatStep(nth(r, 10) === nullAddr()),
+      UnsatStep(nth(r, 10) =/= nullAddr()),
+      SatStep(read(h2, nth(r, 10)) === defObj),
+      UnsatStep(within(r, nth(r, 10))),
+      UnsatStep(read(h2, nth(r, 10)) =/= defObj),
+      SatStep(read(h2, nth(r, 3)) === wrappedInt(42)),
+      UnsatStep(read(h2, nth(r, 3)) =/= wrappedInt(42))
+    )
+
+    TestCase(
+      "Reading from a previously batch-written (alloc.) " +
+        "location returns that value.",
+      CommonAssert(
+        isAlloc(h, p) & within(r, p) &
+          isAlloc(h, addrRangeStart(r)) &
+          isAlloc(h, nth(r, addrRangeSize(r)-1)) // h is allocated for the whole address range
+      ),
+      SatStep(
+        read(batchWrite(h, r, o), p) === o
+      ),
+      UnsatStep(
+        read(batchWrite(h, r, o), p) =/= o
+      )
+    )
+
+    TestCase(
+      "batchWrite to a location does not modify the rest of the locations",
+      CommonAssert(
+        isAlloc(h, p) & !within(r, p) & addrRangeSize(r) > 0 &
+          isAlloc(h, nth(r, addrRangeSize(r)-1)) // h is allocated for the whole address range
+      ),
+      SatStep(
+        read(batchWrite(h, r, o), p) === read(h, p)
+      ),
+      UnsatStep(
+        read(batchWrite(h, r, o), p) =/= read(h, p)
+      )
+    )
+
+    TestCase(
+      "batchWrite to a range that contains an unallocated location " +
+        "returns the same heap.",
+      CommonAssert(
+        within(r, p) & !isAlloc(h, p)
+      ),
+      SatStep(batchWrite(h, r, o) === h),
+      UnsatStep(batchWrite(h, r, o) =/= h),
+
+      CommonAssert(h =/= emptyHeap()),
+      SatStep(batchWrite(h, r, o) === h & h =/= emptyHeap()),
+      UnsatStep(batchWrite(h, r, o) =/= h),
+
+      CommonAssert(p =/= nullAddr()),
+      SatStep(batchWrite(h, r, o) === h),
+      UnsatStep(batchWrite(h, r, o) =/= h)
+    )
+
+    TestCase(
+      "Extensionality over batchWrite (exclude empty heaps)",
+      CommonAssert(h =/= emptyHeap()),
+      SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
+      UnsatStep(batchWrite(h, r, o) =/=
+        batchWrite(batchWrite(h, r, o1), r, o))
+    )
+
+    TestCase(
+      "Extensionality over batchWrite (exclude empty heaps and empty address ranges)",
+      CommonAssert(h =/= emptyHeap() & addrRangeSize(r) > 0),
+      SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
+      UnsatStep(batchWrite(h, r, o) =/=
+        batchWrite(batchWrite(h, r, o1), r, o))
+    )
+
+    TestCase(
+      "Extensionality over batchWrite (only valid writes)",
+      CommonAssert(addrRangeSize(r) > 0 & p === nth(r, addrRangeSize(r)-1) ),
+       SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
+      UnsatStep(batchWrite(h, r, o) =/=
+        batchWrite(batchWrite(h, r, o1), r, o))
+    )
+
   }
 }
-

@@ -5,14 +5,19 @@
 PRI=../../princess
 
 TESTS="simple-heap.smt2 \
-       bug-model-1.smt2 \
        read-interpolation.smt2 \
-       simple-heap-allocAddr.smt2"
+       simple-heap-allocAddr.smt2 \
+       simple-heap-batch.smt2 \
+       simple-heap-batch-dual.smt2 \
+       heap-batch-write-read-1-unsat.smt2 \
+       heap-batch-write-read-2-unsat.smt2"
 
 $PRI "$@" $TESTS
 
-TESTS="incremental-heap.smt2 \
-       swap-interpolation.smt2"
+TESTS="bug-model-1.smt2 \
+       incremental-heap.smt2 \
+       swap-interpolation.smt2 \
+       heap-batch-write-read-2-sat.smt2"
 
 $PRI "$@" +incremental $TESTS
 
