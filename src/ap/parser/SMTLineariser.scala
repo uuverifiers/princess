@@ -863,7 +863,7 @@ class SMTLineariser(benchmarkName : String,
 
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
-                      case adt : ADT => // declare this theory if
+                      case adt : ADT if adt != ADT.BoolADT => // declare this theory if
                         heaps.isEmpty || // there are no heap theories OR
                           // it is not the case that there exists a heap theory
                           !heaps.exists(h =>
