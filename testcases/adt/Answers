@@ -80,6 +80,46 @@ Constructing countermodel ...
 
 unsat
 
+Loading polymorphicList.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun l3 () (List (List Int)) (cons (cons 9 (as nil (List Int))) (as nil (List (List Int)))))
+  (define-fun l2 () (List Bool) (cons true (as nil (List Bool))))
+  (define-fun l () (List Int) (cons 9 (as nil (List Int))))
+)
+
+Loading polymorphicList2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading polymorphicList3.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun l3 () (List (List Int)) (cons (cons (- 1) (cons 12 (as nil (List Int)))) (cons (cons 0 (as nil (List Int))) (as nil (List (List Int))))))
+  (define-fun l () (List Int) (cons (- 1) (cons 12 (as nil (List Int)))))
+)
+
+Loading polymorphicPairs.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () (Either Int Bool) ((as Left (Either Int Bool)) 4))
+  (define-fun x () (Pair Int Bool) ((as Pair (Pair Int Bool)) 4 false))
+)
+
 Loading datatype2.smt2 ...
 unsat
 unsat
@@ -175,6 +215,27 @@ sat
 )
 Loading quoted-datatype.smt2 ...
 unsat
+Loading polymorphicList.smt2 ...
+sat
+(model
+  (define-fun l3 () (List (List Int)) (cons (cons 9 (as nil (List Int))) (as nil (List (List Int)))))
+  (define-fun l2 () (List Bool) (cons true (as nil (List Bool))))
+  (define-fun l () (List Int) (cons 9 (as nil (List Int))))
+)
+Loading polymorphicList2.smt2 ...
+unsat
+Loading polymorphicList3.smt2 ...
+sat
+(model
+  (define-fun l3 () (List (List Int)) (cons (cons (- 1) (cons 12 (as nil (List Int)))) (cons (cons 0 (as nil (List Int))) (as nil (List (List Int))))))
+  (define-fun l () (List Int) (cons (- 1) (cons 12 (as nil (List Int)))))
+)
+Loading polymorphicPairs.smt2 ...
+sat
+(model
+  (define-fun y () (Either Int Bool) ((as Left (Either Int Bool)) 4))
+  (define-fun x () (Pair Int Bool) ((as Pair (Pair Int Bool)) 4 false))
+)
 Loading datatype.smt2 ...
 Preprocessing ...
 Constructing countermodel ...

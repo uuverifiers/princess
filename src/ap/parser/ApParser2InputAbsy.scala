@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -348,13 +348,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               val pred = MonoSortedPredicate(name, argSorts)
 
               env.addPredicate(pred,
+                               (),
                                if (negMatch)
                                  Signature.PredicateMatchStatus.Negative
                                else if (noMatch)
                                  Signature.PredicateMatchStatus.None
                                else
-                                 Signature.PredicateMatchStatus.Positive,
-                               ())
+                                 Signature.PredicateMatchStatus.Positive)
             }
           }
         case _ => /* nothing */
@@ -1253,6 +1253,10 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                                "Variable " + name + " does not have arguments")
         (v(i, sort), sort)
       }
+
+      case Environment.OverloadedSym(_) =>
+        throw new Parser2InputAbsy.TranslationException(
+          "Did not expect overloaded symbol " + name)
     }
 
   private def translateTrigger(trigger : ExprTrigger) : IFormula = {

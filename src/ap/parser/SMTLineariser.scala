@@ -4,7 +4,7 @@
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
  * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
- *               2020      Zafer Esen <zafer.esen@gmail.com>
+ *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -398,7 +398,14 @@ object SMTLineariser {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
     case SMTReal(_)          => print("Real")
-    case t : SMTADT          => print(quoteIdentifier(t.toString))
+    case t : SMTADT          => {
+      val str = t.toString
+      if (str startsWith SMTADT.POLY_PREFIX)
+        // TODO: this won't correctly add quotes
+        print(str substring SMTADT.POLY_PREFIX.size)
+      else
+        print(quoteIdentifier(str))
+    }
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
     case SMTArray(args, res) => {
@@ -543,15 +550,15 @@ object SMTLineariser {
           heap.ObjectSort.name)
     println(" " ++ asString(heap._defObj))
     print(" (")
-    print((for(s <- heap.ObjectADT.sorts)
+    print((for(s <- heap.userADTSorts)
       yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
     println(") (")
-    for (num <- heap.ObjectADT.sorts.indices) {
+    for (num <- heap.userADTSorts.indices) {
       println("  (")
-      for ((f, sels) <- heap.ObjectADT.constructors zip heap.ObjectADT.selectors;
+      for ((f, sels) <- heap.userADTCtors zip heap.userADTSels; // todo: should probably be just the object ADT ctors
            if (f.resSort match {
              case s: ADT.ADTProxySort =>
-               s.sortNum == num && s.adtTheory == heap.ObjectADT
+               s.sortNum == num && s.adtTheory == heap.heapADTs
              case _ =>
                false
            })) {
@@ -757,6 +764,18 @@ object SMTLineariser {
       case Some(t : ADT)
         if t.termSize != null && (t.termSize contains fun) =>
         Some("_size")
+      case Some(t : ADT)
+        if t != ADT.BoolADT && (t.constructors contains fun) => {
+          val monoFun = fun.asInstanceOf[MonoSortedIFunction]
+          if (!(monoFun.argSorts contains monoFun.resSort) &&
+                (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
+            Some("(as " + quoteIdentifier(fun.name) + " " +
+                   sort2SMTString(monoFun.resSort) +
+                   ")")
+          } else {
+            None
+          }
+        }
       case Some(Rationals) if fun == Rationals.frac =>
         Some("/")
       case Some(ModuloArithmetic) => fun match {
@@ -864,9 +883,12 @@ class SMTLineariser(benchmarkName : String,
 
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
-                      case adt : ADT =>
-                        heaps.isEmpty ||
-                          !heaps.forall(h => h.containsADTSort(adt))
+                      case adt : ADT if adt != ADT.BoolADT => // declare this theory if
+                        heaps.isEmpty || // there are no heap theories OR
+                          // it is not the case that there exists a heap theory
+                          !heaps.exists(h =>
+                          // which declares all sorts of this ADT theory
+                            adt.sorts.forall(sort => h.containsADTSort(sort)))
                       case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
