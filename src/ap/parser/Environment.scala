@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,18 +54,23 @@ object Environment {
              extends DeclaredSym[CT,VT,PT,FT]
   case class Variable[CT,VT,PT,FT](index : Int, typ : VT)
              extends DeclaredSym[CT,VT,PT,FT]
-  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate,
-                                    matchStatus : Signature.PredicateMatchStatus.Value,
-                                    typ : PT)
+  case class Predicate[CT,VT,PT,FT](
+               pred : ap.terfor.preds.Predicate,
+               matchStatus : Signature.PredicateMatchStatus.Value,
+               typ : PT)
              extends DeclaredSym[CT,VT,PT,FT]
   case class Function[CT,VT,PT,FT](fun : IFunction, typ : FT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class OverloadedSym[CT,VT,PT,FT](
+               instances : Seq[DeclaredSym[CT,VT,PT,FT]])
              extends DeclaredSym[CT,VT,PT,FT]
 
   class EnvironmentException(msg : String) extends Exception(msg)
 
 }
 
-class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortType]
+class Environment[ConstantType, VariableType, PredicateType, FunctionType,
+                  SortType]
       extends Cloneable {
 
   import Environment._
@@ -76,6 +81,10 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   /** The declared symbols */
   private val signature =
     new scala.collection.mutable.HashMap[String, DSym]
+
+  /** Declared polymorphic symbols */
+  private val overloadedSignature =
+    new scala.collection.mutable.HashMap[String, List[DSym]]
   
   /** The variables bound at the present point, together with their type */
   private val context =
@@ -115,6 +124,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
                               FunctionType, SortType]
     
     res.signature ++= this.signature
+    res.overloadedSignature ++= this.overloadedSignature
     res.context ++= this.context
     res.sorts ++= this.sorts
     res.partNames ++= this.partNames
@@ -137,7 +147,11 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
         case Some(t) =>
           t
         case None =>
-          throw new EnvironmentException("Symbol " + name + " not declared")
+          (overloadedSignature get name) match {
+            case Some(r) => OverloadedSym(r)
+            case None =>
+              throw new EnvironmentException("Symbol " + name + " not declared")
+          }
       }
       case index =>
         Variable(context.size - index - 1, context(index)._2)
@@ -145,14 +159,27 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   
   def lookupSymPartial(name : String) : Option[DSym] =
     (context lastIndexWhere (_._1 == name)) match {
-      case -1 => signature get name
-      case index => Some(Variable(context.size - index - 1, context(index)._2))
+      case -1 =>
+        (signature get name) match {
+          case None =>
+            (overloadedSignature get name) match {
+              case Some(r) => Some(OverloadedSym(r))
+              case None => None
+            }
+          case r => r
+        }
+      case index =>
+        Some(Variable(context.size - index - 1, context(index)._2))
     }
   
   def isDeclaredSym(name : String) : Boolean =
-    (context exists (_._1 == name)) || (signature contains name)
+    (context exists (_._1 == name)) ||
+    (signature contains name) ||
+    (overloadedSignature contains name)
   
-  def addConstant(c : ConstantTerm, kind : SymKind, typ : ConstantType) : Unit = {
+  def addConstant(c : ConstantTerm,
+                  kind : SymKind,
+                  typ : ConstantType) : Unit = {
     addSym(c.name, Constant(c, kind, typ))
     orderVar = kind match {
       case Universal =>
@@ -169,17 +196,26 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   }
  
   def addPredicate(pred : ap.terfor.preds.Predicate,
-                   matchStatus : Signature.PredicateMatchStatus.Value,
-                   typ : PredicateType) : Unit = {
+                   typ : PredicateType,
+                   matchStatus : Signature.PredicateMatchStatus.Value =
+                     Signature.PredicateMatchStatus.Positive) : Unit = {
     addSym(pred.name, Predicate(pred, matchStatus, typ))
     orderVar = orderVar extendPred pred
   }
   
-  def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit =
-    addPredicate(pred, Signature.PredicateMatchStatus.Positive, typ)
-  
   def addFunction(fun : IFunction, typ : FunctionType) : Unit =
     addSym(fun.name, Function(fun, typ))
+
+  def addOverloadedPredicate(pred : ap.terfor.preds.Predicate,
+                             typ : PredicateType,
+                             matchStatus : Signature.PredicateMatchStatus.Value=
+                               Signature.PredicateMatchStatus.Positive) : Unit={
+    addOverloadedSym(pred.name, Predicate(pred, matchStatus, typ))
+    orderVar = orderVar extendPred pred
+  }
+  
+  def addOverloadedFunction(fun : IFunction, typ : FunctionType) : Unit =
+    addOverloadedSym(fun.name, Function(fun, typ))
   
   def nullaryFunctions : Set[ConstantTerm] = constants(NullaryFunction)
   def universalConstants : Set[ConstantTerm] = constants(Universal)
@@ -192,10 +228,19 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
                   yield c)
   
   private def addSym(name : String, t : DSym) : Unit =
-    if (signature contains name)
+    if ((signature contains name) || (overloadedSignature contains name))
       throw new EnvironmentException("Symbol " + name + " is already declared")
     else
       signature.put(name, t)
+  
+  private def addOverloadedSym(name : String, t : DSym) : Unit =
+    if (signature contains name)
+      throw new EnvironmentException(
+        "Symbol " + name +
+          " is already declared as a normal symbol")
+    else
+      overloadedSignature.put(name,
+                              t :: overloadedSignature.getOrElse(name, List()))
   
   def pushVar(name : String, typ : VariableType) : Unit =
     context += ((name, typ))
