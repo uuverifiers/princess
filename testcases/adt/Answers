@@ -120,6 +120,16 @@ sat
   (define-fun x () (Pair Int Bool) ((as Pair (Pair Int Bool)) 4 false))
 )
 
+Loading emptyPar.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () T (T 1 4))
+)
+
 Loading datatype2.smt2 ...
 unsat
 unsat
@@ -235,6 +245,11 @@ sat
 (model
   (define-fun y () (Either Int Bool) ((as Left (Either Int Bool)) 4))
   (define-fun x () (Pair Int Bool) ((as Pair (Pair Int Bool)) 4 false))
+)
+Loading emptyPar.smt2 ...
+sat
+(model
+  (define-fun x () T (T 1 4))
 )
 Loading datatype.smt2 ...
 Preprocessing ...
