@@ -1229,14 +1229,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val allCtors =
               for ((maybedecl, sortNum) <-
                    cmd.listmaybepardatadecl_.zipWithIndex) yield {
-                val decl = maybedecl match {
-                  case d : MonoDataDecl => d
+                val decls = maybedecl match {
+                  case d : MonoDataDecl =>
+                    d.listconstructordeclc_
+                  case d : ParDataDecl if d.listsymbol_.isEmpty =>
+                    d.listconstructordeclc_
                   case _ : ParDataDecl =>
                     throw new Parser2InputAbsy.TranslationException(
-                      "Polymorphic algebraic data-types are not supported yet")
+                      "Polymorphic algebraic data-types are not fully " +
+                        "supported yet")
                 }
-                translateDataCtorList(sortNames, sortNum,
-                                      decl.listconstructordeclc_)
+                translateDataCtorList(sortNames, sortNum, decls)
               }
 
             setupADT(sortNames, allCtors)
