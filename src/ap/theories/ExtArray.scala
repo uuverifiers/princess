@@ -53,6 +53,7 @@ import ap.util.{Seqs, Debug}
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
                                  HashSet => MHashSet, ArrayBuffer}
+import scala.math.Ordering.Implicits._
 
 object ExtArray {
 
@@ -211,7 +212,7 @@ object ExtArray {
         var arTerm : Option[ITerm] = for (t <- defaultTerm) yield const(t)
 
         for (arMap          <- contents get arIndex;
-             (indexes, obj) <- arMap.toList.sortBy(_._2);
+             (indexes, obj) <- arMap.toList.sortBy(_._1);
              arT            <- arTerm) {
           arTerm =
             for (indexTerms <- Seqs.so2os((indexes zip indexSorts) map {
