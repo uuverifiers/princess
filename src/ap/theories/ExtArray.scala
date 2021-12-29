@@ -200,15 +200,30 @@ object ExtArray {
         }
       }
 
+      val defaultTerms    = new MHashSet[ITerm]
+      val defaultTermsMap = new MHashMap[IdealInt, ITerm]
+
+      for ((ind, defInd) <- defaults)
+        for (t <- objSort.decodeToTerm(defInd, terms)) {
+          defaultTerms += t
+          defaultTermsMap.put(ind, t)
+        }
+
+      {
+        var indivs = objSort.individuals
+        for (ind <- contents.keys.toVector.sorted)
+          if (!(defaultTermsMap contains ind)) {
+            while (defaultTerms contains indivs.head)
+              indivs = indivs.tail
+            defaultTerms += indivs.head
+            defaultTermsMap.put(ind, indivs.head)
+          }
+      }
+
       val allIndexes = (defaults.keysIterator ++ contents.keysIterator).toSet
 
       for (arIndex <- allIndexes) {
-        val defaultTerm =
-          (defaults get arIndex) match {
-            case Some(default) => objSort.decodeToTerm(default, terms)
-            case None          => Some(objSort.individuals.head)
-          }
-
+        val defaultTerm = defaultTermsMap get arIndex
         var arTerm : Option[ITerm] = for (t <- defaultTerm) yield const(t)
 
         for (arMap          <- contents get arIndex;

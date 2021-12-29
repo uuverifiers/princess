@@ -12,7 +12,7 @@ sat
 (model
   (define-fun z () Int 5)
   (define-fun y () Int 4)
-  (define-fun ar2 () (Array Int Int) (store ((as const (Array Int Int)) 0) 1 4))
+  (define-fun ar2 () (Array Int Int) (store ((as const (Array Int Int)) 1) 1 4))
   (define-fun ar () (Array Int Int) (store ((as const (Array Int Int)) 0) 1 5))
 )
 
@@ -105,4 +105,15 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+
+Loading extensionality4.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun b () X (X (store (store ((as const (Array Int Int)) 1) 1 1) 2 2)))
+  (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
+)
 

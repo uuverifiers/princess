@@ -263,7 +263,7 @@ Unsat
 -- Test 2
 Sat
 ar = store(const(0), 1, 1)
-ar2 = const(0)
+ar2 = const(1)
 m.evalToTerm(ar): Some(store(const(0), 1, 1))
 m.evalToTerm(select(ar, 0)): Some(0)
 m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
