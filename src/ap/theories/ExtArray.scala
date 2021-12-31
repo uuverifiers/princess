@@ -203,7 +203,7 @@ object ExtArray {
       val indexStream = ADT.depthSortedVectors(indexSorts.toList)
       const(obj1) #::
       (for (ts <- indexStream)
-       yield store(List(const(obj1)) ++ ts ++ List(obj2) : _*)r)
+       yield store(List(const(obj1)) ++ ts ++ List(obj2) : _*))
     }
 
     override def decodeToTerm(
