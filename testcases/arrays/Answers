@@ -117,3 +117,15 @@ sat
   (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
 )
 
+Loading extensionality4b.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun c () X (X (store (store (store ((as const (Array Int Int)) 0) 1 1) 2 2) 3 3)))
+  (define-fun b () X (X (store (store (store ((as const (Array Int Int)) 0) 1 1) 2 2) 3 10)))
+  (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
+)
+
