@@ -309,8 +309,8 @@ sat
 (model
   (define-fun o () Obj (WrappedInt 42))
   (define-fun p1 () Int 45)
-  (define-fun h2 () Heap (Heap 46 (store ((as const (Array Int Obj)) (WrappedInt 1)) 45 (WrappedInt 42))))
-  (define-fun h1 () Heap (Heap 45 (store ((as const (Array Int Obj)) (WrappedInt 0)) 45 (WrappedInt 0))))
+  (define-fun h2 () Heap (Heap 46 (store ((as const (Array Int Obj)) (WrappedInt 0)) 45 (WrappedInt 42))))
+  (define-fun h1 () Heap (Heap 45 ((as const (Array Int Obj)) (WrappedInt 0))))
 )
 
 Loading conjunct-eliminator-bug.smt2 ...

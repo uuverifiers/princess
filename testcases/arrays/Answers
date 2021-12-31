@@ -12,7 +12,7 @@ sat
 (model
   (define-fun z () Int 5)
   (define-fun y () Int 4)
-  (define-fun ar2 () (Array Int Int) (store ((as const (Array Int Int)) 1) 1 4))
+  (define-fun ar2 () (Array Int Int) (store ((as const (Array Int Int)) 0) 1 4))
   (define-fun ar () (Array Int Int) (store ((as const (Array Int Int)) 0) 1 5))
 )
 
@@ -59,7 +59,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun arr () (Array Int Bool) (store (store ((as const (Array Int Bool)) true) 1 true) 2 false))
+  (define-fun arr () (Array Int Bool) (store ((as const (Array Int Bool)) true) 2 false))
 )
 
 Loading arrays6.smt2 ...
@@ -74,7 +74,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun a () (Array Int Bool) (store ((as const (Array Int Bool)) true) 42 true))
+  (define-fun a () (Array Int Bool) ((as const (Array Int Bool)) true))
 )
 
 Loading array-sorted.smt2 ...
@@ -113,7 +113,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun b () X (X (store (store ((as const (Array Int Int)) 1) 1 1) 2 2)))
+  (define-fun b () X (X (store (store (store ((as const (Array Int Int)) 0) 0 1) 1 1) 2 2)))
   (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
 )
 

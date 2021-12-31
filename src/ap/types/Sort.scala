@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -394,9 +394,15 @@ trait Sort {
     assignment get ((d, this))
 
   /**
-   * Extract terms from a model. Such terms will always be encoded as
-   * integers, and integers can have different meaning depending on the
-   * considered sort.
+   * Extract constructor terms from a model. Such terms will always be
+   * encoded as integers, and integers can have different meaning
+   * depending on the considered sort. Each sort can add the terms
+   * representing a model to the <code>assignment</code>
+   * map. Alternatively, a sort can add indexes to the
+   * <code>definedTerms</code> set to indicate a particular index is
+   * defined by a model, but the corresponding constructor term is not
+   * available yet because it refers to other terms that are not yet
+   * available.
    */
   def augmentModelTermSet(model : Conjunction,
                           assignment : MMap[(IdealInt, Sort), ITerm],
