@@ -767,6 +767,10 @@ class ExtArray private (val indexSorts : Seq[Sort],
     }
 
     // unions induced by const
+/*
+    // This splits will be introduced automatically by the handling of
+    // uninterpreted functions?
+
     val constLits = predConj positiveLitsWithPred _const
 
     for (a <- constLits)
@@ -780,6 +784,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
           arrayPartitions.union(a.last, b.last)
       }
     }
+ */
 
     val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
 
