@@ -105,10 +105,12 @@ object ExtArray {
       }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   private object AbstractArray {
 
-    def normalize(defaultValue : Option[ITerm],
-                  values : Map[Seq[ITerm], ITerm]) : AbstractArray =
+    def normalize[T](defaultValue : Option[T],
+                     values : Map[Seq[T], T]) : AbstractArray[T] =
       defaultValue match {
         case Some(v) =>
           AbstractArray(defaultValue, values filterNot (_._2 == v))
@@ -116,15 +118,15 @@ object ExtArray {
           AbstractArray(None, values)
       }
 
-    val empty = AbstractArray(None, Map())
+    def empty[T] = AbstractArray[T](None, Map())
 
   }
 
-  private case class AbstractArray(defaultValue : Option[ITerm],
-                                   values : Map[Seq[ITerm], ITerm]) {
+  private case class AbstractArray[T](defaultValue : Option[T],
+                                      values : Map[Seq[T], T]) {
     import AbstractArray._
 
-    def addValue(indexes : Seq[ITerm], value : ITerm) : AbstractArray = {
+    def addValue(indexes : Seq[T], value : T) : AbstractArray[T] = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC, (values get indexes) match {
                         case Some(oldVal) => value == oldVal
@@ -137,7 +139,7 @@ object ExtArray {
         copy(values = values + (indexes -> value))
     }
 
-    def addDefaultValue(value : ITerm) : AbstractArray = {
+    def addDefaultValue(value : T) : AbstractArray[T] = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC,
                       this.defaultValue.isEmpty ||
@@ -146,8 +148,8 @@ object ExtArray {
       normalize(Some(value), values)
     }
 
-    def merge(that : AbstractArray,
-              excludedIndexes : Seq[ITerm]) : AbstractArray = {
+    def merge(that : AbstractArray[T],
+              excludedIndexes : Seq[T]) : AbstractArray[T] = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC,
                       (this.defaultValue.isEmpty || that.defaultValue.isEmpty ||
@@ -168,6 +170,8 @@ object ExtArray {
                    yield (ind, v)))
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private object UndefTermException extends Exception
 
@@ -218,8 +222,8 @@ object ExtArray {
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = try{
       // Mapping from integers occurring in the model to arrays
       val absArrays =
-        new MHashMap[IdealInt, AbstractArray] {
-        override def default(ind : IdealInt) : AbstractArray =
+        new MHashMap[IdealInt, AbstractArray[ITerm]] {
+        override def default(ind : IdealInt) : AbstractArray[ITerm] =
           AbstractArray.empty
       }
 
@@ -313,6 +317,11 @@ object ExtArray {
       val sortedArrayIndexes = absArrays.keys.toSeq.sorted
       propagate(sortedArrayIndexes)
 
+      val fixedArrays =
+        (for ((ar, absArray) <- absArrays.iterator;
+              if absArray.defaultValue.isDefined)
+         yield ar).toSet
+
       // Make sure that all arrays have some default value assigned
       for (ind <- sortedArrayIndexes) {
         val absArray = absArrays(ind)
@@ -323,7 +332,7 @@ object ExtArray {
       // Check whether some distinct indexes are mapped to the same
       // array; in that case we need to make the arrays distinct
 
-      val backMapping = new MHashMap[AbstractArray, IdealInt]
+      val backMapping = new MHashMap[AbstractArray[ITerm], IdealInt]
       var indexStream = ADT.depthSortedVectors(indexSorts.toList)
 
       var cont = true
@@ -338,6 +347,13 @@ object ExtArray {
           val absArray = absArrays(ind)
           (backMapping get absArray) match {
             case Some(otherInd) => {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(AC, !(Set(ind, otherInd) subsetOf fixedArrays))
+              //-END-ASSERTION-/////////////////////////////////////////////////
+
+              val updatableInd =
+                if (fixedArrays contains ind) otherInd else ind
+
               while (allIndexTerms contains indexStream.head)
                 indexStream = indexStream.tail
 
@@ -348,9 +364,9 @@ object ExtArray {
               val nextValue = objSort.individuals.find(_ != defValue).get
 
               val newAbsArray = absArray.addValue(nextIndex, nextValue)
-              absArrays.put(ind, newAbsArray)
+              absArrays.put(updatableInd, newAbsArray)
 
-              propagate(List(ind))
+              propagate(List(updatableInd))
               cont = true
             }
             case None =>
@@ -395,7 +411,7 @@ object ExtArray {
  */
 class ExtArray private (val indexSorts : Seq[Sort],
                         val objSort : Sort) extends Theory {
-  import ExtArray.AC
+  import ExtArray.{AC, AbstractArray}
 
   private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
 
@@ -703,6 +719,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
           store2store2Eager(goal)
         }
 
+      override def generateModel(goal : Goal) : Option[Conjunction] =
+        generateModelHelp(goal)
+
     })
 
   //////////////////////////////////////////////////////////////////////////////
@@ -739,11 +758,27 @@ class ExtArray private (val indexSorts : Seq[Sort],
         case _ => false
       }
 
+    // unions induced by store/store2
     for (a <- (predConj positiveLitsWithPred _store) ++
               (predConj positiveLitsWithPred _store2)) {
       arrayPartitions makeSetIfNew a.head
       arrayPartitions makeSetIfNew a.last
       arrayPartitions.union(a.head, a.last)
+    }
+
+    // unions induced by const
+    val constLits = predConj positiveLitsWithPred _const
+
+    for (a <- constLits)
+      arrayPartitions makeSetIfNew a.last
+
+    for (i <- 0 until constLits.size) {
+      val a = constLits(i)
+      for (j <- (i+1) until constLits.size) {
+        val b = constLits(j)
+        if (couldAlias(a.head, b.head))
+          arrayPartitions.union(a.last, b.last)
+      }
     }
 
     val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
@@ -776,6 +811,121 @@ class ExtArray private (val indexSorts : Seq[Sort],
       List(split)
     } else {
       List()
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Equality propagation: generate equalities that have to hold in
+  // the final model, to make sure that such arrays will be given the
+  // same id. At this point we assume that terms of other theories
+  // with equal value are identical.
+
+  private def generateModelHelp(goal : Goal) : Option[Conjunction] = {
+    val predConj = goal.facts.predConj
+
+    // Sets of array terms that might have the same values almost
+    // everywhere, due to store/store2 or const literals
+    val arrayPartitions = new UnionFind[Term]
+
+    // Mapping from terms to arrays
+    val absArrays =
+      new MHashMap[Term, AbstractArray[Term]] {
+        override def default(ind : Term) : AbstractArray[Term] =
+          AbstractArray.empty
+      }
+
+    // Equivalences induced by the _store and _store2 literals
+    val equivalences =
+      new MHashMap[Term, ArrayBuffer[(Seq[Term], Term)]]
+
+    // extract const literals
+    val constLits = predConj positiveLitsWithPred _const
+
+    for (a <- constLits) {
+      arrayPartitions makeSetIfNew a.last
+      absArrays.put(a.last, absArrays(a.last).addDefaultValue(a.head))
+    }
+
+    // extract select literals
+    for (a <- predConj positiveLitsWithPred _select) {
+      arrayPartitions makeSetIfNew a.head
+
+      val newAbsArray =
+        absArrays(a.head).addValue(a.slice(1, a.size - 1), a.last)
+      absArrays.put(a.head, newAbsArray)
+    }
+
+    // extract store literals and add the written values, and set up the
+    // propagation graph
+    for (a <- (predConj positiveLitsWithPred _store) ++
+              (predConj positiveLitsWithPred _store2)) {
+      arrayPartitions makeSetIfNew a.head
+      arrayPartitions makeSetIfNew a.last
+      arrayPartitions.union(a.head, a.last)
+
+      val inds = a.slice(1, a.size - 2)
+      equivalences.getOrElseUpdate(a.head, new ArrayBuffer) += ((inds, a.last))
+      equivalences.getOrElseUpdate(a.last, new ArrayBuffer) += ((inds, a.head))
+
+      absArrays.put(a.last, absArrays(a.last).addValue(inds, a(a.size - 2)))
+    }
+
+    val todo = new LinkedHashSet[Term]
+
+    // propagation of array values across _store and _store2 equivalences
+    def propagate(changedIndexes : Seq[Term]) = {
+      todo ++= changedIndexes
+
+      while (!todo.isEmpty) {
+        val nextInd = todo.iterator.next
+        todo -= nextInd
+
+        val nextArray = absArrays(nextInd)
+
+        for (adjacent <- (equivalences get nextInd).toSeq;
+             (indexes, adjIndex) <- adjacent) {
+          val adjArray = absArrays(adjIndex)
+          val newAdjArray = adjArray.merge(nextArray, indexes)
+          if (newAdjArray != adjArray) {
+            absArrays.put(adjIndex, newAdjArray)
+            todo += adjIndex
+          }
+        }
+      }
+    }
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val sortedArrayIndexes = (order sort arrayPartitions.elements).toIndexedSeq
+    propagate(sortedArrayIndexes)
+
+    val arraySets = new MHashMap[Term, MHashMap[AbstractArray[Term],List[Term]]]
+    val equalities = new ArrayBuffer[Conjunction]
+
+    // Equal arrays in the same partition should be represented by the
+    // same term, to make sure that they later receive the same id
+    for ((ar, absArray) <- absArrays) {
+      val arMap : MHashMap[AbstractArray[Term], List[Term]] =
+        arraySets.getOrElseUpdate(arrayPartitions(ar), new MHashMap)
+
+      val arSet : List[Term] = (arMap get absArray) match {
+        case Some(ar2 :: rest) => {
+          equalities += (ar === ar2)
+          ar :: ar2 :: rest
+        }
+        case _ =>
+          List(ar)
+      }
+
+      arMap.put(absArray, arSet)
+    }
+
+    if (equalities.isEmpty) {
+      None
+    } else {
+      equalities += goal.facts
+      Some(ReduceWithConjunction(Conjunction.TRUE, order)(conj(equalities)))
     }
   }
 
