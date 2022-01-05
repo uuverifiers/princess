@@ -336,8 +336,14 @@ object ExtArray {
       var indexStream = ADT.depthSortedVectors(indexSorts.toList)
 
       var cont = true
+      var iterationBound = absArrays.size
+
       while (cont) {
         cont = false
+
+        if (iterationBound < 0)
+          throw new Exception("Failed to reconstruct array model")
+        iterationBound = iterationBound - 1
 
         backMapping.clear
         val it = sortedArrayIndexes.iterator

@@ -255,6 +255,9 @@ object ModuloArithmetic extends Theory {
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       Some(mod_cast(lower, upper, d))
+
+    override val individuals : Stream[ITerm] =
+      for (t <- super.individuals) yield mod_cast(lower, upper, t)
   }
 
   /**
