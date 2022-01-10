@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,7 @@ import ap.util.{Seqs, Debug}
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
                                  HashSet => MHashSet, ArrayBuffer,
-                                 LinkedHashSet}
+                                 LinkedHashSet, ArrayStack}
 import scala.math.Ordering.Implicits._
 
 object ExtArray {
@@ -467,7 +467,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
   // A predicate to record that we have added constraints that express
   // distinctness of two arrays
   val distinctArrays =
-    MonoSortedPredicate(prefix + "distinct" + suffix, List(sort, sort))
+    MonoSortedPredicate(prefix + "distinct" + suffix,
+                        List(sort, sort) ++ indexSorts)
 
   val functions = List(select, store, const, store2, valueAlmostEverywhere)
 
@@ -735,8 +736,15 @@ class ExtArray private (val indexSorts : Seq[Sort],
   // we have to make sure that we infer equalities between those constants
 
   private def equalityPropagation(goal : Goal) : Seq[Plugin.Action] = {
-    val predConj = goal.facts.predConj
-    val allAtoms = predConj.positiveLits ++ predConj.negativeLits
+    val predConj   = goal.facts.predConj
+    val storeLits  = predConj positiveLitsWithPred _store
+    val store2Lits = predConj positiveLitsWithPred _store2
+
+    if (storeLits.isEmpty && store2Lits.isEmpty)
+      return List()
+
+    val allAtoms =
+      predConj.positiveLits ++ predConj.negativeLits
     val nonTheoryAtoms =
       allAtoms filterNot { a => predicates contains a.pred }
 
@@ -753,7 +761,6 @@ class ExtArray private (val indexSorts : Seq[Sort],
     // the constraints
     val mayAlias        = goal.mayAlias
     val arrayPartitions = new UnionFind[LinearCombination]
-    val positiveLitSet  = predConj.positiveLitsAsSet
 
     implicit val order = goal.order
     import TerForConvenience._
@@ -765,8 +772,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
       }
 
     // unions induced by store/store2
-    for (a <- (predConj positiveLitsWithPred _store) ++
-              (predConj positiveLitsWithPred _store2)) {
+    for (a <- storeLits.iterator ++ store2Lits.iterator) {
       arrayPartitions makeSetIfNew a.head
       arrayPartitions makeSetIfNew a.last
       arrayPartitions.union(a.head, a.last)
@@ -794,6 +800,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
     val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
 
+    lazy val distinctArrayTerms = computeDistinctArrays(goal)
+
     // check whether further terms might alias; those terms have to be
     // considered for equality as well
     for (n1 <- 0 until (arrayTerms.size - 1);
@@ -809,9 +817,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
            if arrayPartitions(a) == arrayPartitions(b);
            if !Seqs.disjoint(a.constants, interestingConstants);
            if !Seqs.disjoint(b.constants, interestingConstants);
-           if !(positiveLitSet contains distinctArrays(List(a, b)));
-           if !(positiveLitSet contains distinctArrays(List(b, a))))
-      yield (a, b)
+           p = (a, b);
+           if !(distinctArrayTerms contains p))
+      yield p
 
     if (interestingPairs.hasNext) {
       val (a, b) = interestingPairs.next
@@ -823,6 +831,150 @@ class ExtArray private (val indexSorts : Seq[Sort],
     } else {
       List()
     }
+  }
+
+  private def computeDistinctArrays(goal : Goal) : Set[(Term, Term)] = {
+    // Rules used to derive distinctness of arrays:
+    //
+    // (1) "distinct" atoms in the goal
+    //
+    // (2) distinct(a, ind, b) => distinct(b, ind, a)
+    //
+    // (3) read(a, ind, x) & read(b, ind, y) && non-alias(x, y)
+    //       => distinct(a, ind, b)
+    //
+    // (4) read(a, ind, x) & store(b, ind, y, c) && non-alias(x, y)
+    //       => distinct(a, ind, c)
+    // (not needed for store2)
+    //
+    // (5) store(a, ind, x, b) && store(c, ind, y, d) && non-alias(x, y)
+    //       => distinct(b, ind, d)
+    // (not needed for store2)
+    //
+    // (6) const(x, a) && read(b, ind, y) && non-alias(x, y)
+    //       => distinct(a, ind, b)
+    //
+    // (7) const(x, a) && store(b, ind, y, c) && non-alias(x, y)
+    //       => distinct(a, ind, c)
+    // (not needed for store2)
+    //
+    // (8) distinct(a, ind, b) && store(b, ind2, x, c) && non-alias(ind, ind2)
+    //       => distinct(a, ind, c)
+    // (same for store2)
+    // 
+
+    // TODO: take the partitions of array terms into account, only
+    // perform derivations within each partition
+
+    // relation between two arrays and the index terms
+    val distincts = new MHashSet[(LinearCombination, LinearCombination,
+                                  Seq[LinearCombination])]
+    val toAdd     = new ArrayBuffer[(LinearCombination, LinearCombination,
+                                     Seq[LinearCombination])]
+    val todo      = new ArrayStack[(LinearCombination, LinearCombination,
+                                    Seq[LinearCombination])]
+    var changed   = true
+
+    def addDistinctLazy(a : LinearCombination, b : LinearCombination,
+                        indexes : Seq[LinearCombination]) ={
+      val t = (a, b, indexes)
+      if (!(distincts contains t))
+        toAdd += t
+    }
+
+    def addDistinct(a : LinearCombination, b : LinearCombination,
+                    indexes : Seq[LinearCombination]) = {
+      if (distincts add ((a, b, indexes))) {
+        changed = true
+        todo push ((a, b, indexes))
+      }
+      if (distincts add ((b, a, indexes))) {
+        changed = true
+        todo push ((b, a, indexes))
+      }
+    }
+
+    def flush = {
+      for ((a, b, indexes) <- toAdd)
+        addDistinct(a, b, indexes)
+      toAdd.clear
+    }
+
+    val mayAlias = goal.mayAlias
+
+    def cannotAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, false) == AliasStatus.Cannot
+
+    def cannotAliasSeq(a : Seq[LinearCombination], b : Seq[LinearCombination]) =
+      (a.iterator zip b.iterator) exists { case (x, y) => cannotAlias(x, y) }
+
+    val predConj      = goal.facts.predConj
+    val selectLits    = predConj positiveLitsWithPred _select
+    val storeLits     = predConj positiveLitsWithPred _store
+    val store2Lits    = predConj positiveLitsWithPred _store2
+    val constLits     = predConj positiveLitsWithPred _const
+    val distinctLits  = predConj positiveLitsWithPred distinctArrays
+    
+    val selectWithInd = selectLits groupBy (a => a.slice(1, arity + 1))
+    val storeWithInd  = storeLits groupBy (a => a.slice(1, arity + 1))
+
+    // Rule (1)
+    for (a <- distinctLits)
+      addDistinct(a(0), a(1), a drop 2)
+
+    // Rule (3)
+    for ((indexes, lits) <- selectWithInd) {
+      val litsVector = lits.toIndexedSeq
+      for (i <- 0 until litsVector.size;
+           a = litsVector(i);
+           j <- (i+1) until litsVector.size;
+           b = litsVector(j))
+        if (cannotAlias(a.last, b.last))
+          addDistinct(a.head, b.head, indexes)
+    }
+
+    // Rule (4)
+    for (storeLit <- storeLits) {
+      val indexes = storeLit.slice(1, arity + 1)
+      for (selectLit <- selectWithInd.getOrElse(indexes, List()))
+        if (cannotAlias(storeLit(arity + 1), selectLit.last))
+          addDistinct(selectLit.head, storeLit.last, indexes)
+    }
+
+    // Rule (5)
+    for ((indexes, lits) <- storeWithInd) {
+      val litsVector = lits.toIndexedSeq
+      for (i <- 0 until litsVector.size;
+           a = litsVector(i);
+           j <- (i+1) until litsVector.size;
+           b = litsVector(j))
+        if (cannotAlias(a(arity + 1), b(arity + 1)))
+          addDistinct(a.last, b.last, indexes)
+    }
+
+    // Rule (6)
+    for (constLit <- constLits; selectLit <- selectLits)
+      if (cannotAlias(constLit.head, selectLit.last))
+        addDistinct(constLit.last, selectLit.head, selectLit.slice(1, arity+1))
+
+    // Rule (7)
+    for (constLit <- constLits; storeLit <- storeLits)
+      if (cannotAlias(constLit.head, storeLit(arity + 1)))
+        addDistinct(constLit.last, storeLit.last, storeLit.slice(1, arity+1))
+
+    val storeWithArray = (storeLits ++ store2Lits) groupBy { _.head }
+
+    // Rule (8)
+    while (!todo.isEmpty) {
+      val (a, b, indexes) = todo.pop
+      for (storeLit <- storeWithArray.getOrElse(b, List())) {
+        val indexes2 = storeLit.slice(1, arity + 1)
+        if (cannotAliasSeq(indexes, indexes2))
+          addDistinct(a, storeLit.last, indexes)
+      }
+    }
+
+    (for ((a, b, _) <- distincts.iterator) yield (a, b)).toSet
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1005,7 +1157,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
     val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
                   _select(List(l(d)) ++ indexes ++ List(result2)) &
                   (result1 =/= result2) &
-                  distinctArrays(List(l(c), l(d)))
+                  distinctArrays(List(l(c), l(d)) ++ indexes)
 
     existsSorted(indexSorts ++ List(objSort, objSort), matrix)
   }
