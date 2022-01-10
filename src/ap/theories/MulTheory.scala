@@ -108,7 +108,14 @@ trait MulTheory extends Theory {
       val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
       val v0Denom = mult(v(0), denom)
-      eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
+      denomTerm match {
+        case Const(IdealInt(2 | -2)) =>
+          // for the special case of denominator two, it is usually
+          // more efficient to split
+          eps((num === v0Denom) | (num === v0Denom + 1))
+        case _ =>
+          eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
+      }
     } else {
       // avoid duplication of the numerator by introducing a quantifier
 
@@ -118,7 +125,14 @@ trait MulTheory extends Theory {
       eps(ex(ex(ex((v(0) === num) &
                    (v(1) === mult(v(3), v(2))) &
                    (v(2) === denom) &
-                   (v(1) <= v(0)) & (v(1) > v(0) - abs(v(2)))))))
+                   (denomTerm match {
+                      case Const(IdealInt(2 | -2)) =>
+                        // for the special case of denominator two, it
+                        // is usually more efficient to split
+                        (v(0) === v(1)) | (v(0) === v(1) + 1)
+                      case _ =>
+                        (v(1) <= v(0)) & (v(1) > v(0) - abs(v(2)))
+                    })))))
     }
 
   /**

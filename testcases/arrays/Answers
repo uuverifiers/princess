@@ -59,7 +59,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun arr () (Array Int Bool) (store (store ((as const (Array Int Bool)) true) 1 true) 2 false))
+  (define-fun arr () (Array Int Bool) (store ((as const (Array Int Bool)) true) 2 false))
 )
 
 Loading arrays6.smt2 ...
@@ -74,7 +74,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun a () (Array Int Bool) (store ((as const (Array Int Bool)) true) 42 true))
+  (define-fun a () (Array Int Bool) ((as const (Array Int Bool)) true))
 )
 
 Loading array-sorted.smt2 ...
@@ -105,4 +105,38 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+
+Loading extensionality4.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun b () X (X (store (store (store ((as const (Array Int Int)) 0) 0 1) 1 1) 2 2)))
+  (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
+)
+
+Loading extensionality4b.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun c () X (X (store (store (store ((as const (Array Int Int)) 0) 1 1) 2 2) 3 3)))
+  (define-fun b () X (X (store (store (store ((as const (Array Int Int)) 0) 1 1) 2 2) 3 10)))
+  (define-fun a () X (X (store (store ((as const (Array Int Int)) 0) 1 1) 2 2)))
+)
+
+Loading extensionality5.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun b () (Array Int Int) ((as const (Array Int Int)) 1))
+  (define-fun a () (Array Int Int) ((as const (Array Int Int)) 1))
+)
 

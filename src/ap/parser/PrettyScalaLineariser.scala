@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -249,6 +249,11 @@ class PrettyScalaLineariser private (
           noOp(ctxt)
         }
       
+        case IEquation(left, right) => {
+          print("(")
+          SubArgs(List(ctxt setOpWrap " === ", ctxt setOpWrap ")"))
+        }
+
         case IIntFormula(rel, ITimes(IdealInt.MINUS_ONE, t)) => {
           print("(")
           TryAgain(t, ctxt setOpWrap (" " + negRelation(rel) + " 0)" + ctxt.parentOp))

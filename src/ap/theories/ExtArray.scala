@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,7 +52,9 @@ import ap.util.{Seqs, Debug}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
-                                 HashSet => MHashSet, ArrayBuffer}
+                                 HashSet => MHashSet, ArrayBuffer,
+                                 LinkedHashSet, ArrayStack}
+import scala.math.Ordering.Implicits._
 
 object ExtArray {
 
@@ -103,20 +105,110 @@ object ExtArray {
       }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object AbstractArray {
+
+    def normalize[T](defaultValue : Option[T],
+                     values : Map[Seq[T], T]) : AbstractArray[T] =
+      defaultValue match {
+        case Some(v) =>
+          AbstractArray(defaultValue, values filterNot (_._2 == v))
+        case None =>
+          AbstractArray(None, values)
+      }
+
+    def empty[T] = AbstractArray[T](None, Map())
+
+  }
+
+  private case class AbstractArray[T](defaultValue : Option[T],
+                                      values : Map[Seq[T], T]) {
+    import AbstractArray._
+
+    def addValue(indexes : Seq[T], value : T) : AbstractArray[T] = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, (values get indexes) match {
+                        case Some(oldVal) => value == oldVal
+                        case None => true
+                      })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      if (defaultValue == Some(value))
+        this
+      else
+        copy(values = values + (indexes -> value))
+    }
+
+    def addDefaultValue(value : T) : AbstractArray[T] = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC,
+                      this.defaultValue.isEmpty ||
+                        this.defaultValue.get == value)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      normalize(Some(value), values)
+    }
+
+    def merge(that : AbstractArray[T],
+              excludedIndexes : Seq[T]) : AbstractArray[T] = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC,
+                      (this.defaultValue.isEmpty || that.defaultValue.isEmpty ||
+                         this.defaultValue == that.defaultValue) &&
+                        (that.values forall {
+                           case (indexes, value) =>
+                             indexes == excludedIndexes ||
+                             ((this.values get indexes) match {
+                                case Some(oldVal) => value == oldVal
+                                case None => true
+                              })
+                         }))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      normalize(this.defaultValue orElse that.defaultValue,
+                this.values ++
+                  (for ((ind, v) <- that.values.iterator;
+                        if ind != excludedIndexes)
+                   yield (ind, v)))
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object UndefTermException extends Exception
+
+  private val kbo = new KBO (
+    (f) => 10,
+    (c) => 5,
+    new Ordering[IFunction] {
+      def compare(f : IFunction, g : IFunction) : Int =
+        f.name compare g.name
+
+    },
+    new Ordering[ConstantTerm] {
+      def compare(c : ConstantTerm, d : ConstantTerm) : Int =
+        c.name compare d.name
+
+    }
+  )
+
   /**
    * Sort representing arrays.
    */
   case class ArraySort(theory : ExtArray) extends ProxySort(Sort.Integer) {
     import theory.{indexSorts, objSort,
-                   select, store, const,_select, _store, _const}
+                   select, store, const, _select, _store, _store2, _const}
     import IExpression._
 
     override val name : String =
       "ExtArray[" + (indexSorts mkString ", ") + ", " + objSort + "]"
 
-    override def individuals : Stream[ITerm] =
-      // TODO: generalise this
-      for (t <- objSort.individuals) yield const(t)
+    override def individuals : Stream[ITerm] = {
+      val obj1 = objSort.individuals.head
+      val obj2 = objSort.individuals.tail.head
+      val indexStream = ADT.depthSortedVectors(indexSorts.toList)
+      const(obj1) #::
+      (for (ts <- indexStream)
+       yield store(List(const(obj1)) ++ ts ++ List(obj2) : _*))
+    }
 
     override def decodeToTerm(
                    d : IdealInt,
@@ -127,103 +219,192 @@ object ExtArray {
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
-                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      val contents = new MHashMap[IdealInt, MHashMap[Seq[IdealInt], IdealInt]]
-      val defaults = new MHashMap[IdealInt, IdealInt]
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = try{
+      // Mapping from integers occurring in the model to arrays
+      val absArrays =
+        new MHashMap[IdealInt, AbstractArray[ITerm]] {
+        override def default(ind : IdealInt) : AbstractArray[ITerm] =
+          AbstractArray.empty
+      }
+
+      // Equivalences induced by the _store and _store2 literals
+      val equivalences =
+        new MHashMap[IdealInt, ArrayBuffer[(Seq[ITerm], IdealInt)]]
+
+      // Set of all index term (vectors) occurring in the model
+      val allIndexTerms =
+        new LinkedHashSet[Seq[ITerm]]
+
+      def toTerm(ind : IdealInt, sort : Sort) : ITerm =
+        sort.decodeToTerm(ind, terms) match {
+          case Some(t) => t
+          case None    => throw UndefTermException
+        }
+
+      def indexTerms(indexes : Seq[IdealInt]) : Seq[ITerm] = {
+        val res = (indexes zip indexSorts) map {
+          case (ind, s) => toTerm(ind, s)
+        }
+        allIndexTerms += res
+        res
+      }
+
+      def indexTermsLC(indexes : Seq[LinearCombination]) : Seq[ITerm] =
+        indexTerms(indexes map (_.constant))
 
       // extract const literals
       for (a <- model.predConj positiveLitsWithPred _const)
-        defaults.put(a(1).constant, a(0).constant)
+        absArrays.put(a(1).constant,
+                      AbstractArray(Some(toTerm(a(0).constant, objSort)),
+                                    Map()))
 
       // extract select literals
       for (a <- model.predConj positiveLitsWithPred _select) {
         val arIndex =
           a(0).constant
-        val arMap =
-          contents.getOrElseUpdate(arIndex,
-                                   new MHashMap[Seq[IdealInt], IdealInt])
-        arMap.put(for (lc <- a.slice(1, a.size - 1)) yield lc.constant,
-                  a.last.constant)
+        val newAbsArray =
+          absArrays(arIndex).addValue(indexTermsLC(a.slice(1, a.size - 1)),
+                                      toTerm(a.last.constant, objSort))
+        absArrays.put(arIndex, newAbsArray)
       }
 
-      // extract store literals and add the written values
-      for (a <- model.predConj positiveLitsWithPred _store) {
+      // extract store literals and add the written values, and set up the
+      // propagation graph
+      for (a <- (model.predConj positiveLitsWithPred _store) ++
+                (model.predConj positiveLitsWithPred _store2)) {
+        val fromIndex =
+          a(0).constant
         val toIndex =
           a.last.constant
-        val toMap =
-          contents.getOrElseUpdate(toIndex,
-                                   new MHashMap[Seq[IdealInt], IdealInt])
-        toMap.put(for (lc <- a.slice(1, a.size - 2)) yield lc.constant,
-                  a(a.size - 2).constant)
+
+        val indexes =
+          indexTermsLC(a.slice(1, a.size - 2))
+        equivalences.getOrElseUpdate(fromIndex, new ArrayBuffer) +=
+          ((indexes, toIndex))
+        equivalences.getOrElseUpdate(toIndex, new ArrayBuffer) +=
+          ((indexes, fromIndex))
+
+        val newAbsArray =
+          absArrays(toIndex).addValue(indexes,
+                                      toTerm(a(a.size - 2).constant, objSort))
+        absArrays.put(toIndex, newAbsArray)
       }
 
-      // extract store literals, propagate maps
-      var changed = true
-      while (changed) {
-        changed = false
+      val todo = new LinkedHashSet[IdealInt]
+
+      // propagation of array values across _store and _store2 equivalences
+      def propagate(changedIndexes : Seq[IdealInt]) = {
+        todo ++= changedIndexes
+
+        while (!todo.isEmpty) {
+          val nextInd = todo.iterator.next
+          todo -= nextInd
+
+          val nextArray = absArrays(nextInd)
+
+          for (adjacent <- (equivalences get nextInd).toSeq;
+               (indexes, adjIndex) <- adjacent) {
+            val adjArray = absArrays(adjIndex)
+            val newAdjArray = adjArray.merge(nextArray, indexes)
+            if (newAdjArray != adjArray) {
+              absArrays.put(adjIndex, newAdjArray)
+              todo += adjIndex
+            }
+          }
+        }
+      }
+
+      val sortedArrayIndexes = absArrays.keys.toSeq.sorted
+      propagate(sortedArrayIndexes)
+
+      val fixedArrays =
+        (for ((ar, absArray) <- absArrays.iterator;
+              if absArray.defaultValue.isDefined)
+         yield ar).toSet
+
+      // Make sure that all arrays have some default value assigned
+      for (ind <- sortedArrayIndexes) {
+        val absArray = absArrays(ind)
+        if (absArray.defaultValue.isEmpty)
+          absArrays.put(ind, absArray addDefaultValue objSort.individuals.head)
+      }
+
+      // Check whether some distinct indexes are mapped to the same
+      // array; in that case we need to make the arrays distinct
+
+      val backMapping = new MHashMap[AbstractArray[ITerm], IdealInt]
+      var indexStream = ADT.depthSortedVectors(indexSorts.toList)
+
+      var cont = true
+      var iterationBound = absArrays.size
+
+      while (cont) {
+        cont = false
+
+        if (iterationBound < 0)
+          throw new Exception("Failed to reconstruct array model")
+        iterationBound = iterationBound - 1
+
+        backMapping.clear
+        val it = sortedArrayIndexes.iterator
+
+        while (it.hasNext && !cont) {
+          val ind = it.next
+          val absArray = absArrays(ind)
+          (backMapping get absArray) match {
+            case Some(otherInd) => {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(AC, !(Set(ind, otherInd) subsetOf fixedArrays))
+              //-END-ASSERTION-/////////////////////////////////////////////////
+
+              val updatableInd =
+                if (fixedArrays contains ind) otherInd else ind
+
+              while (allIndexTerms contains indexStream.head)
+                indexStream = indexStream.tail
+
+              val nextIndex = indexStream.head
+              allIndexTerms += nextIndex
+
+              val defValue = absArray.defaultValue.get
+              val nextValue = objSort.individuals.find(_ != defValue).get
+
+              val newAbsArray = absArray.addValue(nextIndex, nextValue)
+              absArrays.put(updatableInd, newAbsArray)
+
+              propagate(List(updatableInd))
+              cont = true
+            }
+            case None =>
+              backMapping.put(absArray, ind)
+          }
+        }
+      }
       
-        for (a <- model.predConj positiveLitsWithPred _store) {
-          val fromIndex = a(0).constant
-          val toIndex = a.last.constant
+      implicit val termOrder = kbo
 
-          val fromMap = contents.getOrElseUpdate(fromIndex,
-                                       new MHashMap[Seq[IdealInt], IdealInt])
-          val toMap = contents.getOrElseUpdate(toIndex,
-                                       new MHashMap[Seq[IdealInt], IdealInt])
-
-          val indexes = for (lc <- a.slice(1, a.size - 2)) yield lc.constant
-
-          for ((key, value) <- fromMap)
-            if (key != indexes && !(toMap contains key)) {
-              toMap.put(key, value)
-              changed = true
-            }
-          for ((key, value) <- toMap)
-            if (key != indexes && !(fromMap contains key)) {
-              fromMap.put(key, value)
-              changed = true
-            }
-
-          (defaults contains fromIndex, defaults contains toIndex) match {
-            case (true, false) => {
-              defaults.put(toIndex, defaults(fromIndex))
-              changed = true
-            }
-            case (false, true) => {
-              defaults.put(fromIndex, defaults(toIndex))
-              changed = true
-            }
-            case _ =>
-              // nothing
-          }
-        }
+      for ((arIndex, absArray) <- absArrays) {
+        var arTerm =
+          const(absArray.defaultValue.get)
+        val sortedValues =
+          absArray.values.toSeq.sortBy(_._1)
+        for ((indexes, value) <- sortedValues)
+          arTerm = store(List(arTerm) ++ indexes ++ List(value) : _*)
+        terms.put((arIndex, this), arTerm)
       }
 
-      val allIndexes = (defaults.keysIterator ++ contents.keysIterator).toSet
-
-      for (arIndex <- allIndexes) {
-        val defaultTerm =
-          (defaults get arIndex) match {
-            case Some(default) => objSort.decodeToTerm(default, terms)
-            case None          => Some(objSort.individuals.head)
-          }
-
-        var arTerm : Option[ITerm] = for (t <- defaultTerm) yield const(t)
-
-        for (arMap          <- contents get arIndex;
-             (indexes, obj) <- arMap.toList.sortBy(_._2);
-             arT            <- arTerm) {
-          arTerm =
-            for (indexTerms <- Seqs.so2os((indexes zip indexSorts) map {
-                                            case (ind, s) =>
-                                              s.decodeToTerm(ind, terms)
-                                          });
-                 objTerm    <- objSort.decodeToTerm(obj, terms))
-            yield store(List(arT) ++ indexTerms ++ List(objTerm) : _*)
+    } catch {
+      case UndefTermException => {
+        // we need to wait, in the meantime just return the set of defined terms
+        for (a <- model.predConj positiveLitsWithPred _const)
+          definedTerms += ((a(1).constant, this))
+        for (a <- model.predConj positiveLitsWithPred _select)
+          definedTerms += ((a(0).constant, this))
+        for (a <- (model.predConj positiveLitsWithPred _store) ++
+                  (model.predConj positiveLitsWithPred _store2)) {
+          definedTerms += ((a(0).constant, this))
+          definedTerms += ((a.last.constant, this))
         }
-
-        for (arT <- arTerm)
-          terms.put((arIndex, this), arT)
       }
     }
   }
@@ -236,7 +417,7 @@ object ExtArray {
  */
 class ExtArray private (val indexSorts : Seq[Sort],
                         val objSort : Sort) extends Theory {
-  import ExtArray.AC
+  import ExtArray.{AC, AbstractArray}
 
   private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
 
@@ -286,7 +467,8 @@ class ExtArray private (val indexSorts : Seq[Sort],
   // A predicate to record that we have added constraints that express
   // distinctness of two arrays
   val distinctArrays =
-    MonoSortedPredicate(prefix + "distinct" + suffix, List(sort, sort))
+    MonoSortedPredicate(prefix + "distinct" + suffix,
+                        List(sort, sort) ++ indexSorts)
 
   val functions = List(select, store, const, store2, valueAlmostEverywhere)
 
@@ -544,6 +726,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
           store2store2Eager(goal)
         }
 
+      override def generateModel(goal : Goal) : Option[Conjunction] =
+        generateModelHelp(goal)
+
     })
 
   //////////////////////////////////////////////////////////////////////////////
@@ -551,8 +736,15 @@ class ExtArray private (val indexSorts : Seq[Sort],
   // we have to make sure that we infer equalities between those constants
 
   private def equalityPropagation(goal : Goal) : Seq[Plugin.Action] = {
-    val predConj = goal.facts.predConj
-    val allAtoms = predConj.positiveLits ++ predConj.negativeLits
+    val predConj   = goal.facts.predConj
+    val storeLits  = predConj positiveLitsWithPred _store
+    val store2Lits = predConj positiveLitsWithPred _store2
+
+    if (storeLits.isEmpty && store2Lits.isEmpty)
+      return List()
+
+    val allAtoms =
+      predConj.positiveLits ++ predConj.negativeLits
     val nonTheoryAtoms =
       allAtoms filterNot { a => predicates contains a.pred }
 
@@ -569,7 +761,6 @@ class ExtArray private (val indexSorts : Seq[Sort],
     // the constraints
     val mayAlias        = goal.mayAlias
     val arrayPartitions = new UnionFind[LinearCombination]
-    val positiveLitSet  = predConj.positiveLitsAsSet
 
     implicit val order = goal.order
     import TerForConvenience._
@@ -580,14 +771,36 @@ class ExtArray private (val indexSorts : Seq[Sort],
         case _ => false
       }
 
-    for (a <- (predConj positiveLitsWithPred _store) ++
-              (predConj positiveLitsWithPred _store2)) {
+    // unions induced by store/store2
+    for (a <- storeLits.iterator ++ store2Lits.iterator) {
       arrayPartitions makeSetIfNew a.head
       arrayPartitions makeSetIfNew a.last
       arrayPartitions.union(a.head, a.last)
     }
 
+    // unions induced by const
+/*
+    // This splits will be introduced automatically by the handling of
+    // uninterpreted functions?
+
+    val constLits = predConj positiveLitsWithPred _const
+
+    for (a <- constLits)
+      arrayPartitions makeSetIfNew a.last
+
+    for (i <- 0 until constLits.size) {
+      val a = constLits(i)
+      for (j <- (i+1) until constLits.size) {
+        val b = constLits(j)
+        if (couldAlias(a.head, b.head))
+          arrayPartitions.union(a.last, b.last)
+      }
+    }
+ */
+
     val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
+
+    lazy val distinctArrayTerms = computeDistinctArrays(goal)
 
     // check whether further terms might alias; those terms have to be
     // considered for equality as well
@@ -604,9 +817,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
            if arrayPartitions(a) == arrayPartitions(b);
            if !Seqs.disjoint(a.constants, interestingConstants);
            if !Seqs.disjoint(b.constants, interestingConstants);
-           if !(positiveLitSet contains distinctArrays(List(a, b)));
-           if !(positiveLitSet contains distinctArrays(List(b, a))))
-      yield (a, b)
+           p = (a, b);
+           if !(distinctArrayTerms contains p))
+      yield p
 
     if (interestingPairs.hasNext) {
       val (a, b) = interestingPairs.next
@@ -617,6 +830,265 @@ class ExtArray private (val indexSorts : Seq[Sort],
       List(split)
     } else {
       List()
+    }
+  }
+
+  private def computeDistinctArrays(goal : Goal) : Set[(Term, Term)] = {
+    // Rules used to derive distinctness of arrays:
+    //
+    // (1) "distinct" atoms in the goal
+    //
+    // (2) distinct(a, ind, b) => distinct(b, ind, a)
+    //
+    // (3) read(a, ind, x) & read(b, ind, y) && non-alias(x, y)
+    //       => distinct(a, ind, b)
+    //
+    // (4) read(a, ind, x) & store(b, ind, y, c) && non-alias(x, y)
+    //       => distinct(a, ind, c)
+    // (not needed for store2)
+    //
+    // (5) store(a, ind, x, b) && store(c, ind, y, d) && non-alias(x, y)
+    //       => distinct(b, ind, d)
+    // (not needed for store2)
+    //
+    // (6) const(x, a) && read(b, ind, y) && non-alias(x, y)
+    //       => distinct(a, ind, b)
+    //
+    // (7) const(x, a) && store(b, ind, y, c) && non-alias(x, y)
+    //       => distinct(a, ind, c)
+    // (not needed for store2)
+    //
+    // (8) distinct(a, ind, b) && store(b, ind2, x, c) && non-alias(ind, ind2)
+    //       => distinct(a, ind, c)
+    // (same for store2)
+    // 
+
+    // TODO: take the partitions of array terms into account, only
+    // perform derivations within each partition
+
+    // relation between two arrays and the index terms
+    val distincts = new MHashSet[(LinearCombination, LinearCombination,
+                                  Seq[LinearCombination])]
+    val toAdd     = new ArrayBuffer[(LinearCombination, LinearCombination,
+                                     Seq[LinearCombination])]
+    val todo      = new ArrayStack[(LinearCombination, LinearCombination,
+                                    Seq[LinearCombination])]
+    var changed   = true
+
+    def addDistinctLazy(a : LinearCombination, b : LinearCombination,
+                        indexes : Seq[LinearCombination]) ={
+      val t = (a, b, indexes)
+      if (!(distincts contains t))
+        toAdd += t
+    }
+
+    def addDistinct(a : LinearCombination, b : LinearCombination,
+                    indexes : Seq[LinearCombination]) = {
+      if (distincts add ((a, b, indexes))) {
+        changed = true
+        todo push ((a, b, indexes))
+      }
+      if (distincts add ((b, a, indexes))) {
+        changed = true
+        todo push ((b, a, indexes))
+      }
+    }
+
+    def flush = {
+      for ((a, b, indexes) <- toAdd)
+        addDistinct(a, b, indexes)
+      toAdd.clear
+    }
+
+    val mayAlias = goal.mayAlias
+
+    def cannotAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, false) == AliasStatus.Cannot
+
+    def cannotAliasSeq(a : Seq[LinearCombination], b : Seq[LinearCombination]) =
+      (a.iterator zip b.iterator) exists { case (x, y) => cannotAlias(x, y) }
+
+    val predConj      = goal.facts.predConj
+    val selectLits    = predConj positiveLitsWithPred _select
+    val storeLits     = predConj positiveLitsWithPred _store
+    val store2Lits    = predConj positiveLitsWithPred _store2
+    val constLits     = predConj positiveLitsWithPred _const
+    val distinctLits  = predConj positiveLitsWithPred distinctArrays
+    
+    val selectWithInd = selectLits groupBy (a => a.slice(1, arity + 1))
+    val storeWithInd  = storeLits groupBy (a => a.slice(1, arity + 1))
+
+    // Rule (1)
+    for (a <- distinctLits)
+      addDistinct(a(0), a(1), a drop 2)
+
+    // Rule (3)
+    for ((indexes, lits) <- selectWithInd) {
+      val litsVector = lits.toIndexedSeq
+      for (i <- 0 until litsVector.size;
+           a = litsVector(i);
+           j <- (i+1) until litsVector.size;
+           b = litsVector(j))
+        if (cannotAlias(a.last, b.last))
+          addDistinct(a.head, b.head, indexes)
+    }
+
+    // Rule (4)
+    for (storeLit <- storeLits) {
+      val indexes = storeLit.slice(1, arity + 1)
+      for (selectLit <- selectWithInd.getOrElse(indexes, List()))
+        if (cannotAlias(storeLit(arity + 1), selectLit.last))
+          addDistinct(selectLit.head, storeLit.last, indexes)
+    }
+
+    // Rule (5)
+    for ((indexes, lits) <- storeWithInd) {
+      val litsVector = lits.toIndexedSeq
+      for (i <- 0 until litsVector.size;
+           a = litsVector(i);
+           j <- (i+1) until litsVector.size;
+           b = litsVector(j))
+        if (cannotAlias(a(arity + 1), b(arity + 1)))
+          addDistinct(a.last, b.last, indexes)
+    }
+
+    // Rule (6)
+    for (constLit <- constLits; selectLit <- selectLits)
+      if (cannotAlias(constLit.head, selectLit.last))
+        addDistinct(constLit.last, selectLit.head, selectLit.slice(1, arity+1))
+
+    // Rule (7)
+    for (constLit <- constLits; storeLit <- storeLits)
+      if (cannotAlias(constLit.head, storeLit(arity + 1)))
+        addDistinct(constLit.last, storeLit.last, storeLit.slice(1, arity+1))
+
+    val storeWithArray = (storeLits ++ store2Lits) groupBy { _.head }
+
+    // Rule (8)
+    while (!todo.isEmpty) {
+      val (a, b, indexes) = todo.pop
+      for (storeLit <- storeWithArray.getOrElse(b, List())) {
+        val indexes2 = storeLit.slice(1, arity + 1)
+        if (cannotAliasSeq(indexes, indexes2))
+          addDistinct(a, storeLit.last, indexes)
+      }
+    }
+
+    (for ((a, b, _) <- distincts.iterator) yield (a, b)).toSet
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Equality propagation: generate equalities that have to hold in
+  // the final model, to make sure that such arrays will be given the
+  // same id. At this point we assume that terms of other theories
+  // with equal value are identical.
+
+  private def generateModelHelp(goal : Goal) : Option[Conjunction] = {
+    val predConj = goal.facts.predConj
+
+    // Sets of array terms that might have the same values almost
+    // everywhere, due to store/store2 or const literals
+    val arrayPartitions = new UnionFind[Term]
+
+    // Mapping from terms to arrays
+    val absArrays =
+      new MHashMap[Term, AbstractArray[Term]] {
+        override def default(ind : Term) : AbstractArray[Term] =
+          AbstractArray.empty
+      }
+
+    // Equivalences induced by the _store and _store2 literals
+    val equivalences =
+      new MHashMap[Term, ArrayBuffer[(Seq[Term], Term)]]
+
+    // extract const literals
+    val constLits = predConj positiveLitsWithPred _const
+
+    for (a <- constLits) {
+      arrayPartitions makeSetIfNew a.last
+      absArrays.put(a.last, absArrays(a.last).addDefaultValue(a.head))
+    }
+
+    // extract select literals
+    for (a <- predConj positiveLitsWithPred _select) {
+      arrayPartitions makeSetIfNew a.head
+
+      val newAbsArray =
+        absArrays(a.head).addValue(a.slice(1, a.size - 1), a.last)
+      absArrays.put(a.head, newAbsArray)
+    }
+
+    // extract store literals and add the written values, and set up the
+    // propagation graph
+    for (a <- (predConj positiveLitsWithPred _store) ++
+              (predConj positiveLitsWithPred _store2)) {
+      arrayPartitions makeSetIfNew a.head
+      arrayPartitions makeSetIfNew a.last
+      arrayPartitions.union(a.head, a.last)
+
+      val inds = a.slice(1, a.size - 2)
+      equivalences.getOrElseUpdate(a.head, new ArrayBuffer) += ((inds, a.last))
+      equivalences.getOrElseUpdate(a.last, new ArrayBuffer) += ((inds, a.head))
+
+      absArrays.put(a.last, absArrays(a.last).addValue(inds, a(a.size - 2)))
+    }
+
+    val todo = new LinkedHashSet[Term]
+
+    // propagation of array values across _store and _store2 equivalences
+    def propagate(changedIndexes : Seq[Term]) = {
+      todo ++= changedIndexes
+
+      while (!todo.isEmpty) {
+        val nextInd = todo.iterator.next
+        todo -= nextInd
+
+        val nextArray = absArrays(nextInd)
+
+        for (adjacent <- (equivalences get nextInd).toSeq;
+             (indexes, adjIndex) <- adjacent) {
+          val adjArray = absArrays(adjIndex)
+          val newAdjArray = adjArray.merge(nextArray, indexes)
+          if (newAdjArray != adjArray) {
+            absArrays.put(adjIndex, newAdjArray)
+            todo += adjIndex
+          }
+        }
+      }
+    }
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val sortedArrayIndexes = (order sort arrayPartitions.elements).toIndexedSeq
+    propagate(sortedArrayIndexes)
+
+    val arraySets = new MHashMap[Term, MHashMap[AbstractArray[Term],List[Term]]]
+    val equalities = new ArrayBuffer[Conjunction]
+
+    // Equal arrays in the same partition should be represented by the
+    // same term, to make sure that they later receive the same id
+    for ((ar, absArray) <- absArrays) {
+      val arMap : MHashMap[AbstractArray[Term], List[Term]] =
+        arraySets.getOrElseUpdate(arrayPartitions(ar), new MHashMap)
+
+      val arSet : List[Term] = (arMap get absArray) match {
+        case Some(ar2 :: rest) => {
+          equalities += (ar === ar2)
+          ar :: ar2 :: rest
+        }
+        case _ =>
+          List(ar)
+      }
+
+      arMap.put(absArray, arSet)
+    }
+
+    if (equalities.isEmpty) {
+      None
+    } else {
+      equalities += goal.facts
+      Some(ReduceWithConjunction(Conjunction.TRUE, order)(conj(equalities)))
     }
   }
 
@@ -685,7 +1157,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
     val matrix  = _select(List(l(c)) ++ indexes ++ List(result1)) &
                   _select(List(l(d)) ++ indexes ++ List(result2)) &
                   (result1 =/= result2) &
-                  distinctArrays(List(l(c), l(d)))
+                  distinctArrays(List(l(c), l(d)) ++ indexes)
 
     existsSorted(indexSorts ++ List(objSort, objSort), matrix)
   }

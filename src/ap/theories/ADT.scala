@@ -97,7 +97,8 @@ object ADT {
     case _ =>                 0
   }
 
-  private def depthSortedVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
+  protected[theories]
+  def depthSortedVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
     sorts match {
       case List() => Stream(List())
       case List(s) => for (ind <- s.individuals) yield List(ind)

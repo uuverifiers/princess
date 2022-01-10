@@ -583,7 +583,7 @@ tuple(const(0))
 tuple(const(0))
 Test 2
 Sat
-tuple(const(1))
+tuple(store(const(0), 0, 1))
 tuple(const(0))
 Test 3
 Sat
