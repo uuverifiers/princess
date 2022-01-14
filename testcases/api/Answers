@@ -735,6 +735,10 @@ false
 (not true)
 (not false)
 
+SimplePrint.scala
+(1 >= 0)
+(<= 0 1)
+
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat
