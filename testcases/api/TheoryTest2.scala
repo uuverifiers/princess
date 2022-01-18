@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,7 +63,7 @@ object MulTheory extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
   val plugin = Some(new Plugin {
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = {
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
 
       type TermMultiset = Map[Term, Int]
 
@@ -135,9 +135,9 @@ object MulTheory extends Theory {
 //      println(eqs)
 
       if (eqs.isTrue)
-        None
+        List()
       else
-        Some((eqs, Conjunction.TRUE))
+        List(Plugin.AddAxiom(List(), eqs, MulTheory.this))
     }
   })
 

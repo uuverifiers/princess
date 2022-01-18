@@ -22,9 +22,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun z () String "\u{ffff}")
+  (define-fun z () String "\u{0}")
   (define-fun y () String "")
-  (define-fun x () String "\u{ffff}")
+  (define-fun x () String "\u{0}")
 )
 
 Loading concat-2.smt2 ...
@@ -33,8 +33,8 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun z () String "\u{ffff}\u{ffff}")
-  (define-fun x () String "\u{ffff}")
+  (define-fun z () String "\u{0}\u{0}")
+  (define-fun x () String "\u{0}")
 )
 
 Loading transducer1.smt2 ...

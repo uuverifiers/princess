@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,7 @@ import ap.terfor.{Formula, TermOrder, ConstantTerm, OneTerm}
 import ap.terfor.arithconj.{ArithConj, ModelElement}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.equations.EquationConj
+import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
@@ -47,9 +47,10 @@ import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate,
                               LemmaBase, BranchInferenceCertificate,
                               TheoryAxiomInference}
-import ap.theories.GroebnerMultiplication
+import ap.theories.{GroebnerMultiplication, Theory}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
+import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 
 import scala.collection.mutable.ArrayBuilder
@@ -649,6 +650,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Handle a goal in which no further rule applications are possible.
+   */
   private def handleSatGoal(goal : Goal,
                             // functions to reconstruct witnesses for eliminated
                             // constants
@@ -691,23 +695,18 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
         // should never happen
         throw new IllegalStateException
       case DeriveFullModelDir => {
-        // Check whether the theory plugin can give us a model
-        val theoryModel =
-          for (plugin <- Param.THEORY_PLUGIN(settings);
-               m <- plugin generateModel goal) yield m
+        val model = if (!Param.MODEL_GENERATION(settings)) {
 
-        val model = if (theoryModel.isDefined) {
-          // replace the facts with the model, and continue
-          // proving to take care of other possible predicates
-          // in the goal
-
+          // Need to make sure that the PresburgerModelfinder is
+          // applied last!
           val newSettings =
-            Param.GARBAGE_COLLECTED_FUNCTIONS.set(
-              Param.THEORY_PLUGIN.set(settings, None),
-              Set())
-          val newGoal = Goal(Conjunction.TRUE, CompoundFormulas.EMPTY(Map()),
-                             TaskManager.EMPTY ++ (
-                               goal formulaTasks theoryModel.get.negate),
+            Param.THEORY_PLUGIN.set(
+              Param.MODEL_GENERATION.set(settings, true),
+              PluginSequence(Param.THEORY_PLUGIN(settings).toList ++
+                               List(new PresburgerModelFinder)))
+          val newGoal = Goal(goal.facts,
+                             goal.compoundFormulas,
+                             TaskManager.EMPTY(newSettings),
                              goal.age,
                              goal.eliminatedConstants,
                              goal.vocabulary,
@@ -758,6 +757,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             if (goal.constantFreedom isBottomWRT facts.predConj.constants) {
               List()
             } else {
+              throw new Exception("theories failed to construct model for " + goal)
+
+/*
               implicit val order = goal.order
 
               val terms =
@@ -779,6 +781,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                   yield LinearCombination(
                           Array((IdealInt.ONE, c), (-v, OneTerm)), order),
                   order), order))
+ */
             }
 
           findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
@@ -899,7 +902,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       var doExtractModel = false
       var outerResult : FindModelResult = null
 
-      findModel(newGoal, List(), witnesses, Set(), depth, newSettings, {
+      val arithOnlyResult =
+        findModel(newGoal, List(), witnesses, Set(), depth, newSettings, {
         
         case (_, false) =>
           // now we can actually be sure that we have found a genuine model,
@@ -955,8 +959,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
           }
         }
         
-      }, lemmaBase, lemmaBaseAssumedInferences) match {
-        
+      }, lemmaBase, lemmaBaseAssumedInferences)
+
+      arithOnlyResult match {
         case SatResult =>
           if (doExtractModel) {
             // The goal is satisfiable, and we can extract a counterexample.
@@ -1175,6 +1180,93 @@ private case class WitnessTree(val subtree : ProofTree,
     subtree.stepMeaningful
   
   def newConstantFreedomForSubtree(cf : ConstantFreedom) : ConstantFreedom = cf
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+private class PresburgerModelFinder extends Plugin {
+
+  import Plugin.{AddFormula, SplitGoal}
+  import Conjunction.conj
+
+  private val AC = Debug.AC_PROVER
+
+  private val rand = new SeededRandomDataSource(54321)
+
+  override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
+
+    goalState(goal) match {
+      case Plugin.GoalState.Final =>
+        strengthenBounds(goal) elseDo pickPredicateArguments(goal)
+      case _ =>
+        List()
+    }
+  }
+
+  /**
+   * If a proof goal still contains arithmetic formulas, we compute a
+   * model by systematically strengthening inequalities. Since we have
+   * already established that the goal of satisfiable, this is
+   * guaranteed to yield a model.
+   * 
+   * TODO: this is probably quite slow and should be optimized.
+   */
+  private def strengthenBounds(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts
+    val inEqs = facts.arithConj.inEqs
+    val o     = goal.order
+
+    if (inEqs.isEmpty)
+      return List()
+
+    // val lc = inEqs.geqZero.minBy(_.constant.abs)
+    val lc = inEqs(rand.nextInt(inEqs.geqZero.size))
+
+    List(SplitGoal(List(List(AddFormula(conj(NegEquationConj(lc, o), o))),
+                        List(AddFormula(conj(EquationConj(lc, o), o))))))
+  }
+  
+  /**
+   * Assign values to the remaining constants in such a way that
+   * predicate arguments all become pairwise distinct, and that
+   * disequalities are satisfied.
+   */
+  private def pickPredicateArguments(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts
+    val order = goal.order
+
+    val (mgAtoms, otherAtoms) =
+      facts.predConj partition { a => Theory.isModelGenPredicate(a.pred) }
+    val avoidedConsts =
+      (for (a <- mgAtoms.iterator; c <- a.constants.iterator) yield c).toSet
+
+    val terms =
+      ((for (a <- facts.groundAtoms.iterator;
+             l <- a.iterator;
+             if Seqs.disjoint(l.constants, avoidedConsts))
+        yield l) ++
+         (for (lc <- facts.arithConj.negativeEqs.iterator;
+               if Seqs.disjoint(lc.constants, avoidedConsts);
+               lc2 <- Iterator(
+                 LinearCombination(lc.view(0, 1), order),
+                 -LinearCombination(lc.view(1, lc.size), order)))
+          yield lc2)).toSet
+
+    val assignment = PresburgerTools.distinctInterpretation(terms, order)
+
+    if (assignment.isEmpty) {
+      List()
+    } else {
+      List(
+        Plugin.AddFormula(
+          Conjunction.negate(EquationConj(
+            for ((c, v) <- assignment.iterator)
+            yield LinearCombination(
+                    Array((IdealInt.ONE, c), (-v, OneTerm)), order),
+                    order), order)))
+    }
+  }
+
 }
 
 /*                           

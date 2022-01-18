@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -275,6 +275,18 @@ object Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Test whether <code>p</code> belongs to any set
+   * <code>Theory.modelGenPredicates</code>.
+   */
+  def isModelGenPredicate(p : Predicate) : Boolean =
+    TheoryRegistry.lookupSymbol(p) match {
+      case Some(t) => t.modelGenPredicates contains p
+      case None    => false
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   object SatSoundnessConfig extends Enumeration {
     /**
      * Apart from symbols defined in the theories, only
@@ -384,6 +396,16 @@ trait Theory {
    * of the dependencies will be called after the preprocessor of this theory.
    */
   val dependencies : Iterable[Theory] = List()
+
+  /**
+   * Optionally, a set of predicates used by the theory to tell the
+   * <code>PresburgerModelFinder</code> about terms that will be handled
+   * exclusively by this theory. If a proof goal in model generation mode
+   * contains an atom <code>p(x)</code>, for <code>p</code> in this set,
+   * then the <code>PresburgerModelFinder</code> will ignore <code>x</code>
+   * when assigning concrete values to symbols.
+   */
+  val modelGenPredicates : Set[Predicate] = Set()
 
   /**
    * Optionally, a pre-processor that is applied to formulas over this

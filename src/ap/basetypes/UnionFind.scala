@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,6 +82,13 @@ class UnionFind[D] extends Cloneable {
    * Iterator over all elements of this forest.
    */
   def elements : Iterator[D] = parent.keysIterator
+
+  /**
+   * Iterator over the elements representing sets; exactly one object
+   * will be enumerated for each set.
+   */
+  def representatives : Iterator[D] =
+    for ((el, p) <- parent.iterator; if el == p) yield p
 
   /**
    * Join two sets.

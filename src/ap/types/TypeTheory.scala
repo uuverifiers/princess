@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -285,8 +285,15 @@ object TypeTheory extends Theory {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // all terms have been assigned
     Debug.assertPost(AC,
-      allTerms forall { case (n, sort) =>
-                          sort.decodeToTerm(n, assignment).isDefined })
+      allTerms forall { case (n, sort) => {
+                         val res = sort.decodeToTerm(n, assignment).isDefined
+                          if (!res)
+                            throw new Exception(
+                              "value " + (n, sort) +
+                                " could not be reconstructed; this is probably"+
+                                " a bug in one of the used theories")
+                         res
+                        } })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     Some(DecoderData(assignment))

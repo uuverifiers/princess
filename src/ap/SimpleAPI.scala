@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2125,8 +2125,8 @@ class SimpleAPI private (enableAssert : Boolean,
               if (constructProofs) {
                 lastStatus = ProverStatus.Error
                 throw new SimpleAPIException(
-                            "Complicated quantifier scheme preventing interpolation.\n" +
-                            "It might be necessary to manually add triggers, or to switch\n" +
+                            "Complicated quantifier scheme preventing interpolation. " +
+                            "It might be necessary to manually add triggers, or to switch " +
                             "off proof construction and interpolation.")
               }
 
@@ -3436,8 +3436,8 @@ class SimpleAPI private (enableAssert : Boolean,
               }
               case _ =>
                 throw new SimpleAPIException (
-                            "Model extension failed.\n" +
-                            "This is probably caused by badly chosen triggers,\n" +
+                            "Model extension failed. " +
+                            "This is probably caused by badly chosen triggers, " +
                             "preventing complete application of axioms.")
             }
           }
@@ -3472,8 +3472,8 @@ class SimpleAPI private (enableAssert : Boolean,
               }
               case _ =>
                 throw new SimpleAPIException (
-                            "Model extension failed.\n" +
-                            "This is probably caused by badly chosen triggers,\n" +
+                            "Model extension failed. " +
+                            "This is probably caused by badly chosen triggers, " +
                             "preventing complete application of axioms.")
             }
           }
@@ -3867,8 +3867,8 @@ class SimpleAPI private (enableAssert : Boolean,
               }
               case _ =>
                 throw new SimpleAPIException (
-                      "Model extension failed.\n" +
-                      "This is probably caused by badly chosen triggers,\n" +
+                      "Model extension failed. " +
+                      "This is probably caused by badly chosen triggers, " +
                       "preventing complete application of axioms.")
             }
           }
