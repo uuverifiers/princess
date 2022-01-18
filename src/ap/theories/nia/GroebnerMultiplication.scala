@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2022 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -209,9 +209,6 @@ object GroebnerMultiplication extends MulTheory {
 
     private val gbCache =
       new LRUCache[(Seq[Atom], TermOrder), (Basis, Seq[Atom], MonomialOrdering)](5)
-
-    // not used
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val negPreds = goal.facts.predConj.negativeLitsWithPred(_mul)

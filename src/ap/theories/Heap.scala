@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2021 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
+ * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -939,8 +939,6 @@ class Heap(heapSortName : String, addressSortName : String,
   import ap.proof.goal.Goal
   import ap.proof.theoryPlugins.Plugin
   def plugin: Option[Plugin] = Some(new Plugin {
-      def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-        None
 
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
         import goal.facts.arithConj.negativeEqs

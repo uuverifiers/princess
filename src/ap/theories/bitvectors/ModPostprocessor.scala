@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -123,6 +123,9 @@ object ModPostprocessor
 
     override def preVisit(t : IExpression,
                           ctxt : Unit) : PreVisitResult = t match {
+      case IIntFormula(_, Const(_)) =>
+        KeepArg
+
       case Eq(left, right) => {
         val res =
           for (w1 <- BitWidthInferrer(left);

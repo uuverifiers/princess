@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,14 +53,14 @@ object SimpleAPITest3 extends App {
   // by checking whether a, b are known, and in this case
   // adding also the fact c
   setupTheoryPlugin(new Plugin {
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = {
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val knownPosLits =
         (for (atom <- goal.facts.predConj.positiveLits)
            yield atom.pred().asInstanceOf[IFormula]).toSet
       if ((Set(a, b) subsetOf knownPosLits) && !(knownPosLits contains c))
-        Some((asConjunction(c), Conjunction.TRUE))
+        List(Plugin.AddAxiom(List(), asConjunction(c), null))
       else
-        None
+        List()
     }
   })
   

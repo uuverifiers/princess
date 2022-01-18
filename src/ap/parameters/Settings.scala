@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -272,7 +272,8 @@ object GoalSettings {
                        Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
-                       Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS)
+                       Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS,
+                       Param.MODEL_GENERATION)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

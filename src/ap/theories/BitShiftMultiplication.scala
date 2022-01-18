@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -142,8 +142,6 @@ object BitShiftMultiplication extends MulTheory {
 
       }
 
-    def generateAxioms(goal : Goal)
-                      : Option[(Conjunction, Conjunction)] = None
   })
 
   TheoryRegistry register this

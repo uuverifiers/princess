@@ -28,7 +28,7 @@ Unsat
 Sat
 f(z) - f(x) = -1
 (f(x) === f(z)) = false
-Partial model: {c4 -> 20, c3 -> 10, c2 -> 9, c1 -> 100, c0 -> 115, f(20) -> 22, f(9) -> 23, p1 -> true, p0 -> true}
+Partial model: {c4 -> 20, c3 -> 10, c2 -> 0, c1 -> 100, c0 -> 115, f(20) -> 21, f(0) -> 22, p1 -> true, p0 -> true}
 In model: f(z) - f(x) = Some(-1)
           f(17) = None
           (f(x) >= -5) = Some(true)
@@ -70,10 +70,10 @@ Sat
 b = -2
 Unsat
 Sat
-b = -2
-b = -3
-b = -4
 b = -5
+b = -4
+b = -3
+b = -2
 
 -- Boolean functions and triggers
 Sat
@@ -262,10 +262,10 @@ Unsat
 
 -- Test 2
 Sat
-ar = store(const(0), 1, 1)
-ar2 = const(0)
-m.evalToTerm(ar): Some(store(const(0), 1, 1))
-m.evalToTerm(select(ar, 0)): Some(0)
+ar = store(const(2), 1, 1)
+ar2 = const(2)
+m.evalToTerm(ar): Some(store(const(2), 1, 1))
+m.evalToTerm(select(ar, 0)): Some(2)
 m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
 m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
 
@@ -308,7 +308,7 @@ Valid
 TheoryTest2.scala
 Unsat
 Inconclusive
-{c -> 0, b -> 2, a -> 1, mul(2, 1) -> 0, mul(1, 2) -> 0}
+{c -> 3, b -> 2, a -> 1, mul(2, 1) -> 3, mul(1, 2) -> 3}
 Unsat
 Unsat
 
@@ -409,7 +409,7 @@ finished
 ADTTest.scala
 Vector(nil)
 Sat
-{c2 -> 44, c1 -> 43, c0 -> 42, list_depth(cons(43, nil)) -> 0, list_depth(nil) -> -1, list_depth(cons(42, cons(43, nil))) -> 1, list_ctor(cons(43, nil)) -> 1, list_ctor(nil) -> 0, list_ctor(cons(42, cons(43, nil))) -> 1, tail(cons(43, nil)) -> nil, tail(cons(42, cons(43, nil))) -> cons(43, nil), head(cons(43, nil)) -> 43, head(cons(42, cons(43, nil))) -> 42, cons(43, nil) -> cons(43, nil), cons(42, cons(43, nil)) -> cons(42, cons(43, nil)), nil -> nil}
+{c2 -> 44, c1 -> 43, c0 -> 42, list_depth(cons(43, nil)) -> 48, list_depth(nil) -> 47, list_depth(cons(42, cons(43, nil))) -> 49, list_ctor(cons(43, nil)) -> 1, list_ctor(nil) -> 0, list_ctor(cons(42, cons(43, nil))) -> 1, tail(cons(43, nil)) -> nil, tail(cons(42, cons(43, nil))) -> cons(43, nil), head(cons(43, nil)) -> 43, head(cons(42, cons(43, nil))) -> 42, cons(43, nil) -> cons(43, nil), cons(42, cons(43, nil)) -> cons(42, cons(43, nil)), nil -> nil}
 Unsat
 Unsat
 Valid
@@ -439,7 +439,7 @@ ADTTest3.scala
 Vector(red, nil)
 Test 1
 Sat
-{c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(cons(green, nil)) -> 0, colour_list_depth(nil) -> -1, colour_list_depth(cons(red, cons(green, nil))) -> 1, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
+{c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(cons(green, nil)) -> 7, colour_list_depth(nil) -> 6, colour_list_depth(cons(red, cons(green, nil))) -> 8, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
 Test 2
 Unsat
 Test 3
@@ -499,7 +499,7 @@ Invalid
 Vector(red, nil)
 Test 1
 Sat
-{c2 -> 7, c1 -> 2, c0 -> 0, colour_list_size(cons(green, nil)) -> 3, colour_list_size(nil) -> 1, colour_list_size(cons(red, cons(green, nil))) -> 5, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
+{c2 -> 6, c1 -> 0, c0 -> 0, colour_list_size(cons(red, nil)) -> 3, colour_list_size(nil) -> 1, colour_list_size(cons(red, cons(red, nil))) -> 5, colour_list_ctor(cons(red, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(red, nil))) -> 1, tail(cons(red, nil)) -> nil, tail(cons(red, cons(red, nil))) -> cons(red, nil), head(cons(red, nil)) -> red, head(cons(red, cons(red, nil))) -> red, cons(red, cons(red, nil)) -> cons(red, cons(red, nil)), cons(red, nil) -> cons(red, nil), nil -> nil}
 Test 2
 Unsat
 Test 3
@@ -551,7 +551,7 @@ Test 21
 Sat
 Some(green)
 Some(blue)
-Some(green)
+Some(blue)
 None
 Test 30
 Valid
@@ -560,9 +560,9 @@ Invalid
 ADTTest4.scala
 Test 1
 Sat
-cons(red, cons(green, nil))
+cons(red, cons(red, nil))
 Sat
-cons(red, cons(green, cons(green, cons(green, cons(green, cons(green, nil))))))
+cons(red, cons(green, cons(green, cons(green, cons(red, cons(red, nil))))))
 Unsat
 Test 2
 Sat
@@ -587,7 +587,7 @@ tuple(store(const(0), 0, 1))
 tuple(const(0))
 Test 3
 Sat
-tuple(store(const(0), 1, 11))
+tuple(store(const(13), 1, 11))
 tuple(const(0))
 
 pred-simplify.scala
@@ -671,8 +671,8 @@ z = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_c
 z = "abczxyz"
 Unsat
 Sat
-x = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty))
-y = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty)))))
+x = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty))
+y = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty)))))
 Valid
 
 TestBVEval.scala
@@ -734,6 +734,10 @@ true
 false
 (not true)
 (not false)
+
+SimplePrint.scala
+(1 >= 0)
+(<= 0 1)
 
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1

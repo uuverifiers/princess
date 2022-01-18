@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -166,7 +166,7 @@ trait TheoryProcedure {
   def handleGoal(goal : Goal) : Seq[Plugin.Action]
 
   /**
-   * Try to determine in which state a given goal is.
+   * Determine in which state a given goal is.
    */
   def goalState(goal : Goal) : GoalState.Value =
     if (goal.tasks.finalEagerTask) GoalState.Final else GoalState.Intermediate
@@ -198,32 +198,16 @@ trait TheoryProcedure {
 trait Plugin extends TheoryProcedure {
 
   /**
-   * Given the current goal, possible generate (local and global) axioms.
+   * Apply this plugin to the given goal.
    */
-  def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)]
+  def handleGoal(goal : Goal) : Seq[Plugin.Action] = List()
 
   /**
-   * Apply this plugin to the given goal. The default procedure
-   * is to call <code>generateAxioms</code>, and possibly add further
-   * facts or axioms to the goal.
+   * Apply this procedure to the given goal in model-generation
+   * mode. In this mode, we have already established that a problem is
+   * satisfiable, but still need to compute a full/concrete model.
    */
-  def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-    generateAxioms(goal) match {
-      case Some((localAxioms, globalAxioms)) => {
-        val allAxioms = Conjunction.conj(List(localAxioms, globalAxioms),
-                                         goal.order).negate
-        List(Plugin.AddFormula(allAxioms))
-      }
-      case None =>
-        List()
-    }
-
-  /**
-   * Check whether the formulas in the given goal are satisfiable,
-   * and if yes generate a model. The returned
-   * formula is meant to replace the goal facts in this case.
-   */
-  def generateModel(goal : Goal) : Option[Conjunction] = None
+  def computeModel(goal : Goal) : Seq[Plugin.Action] = List()
 
 }
 
@@ -251,20 +235,20 @@ object PluginSequence {
  */
 class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
 
-  // not used
-  def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-    throw new UnsupportedOperationException
-
   override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
     val it = plugins.iterator
-    val res = new VectorBuilder[Plugin.Action]
-    var cont = true
-    while (cont && it.hasNext) {
-      val newActions = it.next handleGoal goal
-      res ++= newActions
-      cont = !splittingActions(newActions)
-    }
-    res.result
+    var res : Seq[Plugin.Action] = List()
+    while (res.isEmpty && it.hasNext)
+      res = it.next handleGoal goal
+    res
+  }
+
+  override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
+    val it = plugins.iterator
+    var res : Seq[Plugin.Action] = List()
+    while (res.isEmpty && it.hasNext)
+      res = it.next computeModel goal
+    res
   }
 
   private def splittingActions(actions : Seq[Plugin.Action]) =
@@ -275,19 +259,6 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
       case _ : Plugin.SplitDisequality => true
       case _ =>                           false
     }
-
-  /**
-   * Check whether the formulas in the given goal are satisfiable,
-   * and if yes generate a model. The returned
-   * formula is meant to replace the goal facts in this case.
-   */
-  override def generateModel(goal : Goal) : Option[Conjunction] = {
-    val it = plugins.iterator
-    var res : Option[Conjunction] = None
-    while (!res.isDefined && it.hasNext)
-      res = it.next generateModel goal
-    res
-  }
 
 }
 
@@ -419,12 +390,24 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val actions = plugin handleGoal goal
 
-    if (actions.isEmpty)
-      ptf.updateGoal(goal)
-    else if (Param.PROOF_CONSTRUCTION(goal.settings))
+    if (actions.isEmpty) {
+
+      if (Param.MODEL_GENERATION(goal.settings) &&
+            plugin.isInstanceOf[Plugin]) {
+        val actions2 = plugin.asInstanceOf[Plugin] computeModel goal
+        if (actions2.isEmpty)
+          ptf.updateGoal(goal)
+        else
+          handleActionsNonCert(actions2, goal, ptf)
+      } else {
+        ptf.updateGoal(goal)
+      }
+
+    } else if (Param.PROOF_CONSTRUCTION(goal.settings)) {
       handleActionsRec(actions.toList, List(), goal, goal.branchInferences, ptf)
-    else
+    } else {
       handleActionsNonCert(actions, goal, ptf)
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

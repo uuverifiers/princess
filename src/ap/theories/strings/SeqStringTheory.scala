@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -398,8 +398,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   //////////////////////////////////////////////////////////////////////////////
 
   def plugin = Some(new Plugin {
-    // not used
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val facts = goal.facts

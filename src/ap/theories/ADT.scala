@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1498,9 +1498,6 @@ class ADT (sortNames : Seq[String],
 
   def plugin: Option[Plugin] =
     if (!nonEnumSorts.isEmpty && termSize != null) Some(new Plugin {
-      // not used
-      def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
-        None
 
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
         if (goalState(goal) == Plugin.GoalState.Final) {
