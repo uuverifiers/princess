@@ -235,13 +235,17 @@ object PluginSequence {
  */
 class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
 
-  override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-    val it = plugins.iterator
-    var res : Seq[Plugin.Action] = List()
-    while (res.isEmpty && it.hasNext)
-      res = it.next handleGoal goal
-    res
-  }
+   override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+     val it = plugins.iterator
+     val res = new VectorBuilder[Plugin.Action]
+     var cont = true
+     while (cont && it.hasNext) {
+       val newActions = it.next handleGoal goal
+       res ++= newActions
+       cont = !splittingActions(newActions)
+     }
+     res.result
+   }
 
   override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
     val it = plugins.iterator
