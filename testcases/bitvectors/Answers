@@ -43,9 +43,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv32 8))
-  (define-fun d () (_ BitVec 8) (_ bv31 8))
-  (define-fun c () (_ BitVec 8) (_ bv31 8))
+  (define-fun x () (_ BitVec 8) (_ bv1 8))
+  (define-fun d () (_ BitVec 8) (_ bv191 8))
+  (define-fun c () (_ BitVec 8) (_ bv191 8))
 )
 
 Loading bvsdiv6c.smt2 ...
@@ -735,7 +735,7 @@ End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 815)
+Found proof (size 821)
 
 unsat
 
