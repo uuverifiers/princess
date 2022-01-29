@@ -2959,7 +2959,10 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    processConstraint(PresburgerTools.minimiseFormula(currentConstraint))
+    if (needExhaustiveProver)
+      processConstraint(PresburgerTools.minimiseFormula(currentConstraint))
+    else
+      IBoolLit(true)
   }
 
   /**
