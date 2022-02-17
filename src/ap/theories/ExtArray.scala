@@ -931,11 +931,11 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
     val mayAlias = goal.mayAlias
 
-    def cannotAlias(a : LinearCombination, b : LinearCombination) =
-      mayAlias(a, b, false) == AliasStatus.Cannot
+    def noAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, true) == AliasStatus.Cannot
 
-    def cannotAliasSeq(a : Seq[LinearCombination], b : Seq[LinearCombination]) =
-      (a.iterator zip b.iterator) exists { case (x, y) => cannotAlias(x, y) }
+    def noAliasSeq(a : Seq[LinearCombination], b : Seq[LinearCombination]) =
+      (a.iterator zip b.iterator) exists { case (x, y) => noAlias(x, y) }
 
     val predConj      = goal.facts.predConj
     val selectLits    = predConj positiveLitsWithPred _select
@@ -958,7 +958,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
            a = litsVector(i);
            j <- (i+1) until litsVector.size;
            b = litsVector(j))
-        if (cannotAlias(a.last, b.last))
+        if (noAlias(a.last, b.last))
           addDistinct(a.head, b.head, indexes)
     }
 
@@ -966,7 +966,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
     for (storeLit <- storeLits) {
       val indexes = storeLit.slice(1, arity + 1)
       for (selectLit <- selectWithInd.getOrElse(indexes, List()))
-        if (cannotAlias(storeLit(arity + 1), selectLit.last))
+        if (noAlias(storeLit(arity + 1), selectLit.last))
           addDistinct(selectLit.head, storeLit.last, indexes)
     }
 
@@ -977,18 +977,18 @@ class ExtArray private (val indexSorts : Seq[Sort],
            a = litsVector(i);
            j <- (i+1) until litsVector.size;
            b = litsVector(j))
-        if (cannotAlias(a(arity + 1), b(arity + 1)))
+        if (noAlias(a(arity + 1), b(arity + 1)))
           addDistinct(a.last, b.last, indexes)
     }
 
     // Rule (6)
     for (constLit <- constLits; selectLit <- selectLits)
-      if (cannotAlias(constLit.head, selectLit.last))
+      if (noAlias(constLit.head, selectLit.last))
         addDistinct(constLit.last, selectLit.head, selectLit.slice(1, arity+1))
 
     // Rule (7)
     for (constLit <- constLits; storeLit <- storeLits)
-      if (cannotAlias(constLit.head, storeLit(arity + 1)))
+      if (noAlias(constLit.head, storeLit(arity + 1)))
         addDistinct(constLit.last, storeLit.last, storeLit.slice(1, arity+1))
 
     val storeWithArray = (storeLits ++ store2Lits) groupBy { _.head }
@@ -998,7 +998,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
       val (a, b, indexes) = todo.pop
       for (storeLit <- storeWithArray.getOrElse(b, List())) {
         val indexes2 = storeLit.slice(1, arity + 1)
-        if (cannotAliasSeq(indexes, indexes2))
+        if (noAliasSeq(indexes, indexes2))
           addDistinct(a, storeLit.last, indexes)
       }
     }
