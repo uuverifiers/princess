@@ -47,11 +47,15 @@ import scala.collection.{mutable, Map => GMap}
 object Heap {
   private val AC = Debug.AC_ADT
   abstract sealed class CtorArgSort
-  case class ADTSort(num : Int) extends CtorArgSort
-  case class OtherSort(sort : Sort) extends CtorArgSort
-  case object AddressCtor extends CtorArgSort
+  case class ADTSort(num : Int)       extends CtorArgSort
+  case class OtherSort(sort : Sort)   extends CtorArgSort
+  case object AddressCtor             extends CtorArgSort
+  case object AddressRangeCtor        extends CtorArgSort
   case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
                            result : ADTSort)
+
+  // addressRange sort name: addressName + addressRangeSuffix
+  val addressRangeSuffix = "Range"
 
   class HeapException(m : String) extends Exception(m)
 
@@ -333,16 +337,21 @@ object Heap {
           // this extractor depends on a few assumptions:
           //   1. current hard-coded ADTs have all two arguments and
           //   2. the hard-coded ADTs are declared last
-          val ctor = adtSort.adtTheory.constructors.filter(ctor =>
-            ctor.resSort == adtSort && ctor.argSorts.size == 2).last
-          ctor.argSorts match {
-            case Seq(h : HeapSort, _) if // allocRes(heap, object)
-            Seq(h.heapTheory.allocResCtor, h.heapTheory.batchAllocResCtor)
-              contains ctor => Some(h.heapTheory) // alloc
-            case Seq(a : AddressSort, _)  // addrRange(addr, nat)
-              if ctor == a.heapTheory.addressRangeCtor =>
-              Some(a.heapTheory)
-            case _ => None
+          val ctors = adtSort.adtTheory.constructors.filter(ctor =>
+            ctor.resSort == adtSort && ctor.argSorts.size == 2)
+          if (ctors isEmpty)
+            None
+          else {
+            val ctor = ctors.last
+            ctor.argSorts match {
+              case Seq(h: HeapSort, _) if // allocRes(heap, object)
+              Seq(h.heapTheory.allocResCtor, h.heapTheory.batchAllocResCtor)
+                contains ctor => Some(h.heapTheory) // alloc
+              case Seq(a: AddressSort, _) // addrRange(addr, nat)
+                if ctor == a.heapTheory.addressRangeCtor =>
+                Some(a.heapTheory)
+              case _ => None
+            }
           }
         case _ => None
       }
@@ -419,7 +428,7 @@ class Heap(heapSortName : String, addressSortName : String,
         ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
           case Heap.ADTSort(id) => id >= 0 && id < sortNames.size
           case _ : OtherSort => true
-          case Heap.AddressCtor => true
+          case Heap.AddressCtor | Heap.AddressRangeCtor => true
         }
     })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -433,12 +442,19 @@ class Heap(heapSortName : String, addressSortName : String,
     List(Sort.Nat), AddressSort,
     false, false) // todo: make private?
 
+  object HeapADTSortId extends Enumeration(initial = sortNames.size) {
+    type HeapADTSortId = Value
+    val allocResSortId, batchAllocResSortId, addressRangeSortId = Value
+  }
+  import HeapADTSortId._
+
   /** implicit converters from Heap.CtorArgSort to ADT.CtorArgSort */
   private implicit def HeapSortToADTSort(s : CtorArgSort) : ADT.CtorArgSort =
     s match {
-      case t : ADTSort => ADT.ADTSort(t.num)
-      case t : OtherSort => ADT.OtherSort(t.sort)
-      case AddressCtor => ADT.OtherSort(AddressSort)
+      case t : ADTSort      => ADT.ADTSort(t.num)
+      case t : OtherSort    => ADT.OtherSort(t.sort)
+      case AddressCtor      => ADT.OtherSort(AddressSort)
+      case AddressRangeCtor => ADT.ADTSort(addressRangeSortId)
     }
 
   private implicit def HeapSortToADTSort(l : Seq[(String, Heap.CtorSignature)]):
@@ -448,11 +464,6 @@ class Heap(heapSortName : String, addressSortName : String,
       ADT.ADTSort(s._2.result.num)))
   }
 
-  object HeapADTSortId extends Enumeration(initial = sortNames.size) {
-    type HeapADTSortId = Value
-    val allocResSortId, batchAllocResSortId, addressRangeSortId = Value
-  }
-  import HeapADTSortId._
   implicit def HeapADTSortIdToInt(id : HeapADTSortId) : Int = id.id
   private val objectSortId = objectSort.num
 
@@ -463,7 +474,7 @@ class Heap(heapSortName : String, addressSortName : String,
     ADT.ADTSort(allocResSortId))
 
   /** Create AddressRange ADT returned by batchAlloc: start x size */
-  private val addressRangeSortName = addressSortName + "Range"
+  private val addressRangeSortName = addressSortName + addressRangeSuffix
   private val addressRangeCtorSignature = ADT.CtorSignature(
     List((addressRangeSortName + "Start", ADT.OtherSort(AddressSort)),
       (addressRangeSortName + "Size", ADT.OtherSort(Sort.Nat))),
@@ -589,7 +600,7 @@ class Heap(heapSortName : String, addressSortName : String,
   val batchAllocHeap = new MonoSortedIFunction("batchAlloc" + heapSortName,
     List(HeapSort, ObjectSort, Sort.Nat), HeapSort, false, false)
   val batchAllocAddrRange =
-    new MonoSortedIFunction("batchAlloc" + addressSortName + "Range",
+    new MonoSortedIFunction("batchAlloc" + addressRangeSortName,
       List(HeapSort, ObjectSort, Sort.Nat), addressRangeSort, false, false)
   val batchWrite = new MonoSortedIFunction("batchWrite",
     List(HeapSort, addressRangeSort, ObjectSort), HeapSort, false, false)
