@@ -10,7 +10,9 @@ TESTS="simple-heap.smt2 \
        simple-heap-batch.smt2 \
        simple-heap-batch-dual.smt2 \
        heap-batch-write-read-1-unsat.smt2 \
-       heap-batch-write-read-2-unsat.smt2"
+       heap-batch-write-read-2-unsat.smt2 \
+       adt-addrrange-sat.smt2 \
+       adt-addrrange-unsat.smt2"
 
 $PRI "$@" $TESTS
 

@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
+ * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -156,10 +156,18 @@ object SMTParser2InputAbsy {
     
     try { entry(p) } catch {
       case e : Exception =>
-        throw new ParseException(
-             "At line " + String.valueOf(l.line_num()) +
-             ", near \"" + l.buff() + "\" :" +
-             "     " + e.getMessage())
+        try {
+          val msg = {
+            "At line " + String.valueOf(l.line_num()) +
+            ", near \"" + l.buff() + "\" :" +
+            "     " + e.getMessage()
+          }
+          throw new ParseException(msg)
+        } catch {
+          case _ : java.lang.StringIndexOutOfBoundsException =>
+            throw new ParseException(
+              "Runaway block, probably due to mismatched parentheses")
+        }
     }
   }
 
@@ -3736,6 +3744,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                     case s : IdentSort
                       if asString(s.identifier_) == addressSortName =>
                       (Heap.AddressCtor, SMTHeapAddress(null))
+                    case s : IdentSort
+                      if asString(s.identifier_) ==
+                        (addressSortName + Heap.addressRangeSuffix) =>
+                      // todo: -2 is to signal setupADT that this is an addressRange,
+                      //  can be fixed by declaring fixed heap ADTs first
+                      (Heap.AddressRangeCtor, SMTADT(null, -2))
                     case _ => val t = translateSort(selDecl.sort_)
                       (Heap.OtherSort(t.toSort), t)
                   }
@@ -3869,6 +3883,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           for (((_, args), num) <- allCtors.zipWithIndex;
                args2 <- args.iterator;
                cleanedArgs = for (t <- args2) yield t match {
+                 case SMTADT(null, -2) => smtDataTypes.last // todo: this signals the AddrRange ADT, which must always be the last type, find better solution!
                  case SMTADT(null, n) => smtDataTypes(n)
                  case t => t
                })
