@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2021 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
+ * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -155,10 +155,18 @@ object SMTParser2InputAbsy {
     
     try { entry(p) } catch {
       case e : Exception =>
-        throw new ParseException(
-             "At line " + String.valueOf(l.line_num()) +
-             ", near \"" + l.buff() + "\" :" +
-             "     " + e.getMessage())
+        try {
+          val msg = {
+            "At line " + String.valueOf(l.line_num()) +
+            ", near \"" + l.buff() + "\" :" +
+            "     " + e.getMessage()
+          }
+          throw new ParseException(msg)
+        } catch {
+          case _ : java.lang.StringIndexOutOfBoundsException =>
+            throw new ParseException(
+              "Runaway block, probably due to mismatched parentheses")
+        }
     }
   }
 
