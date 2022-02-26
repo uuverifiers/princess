@@ -724,10 +724,10 @@ class ExtArray private (val indexSorts : Seq[Sort],
     val sets           = getConnectedSets(goal, false)
     val intArrays      = absArrays.mapValues(toIntArray(_))
 
-    // Verify that there are no clashes: connect components of array
+    // Verify that there are no clashes: connected components of array
     // terms (sets computed by getConnectedsets) should be mapped to
-    // disjoint array ids, otherwise we have not performed
-    // sufficient equality propagation
+    // disjoint array ids, otherwise we have not done sufficient
+    // equality propagation
 
     val arrayIds       = new MHashMap[Term, IdealInt]
     val id2set         = new MHashMap[IdealInt, Term]
@@ -740,8 +740,9 @@ class ExtArray private (val indexSorts : Seq[Sort],
       val repr = sets(t)
 
       if (t.isConstant && t.constant != id)
-        throw new Exception("inconsistent ids in " + this + " model: " +
-                              "previous id " + t + ", new id " + id)
+        Console.err.println("Warning: inconsistent ids in " + this + " model: " +
+                              "previous id " + t + ", new id " + id +
+                              ". This might be due to quantified formulas.")
 
       (id2set get id) match {
         case Some(repr2) =>
