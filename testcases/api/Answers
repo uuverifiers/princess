@@ -739,6 +739,14 @@ SimplePrint.scala
 (1 >= 0)
 (<= 0 1)
 
+TestFunctionRange.scala
+Valid
+
+ArrayQuantifiers.scala
+Sat
+Inconclusive
+Unsat
+
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat

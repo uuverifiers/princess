@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,10 +72,14 @@ object AbstractFileProver {
     }
     model.updatePredConj(remainingPredConj)
   }
+
+  private val AxiomParts = Set(PartName.FUNCTION_AXIOMS, PartName.THEORY_AXIOMS)
 }
 
-abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
-                                  timeout : Int, userDefStoppingCond : => Boolean,
+abstract class AbstractFileProver(reader : java.io.Reader,
+                                  output : Boolean,
+                                  timeout : Int,
+                                  userDefStoppingCond : => Boolean,
                                   settings : GlobalSettings) extends Prover {
 
   import AbstractFileProver._
@@ -87,7 +91,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       Timeout.raise
   }
 
-  protected def println(str : => String) : Unit = (if (output) Predef.println(str))
+  protected def println(obj : Any) : Unit =
+    println("" + obj)
+
+  protected def println(str : => String) : Unit =
+    (if (output) Predef.println(str))
   
   private def newParser = Param.INPUT_FORMAT(settings) match {
     case Param.InputFormat.Princess =>
@@ -203,7 +211,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       rs = Param.FUNCTIONAL_PREDICATES.set(
            rs, functionalPreds)
       rs = Param.REDUCER_PLUGIN.set(
-           rs, SeqReducerPluginFactory(for (t <- theories) yield t.reducerPlugin))
+           rs, SeqReducerPluginFactory(for (t <- theories)
+                                       yield t.reducerPlugin))
       rs
     }
   
@@ -215,7 +224,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val reducer =
         ReduceWithConjunction(Conjunction.TRUE, order, reducerSettings)
       val allPartNames =
-        (List(PartName.NO_NAME) ++
+        (PartName.predefNames ++
          (for (INamedPart(n, _) <- inputFormulas) yield n)).distinct
   
       /**
@@ -237,58 +246,89 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           c
         }
   
+      // input: the conjecture to be proven
+      // axiom: function axioms, added by the function encoder
+
+      val (axioms, inputs) =
+        inputFormulas partition {
+          case INamedPart(n, _) => AxiomParts contains n
+        }
+
       if (constructProofs) {
+
         // keep the different formula parts separate
-        val rawNamedParts =
-          Map(PartName.NO_NAME -> Conjunction.FALSE) ++
-          (for (INamedPart(n, f) <- inputFormulas.iterator)
-           yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
-        val reducedNamedParts =
-          for ((n, c) <- rawNamedParts) yield {
+
+        val Seq(axiomF, inputF) =
+          for (fors <- Seq(axioms, inputs)) yield {
+            (for (INamedPart(n, f) <- fors.iterator)
+             yield (n -> Conjunction.conj(InputAbsy2Internal(f, order),
+                                          order))).toMap
+          }
+
+        val matchedTotal = checkMatchedTotalFunctions(inputF map (_._2))
+
+        val axiomF2 =
+          axiomF mapValues { c => {
+            Theory.preprocess(reducer(c), transSignature.theories, order)
+          }}
+
+        val inputF2 =
+          inputF mapValues { c => {
             val (redC, incomp) = Incompleteness.track {
               Theory.preprocess(reducer(c), transSignature.theories, order)
             }
   
             if (incomp)
               ignoredQuantifiers = true
+
+            redC
+          }}
   
-            n match {
-              case PartName.NO_NAME =>
-                (PartName.NO_NAME ->
-                  convertQuantifiers(
-                    Conjunction.disj(List(theoryAxioms, redC), order)))
-              case n =>
-                (n -> convertQuantifiers(redC))
-            }
-          }
-  
-        (reducedNamedParts,
-         for (n <- allPartNames) yield reducedNamedParts(n),
-         checkMatchedTotalFunctions(rawNamedParts map (_._2)),
+        val namedParts =
+          ((axiomF2 ++ inputF2).toMap mapValues (convertQuantifiers _)).toMap
+
+        val namedParts2 =
+          if (theoryAxioms.isFalse)
+            namedParts
+          else
+            namedParts + (PartName.THEORY_AXIOMS -> theoryAxioms)
+
+        (namedParts2,
+         for (n <- allPartNames; f <- namedParts2 get n) yield f,
+         matchedTotal,
          ignoredQuantifiers)
          
       } else {
-      
-        // merge everything into one formula
-        val rawF =
-          InputAbsy2Internal(
-            IExpression.or(for (f <- inputFormulas.iterator)
-                           yield (IExpression removePartName f)), order)
-        val (redF, incomp) = Incompleteness.track {
-          Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
-                            transSignature.theories, order)
+
+        // merge everything into one formula; we keep the axioms
+        // separate, though, because we have to check for quantifier
+        // occurrences in the non-axiom formulas.
+
+        val Seq(axiomF, inputF) =
+          for (fors <- Seq(axioms, inputs)) yield {
+            InputAbsy2Internal(
+              IExpression.or(for (f <- fors.iterator)
+                             yield (IExpression removePartName f)), order)
+          }
+
+        val matchedTotal =
+          checkMatchedTotalFunctions(List(Conjunction.conj(inputF, order)))
+
+        val allInputs =
+          Conjunction.disjFor(List(axiomF, inputF), order)
+
+        val (inputRed, incomp) = Incompleteness.track {
+          convertQuantifiers(Theory.preprocess(reducer(allInputs),
+                                               transSignature.theories, order))
         }
   
         if (incomp)
           ignoredQuantifiers = true
   
         val f =
-          convertQuantifiers(Conjunction.disj(List(theoryAxioms, redF), order))
-  
-        (Map(PartName.NO_NAME -> f),
-         List(f),
-         checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),
-         ignoredQuantifiers)
+          Conjunction.disj(List(theoryAxioms, inputRed), order)
+
+        (Map(PartName.NO_NAME -> f), List(f), matchedTotal, ignoredQuantifiers)
       }
     }
 
@@ -301,8 +341,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         conjs exists { c =>
           IterativeClauseMatcher.matchedPredicatesRec(c, config) exists {
             p => (functionEncoder.predTranslation get p) match {
-                   case Some(f) => !f.partial
-                   case None => false
+                   case Some(f) =>
+                     // as a convention, all theory functions are considered
+                     // to be total
+                     !f.partial || TheoryRegistry.lookupSymbol(f).isDefined
+                   case None =>
+                     false
                  }
           }
         }
@@ -371,7 +415,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       // TODO: this does not really capture the case where we use
       // the model-search prover, but also e-matching to instantiate
       // quantified axioms (and not just functional consistency)
-      if (!canUseModelSearchProver /* || matchedTotalFunctions */)
+      if (!canUseModelSearchProver || matchedTotalFunctions)
         Theory.SatSoundnessConfig.General
       else if (formulas forall (_.predicates.isEmpty))
         Theory.SatSoundnessConfig.Elementary

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -145,8 +145,10 @@ object Preprocessing {
     // Add the function axioms
 
     val fors4 = functionEncoder.axioms match {
-      case IBoolLit(true) => fors3
-      case x              => PartExtractor.addPart(x, PartName.NO_NAME, fors3)
+      case IBoolLit(true) =>
+        fors3
+      case x =>
+        PartExtractor.addPart(x, PartName.FUNCTION_AXIOMS, fors3)
     }
 
     checkSorts("preproc step 4", fors4)

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -156,6 +156,12 @@ object Debug {
   def assertPre(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_PRE, ac, assertion)
 
+  /** Preconditions of methods */
+  def assertPre(ac : ASSERTION_CATEGORY, assertion : => Boolean,
+                message : => String) : Unit =
+    assertTrue(AT_METHOD_PRE, ac, assertion, message)
+
+  /** Preconditions of methods */
   def assertPreFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_PRE, ac, withoutAssertions(assertion))
 
@@ -163,6 +169,12 @@ object Debug {
   def assertPost(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_POST, ac, assertion)
 
+  /** Postconditions of methods */
+  def assertPost(ac : ASSERTION_CATEGORY, assertion : => Boolean,
+                 message : => String) : Unit =
+    assertTrue(AT_METHOD_POST, ac, assertion, message)
+
+  /** Postconditions of methods */
   def assertPostFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_POST, ac, withoutAssertions(assertion))
 

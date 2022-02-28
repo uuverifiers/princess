@@ -493,6 +493,12 @@ object SimpleAPI {
   private val COMMON_PART_NR         = -1
   private val INTERNAL_AXIOM_PART_NR = -10
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object FormulaKind extends Enumeration {
+    val Input, FunctionAxiom, TheoryAxiom = Value
+  }
+  
 }
 
 /**
@@ -500,14 +506,14 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean,
-                         sanitiseNames : Boolean,
-                         dumpSMT : Option[String],
-                         dumpScala : Option[String],
-                         dumpDirectory : File,
+class SimpleAPI private (enableAssert        : Boolean,
+                         sanitiseNames       : Boolean,
+                         dumpSMT             : Option[String],
+                         dumpScala           : Option[String],
+                         dumpDirectory       : File,
                          tightFunctionScopes : Boolean,
-                         genTotalityAxioms : Boolean,
-                         randomSeed : Option[Int]) {
+                         genTotalityAxioms   : Boolean,
+                         randomSeed          : Option[Int]) {
 
   import SimpleAPI._
 
@@ -2829,7 +2835,7 @@ class SimpleAPI private (enableAssert : Boolean,
       // further processing
 
       for (f <- theoryAxioms)
-        addToProver(Conjunction.FALSE, f)
+        addToProver(f, FormulaKind.TheoryAxiom)
 
 /*
       val oldPartitionNum = currentPartitionNum
@@ -4144,7 +4150,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
     checkQuantifierOccurrences(transTodo)
 
-    if (!transTodo.isFalse || !axioms.isFalse || !rawFormulaeTodo.isFalse) {
+    if (!transTodo.isFalse || !rawFormulaeTodo.isFalse) {
       implicit val o = currentOrder
       val completeFor =
         (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction
@@ -4153,8 +4159,11 @@ class SimpleAPI private (enableAssert : Boolean,
       val reducedFor =
         ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
                               completeFor)
-      addToProver(reducedFor, axioms)
+      addToProver(reducedFor, FormulaKind.Input)
     }
+
+    if (!axioms.isFalse)
+      addToProver(axioms, FormulaKind.FunctionAxiom)
   }
 
   private def checkQuantifierOccurrences(c : Formula) : Unit =
@@ -4163,44 +4172,47 @@ class SimpleAPI private (enableAssert : Boolean,
         (IterativeClauseMatcher.matchedPredicatesRec(Conjunction.conj(c, order),
              Param.PREDICATE_MATCH_CONFIG(goalSettings)) exists {
            p => (functionEnc.predTranslation get p) match {
-             case Some(f) => !f.partial
-             case None => false
+             case Some(f) =>
+               // as a convention, all theory functions are considered
+               // to be total
+               !f.partial || TheoryRegistry.lookupSymbol(f).isDefined
+             case None =>
+               false
            }
          }))
       matchedTotalFunctions = true
 
-  private def addToProver(preCompleteFor : Conjunction,
-                          preAxioms : Conjunction) : Unit = {
-    val (completeFor, incomp) = Incompleteness.track {
-      convertQuantifiers(Theory.preprocess(preCompleteFor,
-                                           theories,
-                                           currentOrder))
+  private def addToProver(formula : Conjunction,
+                          kind : FormulaKind.Value) : Unit = {
+    val (formula2, incomp) = Incompleteness.track {
+      kind match {
+        case FormulaKind.Input | FormulaKind.FunctionAxiom =>
+          convertQuantifiers(Theory.preprocess(formula,
+                                               theories,
+                                               currentOrder))
+        case FormulaKind.TheoryAxiom =>
+          formula
+      }
     }
 
     if (incomp)
       ignoredQuantifiers = true
 
-    val axioms =
-      convertQuantifiers(preAxioms)
+    val partitionNum =
+      kind match {
+        case FormulaKind.Input => currentPartitionNum
+        case _                 => INTERNAL_AXIOM_PART_NR
+      }
 
     var relevantFormulas = false
 
-    if (!completeFor.isFalse)
-      formulaeInProver.put(completeFor, currentPartitionNum) match {
+    if (!formula2.isFalse)
+      formulaeInProver.put(formula2, partitionNum) match {
         case None =>
           relevantFormulas = true
         case Some(oldNum) =>
           // the prover already knew about the formula
-          formulaeInProver.put(completeFor, oldNum)
-      }
-
-    if (!axioms.isFalse)
-      formulaeInProver.put(axioms, INTERNAL_AXIOM_PART_NR) match {
-        case None =>
-          relevantFormulas = true
-        case Some(oldNum) =>
-          // the prover already knew about the formula
-          formulaeInProver.put(axioms, oldNum)
+          formulaeInProver.put(formula2, oldNum)
       }
 
     if (!relevantFormulas)
@@ -4210,30 +4222,24 @@ class SimpleAPI private (enableAssert : Boolean,
       case ProofThreadStatus.Init =>
         // nothing
       case ProofThreadStatus.AtPartialModel | ProofThreadStatus.AtFullModel =>
-        if (axioms.isFalse && (currentOrder eq currentProver.order)
-            // completeFor.constants.isEmpty && axioms.isFalse &&
-            // Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)
-            ) {
+        if (kind == FormulaKind.Input && (currentOrder eq currentProver.order)){
           // then we should be able to add this formula to the running prover
-          proverCmd put AddFormulaCommand(completeFor)
+          proverCmd put AddFormulaCommand(formula2)
         } else {
           restartProofThread
         }
     }
       
     if (!needExhaustiveProver &&
-        !(IterativeClauseMatcher.isMatchableRec(completeFor,
+        !(IterativeClauseMatcher.isMatchableRec(formula2,
             Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
-          IterativeClauseMatcher.isMatchableRec(axioms,
-            Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
-          Seqs.disjoint(completeFor.constants, existentialConstants))) {
+          Seqs.disjoint(formula2.constants, existentialConstants))) {
       currentProver = null
       needExhaustiveProver = true
     }
 
     if (currentProver != null)
-      currentProver =
-        currentProver.conclude(List(completeFor, axioms), currentOrder)
+      currentProver = currentProver.conclude(formula2, currentOrder)
   }
   
   private def resetModel = {
@@ -4329,8 +4335,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, order == newSig.order &&
-                        !(fors exists { case INamedPart(PartName.NO_NAME, _) => true
-                                        case _ => false }),
+                        !(fors exists { case INamedPart(FormulaPart, _) => false
+                                        case _ => true }),
                     "Unexpected new symbols or axioms. This might be due " +
                     "to theories not yet loaded in SimpleAPI, consider " +
                     "adding them explicitly using addTheory(...)")
@@ -4360,7 +4366,8 @@ class SimpleAPI private (enableAssert : Boolean,
                        yield f), currentOrder), currentOrder)
     val axioms = 
       Conjunction.conj(InputAbsy2Internal(
-        IExpression.or(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
+        IExpression.or(for (INamedPart(n, f) <- fors.iterator;
+                            if PartName.predefNamesSet contains n)
                        yield f), currentOrder), currentOrder)
     (formula, axioms)
   }
