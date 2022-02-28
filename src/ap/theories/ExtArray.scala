@@ -637,9 +637,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
 
   private val pluginObj = new Plugin {
 
-    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-
-      val res =
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
         goalState(goal) match {
           case Plugin.GoalState.Intermediate =>
             store2store2Eager(goal)
@@ -649,14 +647,7 @@ class ExtArray private (val indexSorts : Seq[Sort],
             equalityPropagation(goal)
         }
 
-//      if (!res.isEmpty)
-//        println("handleGoal: " + res)
-      res
-    }
-
-    override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
-
-      val res =
+    override def computeModel(goal : Goal) : Seq[Plugin.Action] =
         goalState(goal) match {
           case Plugin.GoalState.Intermediate =>
             List()
@@ -664,12 +655,6 @@ class ExtArray private (val indexSorts : Seq[Sort],
             augmentModel(goal)      elseDo
             extractArrayModel(goal)
         }
-
-//      if (!res.isEmpty)
-//        println("computeModel: " + res)
-      res
-
-    }
 
   }
 
@@ -1135,129 +1120,6 @@ class ExtArray private (val indexSorts : Seq[Sort],
     }
 
     absArrays.toMap
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Equality propagation: generate equalities that have to hold in
-   * the final model, to make sure that such arrays will be given the
-   * same id. At this point we assume that terms of other theories
-   * with equal value are identical.
-   */
-  private def generateModelHelp(goal : Goal) : Option[Conjunction] = {
-    val predConj = goal.facts.predConj
-
-    // Sets of array terms that might have the same values almost
-    // everywhere, due to store/store2 or const literals
-    val arrayPartitions = new UnionFind[Term]
-
-    // Mapping from terms to arrays
-    val absArrays =
-      new MHashMap[Term, AbstractArray[Term]] {
-        override def default(ind : Term) : AbstractArray[Term] =
-          AbstractArray.empty
-      }
-
-    // Equivalences induced by the _store and _store2 literals
-    val equivalences =
-      new MHashMap[Term, ArrayBuffer[(Seq[Term], Term)]]
-
-    // extract const literals
-    val constLits = predConj positiveLitsWithPred _const
-
-    for (a <- constLits) {
-      arrayPartitions makeSetIfNew a.last
-      absArrays.put(a.last, absArrays(a.last).addDefaultValue(a.head))
-    }
-
-    // extract select literals
-    for (a <- predConj positiveLitsWithPred _select) {
-      arrayPartitions makeSetIfNew a.head
-
-      val newAbsArray =
-        absArrays(a.head).addValue(a.slice(1, a.size - 1), a.last)
-      absArrays.put(a.head, newAbsArray)
-    }
-
-    // extract store literals and add the written values, and set up the
-    // propagation graph
-    for (a <- (predConj positiveLitsWithPred _store) ++
-              (predConj positiveLitsWithPred _store2)) {
-      arrayPartitions makeSetIfNew a.head
-      arrayPartitions makeSetIfNew a.last
-      arrayPartitions.union(a.head, a.last)
-
-      val inds = a.slice(1, a.size - 2)
-      equivalences.getOrElseUpdate(a.head, new ArrayBuffer) += ((inds, a.last))
-      equivalences.getOrElseUpdate(a.last, new ArrayBuffer) += ((inds, a.head))
-
-      absArrays.put(a.last, absArrays(a.last).addValue(inds, a(a.size - 2)))
-
-      if (!(absArrays contains a.head))
-        absArrays.put(a.head, AbstractArray(None, Map()))
-    }
-
-    if (absArrays.isEmpty)
-      return None
-
-    val todo = new LinkedHashSet[Term]
-
-    // propagation of array values across _store and _store2 equivalences
-    def propagate(changedIndexes : Seq[Term]) = {
-      todo ++= changedIndexes
-
-      while (!todo.isEmpty) {
-        val nextInd = todo.iterator.next
-        todo -= nextInd
-
-        val nextArray = absArrays(nextInd)
-
-        for (adjacent <- (equivalences get nextInd).toSeq;
-             (indexes, adjIndex) <- adjacent) {
-          val adjArray = absArrays(adjIndex)
-          val newAdjArray = adjArray.merge(nextArray, indexes)
-          if (newAdjArray != adjArray) {
-            absArrays.put(adjIndex, newAdjArray)
-            todo += adjIndex
-          }
-        }
-      }
-    }
-
-    implicit val order = goal.order
-    import TerForConvenience._
-
-    val sortedArrayIndexes = (order sort arrayPartitions.elements).toIndexedSeq
-    propagate(sortedArrayIndexes)
-
-    val arraySets = new MHashMap[Term, MHashMap[AbstractArray[Term],List[Term]]]
-    val equalities = new ArrayBuffer[Conjunction]
-
-    // Equal arrays in the same partition should be represented by the
-    // same term, to make sure that they later receive the same id
-    for ((ar, absArray) <- absArrays) {
-      val arMap : MHashMap[AbstractArray[Term], List[Term]] =
-        arraySets.getOrElseUpdate(arrayPartitions(ar), new MHashMap)
-
-      val arSet : List[Term] = (arMap get absArray) match {
-        case Some(ar2 :: rest) => {
-          equalities += (ar === ar2)
-          ar :: ar2 :: rest
-        }
-        case _ =>
-          List(ar)
-      }
-
-      arMap.put(absArray, arSet)
-    }
-
-    if (equalities.isEmpty) {
-      None
-    } else {
-      equalities += goal.facts
-      Some(ReduceWithConjunction(Conjunction.TRUE, order)(conj(equalities)))
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

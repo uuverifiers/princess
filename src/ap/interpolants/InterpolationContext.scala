@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
- *                    Angelo Brillout <bangelo@inf.ethz.ch>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,7 +57,7 @@ object InterpolationContext {
             order : TermOrder) : InterpolationContext =
     apply(for(name <- spec.left) yield namedParts(name),
           for(name <- spec.right) yield namedParts(name),
-          namedParts get PartName.NO_NAME,
+          for (n <- PartName.predefNames; f <- namedParts get n) yield f,
           order)
   
   def apply(leftFormulas : Iterable[Conjunction],

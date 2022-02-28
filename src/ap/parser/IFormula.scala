@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -504,7 +504,16 @@ case class ITrigger(patterns : Seq[ITerm],
 
 object PartName {
   /** The distinguished name used for unnamed formula parts. */
-  val NO_NAME = new PartName ("NoName")
+  val NO_NAME         = new PartName ("NoName")
+  /** The distinguished name used for function axioms. */
+  val FUNCTION_AXIOMS = new PartName ("FunctionAxioms")
+  /** The distinguished name used for function axioms. */
+  val THEORY_AXIOMS   = new PartName ("TheoryAxioms")
+
+  val predefNames : Seq[PartName] =
+    List(NO_NAME, FUNCTION_AXIOMS, THEORY_AXIOMS)
+  val predefNamesSet : Set[PartName] =
+    predefNames.toSet
 }
 
 /**

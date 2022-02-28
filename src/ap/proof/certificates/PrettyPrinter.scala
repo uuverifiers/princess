@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -105,18 +105,17 @@ class CertificatePrettyPrinter(
         formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
 
   import CertificatePrettyPrinter._
+  import PartName.{predefNames, predefNamesSet}
 
   def apply(dagCertificate : Seq[Certificate],
             initialFormulas : Map[PartName, CertFormula]) : Unit = {
     certificateNum = dagCertificate.size
     val assumedFormulas = dagCertificate.last.assumedFormulas
 
+    val partNamesSet = initialFormulas.keySet
     val partNames =
-      (initialFormulas.iterator map (_._1)).toIndexedSeq.sortWith {
-        case (PartName.NO_NAME, _) => false
-        case (_, PartName.NO_NAME) => true
-        case (a, b) => a.toString < b.toString
-      }
+      (partNamesSet filterNot predefNamesSet).toIndexedSeq.sortBy(_.toString) ++
+      (predefNames filter partNamesSet).toIndexedSeq
 
     val (usedNames, unusedNames) = partNames partition {
       name => assumedFormulas contains initialFormulas(name)
@@ -130,18 +129,20 @@ class CertificatePrettyPrinter(
       for (name <- usedNames) {
         println
         val label = name match {
-          case PartName.NO_NAME => "axioms"
-          case _ =>                "" + name
+          case PartName.NO_NAME         => "input"
+          case PartName.FUNCTION_AXIOMS => "function-axioms"
+          case PartName.THEORY_AXIOMS   => "theory-axioms"
+          case _                        => "" + name
         }
         introduceFormula(initialFormulas(name), label)
       }
 
-      if (unusedNames exists (_ != PartName.NO_NAME)) {
+      if (!(unusedNames forall PartName.predefNamesSet)) {
         println
         println("Further assumptions not needed in the proof:")
         println("--------------------------------------------")
         printlnPrefBreaking("",
-             (unusedNames filterNot (_ == PartName.NO_NAME)) mkString ", ")
+             (unusedNames filterNot PartName.predefNamesSet) mkString ", ")
       }
 
       println

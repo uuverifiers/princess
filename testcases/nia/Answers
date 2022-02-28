@@ -477,7 +477,7 @@ VALID
 Assumptions after simplification:
 ---------------------------------
 
-  (axioms)
+  (input)
   \exists int v0, v1, v2, v3; (a * a = v0 & ((3 >= v0 & (1 < a | a < -1)) | (v0
         >= 4 & 1 >= a & a >= -1) | (v0 * a = v1 & ((10 >= v1 & a >= 3) | (3 >=
             v1 & a >= 2) | (v1 >= 11 & 2 >= a) | (v1 >= 4 & 1 >= a) | (v2 * a =
@@ -488,7 +488,7 @@ Those formulas are unsatisfiable:
 
 Begin of proof
 | 
-| DELTA: instantiating (axioms) with fresh symbols all_0_0, all_0_1, all_0_2,
+| DELTA: instantiating (input) with fresh symbols all_0_0, all_0_1, all_0_2,
 |        all_0_3 gives:
 |   (1)  a * a = all_0_3 & ((3 >= all_0_3 & (1 < a | a < -1)) | (all_0_3 >= 4 &
 |            1 >= a & a >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >=
@@ -1579,7 +1579,7 @@ VALID
 Assumptions after simplification:
 ---------------------------------
 
-  (axioms)
+  (input)
   \exists int v0; (-1*v0 + -7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & 3*x * y = v0)
 
 Those formulas are unsatisfiable:
@@ -1587,7 +1587,7 @@ Those formulas are unsatisfiable:
 
 Begin of proof
 | 
-| DELTA: instantiating (axioms) with fresh symbol all_0_0 gives:
+| DELTA: instantiating (input) with fresh symbol all_0_0 gives:
 |   (1)  -1*all_0_0 + -7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & 3*x * y = all_0_0
 | 
 | ALPHA: (1) implies:
