@@ -885,9 +885,8 @@ class SMTLineariser(benchmarkName : String,
                       case adt : ADT if adt != ADT.BoolADT => // declare this theory if
                         heaps.isEmpty || // there are no heap theories OR
                           // it is not the case that there exists a heap theory
-                          !heaps.exists(h =>
-                          // which declares all sorts of this ADT theory
-                            adt.sorts.forall(sort => h.containsADTSort(sort)))
+                          // that already declared this adt
+                          !heaps.exists(h => h.heapADTs == adt)
                       case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
