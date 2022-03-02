@@ -172,6 +172,10 @@ object ExtArray {
 
     def allValues : Iterator[T] =
       defaultValue.iterator ++ values.valuesIterator
+
+    def eval(indexes : Seq[T]) : Option[T] =
+      values.get(indexes).orElse(defaultValue)
+
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1454,16 +1458,25 @@ class ExtArray private (val indexSorts : Seq[Sort],
         else
           state
 
-      if (newState.isEmpty)
-        return ReducerPlugin.UnchangedResult
-
       ReducerPlugin.rewritePreds(predConj, List(_select), order, logger) {
         a => {
           val indexes          = a.slice(1, arity + 1)
           val stores           = newState.stores
           var ar               = a.head
           var result : Formula = null
-          var cnt              = 0
+
+          if (ar.isConstant &&
+                !a.last.isConstant &&
+                (indexes forall (_.isConstant)))
+            for (absArray <- getArrayForId(ar.constant))
+              // If we can evaluate the select atom, we still need to
+              // keep the actual atom around to make model extraction
+              // work properly. Otherwise other theories will not see
+              // which objects are needed in the model (in function
+              // augmentModelTermSet)
+              result = a & (a.last === absArray.eval(indexes map (_.constant)).get)
+
+          var cnt = 0
 
           while (result == null)
             newState.lookupValue(ar, indexes) match {

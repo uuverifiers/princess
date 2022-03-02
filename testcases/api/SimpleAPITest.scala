@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@
 
 import ap._
 import ap.parser._
-import ap.theories.ADT
+import ap.theories.{ADT, ExtArray}
 
 object SimpleAPITest extends App {
   ap.util.Debug.enableAllAssertions(true)
@@ -173,8 +173,8 @@ object SimpleAPITest extends App {
     println(???) // Valid
   }
 
-  part("Theory of arrays")
-  
+  part("Theory of simple arrays (deprecated)")
+
   scope {
     val a, b = createConstant
     
@@ -197,6 +197,43 @@ object SimpleAPITest extends App {
     scope {
       !! (all(x => (select(a, x) === x + 1)))
       println(???) // Unsat
+    }
+  }
+  
+  part("Theory of extensional arrays")
+
+  val IntAr = ExtArray(List(Sort.Integer), Sort.Integer)
+
+  scope {
+    val a = createConstant("a", IntAr.sort)
+    val b = createConstant("b", IntAr.sort)
+    
+    import IntAr.{select, store}
+
+    !! (a === store(store(store(b, 2, 2), 1, 1), 0, 0))
+    
+    println(???) // Sat
+    println("select(a, 1) = " + eval(select(a, 1)))   // select(a, 1) = 1
+    println("select(a, 10) = " + eval(select(a, 10))) // select(a, 10) = ?
+    
+    val m = partialModel
+
+    println("In partial model: select(a, 1) = " + m.eval(select(a, 1)))   // select(a, 1) = 1
+    println("In partial model: select(a, 10) = " + m.eval(select(a, 10))) // select(a, 10) = ?
+    
+    scope {
+      !! (a === store(b, 0, 1))
+      println(???) // Unsat
+    }
+    
+    scope {
+      ?? (select(a, 2) > select(a, 1))
+      println(???) // Valid
+    }
+    
+    scope {
+      !! (all(x => (select(a, x) === x + 1)))
+      println(???) // Inconclusive
     }
   }
   
@@ -461,12 +498,31 @@ object SimpleAPITest extends App {
     println(getInterpolants(Seq(Set(0, 2), Set(1))) map (pp(_)))
   }
 
-  part("Interpolation with arrays")
+  part("Interpolation with simple arrays (deprecated)")
 
   scope {
     setConstructProofs(true)
     val a = createConstant("a")
     val b = createConstant("b")
+
+    setPartitionNumber(0)
+    !! (store(a, 0, 1) === b)
+
+    setPartitionNumber(1)
+    !! (select(b, 0) === 2)
+
+    println(???)  // Unsat
+    println(getInterpolants(Seq(Set(0), Set(1))) map (pp(_)))
+  }
+  
+  part("Interpolation with extensional arrays")
+
+  scope {
+    setConstructProofs(true)
+    val a = createConstant("a", IntAr.sort)
+    val b = createConstant("b", IntAr.sort)
+
+    import IntAr.{select, store}
 
     setPartitionNumber(0)
     !! (store(a, 0, 1) === b)
