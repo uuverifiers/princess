@@ -2891,6 +2891,15 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
     mostGeneralConstraints = b
   }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   */
+  def getConstraint : IFormula = getConstraintFull()
   
   /**
    * After receiving the result
@@ -2899,12 +2908,14 @@ class SimpleAPI private (enableAssert        : Boolean,
    * constraint over the existential constants that describes satisfying
    * assignments of the existential constants.
    */
-  def getConstraint : IFormula = {
+  def getConstraintFull(negate   : Boolean = false,
+                        minimise : Boolean = false) : IFormula = {
     doDumpSMT {
-      println("; (get-constraint)")
+      println("; (get-constraint " + negate + " " + minimise + ")")
     }
     doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + getConstraint)")
+      println("println(\"" + getScalaNum + ": \" + getConstraintFull(" +
+                negate + ", " + minimise + ")")
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -2912,10 +2923,21 @@ class SimpleAPI private (enableAssert        : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (needExhaustiveProver)
-      processConstraint(currentConstraint)
-    else
-      IBoolLit(true)
+    if (needExhaustiveProver) {
+      val c =
+        if (negate)
+          Conjunction.negate(currentConstraint, currentOrder)
+        else
+          currentConstraint
+      val d =
+        if (minimise)
+          PresburgerTools.minimiseFormula(c)
+        else
+          c
+      processConstraint(d)
+    } else {
+      IBoolLit(!negate)
+    }
   }
 
   /**
@@ -2925,24 +2947,8 @@ class SimpleAPI private (enableAssert        : Boolean,
    * constraint over the existential constants that describes
    * satisfying assignments of the existential constants.
    */
-  def getNegatedConstraint : IFormula = {
-    doDumpSMT {
-      println("; (get-negated-constraint)")
-    }
-    doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + getNegatedConstraint)")
-    }
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, Set(ProverStatus.Unsat,
-                            ProverStatus.Valid) contains getStatusHelp(false))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    if (needExhaustiveProver)
-      processConstraint(Conjunction.negate(currentConstraint, currentOrder))
-    else
-      IBoolLit(false)
-  }
+  def getNegatedConstraint : IFormula =
+    getConstraintFull(negate = true)
 
   /**
    * After receiving the result
@@ -2952,24 +2958,8 @@ class SimpleAPI private (enableAssert        : Boolean,
    * assignments of the existential constants.
    * The produced constraint is simplified and minimised.
    */
-  def getMinimisedConstraint : IFormula = {
-    doDumpSMT {
-      println("; (get-minimised-constraint)")
-    }
-    doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + getMinimisedConstraint)")
-    }
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, Set(ProverStatus.Unsat,
-                            ProverStatus.Valid) contains getStatusHelp(false))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    if (needExhaustiveProver)
-      processConstraint(PresburgerTools.minimiseFormula(currentConstraint))
-    else
-      IBoolLit(true)
-  }
+  def getMinimisedConstraint : IFormula =
+    getConstraintFull(minimise = true)
 
   /**
    * After receiving the result
@@ -3013,7 +3003,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         ?? (f)
         ??? match {
           case ProverStatus.Valid =>
-            getConstraint
+            getConstraintFull(minimise = true)
           case ProverStatus.Invalid =>
             IBoolLit(false)
           case ProverStatus.Inconclusive =>
@@ -3046,7 +3036,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         ?? (~f)
         ??? match {
           case ProverStatus.Valid =>
-            getNegatedConstraint
+            getConstraintFull(negate = true, minimise = true)
           case ProverStatus.Invalid =>
             IBoolLit(true)
           case ProverStatus.Inconclusive =>

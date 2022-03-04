@@ -53,13 +53,23 @@ x = 6
 2*x = 12
 Valid
 
--- Theory of arrays
+-- Theory of simple arrays (deprecated)
 Sat
 select(a, 1) = 1
 select(a, 10) = 11
 Unsat
 Valid
 Unsat
+
+-- Theory of extensional arrays
+Sat
+select(a, 1) = 1
+select(a, 10) = 3
+In partial model: select(a, 1) = Some(1)
+In partial model: select(a, 10) = Some(3)
+Unsat
+Valid
+Inconclusive
 
 -- Non-trivial quantifiers
 Invalid
@@ -136,9 +146,13 @@ Unsat
 Vector(c != 3 | f(3) = 5, f(3) = 5)
 Vector(c != 3)
 
--- Interpolation with arrays
+-- Interpolation with simple arrays (deprecated)
 Unsat
 Vector(select(b, 0) = 1)
+
+-- Interpolation with extensional arrays
+Unsat
+Vector(select(b, 0) != 2)
 
 -- Generating a larger amount of constraints
 Sat

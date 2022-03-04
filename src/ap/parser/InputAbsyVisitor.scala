@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@ package ap.parser;
 
 import IExpression.{ConstantTerm, Predicate, Sort}
 import ap.terfor.conjunctions.Quantifier
-import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory}
+import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory, MulTheory}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
@@ -939,6 +939,32 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
   }
 
   /**
+   * Check whether given formula is in Presburger, bit-vector, or
+   * non-linear arithmetic.
+   */
+  def isPresburgerBVNonLin(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case IFunApp(f, _) =>
+         (TheoryRegistry lookupSymbol f) match {
+           case Some(t) => !isPresburgerBVNonLinTheory(t)
+           case _       => true
+         }
+       case IAtom(p, _) =>
+         (TheoryRegistry lookupSymbol p) match {
+           case Some(t) => !isPresburgerBVNonLinTheory(t)
+           case _       => true
+         }
+       case _ => false
+     })
+
+  private def isPresburgerBVNonLinTheory(t : Theory) = t match {
+    case ModuloArithmetic => true
+    case ADT.BoolADT      => true
+    case _ : MulTheory    => true
+    case _                => false
+  }
+
+  /**
    * Check whether given formula is in Presburger arithmetic, but
    * possibly including predicate atoms in which all arguments
    * are concrete numbers.
@@ -965,6 +991,27 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
        case IAtom(p, args) =>
          (TheoryRegistry lookupSymbol p) match {
            case Some(t) => !isPresburgerBVTheory(t)
+           case _       => !(args forall (_.isInstanceOf[IIntLit]))
+         }
+       case _ =>
+         false
+     })
+
+  /**
+   * Check whether given formula is in Presburger, bit-vector, or
+   * non-linear arithmetic, but possibly including predicate atoms in
+   * which all arguments are concrete numbers.
+   */
+  def isPresburgerBVNonLinWithPreds(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case IFunApp(f, _) =>
+         (TheoryRegistry lookupSymbol f) match {
+           case Some(t) => !isPresburgerBVNonLinTheory(t)
+           case _       => true
+         }
+       case IAtom(p, args) =>
+         (TheoryRegistry lookupSymbol p) match {
+           case Some(t) => !isPresburgerBVNonLinTheory(t)
            case _       => !(args forall (_.isInstanceOf[IIntLit]))
          }
        case _ =>

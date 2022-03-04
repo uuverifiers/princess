@@ -530,7 +530,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                             tree.quan == Quantifier.ALL
                           case _ =>
                             true
-                        })
+                        },
+                        "unexpected proof tree in ModelSearchProver: " + tree)
         //-END-ASSERTION-///////////////////////////////////////////////////////
 
         val quanConsts = tree match {
