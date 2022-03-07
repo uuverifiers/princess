@@ -285,6 +285,7 @@ object Heap {
                // ignoring read atoms outside this heap term's allocated range
                // these reads would only be defObj
                 if (heapContents(heapId).length > changedInd &&
+                    changedInd >= 0 &&
                     heapContents(heapId)(changedInd) != newVal) {
                   heapContents(heapId)(changedInd) = newVal
                   somethingChanged = true
