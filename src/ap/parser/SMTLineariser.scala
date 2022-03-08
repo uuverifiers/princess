@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -184,6 +184,12 @@ object SMTLineariser {
         case (0, c) =>
           res += c
 
+        case (1, 34) => {                                 // "
+          // then we have already seen a \
+          state = 20
+          res += 92
+        }
+
         case (1, c) => {
           // then we have already seen a \
           state = 0
@@ -191,8 +197,8 @@ object SMTLineariser {
           res += c
         }
 
-//        case _ =>
-///          throw new IllegalStringException
+        case _ =>
+          throw new IllegalStringException
       }
 
     state match {
