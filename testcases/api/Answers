@@ -90,6 +90,11 @@ Sat
 Partial model: {c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> true, r(1, 5) -> true, p1 -> true, p0 -> true}
 Valid
 
+-- Evaluation with Boolean variables
+p = q & p = 0 & (q != 0 | r != 0)
+Sat
+Some(true)
+
 -- Existential constants
 Valid
 X = 1

@@ -304,6 +304,21 @@ object SimpleAPITest extends App {
     }
   }
 
+  part("Evaluation with Boolean variables")
+
+  scope {
+    val p = createConstant("p", Sort.Bool)
+    val q = createConstant("q", Sort.Bool)
+    val r = createConstant("r", Sort.Bool)
+
+    val f = (p === q) & eqZero(p) & (!eqZero(q) | !eqZero(r))
+    println(pp(f))
+    !! (f)
+
+    println(???)                 // Sat
+    println(partialModel eval f) // Some(true)
+  }
+
   part("Existential constants")
 
   scope {

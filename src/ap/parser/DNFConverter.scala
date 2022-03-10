@@ -74,9 +74,6 @@ object DNFConverter {
   /**
    * Conversion to DNF using a model-based approach that minimises the
    * number of resulting disjuncts.
-   *
-   * This currently works for quantifier-free formulas in Presburger
-   * arithmetic or bit-vectors.
    */
   def mbDNF(f : IFormula) : Seq[IFormula] = {
     if (!NeedsSplitting(f))
