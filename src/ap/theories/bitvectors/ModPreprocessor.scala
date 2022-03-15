@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -416,19 +416,31 @@ object ModPreprocessor {
 
     def boundsBVASHR(bits : Int, arg : VisitorRes,
                      shift : IdealInt) : (IdealInt, IdealInt) = {
-      val divisor =   pow2(shift)
       val threshold = pow2(bits - 1)
       val pow2bits =  pow2(bits)
 
       if (arg.upperBound != null && arg.upperBound < threshold) {
-        (arg.lowerBoundMin(IdealInt.ZERO) / divisor,
-         arg.upperBound / divisor)
+        // the complete interval of values is in the positive range
+        if (shift < bits) {
+          val divisor = pow2(shift)
+          (arg.lowerBoundMin(IdealInt.ZERO) / divisor,
+           arg.upperBound / divisor)
+        } else {
+          (IdealInt.ZERO, IdealInt.ZERO)
+        }
       } else if (arg.lowerBound != null && arg.lowerBound >= threshold) {
-        ((arg.lowerBound - pow2bits) / divisor +
-           pow2bits,
-         (arg.upperBoundMax(pow2MinusOne(bits+1)) - pow2bits) / divisor +
-           pow2bits)
+        // the complete interval of values is in the negative range
+        if (shift < bits) {
+          val divisor = pow2(shift)
+          ((arg.lowerBound - pow2bits) / divisor +
+             pow2bits,
+           (arg.upperBoundMax(pow2MinusOne(bits+1)) - pow2bits) / divisor +
+             pow2bits)
+        } else {
+          (pow2MinusOne(bits+1), pow2MinusOne(bits+1))
+        }
       } else {
+        // trivial bounds, nothing can be said about the result
         (IdealInt.ZERO, pow2MinusOne(bits+1))
       }
     }
