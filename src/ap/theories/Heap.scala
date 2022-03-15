@@ -282,7 +282,11 @@ object Heap {
               for (a <- readAtoms if a(0).constant == heapId) {
                 val changedInd = a(1).constant.intValue - 1
                 val newVal = a(2).constant
-                if (heapContents(heapId)(changedInd) != newVal) {
+               // ignoring read atoms outside this heap term's allocated range
+               // these reads would only be defObj
+                if (heapContents(heapId).length > changedInd &&
+                    changedInd >= 0 &&
+                    heapContents(heapId)(changedInd) != newVal) {
                   heapContents(heapId)(changedInd) = newVal
                   somethingChanged = true
                 }

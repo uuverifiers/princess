@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2022 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -323,6 +323,25 @@ class ExtArraySimplifier extends ap.parser.Simplifier {
   import Quantifier._
 
   /**
+   *    store(a, b, c) = a
+   * is replace with
+   *    select(a, b) = c
+   */
+  private def rewriteStoreEq(expr : IExpression) : IExpression = expr match {
+    case Eq(IFunApp(ExtArray.Store(theory),
+                    Seq(ar, storeArgs @ _*)),
+            ar2)                                if ar == ar2 =>
+      IFunApp(theory.select, List(ar) ++ storeArgs.init) === storeArgs.last
+    case Eq(ar2,
+            IFunApp(ExtArray.Store(theory),
+                    Seq(ar, storeArgs @ _*)))   if ar == ar2 =>
+      IFunApp(theory.select, List(ar) ++ storeArgs.init) === storeArgs.last
+    case _ => expr
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    *    \exists a; (x = store(a, b, c) & phi)
    * is replaced with
    *    \exists d, a; (select(x, b) = c & a = store(x, b, d) & phi)
@@ -495,7 +514,7 @@ class ExtArraySimplifier extends ap.parser.Simplifier {
   //////////////////////////////////////////////////////////////////////////////
 
   val rewritings =
-    Vector(elimStore _ , elimQuantifiedSelect _)
+    Vector(rewriteStoreEq _, elimStore _ , elimQuantifiedSelect _)
 
   private val rewritingFun =
     Rewriter.combineRewritings(rewritings)

@@ -1,4 +1,4 @@
-// This program previously led to an exeption in
+// This program previously led to an exception in
 // DNFConverter.mbDNF
 
 import ap._

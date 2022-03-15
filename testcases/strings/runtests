@@ -14,6 +14,7 @@ TESTS="simple-cycle.smt2 \
        escape2.smt2 \
        escape3.smt2 \
        escape4.smt2 \
+       escape5.smt2 \
        head.smt2 \
        regex.smt2 \
        chars.smt2 \

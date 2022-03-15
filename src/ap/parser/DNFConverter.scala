@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import IExpression._
 import ap.PresburgerTools
 import ap.util.Debug
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 /**
  * Functions for converting formulas to DNF.
@@ -74,40 +74,49 @@ object DNFConverter {
   /**
    * Conversion to DNF using a model-based approach that minimises the
    * number of resulting disjuncts.
-   *
-   * This currently works for quantifier-free formulas in Presburger
-   * arithmetic or bit-vectors.
    */
   def mbDNF(f : IFormula) : Seq[IFormula] = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, ContainsSymbol isPresburgerBV f)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
     if (!NeedsSplitting(f))
       return List(f)
 
-    val consts = SymbolCollector constantsSorted f
     val res = new ArrayBuffer[IFormula]
 
     SimpleAPI.withProver { modelConstructor =>
     SimpleAPI.withProver { implicationChecker =>
-      modelConstructor.addConstantsRaw(consts)
-      implicationChecker.addConstantsRaw(consts)
+      // First replace all sub-formulas we don't understand with Boolean
+      // variables
+      val abstractionVisitor = new AbstractionVisitor
+      val aF                 = abstractionVisitor(f)
 
-      val flags = implicationChecker.createBooleanVariables(SizeVisitor(f))
-      modelConstructor !! f
-      implicationChecker ?? f
+      val (vars, consts, preds) = SymbolCollector varsConstsPreds aF
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, vars.isEmpty)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val constsSorted = consts.toSeq.sortBy(_.name)
+      val predsSorted  = preds.toSeq.sortBy(_.name)
+
+      modelConstructor.addConstantsRaw(constsSorted)
+      modelConstructor.addRelations(predsSorted)
+
+      implicationChecker.addConstantsRaw(constsSorted)
+      implicationChecker.addRelations(predsSorted)
+
+      val flags = implicationChecker.createBooleanVariables(SizeVisitor(aF))
+      modelConstructor !! aF
+      implicationChecker ?? aF
 
       while (modelConstructor.??? == ProverStatus.Sat) {
         ap.util.Timeout.check
 
         val litCollector =
           new CriticalAtomsCollector(modelConstructor.partialModel)
-        val criticalLits = litCollector.visit(f, ()) match {
+        val criticalLits = litCollector.visit(aF, ()) match {
           case Some((true, fors)) =>
             fors
           case _ =>
-            throw new IllegalArgumentException("Could not dnf-transform " + f)
+            throw new IllegalArgumentException("Could not dnf-transform " + aF)
         }
 
         val neededCriticalLits = implicationChecker.scope {
@@ -139,7 +148,8 @@ object DNFConverter {
               yield lit)
         }
 
-        res += neededCriticalLits
+        res +=
+        UniformSubstVisitor(neededCriticalLits, abstractionVisitor.backMapping)
         modelConstructor !! ~neededCriticalLits
       }
     }}
@@ -238,6 +248,48 @@ object DNFConverter {
     def postVisit(t : IExpression, arg : Context[Unit], subres : Seq[Unit])
                  : Unit = ()
   
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private class AbstractionVisitor
+          extends CollectingVisitor[Unit, IExpression] {
+    // mapping from abstracted sub-formulas to the introduced flags,
+    // and vice versa
+    val mapping     = new MHashMap[IFormula, IFormula]
+    val backMapping = new MHashMap[Predicate, IFormula]
+
+    def apply(f : IFormula) : IFormula = visit(f, ()).asInstanceOf[IFormula]
+
+    def abstractFor(f : IFormula) : IFormula = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, !(mapping contains f))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val pred = new Predicate("abs" + mapping.size, 0)
+      val flag = IAtom(pred, List())
+      mapping.put(f, flag)
+      backMapping.put(pred, f)
+      flag
+    }
+
+    override def preVisit(t    : IExpression,
+                          ctxt : Unit)
+                               : PreVisitResult = t match {
+      case f : IFormula if mapping contains f =>
+        ShortCutResult(mapping(f))
+      case LeafFormula(f) if !ContainsSymbol.isPresburgerBVNonLin(f) =>
+        ShortCutResult(abstractFor(f))
+      case f : IQuantified =>
+        ShortCutResult(abstractFor(f))
+      case _ =>
+        KeepArg
+    }
+
+    def postVisit(t      : IExpression,
+                  arg    : Unit,
+                  subres : Seq[IExpression])
+                         : IExpression =
+      t update subres
   }
 
 }

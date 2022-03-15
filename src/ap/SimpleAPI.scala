@@ -293,6 +293,10 @@ object SimpleAPI {
       def unapply(t : IExpression) : Option[IdealInt] = t match {
         case IIntLit(v) =>
           Some(v)
+        case ADT.BoolADT.True =>
+          Some(IdealInt.ZERO)
+        case ADT.BoolADT.False =>
+          Some(IdealInt.ONE)
         case t@IFunApp(f, _) =>
           // check whether some theory can turn the term into an int
           for (theory <- TheoryRegistry lookupSymbol f;
