@@ -57,6 +57,19 @@ sat
   (define-fun x () (_ BitVec 8) (_ bv127 8))
 )
 
+Loading bvsdiv7.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun r4 () (_ BitVec 8) (_ bv3 8))
+  (define-fun r3 () (_ BitVec 8) (_ bv253 8))
+  (define-fun r2 () (_ BitVec 8) (_ bv253 8))
+  (define-fun r1 () (_ BitVec 8) (_ bv3 8))
+)
+
 Loading bvsmod.smt2 ...
 Preprocessing ...
 Constructing countermodel ...

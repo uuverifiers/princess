@@ -12,6 +12,7 @@ TESTS="existential.pri \
        bvsdiv6.smt2 \
        bvsdiv6b.smt2 \
        bvsdiv6c.smt2 \
+       bvsdiv7.smt2 \
        bvsmod.smt2 \
        bvsmod3.smt2 \
        bvsrem.smt2 \
