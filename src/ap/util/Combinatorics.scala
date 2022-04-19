@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,10 @@ package ap.util;
 
 object Combinatorics {
 
+  /**
+   * Compute all sub-sequences of the given sequence with exactly
+   * <code>num</code> elements.
+   */
   def genSubsequences[A](seq : Seq[A], num : Int) : Iterator[List[A]] =
     if (num == 0)
       Iterator single List()
@@ -44,6 +48,10 @@ object Combinatorics {
            s <- genSubsequences(seq.view(i + 1, seq.size), num - 1))
       yield p :: s
 
+  /**
+   * Compute all sub-sequences of the given sequence with exactly
+   * <code>num</code> elements, allowing elements to occur repeatedly.
+   */
   def genSubsequencesWithDups[A](seq : Seq[A], num : Int) : Iterator[List[A]] =
     if (num == 0)
       Iterator single List()
@@ -53,12 +61,17 @@ object Combinatorics {
            s <- genSubsequencesWithDups(seq.view(i, seq.size), num - 1))
       yield p :: s
 
-  def cartesianProduct[A](seqs : List[Seq[A]]) : Iterator[List[A]] = seqs match {
-    case List() =>
-      Iterator single List()
-    case s :: otherSeqs =>
-      for (rem <- cartesianProduct(otherSeqs); a <- s.iterator) yield a :: rem
-  }
+  /**
+   * Compute the elements of the Cartesian product of the given
+   * sequences.
+   */
+  def cartesianProduct[A](seqs : List[Seq[A]]) : Iterator[List[A]] =
+    seqs match {
+      case List() =>
+        Iterator single List()
+      case s :: otherSeqs =>
+        for (rem <- cartesianProduct(otherSeqs); a <- s.iterator) yield a :: rem
+    }
 
   def genSubsequences[A](seqs : Seq[Seq[A]],
                          nums : Seq[Int]) : Iterator[List[A]] = {
@@ -76,6 +89,9 @@ object Combinatorics {
     for (comb <- cartesianProduct(subSeqs)) yield comb.flatten
   }
 
+  /**
+   * Generate all vectors that are <code> <= nums</code>.
+   */
   def genCoveredVectors(nums : List[Int]) : Iterator[List[Int]] = nums match {
     case List() =>
       Iterator single List()
@@ -84,6 +100,9 @@ object Combinatorics {
       yield i :: vec
   }
 
+  /**
+   * Compute the sub-multisets of the given multi-set.
+   */
   def genSubMultisets[A](seq : Seq[A]) : Iterator[List[A]] = {
     val uniqueEls = seq.distinct.toList
     val elNums = for (a <- uniqueEls) yield (seq count (_ == a))
