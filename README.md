@@ -1,2 +1,2 @@
-# princess
-The Princess Theorem Prover
+# The Princess Theorem Prover
+
