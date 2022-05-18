@@ -936,7 +936,7 @@ object ModPreprocessor {
               case rawNum             => (v(0), v(0) === rawNum)
             }
 
-          val negNum = -num + modulus
+          val negNum = modulus --- num
 
           val (denom, denomDef) =
             shiftVars(subres(2).resTerm, 4) match {
@@ -944,7 +944,7 @@ object ModPreprocessor {
               case rawDenom             => (v(1), v(1) === rawDenom)
             }
 
-          val negDenom = -denom + modulus
+          val negDenom = modulus --- denom
 
           val (timesDenom, timesDenomDef) =
             MultTheory.mult(resVar, denom) match {
@@ -982,8 +982,8 @@ object ModPreprocessor {
                     i(false)) |||
                  (if (denomMightBeNegative)
                     ((num <= sUpper) & (denom > sUpper) &
-                       (-timesDenom <= num) &
-                       (-timesDenom > num - negDenom)) |
+                       (-negTimesDenom <= num) &
+                       (-negTimesDenom > num - negDenom)) |
                     ((num > sUpper) & (denom > sUpper) &
                        (negTimesDenom <= negNum) &
                        (negTimesDenom > negNum - negDenom))

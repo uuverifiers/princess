@@ -1,9 +1,0 @@
-#!/bin/sh
-
-ABSEXECUTABLE=`readlink $0`
-BASEDIR=`dirname $ABSEXECUTABLE`
-
-export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
-
-cd $BASEDIR
-exec java -Xss20000k -Xmx1500m -noverify ap.interpolants.WolverineInterfaceMain "$@"

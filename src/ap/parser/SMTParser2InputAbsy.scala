@@ -44,7 +44,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
-import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap}
+import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap, DivZero}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.rationals.Rationals
 import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
@@ -856,6 +856,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private val realAlgebra : PseudoRing with RingWithDivision
                                        with RingWithOrder
                                        with RingWithIntConversions = Rationals
+
+  private def realDiv(num : ITerm, denom : ITerm) : ITerm =
+    Rationals.divWithSpecialZero(num, denom)
 
   private val realType = SMTReal(realAlgebra.dom)
 
@@ -2453,7 +2456,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("div") => {
       checkArgNum("div", 2, args)
       val Seq(num, denom) = for (a <- args) yield asTerm(translateTerm(a, 0))
-      (mulTheory.eDiv(num, denom), SMTInteger)
+      (mulTheory.eDivWithSpecialZero(num, denom), SMTInteger)
     }
        
     case PlainSymbol("mod") => {
@@ -2464,7 +2467,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           (ModuloArithmetic.cast2Interval(IdealInt.ZERO, denomVal - 1, num),
            SMTInteger)
         case denom => */
-          (mulTheory.eMod(num, denom), SMTInteger)
+          (mulTheory.eModWithSpecialZero(num, denom), SMTInteger)
 //      }
     }
 
@@ -2475,8 +2478,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case PlainSymbol("/") => {
       checkArgNum("/", 2, args)
-      (realAlgebra.div(asRealTerm("/", args(0)),
-                       asRealTerm("/", args(1))),
+      (realDiv(asRealTerm("/", args(0)), asRealTerm("/", args(1))),
        realType)
     }
 

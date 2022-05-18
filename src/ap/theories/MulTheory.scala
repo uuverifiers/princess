@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -136,6 +136,13 @@ trait MulTheory extends Theory {
     }
 
   /**
+   * Euclidian division, assuming the SMT-LIB semantics for division
+   * by zero.
+   */
+  def eDivWithSpecialZero(num : ITerm, denom : ITerm) : ITerm =
+    DivZero.handleZero(eDiv _, DivZero.IntDivZero, 0, Sort.Integer)(num, denom)
+
+  /**
    * Euclidian remainder
    */
   def eMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
@@ -146,6 +153,13 @@ trait MulTheory extends Theory {
         ex(VariableShiftVisitor(num, 0, 1) ===
              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
   }
+
+  /**
+   * Euclidian remaining, assuming the SMT-LIB semantics for remainder
+   * by zero.
+   */
+  def eModWithSpecialZero(num : ITerm, denom : ITerm) : ITerm =
+    DivZero.handleZero(eMod _, DivZero.IntModZero, 0, Sort.Integer)(num, denom)
 
   /**
    * Truncation division

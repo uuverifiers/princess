@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -115,5 +115,20 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
                   v(0) === denom() &
                   v(0) > 0)))
 
+  val RatDivZeroTheory =
+    new DivZero("RatDivZero",
+                List(("ratDivZero", Rationals.dom)))
+
+  /**
+   * Uninterpreted function representing the SMT-LIB rational division
+   * by zero.
+   */
+  val RatDivZero = RatDivZeroTheory.functions(0)
+
+  /**
+   * Division, assuming SMT-LIB semantics for division by zero.
+   */
+  def divWithSpecialZero(s : ITerm, t : ITerm) : ITerm =
+    DivZero.handleZero(div _, RatDivZero, zero, dom)(s, t)
 }
 
