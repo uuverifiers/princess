@@ -752,40 +752,44 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def theoryFun2Identifier(fun : IFunction) : Option[String] =
+  private def theoryFun2Identifier(fun : IFunction) : Option[(String, String)] =
     (TheoryRegistry lookupSymbol fun) match {
       case Some(t : SimpleArray) => fun match {
-        case t.select => Some("select")
-        case t.store  => Some("store")
+        case t.select => Some(("select", ""))
+        case t.store  => Some(("store", ""))
       }
       case Some(t : ExtArray) => fun match {
-        case t.select           => Some("select")
-        case t.store            => Some("store")
-        case fun                => Some(fun.name)
+        case t.select           => Some(("select", ""))
+        case t.store            => Some(("store", ""))
+        case fun                => Some((fun.name, ""))
       }
       case Some(t : MulTheory) => fun match {
-        case t.mul => Some("*")
+        case t.mul => Some(("*", ""))
       }
       case Some(t : ADT)
         if t.termSize != null && (t.termSize contains fun) =>
-        Some("_size")
+        Some(("_size", ""))
       case Some(t : ADT)
         if t != ADT.BoolADT && (t.constructors contains fun) => {
           val monoFun = fun.asInstanceOf[MonoSortedIFunction]
           if (!(monoFun.argSorts contains monoFun.resSort) &&
                 (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
-            Some("(as " + quoteIdentifier(fun.name) + " " +
-                   sort2SMTString(monoFun.resSort) +
-                   ")")
+            Some(("(as " + quoteIdentifier(fun.name) + " " +
+                    sort2SMTString(monoFun.resSort) +
+                    ")", ""))
           } else {
             None
           }
         }
       case Some(Rationals) if fun == Rationals.frac =>
-        Some("/")
+        Some(("/", ""))
       case Some(ModuloArithmetic) => fun match {
-        case ModuloArithmetic.int_cast => Some("bv2nat")
-        case ModuloArithmetic.bv_add   => Some("bvadd")
+        case ModuloArithmetic.int_cast => Some(("bv2nat", ""))
+        case ModuloArithmetic.bv_add   => Some(("bvadd", ""))
+      }
+      case Some(DivZero.IntDivZeroTheory) => fun match {
+        case DivZero.IntDivZero => Some(("div", "0"))
+        case DivZero.IntModZero => Some(("mod", "0"))
       }
       case _ =>
         None
@@ -863,8 +867,9 @@ class SMTLineariser(benchmarkName : String,
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
   
-  private def fun2Identifier(fun : IFunction) =
-    theoryFun2Identifier(fun) getOrElse quoteIdentifier(funPrefix + fun.name)
+  private def fun2Identifier(fun : IFunction) : (String, String) =
+    theoryFun2Identifier(fun) getOrElse
+    (quoteIdentifier(funPrefix + fun.name), "")
 
   def open {
     println("(set-logic " + logic + ")")
@@ -1477,11 +1482,14 @@ class SMTLineariser(benchmarkName : String,
         if (changed) {
           TryAgain(IFunApp(fun, newArgs), ctxt)
         } else if (args.isEmpty) {
-          print(fun2Identifier(fun))
+          print(fun2Identifier(fun)._1)
           shortCut(ctxt)
         } else {
-          print("(" + fun2Identifier(fun) + " ")
-          closeWithParen(ctxt, args.size)
+          val (prefix, suffix) = fun2Identifier(fun)
+          print("(" + prefix + " ")
+          allButLast(ctxt, " ",
+                     if (suffix == "") ")" else (" " + suffix + ")"),
+                     args.size)
         }
       }
 

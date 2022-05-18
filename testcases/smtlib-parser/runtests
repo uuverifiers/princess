@@ -23,7 +23,7 @@ TESTS="bignum_quant.smt2 \
        define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2 bv1.smt2 bv1b.smt2 \
        bitops1.smt2 division_by_zero0.smt2 bvmul.smt2 \
        modelConstructionBug2.smt2 conjunct-eliminator-bug.smt2 \
-       eagerMatchBug.smt2 index-error.smt2"
+       eagerMatchBug.smt2 index-error.smt2 division_by_zero1.smt2"
 
 $PRI "$@" $TESTS
 
@@ -36,7 +36,8 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        unsat-core.smt2 define-fun-recs2.smt2 \
        define-fun-bug2.smt2 define-fun-bug3.smt2 \
        run_00007.trace.Alloc_large__008268.smt2 bench_586.smt2 \
-       incremental-bug.smt2 simplify.smt2 simplify2.smt2 simplify3.smt2"
+       incremental-bug.smt2 simplify.smt2 simplify2.smt2 simplify3.smt2 \
+       division_by_zero2.smt2"
 
 $PRI "$@" +incremental $TESTS
 
