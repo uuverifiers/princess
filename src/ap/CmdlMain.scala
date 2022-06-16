@@ -52,6 +52,12 @@ object CmdlMain {
 
   val version = "unstable build"
 
+  /**
+   * Flag to enable stack traces being fully printed, for problems
+   * specified on the command line.
+   */
+  var stackTraces = false
+
   def printGreeting = {
     println("________       _____")                                 
     println("___  __ \\_________(_)________________________________")
@@ -558,7 +564,8 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+        if (stackTraces)
+          e.printStackTrace
         None
       }
     }
@@ -595,7 +602,8 @@ object CmdlMain {
       case e : Throwable => {
         println("error")
 	Console.err.println(e.getMessage)
-//         e.printStackTrace
+        if (stackTraces)
+          e.printStackTrace
       }
   }
   
@@ -950,7 +958,8 @@ object CmdlMain {
       } catch {
         case e : Throwable => {
           println("ERROR: " + e.getMessage)
-//          e.printStackTrace
+          if (stackTraces)
+            e.printStackTrace
         }
       }
 
