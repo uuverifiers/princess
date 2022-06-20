@@ -1091,16 +1091,11 @@ println(unprocessed)
         }
   
         def splitTermAt(x : ConstantTerm, mid : IdealInt,
-                        swap : Boolean = false) : Seq[Plugin.Action] = {
-          val for1 = (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) <= mid)),
-                      List())
-          val for2 = (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) > mid)),
-                      List())
-          List(Plugin.AxiomSplit(
-                List(),
-                if (swap) List(for2, for1) else List(for1, for2),
-                GroebnerMultiplication.this))
-        }
+                        swap : Boolean = false) : Seq[Plugin.Action] =
+          if (swap)
+            List(Plugin.CutSplit(x > mid, List(), List()))
+          else
+            List(Plugin.CutSplit(x <= mid, List(), List()))
 
         /**
          * Finds a possible split of x in [a, b] into the individual cases

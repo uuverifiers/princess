@@ -613,6 +613,18 @@ Interpolants:
 \forall S v0; f(v0) = b
 c != b
 
+Loading quadraticInEq6-interpolation.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 56), simplifying (89), interpolating ...
+
+VALID
+
+Interpolants:
+b != 0 & a * b >= 1
+(b * d = 0 & d != 0 & b != 0) | b * d >= 1 | 0 >= a * c
+(b * d = 0 & d != 0 & b != 0) | b * d >= 1
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
