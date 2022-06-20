@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,6 +253,33 @@ object Interpolator
         }
       }
       
+      //////////////////////////////////////////////////////////////////////////
+
+      case cert@CutCertificate(cutFormula, leftChild, rightChild, _) => {
+        implicit val o = iContext.order
+        val fromLeft = cutFormula.constants subsetOf iContext.leftConstants
+
+        if (fromLeft) {
+
+          val firstRes = applyHelp(leftChild, iContext addLeft cutFormula)
+          
+          if (firstRes.isTrue)
+            firstRes
+          else
+            firstRes | applyHelp(rightChild, iContext addLeft !cutFormula)
+            
+        } else {
+
+          val firstRes = applyHelp(leftChild, iContext addRight cutFormula)
+          
+          if (firstRes.isFalse)
+            firstRes
+          else
+            firstRes & applyHelp(rightChild, iContext addRight !cutFormula)
+            
+        }
+      }
+
       //////////////////////////////////////////////////////////////////////////
       
       case cert@SplitEqCertificate(left, right, leftChild, rightChild, _) => {

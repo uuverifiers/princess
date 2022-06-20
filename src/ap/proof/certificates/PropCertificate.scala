@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -179,6 +179,43 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
 
   override def toString : String =
     "Beta(" + localAssumedFormulas.head + ", " + leftChild + ", " + rightChild + ")"
+  
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Certificate corresponding to an application of the cut rule. In the
+ * left proof branch, it will be assumed that the
+ * <code>cutFormula</code> holds, in the right proof branch it will be
+ * assumed that it does not hold.
+ */
+case class CutCertificate(cutFormula : CertFormula,
+                          _leftChild : Certificate, _rightChild : Certificate,
+                          _order : TermOrder) extends {
+  
+  val localAssumedFormulas = Set[CertFormula]()
+  
+  val localProvidedFormulas : Seq[Set[CertFormula]] =
+    Array(Set(cutFormula), Set(!cutFormula))
+  
+} with BinaryCertificate(_leftChild, _rightChild, _order) {
+
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(BetaCertificate.AC, newSubCerts.size == 2)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val Seq(newLeft, newRight) = newSubCerts
+    if ((newLeft eq leftChild) && (newRight eq rightChild))
+      this
+    else
+      copy(_leftChild = newLeft, _rightChild = newRight)
+  }
+
+  override def toString : String =
+    "Cut(" + cutFormula + ", " + leftChild + ", " + rightChild + ")"
   
   override val hashCode : Int = ScalaRunTime._hashCode(this)
 

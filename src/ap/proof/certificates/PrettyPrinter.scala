@@ -350,6 +350,13 @@ class CertificatePrettyPrinter(
       printCases(cert)
     }
 
+    case cert : CutCertificate => {
+      printlnPref
+      printlnPref("CUT: with " +
+                  (formulaPrinter for2String cert.cutFormula) + ":")
+      printCases(cert)
+    }
+
     case cert : SplitEqCertificate => {
       printlnPref
       printlnPref("SPLIT-EQ: splitting " +

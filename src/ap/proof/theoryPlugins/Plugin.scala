@@ -111,6 +111,13 @@ object Plugin {
                           theory : Theory)          extends Action
 
   /**
+   * Split a proof goal by applying the cut rule.
+   */
+  case class CutSplit    (cutFormula : Conjunction,
+                          leftCase : Seq[Action], rightCase : Seq[Action])
+                                                    extends Action
+
+  /**
    * Split a disequality fact into two inequalities.
    */
   case class SplitDisequality(equality : LinearCombination,
@@ -261,7 +268,8 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
       case _ : Plugin.CloseByAxiom     => true
       case _ : Plugin.AxiomSplit       => true
       case _ : Plugin.SplitDisequality => true
-      case _ =>                           false
+      case _ : Plugin.CutSplit         => true
+      case _                           => false
     }
 
 }
@@ -647,6 +655,38 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         ptf.andInOrder(List(leftSubtree, rightSubtree), pCert, goal.vocabulary)
       }
      
+      case List(CutSplit(cutFormula, left, right)) => {
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val leftSubtree =
+          handleActionsRec(left.toList,
+                           AddFormula(!cutFormula) :: contActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+        val rightSubtree =
+          handleActionsRec(right.toList,
+                           AddFormula(cutFormula) :: contActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+
+        val certCutFormula = CertFormula(cutFormula)
+
+        // certificate constructor, to be applied once all sub-goals have
+        // been closed
+        def comb(certs : Seq[Certificate]) : Certificate =
+          CutCertificate(certCutFormula, certs(0), certs(1), order)
+        
+        val pCert =
+          PartialCertificate(comb _,
+                             List(Set(certCutFormula), Set(!certCutFormula)),
+                             branchInferences, order)
+
+        ptf.andInOrder(List(leftSubtree, rightSubtree), pCert, goal.vocabulary)
+      }
+     
       case AddReducableModelElement(facts, constants, settings) :: rest =>
         ptf.eliminatedConstant(handleActionsRec(rest, contActions, goal,
                                                 branchInferences, ptf),
@@ -675,7 +715,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                                    goal : Goal,
                                    ptf : ProofTreeFactory) : ProofTree =
     actions.last match {
-      case _ : SplitGoal | _ : AxiomSplit => {
+      case _ : SplitGoal | _ : AxiomSplit | _ : CutSplit => {
         val actionStack    = new Stack[Seq[Action]]
         val resultingTrees = new ArrayBuffer[ProofTree]
 
@@ -708,6 +748,15 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                                 right)
               actionStack push (otherActions ++
                                 List(AddFormula(eqLC >= 0)) ++
+                                left)
+            }
+            case CutSplit(cutFormula, left, right) => {
+              val otherActions = actions.init
+              actionStack push (otherActions ++
+                                List(AddFormula(cutFormula)) ++
+                                right)
+              actionStack push (otherActions ++
+                                List(AddFormula(!cutFormula)) ++
                                 left)
             }
             case _ => {
