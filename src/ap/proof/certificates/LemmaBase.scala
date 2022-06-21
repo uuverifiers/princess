@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -332,7 +332,12 @@ class LemmaBase {
 
     val watchable =
       (cert.assumedFormulas.iterator filterNot assumedFormulasL0).toArray
-    Sorting stableSort watchable
+    try {
+      Sorting stableSort watchable
+    } catch {
+      case t : Throwable =>
+        throw new Exception("ill-formed certificate, incorrect order: " + cert)
+    }
 
     val record = new LemmaRecord(cert, watchable, certNum)
     certNum = certNum + 1
