@@ -201,6 +201,8 @@ object GlobalSettings {
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case ValueOpt("stringSolver", value) =>
           Param.STRING_THEORY_DESC.set(settings, value)
+        case Opt("stringEscapes", value) =>
+          Param.STRING_ESCAPES.set(settings, value)
         case ValueOpt("randomSeed", "off") =>
           Param.RANDOM_SEED.set(settings, None)
         case ValueOpt("randomSeed", IntVal(value)) =>
@@ -248,8 +250,8 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS, Param.IGNORE_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY, Param.STRING_THEORY_DESC,
-         Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.PORTFOLIO, Param.NEG_SOLVING,
+         Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
+         Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED)
 
@@ -287,7 +289,7 @@ object ParserSettings {
                        Param.MAKE_QUERIES_PARTIAL,
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS,
-                       Param.STRING_THEORY_DESC)
+                       Param.STRING_THEORY_DESC, Param.STRING_ESCAPES)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
