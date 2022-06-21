@@ -256,27 +256,54 @@ object Interpolator
       //////////////////////////////////////////////////////////////////////////
 
       case cert@CutCertificate(cutFormula, leftChild, rightChild, _) => {
-        implicit val o = iContext.order
-        val fromLeft = cutFormula.constants subsetOf iContext.leftConstants
+        implicit val extOrder = iContext.order
+
+        val cutConsts =
+          iContext.addDoubleConstants(
+            for (c <- cutFormula.constants.iterator) yield c).toSet
+        val fromLeft =
+          cutConsts subsetOf iContext.leftConstants
 
         if (fromLeft) {
 
           val firstRes = applyHelp(leftChild, iContext addLeft cutFormula)
           
-          if (firstRes.isTrue)
-            firstRes
-          else
-            firstRes | applyHelp(rightChild, iContext addLeft !cutFormula)
-            
+          val res =
+            if (firstRes.isTrue)
+              firstRes
+            else
+              firstRes | applyHelp(rightChild, iContext addLeft !cutFormula)
+
+          if (Seqs.disjoint(cutConsts, iContext.rightLocalConstants)) {
+            res
+          } else {
+            val resConj = res.toConjunction
+            LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extOrder)(
+              forall(extOrder.sort(resConj.constants &
+                                     iContext.rightLocalConstants),
+                     resConj)))
+          }
+
         } else {
 
           val firstRes = applyHelp(leftChild, iContext addRight cutFormula)
-          
-          if (firstRes.isFalse)
-            firstRes
-          else
-            firstRes & applyHelp(rightChild, iContext addRight !cutFormula)
+
+          val res =
+            if (firstRes.isFalse)
+              firstRes
+            else
+              firstRes & applyHelp(rightChild, iContext addRight !cutFormula)
             
+          if (Seqs.disjoint(cutConsts, iContext.leftLocalConstants)) {
+            res
+          } else {
+            val resConj = res.toConjunction
+            LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extOrder)(
+              exists(extOrder.sort(resConj.constants &
+                                     iContext.leftLocalConstants),
+                     resConj)))
+          }
+
         }
       }
 
