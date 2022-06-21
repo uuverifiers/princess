@@ -123,8 +123,10 @@ object Param {
     val defau : Boolean = false
   }
 
-  // Represent numeric side conditions (inequalities) in quantified formulas
-  // using the <code>StrengthenTree</code> constructor
+  /**
+   * Represent numeric side conditions (inequalities) in quantified formulas
+   * using the <code>StrengthenTree</code> constructor
+   */
   case object STRENGTHEN_TREE_FOR_SIDE_CONDITIONS extends Param {
     type Value = Boolean
     val defau : Boolean = false
@@ -135,7 +137,7 @@ object Param {
     val defau : Boolean = false
   }
   
-  // turn ground constraints into disjunctive normal form
+  /** Turn ground constraints into disjunctive normal form */
   case object DNF_CONSTRAINTS extends Param {
     type Value = Boolean
     val defau : Boolean = true
@@ -151,7 +153,7 @@ object Param {
     val defau : Int = Int.MaxValue
   }
 
-  // resolve negative predicate literals in clauses with positive facts
+  /** Resolve negative predicate literals in clauses with positive facts */
   case object POS_UNIT_RESOLUTION extends Param {
     type Value = Boolean
     val defau : Boolean = true
@@ -201,8 +203,10 @@ object Param {
     val defau : Boolean = false
   }
   
-  // Use heuristics to distinguish between constructor and query
-  // function symbols, and make the latter ones partial
+  /**
+   * Use heuristics to distinguish between constructor and query
+   * function symbols, and make the latter ones partial
+   */
   case object MAKE_QUERIES_PARTIAL extends Param {
     type Value = Boolean
     val defau : Boolean = false
@@ -213,7 +217,7 @@ object Param {
     val defau : Int = 0
   }
 
-  // Portfolios optimised for particular domains
+  /** Portfolios optimised for particular domains */
   object PortfolioOptions extends Enumeration {
     val None, CASC, QF_LIA, BV = Value
   }
@@ -227,7 +231,7 @@ object Param {
     val Auto, Positive, Negative = Value
   }
   
-  // Options for solving problems in positive or negated version
+  /** Options for solving problems in positive or negated version */
   case object NEG_SOLVING extends Param {
     type Value = NegSolvingOptions.Value
     val defau : NegSolvingOptions.Value = NegSolvingOptions.Auto
@@ -281,21 +285,35 @@ object Param {
     val defau : String = "ap.theories.strings.SeqStringTheory"
   }
 
+  /**
+   * Accept an extended set of escape sequences in strings:
+   * \\, \x, \a, \b, \f, \n, \r, \t, \v. Without this option,
+   * only the official SMT-LIB escapes are accepted.
+   */
+  case object STRING_ESCAPES extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object SINGLE_INSTANTIATION_PREDICATES extends Param {
     type Value = Set[ap.terfor.preds.Predicate]
     val defau : Set[ap.terfor.preds.Predicate] = Set()
   }
 
-  // even split propositional formulae that do not contain quantifiers or
-  // eliminated constants
+  /**
+   * Even split propositional formulae that do not contain quantifiers or
+   * eliminated constants
+   */
   case object FULL_SPLITTING extends Param {
     type Value = Boolean
     val defau : Boolean = false
   }
   
-  // even apply formulas that have been blocked, as last
-  // steps in a proof. this can be necessary in order to
-  // generate genuine models (<code>ModelSearchProver</code>)
+  /**
+   * Even apply formulas that have been blocked, as last
+   * steps in a proof. this can be necessary in order to
+   * generate genuine models (<code>ModelSearchProver</code>)
+   */
   case object APPLY_BLOCKED_TASKS extends Param {
     type Value = Boolean
     val defau : Boolean = false
@@ -340,8 +358,10 @@ object Param {
     val defau : Boolean = false
   }
 
-  // globally, we can also choose to construct proofs depending on whether
-  // interpolation specs were given (the default)
+  /**
+   * Globally, we can also choose to construct proofs depending on whether
+   * interpolation specs were given (the default)
+   */
   object ProofConstructionOptions extends Enumeration {
     val Never, Always, IfInterpolating = Value
   }

@@ -214,6 +214,93 @@ object SMTLineariser {
     res
   }
 
+  /**
+   * Unescaping strictly following the SMT-LIB standard.
+   */
+  def simpleUnescapeIt(it : Iterator[Int]) : Seq[Int] = {
+    var state = 0
+    val res = new ArrayBuffer[Int]
+    val charBuffer = new ArrayBuffer[Char]
+
+    def parseHex : Unit = {
+      if (charBuffer.size > 5)
+        throw new IllegalStringException
+      res += Integer.parseInt(charBuffer.mkString, 16)
+      charBuffer.clear
+    }
+
+    def isHex(c : Int) : Boolean =
+      (48 <= c && c <= 57) ||
+      (65 <= c && c <= 70) ||
+      (97 <= c && c <= 102)
+
+    while (it.hasNext)
+      (state, it.next) match {
+        case (0, 92) =>                                   // \
+          state = 1
+
+        case (1, 117) =>                                  // u
+          state = 2
+
+        case (2, 123) =>                                  // {
+          state = 3
+        case (2, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          state = 7
+        }
+        case (3, c) if isHex(c) =>                        // [0-9a-fA-F]
+          charBuffer += c.toChar
+        case (3, 125) => {                                // }
+          parseHex
+          state = 0
+        }
+
+        case (7, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          parseHex
+          state = 0
+        }
+
+        case (0, 34) =>                                   // "
+          state = 20
+        case (20, 34) => {                                // "
+          state = 0
+          res += 34
+        }
+
+        case (0, c) =>
+          res += c
+
+        case (1, 34) => {                                 // "
+          // then we have already seen a \
+          state = 20
+          res += 92
+        }
+
+        case (1, c) => {
+          // then we have already seen a \
+          state = 0
+          res += 92
+          res += c
+        }
+
+        case _ =>
+          throw new IllegalStringException
+      }
+
+    state match {
+      case 0 =>
+        // ok
+      case 1 =>
+        // then we have already seen a \
+        res += 92
+      case _ =>
+        throw new IllegalStringException
+    }
+
+    res
+  }
+
   private def escapeChar(c: Int): String = c match {
     case 34 =>
       "\"\""

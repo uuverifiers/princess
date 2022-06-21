@@ -24,5 +24,13 @@ TESTS="simple-cycle.smt2 \
 
 $PRI "$@" $TESTS
 
+TESTS="escape.smt2 \
+       escape2.smt2 \
+       escape3.smt2 \
+       escape4.smt2 \
+       escape5.smt2"
+
+$PRI "$@" +stringEscapes $TESTS
+
 # disabling assertions for the next test case, which otherwise takes very long
 $PRI "$@" -assert concat-3.smt2

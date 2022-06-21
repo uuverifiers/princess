@@ -188,6 +188,7 @@ object CmdlMain {
     println("                             size:     size of terms                (default)")
     println(" -stringSolver=val         Specify the used string solver")
     println("                             (default: ap.theories.strings.SeqStringTheory)")
+    println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
   }
 
   //////////////////////////////////////////////////////////////////////////////
