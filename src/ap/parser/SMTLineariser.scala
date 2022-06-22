@@ -220,7 +220,7 @@ object SMTLineariser {
    */
   def simpleUnescapeIt(it : Iterator[Int]) : Seq[Int] = {
     var state = 0
-    val res = new ArrayBuffer[Int]
+    val res = new VectorBuilder[Int]
     val charBuffer = new ArrayBuffer[Char]
 
     def parseHex : Unit = {
@@ -299,7 +299,7 @@ object SMTLineariser {
         throw new IllegalStringException
     }
 
-    res
+    res.result
   }
 
   private def escapeChar(c: Int): String = c match {
