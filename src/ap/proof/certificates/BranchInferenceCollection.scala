@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -189,6 +189,19 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
             i <- BranchInferenceCollection.genDefaultInferences(f))
        yield i).toList
     BranchInferenceCollection(defaultInfs ::: inf :: inferences)
+  }
+
+  def addWithDefaultInfs(infs : Seq[BranchInference])
+                              : BranchInferenceCollection = {
+    var allInfs = inferences
+    for (inf <- infs) {
+      allInfs = inf :: allInfs
+      for (f <- inf.providedFormulas;
+           i <- BranchInferenceCollection.genDefaultInferences(f)) {
+        allInfs = i :: allInfs
+      }
+    }
+    BranchInferenceCollection(allInfs)
   }
   
   def getCertificate(child : Certificate, order : TermOrder) : Certificate =

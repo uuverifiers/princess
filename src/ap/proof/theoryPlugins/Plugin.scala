@@ -466,9 +466,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             val Seq((axiomCase, rest)) =
               cases
             val newInferences =
-              branchInferences ++
-              axiomInferences(CertFormula(axiomCase),
-                              predAssumptions, theory)
+              branchInferences addWithDefaultInfs axiomInferences(
+                CertFormula(axiomCase), predAssumptions, theory)
             handleActionsRec(rest.toList,
                              AddFormula(!axiomCase) :: contActions,
                              goal,
@@ -484,8 +483,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             val negA =
               !assumption
             val newInferences =
-              branchInferences ++
-              axiomInferences(negA, predAssumptions, theory)
+              branchInferences addWithDefaultInfs axiomInferences(
+                negA, predAssumptions, theory)
             applyActions(AddFormula(assumption.toConj) :: contActions,
                          goal,
                          newInferences,
@@ -659,20 +658,22 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         implicit val order = goal.order
         import TerForConvenience._
 
+        val certCutFormula = CertFormula(cutFormula)
+
         val leftSubtree =
           handleActionsRec(left.toList,
                            AddFormula(!cutFormula) :: contActions,
                            goal,
-                           goal.startNewInferenceCollection,
+                           goal.startNewInferenceCollectionCert(
+                             List(certCutFormula)),
                            ptf)
         val rightSubtree =
           handleActionsRec(right.toList,
                            AddFormula(cutFormula) :: contActions,
                            goal,
-                           goal.startNewInferenceCollection,
+                           goal.startNewInferenceCollectionCert(
+                             List(!certCutFormula)),
                            ptf)
-
-        val certCutFormula = CertFormula(cutFormula)
 
         // certificate constructor, to be applied once all sub-goals have
         // been closed
