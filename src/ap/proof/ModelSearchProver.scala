@@ -445,7 +445,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                 ((lemmaBase allKnownWitness cert.assumedFormulas) match {
                     case Some(f) => {
                       throw new Exception(
-                        "unasserted, but assumed formula: " + f)
+                        "unasserted, but assumed formula: " + f +
+                          " in certificate: " + cert)
                       false
                     }
                     case None =>
