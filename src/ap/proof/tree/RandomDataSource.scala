@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,6 +64,12 @@ abstract class RandomDataSource {
   def nextInt(bound : Int) : Int
 
   /**
+   * Pick a random elements of the given sequence.
+   */
+  def pick[A](objects : IndexedSeq[A]) : A =
+    objects(nextInt(objects.size))
+
+  /**
    * Shuffle the given sequence
    */
   def shuffle[A](seq : Buffer[A]) : Unit =
@@ -78,6 +84,15 @@ abstract class RandomDataSource {
         }
       }
     }
+
+  /**
+   * Shuffle the given sequence
+   */
+  def shuffleSeq[A](seq : Seq[A]) : Seq[A] = {
+    val buf = seq.toBuffer
+    shuffle(buf)
+    buf.toIndexedSeq
+  }
 
   /**
    * Shuffle the given sequence, and return the new ordering
