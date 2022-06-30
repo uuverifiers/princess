@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,6 +62,12 @@ abstract class RandomDataSource {
    * Produce a random integer value in the range <code>[0, bound)</code>.
    */
   def nextInt(bound : Int) : Int
+
+  /**
+   * Pick a random elements of the given sequence.
+   */
+  def pick[A](objects : IndexedSeq[A]) : A =
+    objects(nextInt(objects.size))
 
   /**
    * Shuffle the given buffer
