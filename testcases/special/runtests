@@ -26,3 +26,6 @@ $PRI "$@" -timeout=30000 simplify26.pri
 $PRI "$@" -timeout=30000 -generateTriggers=all multiplication.pri
 $PRI "$@" -timeout=10000 conjunctElimBug.smt2
 
+# this will time out
+$PRI "$@" +incremental -timeout=3000 sort-unsoundness.smt2
+
