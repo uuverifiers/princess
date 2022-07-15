@@ -291,8 +291,8 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val COMMON_PART_NR         = -1
-  private val INTERNAL_AXIOM_PART_NR = -10
+  protected[api] val COMMON_PART_NR         = -1
+  private        val INTERNAL_AXIOM_PART_NR = -10
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -318,6 +318,10 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   import SimpleAPI._
   import ProofThreadRunnable._
+
+  private val apiStack = new APIStack
+
+  import apiStack._
 
 // Don't change assertion status of this thread,
 // which would have unwanted side-effects
@@ -427,7 +431,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                                  Param.TriggerGenerationOptions.All)
 
   private def closeAllScopes = {
-    for (_ <- 0 until storedStates.size)
+    for (_ <- 0 until apiStack.frameNum)
       println("} // pop scope")
     println
   }
@@ -448,46 +452,31 @@ class SimpleAPI private (enableAssert        : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    storedStates.clear
-    
-    formulaeInProver.clear
-    currentOrder = TermOrder.EMPTY
-    functionalPreds = Set()
-    predicateMatchConfig = Map()
-    functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
-                          genTotalityAxioms)
-    abbrevFunctions = Set()
-    abbrevPredicates = Map()
-    theoryPlugin = None
-    theoryCollector = new TheoryCollector
+    apiStack.clearStack
+    apiStack.resetAPIConfig
 
     resetFormulasHelp
     resetOptionsHelp
+
+    functionEnc =
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
+                          genTotalityAxioms)
   }
 
   private def resetFormulasHelp = {
-    currentProver          = null
-    needExhaustiveProver   = false
-    matchedTotalFunctions  = false
-    ignoredQuantifiers     = false
-    formulaeTodo           = false
-    currentModel           = null
+    apiStack.resetAPIFormulas
     lastPartialModel       = null
+    currentModel           = null
+    formulaeTodo           = false
     currentConstraint      = null
     currentCertificate     = null
     currentSimpCertificate = null
-    lastStatus             = ProverStatus.Unknown
-    validityMode           = false
     proofThreadStatus      = ProofThreadStatus.Init
-    currentPartitionNum    = COMMON_PART_NR
     decoderDataCache.clear
   }
 
   private def resetOptionsHelp = {
-    existentialConstants   = Set()
-    constructProofs        = false
-    mostGeneralConstraints = false
+    apiStack.resetAPIOptions
   }
 
   private var currentDeadline : Option[Long] = None
@@ -3827,18 +3816,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
-    
-    storedStates push (currentProver, needExhaustiveProver,
-                       matchedTotalFunctions, ignoredQuantifiers,
-                       currentOrder, existentialConstants,
-                       functionalPreds, predicateMatchConfig,
-                       functionEnc.clone, formulaeInProver.clone,
-                       currentPartitionNum,
-                       constructProofs, mostGeneralConstraints,
-                       validityMode, lastStatus,
-                       theoryPlugin, theoryCollector.clone,
-                       abbrevFunctions,
-                       abbrevPredicates)
+    apiStack.pushAPIFrame
   }
 
   /**
@@ -3895,37 +3873,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val (oldProver, oldNeedExhaustiveProver,
-         oldMatchedTotalFunctions, oldIgnoredQuantifiers,
-         oldOrder, oldExConstants,
-         oldFunctionalPreds, oldPredicateMatchConfig, oldFunctionEnc,
-         oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldMGCs, oldValidityMode, oldStatus,
-         oldTheoryPlugin, oldTheories,
-         oldAbbrevFunctions, oldAbbrevPredicates) =
-      storedStates.pop
-    currentProver          = oldProver
-    needExhaustiveProver   = oldNeedExhaustiveProver
-    matchedTotalFunctions  = oldMatchedTotalFunctions
-    ignoredQuantifiers     = oldIgnoredQuantifiers
-    currentOrder           = oldOrder
-    existentialConstants   = oldExConstants
-    functionalPreds        = oldFunctionalPreds
-    predicateMatchConfig   = oldPredicateMatchConfig
-    functionEnc            = oldFunctionEnc
-    formulaeInProver       = oldFormulaeInProver
-    currentPartitionNum    = oldPartitionNum
-    constructProofs        = oldConstructProofs
-    mostGeneralConstraints = oldMGCs
+    apiStack.popAPIFrame
     formulaeTodo           = false
     rawFormulaeTodo        = LazyConjunction.FALSE
-    validityMode           = oldValidityMode
-    lastStatus             = oldStatus
     proofThreadStatus      = ProofThreadStatus.Init
-    theoryPlugin           = oldTheoryPlugin
-    theoryCollector        = oldTheories
-    abbrevFunctions        = oldAbbrevFunctions
-    abbrevPredicates       = oldAbbrevPredicates
     currentModel           = null
     lastPartialModel       = null
     currentConstraint      = null
@@ -4276,54 +4227,14 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs
   }
 
-  private var currentOrder           : TermOrder = _
-  private var existentialConstants   : Set[IExpression.ConstantTerm] = _
-  private var functionalPreds        : Set[IExpression.Predicate] = _
-  private var predicateMatchConfig   : PredicateMatchConfig = Map()
-  private var functionEnc            : FunctionEncoder = _
-  private var currentProver          : ModelSearchProver.IncProver = _
-  private var needExhaustiveProver   : Boolean = false
-  private var matchedTotalFunctions  : Boolean = false
-  private var ignoredQuantifiers     : Boolean = false
   private var currentModel           : Conjunction = _
   private var lastPartialModel       : PartialModel = null
   private var currentConstraint      : Conjunction = _
   private var currentCertificate     : Certificate = _
   private var currentSimpCertificate : Certificate = _
-  private var formulaeInProver       : LinkedHashMap[Conjunction, Int] =
-                                         new LinkedHashMap[Conjunction, Int]
-  private var currentPartitionNum    : Int = COMMON_PART_NR
-  private var constructProofs        : Boolean = false
-  private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo           : IFormula = false
   private var rawFormulaeTodo        : LazyConjunction = LazyConjunction.FALSE
-  private var theoryPlugin           : Option[Plugin] = None
-  private var theoryCollector        : TheoryCollector = _
-  private var abbrevFunctions        : Set[IFunction] = Set()
-  private var abbrevPredicates       : Map[IExpression.Predicate,
-                                           (Int, IExpression.Predicate)] = Map()
 
-  private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
-                                             Boolean,
-                                             Boolean,
-                                             Boolean,
-                                             TermOrder,
-                                             Set[IExpression.ConstantTerm],
-                                             Set[IExpression.Predicate],
-                                             PredicateMatchConfig,
-                                             FunctionEncoder,
-                                             LinkedHashMap[Conjunction, Int],
-                                             Int,
-                                             Boolean,
-                                             Boolean,
-                                             Boolean,
-                                             ProverStatus.Value,
-                                             Option[Plugin],
-                                             TheoryCollector,
-                                             Set[IFunction],
-                                             Map[IExpression.Predicate,
-                                                 (Int, IExpression.Predicate)])]
-  
   private def proverRecreationNecessary = {
     currentProver = null
     resetModel
@@ -4344,8 +4255,6 @@ class SimpleAPI private (enableAssert        : Boolean,
   
   private val proverRes = new SyncVar[ProverResult]
   private val proverCmd = new SyncVar[ProverCommand]
-  private var lastStatus : ProverStatus.Value = _
-  private var validityMode : Boolean = _
   
   private var proofThreadStatus : ProofThreadStatus.Value = _
 
