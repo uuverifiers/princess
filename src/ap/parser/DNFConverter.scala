@@ -34,6 +34,7 @@
 package ap.parser
 
 import ap.SimpleAPI
+import ap.api.PartialModel
 import SimpleAPI.ProverStatus
 import ap.basetypes.IdealInt
 import IExpression._
@@ -159,7 +160,7 @@ object DNFConverter {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private class CriticalAtomsCollector(model : SimpleAPI.PartialModel)
+  private class CriticalAtomsCollector(model : PartialModel)
           extends CollectingVisitor[Unit, Option[(Boolean, Seq[IFormula])]] {
 
     override def preVisit(t : IExpression,

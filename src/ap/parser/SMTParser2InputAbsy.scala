@@ -35,6 +35,7 @@
 package ap.parser;
 
 import ap._
+import ap.api.SimpleAPI
 import ap.parameters.{ParserSettings, Param}
 import ap.terfor.OneTerm
 import ap.terfor.conjunctions.Conjunction

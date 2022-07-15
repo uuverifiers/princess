@@ -27,6 +27,7 @@ all:
 		ap/theories/rationals/*.scala \
 		ap/types/*.scala \
 		ap/algebra/*.scala \
+		ap/api/*.scala \
 		ap/*.scala
 
 doc:
@@ -56,4 +57,5 @@ doc:
 		ap/theories/rationals/*.scala \
 		ap/types/*.scala \
 		ap/algebra/*.scala \
+		ap/api/*.scala \
 		ap/*.scala
