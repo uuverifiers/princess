@@ -319,7 +319,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   import SimpleAPI._
   import ProofThreadRunnable._
 
-  private val apiStack = new APIStack
+  protected[api] val apiStack = new APIStack
 
   import apiStack._
 
@@ -979,7 +979,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     addRelationHelp(p)
   }
 
-  private def addRelationHelp(p : IExpression.Predicate) : Unit = {
+  protected[api] def addRelationHelp(p : IExpression.Predicate) : Unit = {
     currentOrder = currentOrder extendPred p
     restartProofThread
   }
@@ -1891,8 +1891,8 @@ class SimpleAPI private (enableAssert        : Boolean,
     checkSatHelp(block, true)
   }
   
-  private def checkSatHelp(block : Boolean,
-                           allowShortCut : Boolean) : ProverStatus.Value =
+  protected[api] def checkSatHelp(block : Boolean,
+                                  allowShortCut : Boolean) : ProverStatus.Value=
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -3129,6 +3129,25 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val ModelBuilder = new Evaluator(this) {
+    def getPartialModel : Conjunction = {
+      ensurePartialModel
+      currentModel
+    }
+
+    def getFullModel : Conjunction = {
+      ensureFullModel
+      currentModel
+    }
+
+    def getCurrentStatus : ProverStatus.Value =
+      getStatus(false)
+
+    def toInternal(f : IFormula) : Conjunction =
+      toInternalNoAxioms(f, currentOrder)
+
+  }
+
   /**
    * Evaluate the given term in the current model. This method can be
    * called in two situations:
@@ -3812,7 +3831,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     pushHelp
   }
   
-  private def pushHelp : Unit = {
+  protected[api] def pushHelp : Unit = {
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
@@ -3869,7 +3888,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     popHelp
   }
 
-  private def popHelp : Unit = {
+  protected[api] def popHelp : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -4017,7 +4036,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     addFormulaHelp(f)
   }
 
-  private def addFormulaHelp(f : IFormula) : Unit = {
+  protected[api] def addFormulaHelp(f : IFormula) : Unit = {
     resetModel
     theoryCollector(f)
     formulaeTodo = formulaeTodo | f
@@ -4196,7 +4215,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs
   }
 
-  private def reducerSettings = {
+  protected[api] def reducerSettings = {
     var rs = ReducerSettings.DEFAULT
     rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
     rs = Param.REDUCER_PLUGIN.set(
