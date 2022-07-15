@@ -182,3 +182,6 @@ Constructing satisfying assignment for the existential constants ...
 
 sat
 
+Loading sort-unsoundness.smt2 ...
+unknown
+Global timeout, stopping solver

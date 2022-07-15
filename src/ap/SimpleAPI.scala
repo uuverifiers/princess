@@ -53,11 +53,13 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory, Incompleteness, ADT}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
                  MonoSortedIFunction, MonoSortedPredicate,
                  SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
+
+import IExpression.Sort
+import Signature.PredicateMatchConfig
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  ArrayStack, LinkedHashMap, ArrayBuffer}
@@ -655,6 +657,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     formulaeInProver.clear
     currentOrder = TermOrder.EMPTY
     functionalPreds = Set()
+    predicateMatchConfig = Map()
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
                           genTotalityAxioms)
@@ -4028,16 +4031,16 @@ class SimpleAPI private (enableAssert        : Boolean,
     initProver
     
     storedStates push ((currentProver, needExhaustiveProver,
-                        matchedTotalFunctions, ignoredQuantifiers,
-                        currentOrder, existentialConstants,
-                        functionalPreds, functionEnc.clone,
-                        formulaeInProver.clone,
-                        currentPartitionNum,
-                        constructProofs, mostGeneralConstraints,
-                        validityMode, lastStatus,
-                        theoryPlugin, theoryCollector.clone,
-                        abbrevFunctions,
-                        abbrevPredicates))
+                       matchedTotalFunctions, ignoredQuantifiers,
+                       currentOrder, existentialConstants,
+                       functionalPreds, predicateMatchConfig,
+                       functionEnc.clone, formulaeInProver.clone,
+                       currentPartitionNum,
+                       constructProofs, mostGeneralConstraints,
+                       validityMode, lastStatus,
+                       theoryPlugin, theoryCollector.clone,
+                       abbrevFunctions,
+                       abbrevPredicates))
   }
 
   /**
@@ -4097,7 +4100,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     val (oldProver, oldNeedExhaustiveProver,
          oldMatchedTotalFunctions, oldIgnoredQuantifiers,
          oldOrder, oldExConstants,
-         oldFunctionalPreds, oldFunctionEnc,
+         oldFunctionalPreds, oldPredicateMatchConfig, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus,
          oldTheoryPlugin, oldTheories,
@@ -4110,6 +4113,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     currentOrder           = oldOrder
     existentialConstants   = oldExConstants
     functionalPreds        = oldFunctionalPreds
+    predicateMatchConfig   = oldPredicateMatchConfig
     functionEnc            = oldFunctionEnc
     formulaeInProver       = oldFormulaeInProver
     currentPartitionNum    = oldPartitionNum
@@ -4315,7 +4319,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     Signature(Set(),
               existentialConstants,
               order.orderedConstants -- existentialConstants,
-              Map(), // TODO: also handle predicate_match_config
+              predicateMatchConfig,
               order,
               theoryCollector.theories)
 
@@ -4389,9 +4393,8 @@ class SimpleAPI private (enableAssert        : Boolean,
   
           functionEnc addTheory t
   
-          // TODO: also handle predicate_match_config
-  
-          functionalPreds = functionalPreds ++ t.functionalPredicates
+          functionalPreds      = functionalPreds ++ t.functionalPredicates
+          predicateMatchConfig = predicateMatchConfig ++ t.predicateMatchConfig
   
           for (plugin <- t.plugin)
             theoryPlugin = PluginSequence(theoryPlugin.toSeq ++ List(plugin))
@@ -4435,6 +4438,7 @@ class SimpleAPI private (enableAssert        : Boolean,
 //    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
 
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+    gs = Param.PREDICATE_MATCH_CONFIG.set(gs, predicateMatchConfig)
     gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
            (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
@@ -4475,30 +4479,32 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs
   }
 
-  private var currentOrder : TermOrder = _
-  private var existentialConstants : Set[IExpression.ConstantTerm] = _
-  private var functionalPreds : Set[IExpression.Predicate] = _
-  private var functionEnc : FunctionEncoder = _
-  private var currentProver : ModelSearchProver.IncProver = _
-  private var needExhaustiveProver : Boolean = false
-  private var matchedTotalFunctions : Boolean = false
-  private var ignoredQuantifiers : Boolean = false
-  private var currentModel : Conjunction = _
-  private var lastPartialModel : PartialModel = null
-  private var currentConstraint : Conjunction = _
-  private var currentCertificate : Certificate = _
+  private var currentOrder           : TermOrder = _
+  private var existentialConstants   : Set[IExpression.ConstantTerm] = _
+  private var functionalPreds        : Set[IExpression.Predicate] = _
+  private var predicateMatchConfig   : PredicateMatchConfig = Map()
+  private var functionEnc            : FunctionEncoder = _
+  private var currentProver          : ModelSearchProver.IncProver = _
+  private var needExhaustiveProver   : Boolean = false
+  private var matchedTotalFunctions  : Boolean = false
+  private var ignoredQuantifiers     : Boolean = false
+  private var currentModel           : Conjunction = _
+  private var lastPartialModel       : PartialModel = null
+  private var currentConstraint      : Conjunction = _
+  private var currentCertificate     : Certificate = _
   private var currentSimpCertificate : Certificate = _
-  private var formulaeInProver = new LinkedHashMap[Conjunction, Int]
-  private var currentPartitionNum : Int = COMMON_PART_NR
-  private var constructProofs : Boolean = false
+  private var formulaeInProver       : LinkedHashMap[Conjunction, Int] =
+                                         new LinkedHashMap[Conjunction, Int]
+  private var currentPartitionNum    : Int = COMMON_PART_NR
+  private var constructProofs        : Boolean = false
   private var mostGeneralConstraints : Boolean = false
-  private var formulaeTodo : IFormula = false
-  private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
-  private var theoryPlugin : Option[Plugin] = None
-  private var theoryCollector : TheoryCollector = _
-  private var abbrevFunctions : Set[IFunction] = Set()
-  private var abbrevPredicates : Map[IExpression.Predicate,
-                                     (Int, IExpression.Predicate)] = Map()
+  private var formulaeTodo           : IFormula = false
+  private var rawFormulaeTodo        : LazyConjunction = LazyConjunction.FALSE
+  private var theoryPlugin           : Option[Plugin] = None
+  private var theoryCollector        : TheoryCollector = _
+  private var abbrevFunctions        : Set[IFunction] = Set()
+  private var abbrevPredicates       : Map[IExpression.Predicate,
+                                           (Int, IExpression.Predicate)] = Map()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              Boolean,
@@ -4507,6 +4513,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                                              TermOrder,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
+                                             PredicateMatchConfig,
                                              FunctionEncoder,
                                              LinkedHashMap[Conjunction, Int],
                                              Int,
