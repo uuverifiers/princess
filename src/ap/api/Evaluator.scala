@@ -68,13 +68,19 @@ object Evaluator {
 abstract class Evaluator(api : SimpleAPI) {
 
   import Evaluator._
-  import api.{reducerSettings, order, pushHelp, popHelp,
-              addFormulaHelp, addRelationHelp, checkSatHelp}
+  import api.order
 
-  def getPartialModel          : Conjunction
-  def getFullModel             : Conjunction
-  def getCurrentStatus         : ProverStatus.Value
-  def toInternal(f : IFormula) : Conjunction
+  def getPartialModel                   : Conjunction
+  def getFullModel                      : Conjunction
+  def getCurrentStatus                  : ProverStatus.Value
+  def toInternal(f : IFormula)          : Conjunction
+  def addModelRestriction(f : IFormula) : Unit
+  def pushModelRestrictionFrame         : Unit
+  def popModelRestrictionFrame          : Unit
+  def createFreshRelation(arity : Int)  : IExpression.Predicate
+  def checkSatHelp(block : Boolean,
+                   allowShortCut : Boolean) : ProverStatus.Value
+  def needExhaustiveProver              : Boolean
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -91,18 +97,18 @@ abstract class Evaluator(api : SimpleAPI) {
 
   private def ensureExtendingModel = {
     if (!extendingModel) {
-      pushHelp
+      pushModelRestrictionFrame
       extendingModel = true
     }
 
     for (result <- evalResults)
-      addFormulaHelp(!result.toFormula)
+      addModelRestriction(!result.toFormula)
     evalResults.clear
   }
 
   def resetModelExtension = {
     if (extendingModel) {
-      popHelp
+      popModelRestrictionFrame
       extendingModel = false
     }
 
@@ -115,66 +121,65 @@ abstract class Evaluator(api : SimpleAPI) {
 
   def evalToTerm(t : ITerm)    : ITerm = null
 
-  def evalToBool(f : IFormula) : Boolean = {
-    /*
-    doDumpScala {
-      print("println(\"" + getScalaNum + ": \" + eval(")
-      PrettyScalaLineariser(getFunctionNames)(f)
-      println("))")
-    }
-     */
+  def evalToBool(f : IFormula) : Boolean =
+    evalPartialToBool(f) match {
 
-    evalPartialHelp(f) match {
+      case Some(res) => res
 
-      case Left(res) => res
-
-      case Right(_) => {
+      case None => {
         // then we have to extend the model
+
+        ensureExtendingModel
 
         import TerForConvenience._
 
-        if (api.apiStack.needExhaustiveProver) {
+        if (needExhaustiveProver) {
           // then we have to re-run the prover to check whether the
           // given formula is consistent with our assertions
 
-          false // TODO
+          pushModelRestrictionFrame
+
+          val res =
+            try {
+              addModelRestriction(!f)
+              checkSatHelp(true, true) match {
+                case s if satLikeStatus(s) =>
+                  true
+                case ProverStatus.Unsat | ProverStatus.Valid =>
+                  false
+                case _ =>
+                  throw NoModelException
+              }
+            } finally {
+              popModelRestrictionFrame
+            }
+
+          evalResults += FormulaEvalResult(f, res)
+
+          res
+
         } else {
 
           // TODO: special cases
 
           import IExpression._
 
-          ensureExtendingModel
-
-          val p = new IExpression.Predicate("p", 0)
-          addRelationHelp(p)
-          addFormulaHelp(f </> p())
+          val p = createFreshRelation(0)
+          addModelRestriction(f </> p())
 
           checkSatHelp(true, true)
-          evalPartialToBoolHelp(p()).get // TODO: this won't work if we now need the exhaustive prover
+
+          evalToBool(p())
 
         }
       }
     }
-  }
 
   def evalPartialToInt(t : ITerm)     : Option[IdealInt] = None
 
   def evalPartialToTerm(t : ITerm)    : Option[ITerm] = None
 
-  def evalPartialToBool(f : IFormula) : Option[Boolean] = {
-    /*
-    doDumpScala {
-      print("println(\"" + getScalaNum + ": \" + evalPartial(")
-      PrettyScalaLineariser(getFunctionNames)(f)
-      println("))")
-    }
-     */
-
-    evalPartialToBoolHelp(f)
-  }
-
-  private def evalPartialToBoolHelp(f : IFormula) : Option[Boolean] =
+  def evalPartialToBool(f : IFormula) : Option[Boolean] =
     evalPartialHelp(f) match {
       case Left(res) => {
         evalResults += FormulaEvalResult(f, res)
@@ -188,14 +193,6 @@ abstract class Evaluator(api : SimpleAPI) {
   private def evalPartialHelp(f : IFormula) : Either[Boolean,Conjunction] = {
     import TerForConvenience._
 
-    /*
-    doDumpSMT {
-      print("(get-value (")
-      SMTLineariser(f)
-      println("))")
-    }
-     */
-    
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, satLikeStatus(getCurrentStatus))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -234,8 +231,7 @@ abstract class Evaluator(api : SimpleAPI) {
         if (fModel == null) {
           Right(intF)
         } else {
-          val reduced = ReduceWithConjunction(fModel, fModel.order,
-                                              reducerSettings)(intF)
+          val reduced = ReduceWithConjunction(fModel, fModel.order)(intF)
 
           if (reduced.isTrue)
             Left(true)

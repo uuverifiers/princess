@@ -319,7 +319,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   import SimpleAPI._
   import ProofThreadRunnable._
 
-  protected[api] val apiStack = new APIStack
+  private val apiStack = new APIStack
 
   import apiStack._
 
@@ -439,7 +439,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   def reset = {
     doDumpSMT {
       println("(reset)")
-      println("(set-logic AUFLIA)")
+      println("(set-logic ALL)")
     }
     doDumpScala {
       closeAllScopes
@@ -623,12 +623,14 @@ class SimpleAPI private (enableAssert        : Boolean,
                                 sort : Sort) : IExpression.ConstantTerm = {
     import IExpression._
     
+    restartProofThread
+    resetModel
+
     val name = sanitise(rawName)
     val c = sort newConstant name
     currentOrder = currentOrder extend c
 
     addTypeTheoryIfNeeded(sort)
-    restartProofThread
     dumpCreateConstant(c, rawName, scalaCmd, sort)
     
     c
@@ -693,9 +695,13 @@ class SimpleAPI private (enableAssert        : Boolean,
                 dumpCreateConstant(c, c.name, scalaCmd, sort)
                 c
               }).toIndexedSeq
+
+    restartProofThread
+    resetModel
+
     currentOrder = currentOrder extend cs
     addTypeTheoryIfNeeded(sort)
-    restartProofThread
+
     cs
   }
 
@@ -903,8 +909,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     dumpCreateConstant(c, c.name, "createConstant", sort)
     addTypeTheoryIfNeeded(sort)
 
-    currentOrder = currentOrder extend c
     restartProofThread
+    resetModel
+
+    currentOrder = currentOrder extend c
   }
 
   /**
@@ -921,8 +929,10 @@ class SimpleAPI private (enableAssert        : Boolean,
       addTypeTheoryIfNeeded(sort)
     }
 
-    currentOrder = currentOrder extend cs.toSeq
     restartProofThread
+    resetModel
+
+    currentOrder = currentOrder extend cs.toSeq
   }
 
   /**
@@ -979,9 +989,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     addRelationHelp(p)
   }
 
-  protected[api] def addRelationHelp(p : IExpression.Predicate) : Unit = {
-    currentOrder = currentOrder extendPred p
+  private def addRelationHelp(p : IExpression.Predicate) : Unit = {
     restartProofThread
+    resetModel
+    currentOrder = currentOrder extendPred p
   }
 
   /**
@@ -1755,26 +1766,31 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   /**
    * <code>select</code> function of the theory of arrays.
+   * @deprecated
    */
   def selectFun(arity : Int) : IFunction = SimpleArray(arity).select
   
   /**
    * <code>store</code> function of the theory of arrays.
+   * @deprecated
    */
   def storeFun(arity : Int) : IFunction = SimpleArray(arity).store
   
   /**
    * Generate a <code>select</code> expression in the theory of arrays.
+   * @deprecated
    */
   def select(args : ITerm*) : ITerm = IFunApp(selectFun(args.size - 1), args)
 
   /**
    * Generate a <code>store</code> expression in the theory of arrays.
+   * @deprecated
    */
   def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
 
   /**
    * Return the value of an array as a map
+   * @deprecated
    */
   def arrayAsMap(t : IdealInt, arity : Int) : Map[Seq[IdealInt], IdealInt] =
     SimpleArray(arity).asMap(t)(decoderContext)
@@ -1891,8 +1907,8 @@ class SimpleAPI private (enableAssert        : Boolean,
     checkSatHelp(block, true)
   }
   
-  protected[api] def checkSatHelp(block : Boolean,
-                                  allowShortCut : Boolean) : ProverStatus.Value=
+  private def checkSatHelp(block : Boolean,
+                           allowShortCut : Boolean) : ProverStatus.Value=
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -3129,7 +3145,8 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val ModelBuilder = new Evaluator(this) {
+/*
+  private val modelBuilder = new Evaluator(this) {
     def getPartialModel : Conjunction = {
       ensurePartialModel
       currentModel
@@ -3146,7 +3163,23 @@ class SimpleAPI private (enableAssert        : Boolean,
     def toInternal(f : IFormula) : Conjunction =
       toInternalNoAxioms(f, currentOrder)
 
+    def addModelRestriction(f : IFormula) : Unit =
+      addFormulaHelp2(f)
+
+    def pushModelRestrictionFrame : Unit =
+      pushHelp2
+
+    def popModelRestrictionFrame : Unit =
+      popHelp2
+
+    def createFreshRelation(arity : Int)  : IExpression.Predicate = {
+      val p = new IExpression.Predicate("p", arity)
+      addRelationHelp(p)
+      p
+    }
+
   }
+*/
 
   /**
    * Evaluate the given term in the current model. This method can be
@@ -3831,7 +3864,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     pushHelp
   }
   
-  protected[api] def pushHelp : Unit = {
+  private def pushHelp : Unit = {
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
@@ -3888,7 +3921,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     popHelp
   }
 
-  protected[api] def popHelp : Unit = {
+  private def popHelp : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -4036,7 +4069,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     addFormulaHelp(f)
   }
 
-  protected[api] def addFormulaHelp(f : IFormula) : Unit = {
+  private def addFormulaHelp(f : IFormula) : Unit = {
     resetModel
     theoryCollector(f)
     formulaeTodo = formulaeTodo | f
@@ -4215,7 +4248,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs
   }
 
-  protected[api] def reducerSettings = {
+  private def reducerSettings = {
     var rs = ReducerSettings.DEFAULT
     rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
     rs = Param.REDUCER_PLUGIN.set(

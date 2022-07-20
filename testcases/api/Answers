@@ -288,6 +288,36 @@ m.evalToTerm(select(ar, 0)): Some(2)
 m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
 m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
 
+SimpleAPIModelTest
+
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping (locally add assertions, declare symbols, etc)
+Unsat
+Sat
+c = 115
+Sat
+x = 0
+Sat
+c = 115
+Sat
+x = 0
+Sat
+c = 115
+Sat
+u() = true
+Sat
+
 interpolation-bug.scala
 0: Unsat
 1: Vector(rootjthen_fwd, false)
