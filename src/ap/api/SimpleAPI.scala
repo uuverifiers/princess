@@ -1906,7 +1906,10 @@ class SimpleAPI private (enableAssert        : Boolean,
 
     checkSatHelp(block, true)
   }
-  
+
+  protected[api] def needsExhaustiveProver : Boolean =
+    needExhaustiveProver
+
   private def checkSatHelp(block : Boolean,
                            allowShortCut : Boolean) : ProverStatus.Value=
     getStatusHelp(false) match {
@@ -3428,6 +3431,17 @@ class SimpleAPI private (enableAssert        : Boolean,
       
     case _ =>
       throw NoModelException
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def withCompleteModel[A](comp : Evaluator => A) : A = {
+    val evaluator = new Evaluator(this)
+    try {
+      comp(evaluator)
+    } finally {
+      evaluator.resetModelExtension
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -63,13 +63,23 @@ object Evaluator {
     def toFormula : IFormula = f <===> value
   }
 
+  private case class IntTermEvalResult(t : ITerm, value : IdealInt)
+                     extends EvalResult {
+    def toFormula : IFormula = t === value
+  }
+
 }
 
-abstract class Evaluator(api : SimpleAPI) {
+class Evaluator(api : SimpleAPI) {
 
   import Evaluator._
-  import api.order
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertPre(AC, satLikeStatus(api.getStatus(false)),
+                  "Complete model can only be extracted after SAT result")
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  /*
   def getPartialModel                   : Conjunction
   def getFullModel                      : Conjunction
   def getCurrentStatus                  : ProverStatus.Value
@@ -80,7 +90,8 @@ abstract class Evaluator(api : SimpleAPI) {
   def createFreshRelation(arity : Int)  : IExpression.Predicate
   def checkSatHelp(block : Boolean,
                    allowShortCut : Boolean) : ProverStatus.Value
-  def needExhaustiveProver              : Boolean
+   */
+
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -97,18 +108,18 @@ abstract class Evaluator(api : SimpleAPI) {
 
   private def ensureExtendingModel = {
     if (!extendingModel) {
-      pushModelRestrictionFrame
+      api.push
       extendingModel = true
     }
 
     for (result <- evalResults)
-      addModelRestriction(!result.toFormula)
+      api.addAssertion(result.toFormula)
     evalResults.clear
   }
 
   def resetModelExtension = {
     if (extendingModel) {
-      popModelRestrictionFrame
+      api.pop
       extendingModel = false
     }
 
@@ -117,7 +128,46 @@ abstract class Evaluator(api : SimpleAPI) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def evalToInt(t : ITerm)     : IdealInt = 0
+  def evalToInt(t : ITerm) : IdealInt =
+    evalPartialToInt(t) match {
+
+      case Some(res) => res
+
+      case None => {
+        // then we have to extend the model
+
+        ensureExtendingModel
+
+        import TerForConvenience._
+
+        if (api.needsExhaustiveProver) {
+          // TODO
+
+          0
+
+        } else {
+
+          // TODO: special cases
+
+          import IExpression._
+
+          val x = api.createConstant("x")
+          println("forcing decision: " + (x === t))
+          api.addAssertion(x === t)
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, !api.needsExhaustiveProver)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          api.??? match {
+            case s if satLikeStatus(s) =>
+              evalToInt(x)
+            case _ =>
+              throw NoModelException
+          }
+        }
+      }
+    }
 
   def evalToTerm(t : ITerm)    : ITerm = null
 
@@ -133,30 +183,11 @@ abstract class Evaluator(api : SimpleAPI) {
 
         import TerForConvenience._
 
-        if (needExhaustiveProver) {
+        if (api.needsExhaustiveProver) {
           // then we have to re-run the prover to check whether the
           // given formula is consistent with our assertions
 
-          pushModelRestrictionFrame
-
-          val res =
-            try {
-              addModelRestriction(!f)
-              checkSatHelp(true, true) match {
-                case s if satLikeStatus(s) =>
-                  true
-                case ProverStatus.Unsat | ProverStatus.Valid =>
-                  false
-                case _ =>
-                  throw NoModelException
-              }
-            } finally {
-              popModelRestrictionFrame
-            }
-
-          evalResults += FormulaEvalResult(f, res)
-
-          res
+          evalToBoolExhaustiveProver(f)
 
         } else {
 
@@ -164,84 +195,67 @@ abstract class Evaluator(api : SimpleAPI) {
 
           import IExpression._
 
-          val p = createFreshRelation(0)
-          addModelRestriction(f </> p())
+          val p = api.createBooleanVariable("p")
+          println("forcing decision: " + (f <=> p))
+          api.addAssertion(f <=> p)
 
-          checkSatHelp(true, true)
-
-          evalToBool(p())
-
-        }
-      }
-    }
-
-  def evalPartialToInt(t : ITerm)     : Option[IdealInt] = None
-
-  def evalPartialToTerm(t : ITerm)    : Option[ITerm] = None
-
-  def evalPartialToBool(f : IFormula) : Option[Boolean] =
-    evalPartialHelp(f) match {
-      case Left(res) => {
-        evalResults += FormulaEvalResult(f, res)
-        Some(res)
-      }
-      case Right(_) => None
-    }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private def evalPartialHelp(f : IFormula) : Either[Boolean,Conjunction] = {
-    import TerForConvenience._
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, satLikeStatus(getCurrentStatus))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    f match {
-      case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
-        val pModel = getPartialModel
-        val a = Atom(p, for (IIntLit(value) <- args)
-                        yield l(value), order)
-
-        if (pModel == null)
-          Right(a)
-        else if (pModel.predConj.positiveLitsAsSet contains a)
-          Left(true)
-        else if (pModel.predConj.negativeLitsAsSet contains a)
-          Left(false)
-        else {
-          val fModel = getFullModel
-          if (pModel != fModel) {
-            if (fModel.predConj.positiveLitsAsSet contains a)
-              Left(true)
-            else if (fModel.predConj.negativeLitsAsSet contains a)
-              Left(false)
-            else
-              Right(a)
+          if (api.needsExhaustiveProver) {
+            evalToBoolExhaustiveProver(p)
           } else {
-            Right(a)
+            api.??? match {
+              case s if satLikeStatus(s) =>
+                evalToBool(p)
+              case _ =>
+                throw NoModelException
+            }
           }
         }
       }
-      case _ => {
-        // more complex check by reducing the expression via the model
-        val fModel = getFullModel
-        val intF   = toInternal(f)
-
-        if (fModel == null) {
-          Right(intF)
-        } else {
-          val reduced = ReduceWithConjunction(fModel, fModel.order)(intF)
-
-          if (reduced.isTrue)
-            Left(true)
-          else if (reduced.isFalse)
-            Left(false)
-          else
-            Right(intF)
-        }
-      }
     }
+
+  private def evalToBoolExhaustiveProver(f : IFormula) : Boolean = {
+    api.push
+
+    val res =
+      try {
+        api.addAssertion(f)
+        api.??? match {
+          case s if satLikeStatus(s) =>
+            true
+          case ProverStatus.Unsat | ProverStatus.Valid =>
+            false
+          case _ =>
+            throw NoModelException
+        }
+      } finally {
+        api.pop
+      }
+
+    evalResults += FormulaEvalResult(f, res)
+
+    res
   }
+
+  private def evalPartialToInt(t : ITerm) : Option[IdealInt] =
+    api.evalPartial(t) match {
+      case Some(res) => {
+        evalResults += IntTermEvalResult(t, res)
+        Some(res)
+      }
+      case None =>
+        None
+    }
+
+  private def evalPartialToTerm(t : ITerm)    : Option[ITerm] = None
+
+  private def evalPartialToBool(f : IFormula) : Option[Boolean] =
+    api.evalPartial(f) match {
+      case Some(res) => {
+        evalResults += FormulaEvalResult(f, res)
+        Some(res)
+      }
+      case None =>
+        None
+    }
 
 }
