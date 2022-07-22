@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,20 +91,28 @@ class Fractions(name : String,
                    assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       assign get ((d, this))
 
+    private def augmentWithTerms(denomTerm : ITerm,
+                                 assignment : MMap[(IdealInt, Sort), ITerm],
+                                 allTerms : Set[(IdealInt, Sort)]) =
+      for (p@(num, `dom`) <- allTerms;
+           numTerm <- RingSort.decodeToTerm(num, assignment)) {
+        val (n, d) = simplifyFraction(numTerm, denomTerm)
+        assignment.put(p, IFunApp(frac, List(n, d)))
+      }
+
     override def augmentModelTermSet(
                    model : Conjunction,
                    assignment : MMap[(IdealInt, Sort), ITerm],
                    allTerms : Set[(IdealInt, Sort)],
                    definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      for (LinearCombination.Constant(d) <-
-             model.predConj.lookupFunctionResult(_denom, List());
-           denomTerm <-
-             RingSort.decodeToTerm(d, assignment))
-        for (p@(num, `dom`) <- allTerms;
-             numTerm <- RingSort.decodeToTerm(num, assignment)) {
-          val (n, d) = simplifyFraction(numTerm, denomTerm)
-          assignment.put(p, IFunApp(frac, List(n, d)))
+      model.predConj.lookupFunctionResult(_denom, List()) match {
+        case Some(LinearCombination.Constant(d)) => {
+          for (denomTerm <- RingSort.decodeToTerm(d, assignment))
+            augmentWithTerms(denomTerm, assignment, allTerms)
         }
+        case None =>
+          augmentWithTerms(underlyingRing.one, assignment, allTerms)
+      }
 
       // TODO: add terms to definedTerms?
       super.augmentModelTermSet(model, assignment, allTerms, definedTerms)

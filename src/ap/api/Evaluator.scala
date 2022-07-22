@@ -63,10 +63,19 @@ object Evaluator {
     def toFormula : IFormula = f <===> value
   }
 
+  private case class TermEvalResult(t : ITerm, value : ITerm)
+                     extends EvalResult {
+    def toFormula : IFormula = t === value
+  }
+
   private case class IntTermEvalResult(t : ITerm, value : IdealInt)
                      extends EvalResult {
     def toFormula : IFormula = t === value
   }
+
+  class UnknownTermValueException(t : ITerm)
+        extends SimpleAPI.SimpleAPIException(
+    "Due to quantifiers, term " + t + " cannot be evaluated")
 
 }
 
@@ -143,7 +152,7 @@ class Evaluator(api : SimpleAPI) {
         if (api.needsExhaustiveProver) {
           // TODO
 
-          0
+          throw new UnknownTermValueException(t)
 
         } else {
 
@@ -169,7 +178,45 @@ class Evaluator(api : SimpleAPI) {
       }
     }
 
-  def evalToTerm(t : ITerm)    : ITerm = null
+  def evalToTerm(t : ITerm) : ITerm =
+    evalPartialToTerm(t) match {
+      case Some(res) => res
+
+      case None => {
+        // then we have to extend the model
+
+        ensureExtendingModel
+
+        import TerForConvenience._
+
+        if (api.needsExhaustiveProver) {
+          // TODO
+
+          throw new UnknownTermValueException(t)
+
+        } else {
+
+          // TODO: special cases
+
+          import IExpression._
+
+          val x = api.createConstant("x", Sort sortOf t)
+          println("forcing decision: " + (x === t))
+          api.addAssertion(x === t)
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, !api.needsExhaustiveProver)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          api.??? match {
+            case s if satLikeStatus(s) =>
+              evalToTerm(x)
+            case _ =>
+              throw NoModelException
+          }
+        }
+      }
+    }
 
   def evalToBool(f : IFormula) : Boolean =
     evalPartialToBool(f) match {
@@ -246,7 +293,15 @@ class Evaluator(api : SimpleAPI) {
         None
     }
 
-  private def evalPartialToTerm(t : ITerm)    : Option[ITerm] = None
+  private def evalPartialToTerm(t : ITerm) : Option[ITerm] =
+    api.evalPartialAsTerm(t) match {
+      case Some(res) => {
+        evalResults += TermEvalResult(t, res)
+        Some(res)
+      }
+      case None =>
+        None
+    }
 
   private def evalPartialToBool(f : IFormula) : Option[Boolean] =
     api.evalPartial(f) match {

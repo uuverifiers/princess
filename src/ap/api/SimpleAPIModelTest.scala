@@ -36,6 +36,7 @@ package ap.api
 import ap._
 import ap.parser._
 import ap.theories.{ADT, ExtArray}
+import ap.theories.rationals.Rationals
 
 /**
  * Several test cases that led to assertion failures in the past.
@@ -132,5 +133,24 @@ object SimpleAPIModelTest extends App {
   }
 
   println(p???)               // Sat again
-  
+
+  part("Evaluation with rationals")
+
+  import Rationals._
+
+  val x = p.createConstant("x", dom)
+  val y = p.createConstant("y", dom)
+
+  p.scope {
+    p !! (gt(x, zero))
+    println(p???)                   // Sat
+    println("x = " + p.eval(x))
+    p.withCompleteModel { model =>
+      println("x = " + model.evalToTerm(x))
+      println("y = " + model.evalToTerm(y))
+      println("x/2 = " + model.evalToTerm(div(x, int2ring(2))))
+      println("x = " + model.evalToTerm(x))
+    }
+  }
+
 }
