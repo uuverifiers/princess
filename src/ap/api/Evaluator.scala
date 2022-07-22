@@ -79,6 +79,18 @@ object Evaluator {
 
 }
 
+/**
+ * A class representing a first-order model of some formula. The class
+ * will internally start from the partial model computed by a
+ * <code>SimpleAPI</code>, and extend this model on demand. The class
+ * will make use of the <code>SimpleAPI</code> instance to compute
+ * missing parts of the model, and can therefore mutate the state of
+ * the <code>SimpleAPI</code>. To reset the <code>SimpleAPI</code> to
+ * the state before creating the <code>Evaluator</code>, use the
+ * method <code>resetModelExtension</code>; a safer way is to apply
+ * the method <code>SimpleAPI.withCompleteModel</code> to spawn the
+ * <code>Evaluator</code>.
+ */
 class Evaluator(api : SimpleAPI) {
 
   import Evaluator._
@@ -87,22 +99,6 @@ class Evaluator(api : SimpleAPI) {
   Debug.assertPre(AC, satLikeStatus(api.getStatus(false)),
                   "Complete model can only be extracted after SAT result")
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
-
-  /*
-  def getPartialModel                   : Conjunction
-  def getFullModel                      : Conjunction
-  def getCurrentStatus                  : ProverStatus.Value
-  def toInternal(f : IFormula)          : Conjunction
-  def addModelRestriction(f : IFormula) : Unit
-  def pushModelRestrictionFrame         : Unit
-  def popModelRestrictionFrame          : Unit
-  def createFreshRelation(arity : Int)  : IExpression.Predicate
-  def checkSatHelp(block : Boolean,
-                   allowShortCut : Boolean) : ProverStatus.Value
-   */
-
-
-  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * During evaluation, we might have to extend a partial model, which
@@ -126,6 +122,9 @@ class Evaluator(api : SimpleAPI) {
     evalResults.clear
   }
 
+  /**
+   * Reset the evaluator and the connected <code>SimpleAPI</code> instance.
+   */
   def resetModelExtension = {
     if (extendingModel) {
       api.pop
@@ -137,6 +136,11 @@ class Evaluator(api : SimpleAPI) {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Evaluate a term to an integer. This method should be used for
+   * integer or bit-vector terms, but can in principle be applied to
+   * any term.
+   */
   def evalToInt(t : ITerm) : IdealInt =
     evalPartialToInt(t) match {
 
@@ -161,7 +165,7 @@ class Evaluator(api : SimpleAPI) {
           import IExpression._
 
           val x = api.createConstant("x")
-          println("forcing decision: " + (x === t))
+//          println("forcing decision: " + (x === t))
           api.addAssertion(x === t)
 
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
@@ -178,6 +182,15 @@ class Evaluator(api : SimpleAPI) {
       }
     }
 
+  /**
+   * Evaluate a term to a constructor term. This method has the same effect
+   * as <code>evalToTerm</code>.
+   */
+  def apply(t : ITerm) : ITerm = evalToTerm(t)
+
+  /**
+   * Evaluate a term to a constructor term.
+   */
   def evalToTerm(t : ITerm) : ITerm =
     evalPartialToTerm(t) match {
       case Some(res) => res
@@ -201,7 +214,7 @@ class Evaluator(api : SimpleAPI) {
           import IExpression._
 
           val x = api.createConstant("x", Sort sortOf t)
-          println("forcing decision: " + (x === t))
+//          println("forcing decision: " + (x === t))
           api.addAssertion(x === t)
 
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
@@ -218,6 +231,15 @@ class Evaluator(api : SimpleAPI) {
       }
     }
 
+  /**
+   * Evaluate a formula to a Boolean. This method has the same effect
+   * as <code>evalToBool</code>.
+   */
+  def apply(f : IFormula) : Boolean = evalToBool(f)
+
+  /**
+   * Evaluate a formula to a Boolean.
+   */
   def evalToBool(f : IFormula) : Boolean =
     evalPartialToBool(f) match {
 
@@ -243,7 +265,7 @@ class Evaluator(api : SimpleAPI) {
           import IExpression._
 
           val p = api.createBooleanVariable("p")
-          println("forcing decision: " + (f <=> p))
+//          println("forcing decision: " + (f <=> p))
           api.addAssertion(f <=> p)
 
           if (api.needsExhaustiveProver) {

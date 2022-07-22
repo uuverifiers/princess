@@ -64,7 +64,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun l () List (cons (/ 1 2) (cons (/ 1 1) (cons (/ 0 1) nil))))
+  (define-fun l () List (cons (/ 7 1) (cons (/ 9 1) (cons (/ 11 1) nil))))
 )
 
 Loading quantifiers.smt2 ...

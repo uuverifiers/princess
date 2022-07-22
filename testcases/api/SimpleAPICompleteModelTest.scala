@@ -31,8 +31,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.api
-
 import ap._
 import ap.parser._
 import ap.theories.{ADT, ExtArray}
@@ -41,7 +39,7 @@ import ap.theories.rationals.Rationals
 /**
  * Several test cases that led to assertion failures in the past.
  */
-object SimpleAPIModelTest extends App {
+object SimpleAPICompleteModelTest extends App {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
@@ -75,7 +73,7 @@ object SimpleAPIModelTest extends App {
   println("v = " + p.eval(v))             // v = true (arbitrary, value of v
                                           //          is not fixed by assertions)
   
-  part("Scoping (locally add assertions, declare symbols, etc)")
+  part("Scoping and extraction of complete models")
   
   p.scope {
     p !! (s ==> c <= -100)
@@ -92,7 +90,12 @@ object SimpleAPIModelTest extends App {
     p.withCompleteModel { model =>
       println("x = " + model.evalToInt(x))
     }
+    p.withCompleteModel { model =>
+      println("2*x = " + model.evalToInt(2*x))
+    }
   }
+
+  part("Scoping and extraction of complete models (2)")
 
   p.scope {
     println(p???) // Sat again
@@ -106,6 +109,8 @@ object SimpleAPIModelTest extends App {
       println("x = " + model.evalToInt(x))
     }
   }
+
+  part("Scoping and extraction of complete models (3)")
 
   p.scope {
     println(p???) // Sat again
@@ -122,13 +127,20 @@ object SimpleAPIModelTest extends App {
 
     val w = p.createBooleanFunction("w", 1)
     p !! all(x => (x >= 0 ===> w(x)))
-    println(p???)                   // Sat again
+    println(p???)                   // Inconclusive, but we can still get a model
     p.withCompleteModel { model =>
       println("w(42) = " + model.evalToBool(w(42)))
       println("w(-10) = " + model.evalToBool(w(-10)))
       println("(w(42) <=> w(-10)) = " + model.evalToBool(w(42) <=> w(-10)))
       println("all(x => (x <= -10 ===> w(x))) = " +
                 model.evalToBool(all(x => (x <= -10 ===> w(x)))))
+    }
+    p.withCompleteModel { model =>
+      println("all(x => (x <= -10 ===> w(x))) = " +
+                model.evalToBool(all(x => (x <= -10 ===> w(x)))))
+      println("(w(42) <=> w(-10)) = " + model.evalToBool(w(42) <=> w(-10)))
+      println("w(42) = " + model.evalToBool(w(42)))
+      println("w(-10) = " + model.evalToBool(w(-10)))
     }
   }
 

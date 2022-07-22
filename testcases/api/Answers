@@ -318,6 +318,59 @@ Sat
 u() = true
 Sat
 
+SimpleAPICompleteModelTest
+
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping and extraction of complete models
+Unsat
+Sat
+c = 115
+Sat
+x = 0
+2*x = 0
+
+-- Scoping and extraction of complete models (2)
+Sat
+c = 115
+Sat
+x = 0
+
+-- Scoping and extraction of complete models (3)
+Sat
+c = 115
+Sat
+u() = false
+!u() = true
+Inconclusive
+w(42) = true
+w(-10) = false
+(w(42) <=> w(-10)) = false
+all(x => (x <= -10 ===> w(x))) = false
+all(x => (x <= -10 ===> w(x))) = false
+(w(42) <=> w(-10)) = false
+w(42) = true
+w(-10) = false
+Sat
+
+-- Evaluation with rationals
+Sat
+x = 1
+x = Rat_frac(1, 1)
+y = Rat_frac(0, 1)
+x/2 = Rat_frac(1, 2)
+x = Rat_frac(1, 1)
+
 interpolation-bug.scala
 0: Unsat
 1: Vector(rootjthen_fwd, false)
