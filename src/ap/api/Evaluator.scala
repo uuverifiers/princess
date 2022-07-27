@@ -113,6 +113,7 @@ class Evaluator(api : SimpleAPI) {
 
   private def ensureExtendingModel = {
     if (!extendingModel) {
+      api.evaluatorStarted
       api.push
       extendingModel = true
     }
@@ -125,10 +126,11 @@ class Evaluator(api : SimpleAPI) {
   /**
    * Reset the evaluator and the connected <code>SimpleAPI</code> instance.
    */
-  def resetModelExtension = {
+  def shutDown = {
     if (extendingModel) {
       api.pop
       extendingModel = false
+      api.evaluatorStopped
     }
 
     evalResults.clear
@@ -172,7 +174,7 @@ class Evaluator(api : SimpleAPI) {
           Debug.assertInt(AC, !api.needsExhaustiveProver)
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
-          api.??? match {
+          api.checkSat(true) match {
             case s if satLikeStatus(s) =>
               evalToInt(x)
             case _ =>
@@ -221,7 +223,7 @@ class Evaluator(api : SimpleAPI) {
           Debug.assertInt(AC, !api.needsExhaustiveProver)
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
-          api.??? match {
+          api.checkSat(true) match {
             case s if satLikeStatus(s) =>
               evalToTerm(x)
             case _ =>
@@ -271,7 +273,7 @@ class Evaluator(api : SimpleAPI) {
           if (api.needsExhaustiveProver) {
             evalToBoolExhaustiveProver(p)
           } else {
-            api.??? match {
+            api.checkSat(true) match {
               case s if satLikeStatus(s) =>
                 evalToBool(p)
               case _ =>
@@ -288,7 +290,7 @@ class Evaluator(api : SimpleAPI) {
     val res =
       try {
         api.addAssertion(f)
-        api.??? match {
+        api.checkSat(true) match {
           case s if satLikeStatus(s) =>
             true
           case ProverStatus.Unsat | ProverStatus.Valid =>

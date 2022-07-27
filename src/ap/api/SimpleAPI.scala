@@ -1879,6 +1879,12 @@ class SimpleAPI private (enableAssert        : Boolean,
       println("println(\"" + getScalaNum + ": \" + ???)")
     }
     checkTimeout
+
+    if (evaluatorWorking)
+      throw new SimpleAPIException(
+        "Cannot use SimpleAPI for other purposes while an Evaluator is " +
+          "attached. Complete model was not shut down?")
+
     getStatusHelp(true) match {
       case ProverStatus.Unknown => checkSatHelp(true, true)
       case res => res
@@ -3148,41 +3154,49 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
-/*
-  private val modelBuilder = new Evaluator(this) {
-    def getPartialModel : Conjunction = {
-      ensurePartialModel
-      currentModel
+  /**
+   * Produce a model, i.e., an interpretation of constants, functions,
+   * and predicates. This method can be called in two situations after
+   * receiving the result <code>ProverStatus.Sat</code> or
+   * <code>ProverStates.Invalid</code> or
+   * <code>ProverStatus.Inconclusive</code>. The evaluator
+   * representing the model has to be shut down explicitly after use,
+   * by calling its method <code>Evaluator.shutDown</code>.
+   */
+  def completeModel : Evaluator = new Evaluator(this)
+
+  /**
+   * Produce a model, i.e., an interpretation of constants, functions,
+   * and predicates. This method can be called in two situations after
+   * receiving the result <code>ProverStatus.Sat</code> or
+   * <code>ProverStates.Invalid</code> or
+   * <code>ProverStatus.Inconclusive</code>. This method will
+   * automatically shut down the evaluator after executing the
+   * <code>comp</code> function.
+   */
+  def withCompleteModel[A](comp : Evaluator => A) : A = {
+    val evaluator = new Evaluator(this)
+    try {
+      comp(evaluator)
+    } finally {
+      evaluator.shutDown
     }
-
-    def getFullModel : Conjunction = {
-      ensureFullModel
-      currentModel
-    }
-
-    def getCurrentStatus : ProverStatus.Value =
-      getStatus(false)
-
-    def toInternal(f : IFormula) : Conjunction =
-      toInternalNoAxioms(f, currentOrder)
-
-    def addModelRestriction(f : IFormula) : Unit =
-      addFormulaHelp2(f)
-
-    def pushModelRestrictionFrame : Unit =
-      pushHelp2
-
-    def popModelRestrictionFrame : Unit =
-      popHelp2
-
-    def createFreshRelation(arity : Int)  : IExpression.Predicate = {
-      val p = new IExpression.Predicate("p", arity)
-      addRelationHelp(p)
-      p
-    }
-
   }
-*/
+
+  private var evaluatorWorking = false
+
+  protected[api] def evaluatorStarted : Unit = {
+    if (evaluatorWorking)
+      throw new SimpleAPIException(
+        "Cannot attach multiple evaluators to SimpleAPI simultaneously")
+    evaluatorWorking = true
+  }
+
+  protected[api] def evaluatorStopped : Unit = {
+    evaluatorWorking = false
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Evaluate the given term in the current model. This method can be
@@ -3431,17 +3445,6 @@ class SimpleAPI private (enableAssert        : Boolean,
       
     case _ =>
       throw NoModelException
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def withCompleteModel[A](comp : Evaluator => A) : A = {
-    val evaluator = new Evaluator(this)
-    try {
-      comp(evaluator)
-    } finally {
-      evaluator.resetModelExtension
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
