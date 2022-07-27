@@ -1695,6 +1695,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             error("unexpected prover result")
         }
       } catch {
+        case ExitException =>
+          throw ExitException
         case e : Exception =>
           error(e.getMessage)
       }
