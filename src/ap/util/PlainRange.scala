@@ -68,7 +68,7 @@ protected class IntervalPlainRange(start : Int, end : Int) extends PlainRange {
   def iterator = new Iterator[Int] {
     private var i : Int = start
     def hasNext = (i < end)
-    def next = {
+    def next() = {
       val res = i
       i = i+1
       res
@@ -134,7 +134,7 @@ protected class IntervalIdealRange(start : IdealInt,
   def iterator = new Iterator[IdealInt] {
     private var i : IdealInt = start
     def hasNext = (i < end)
-    def next = {
+    def next() = {
       val res = i
       i = i+IdealInt.ONE
       res

@@ -1242,7 +1242,7 @@ object Seqs {
           false
         }
 
-      def next : (A, B) = {
+      def next() : (A, B) = {
         if (nextPair == null)
           findNext
         val res = nextPair
@@ -1273,7 +1273,7 @@ object Seqs {
   def doubleIterator[A](a : A, b : A) = new Iterator[A] {
     private var i = 0
     def hasNext = i < 2
-    def next = {
+    def next() = {
       i = i + 1
       i match {
         case 1 => a
@@ -1288,7 +1288,7 @@ object Seqs {
   def tripleIterator[A](a : A, b : A, c : A) = new Iterator[A] {
     private var i = 0
     def hasNext = i < 3
-    def next = {
+    def next() = {
       i = i + 1
       i match {
         case 1 => a

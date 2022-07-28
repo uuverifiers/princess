@@ -37,7 +37,8 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        define-fun-bug2.smt2 define-fun-bug3.smt2 \
        run_00007.trace.Alloc_large__008268.smt2 bench_586.smt2 \
        incremental-bug.smt2 simplify.smt2 simplify2.smt2 simplify3.smt2 \
-       division_by_zero2.smt2"
+       division_by_zero2.smt2 eval-complicated-1.smt2 eval-complicated-2.smt2 \
+       eval-complicated-3.smt2"
 
 $PRI "$@" +incremental $TESTS
 

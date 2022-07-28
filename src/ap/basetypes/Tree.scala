@@ -85,7 +85,7 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
     val todo = new ArrayStack[Tree[D]]
     todo push Tree.this
     def hasNext = !todo.isEmpty
-    def next = {
+    def next() = {
       val Tree(data, children) = todo.pop
       todo ++= children
       data

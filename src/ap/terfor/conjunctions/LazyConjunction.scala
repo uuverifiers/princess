@@ -249,7 +249,7 @@ protected[conjunctions] case class AndLazyConjunction(
     
     def hasNext = (tree != null)
     
-    def next : Formula = tree match {
+    def next() : Formula = tree match {
       case AtomicLazyConjunction(f, _) => {
         tree = null
         f

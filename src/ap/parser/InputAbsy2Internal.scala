@@ -90,7 +90,7 @@ private class InputAbsy2Internal(order : TermOrder) {
       
       val subRes = new Iterator[(IdealInt, Term)] {
         def hasNext = inputStack.size > preInputSize
-        def next : (IdealInt, Term) = inputStack.pop match {
+        def next() : (IdealInt, Term) = inputStack.pop match {
           case IPlus(t1, t2) => {
             inputStack push t1
             inputStack push t2

@@ -777,7 +777,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
     private var i = 0
     private val s = LinearCombination.this.lcSize
     def hasNext = i < s
-    def next = {
+    def next() = {
       val res = getPair(i)
       i = i + 1
       res

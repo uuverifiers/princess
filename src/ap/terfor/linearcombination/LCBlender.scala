@@ -126,7 +126,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
   
   def hasNext = (nextVal != null)
   
-  def next = {
+  def next() = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC,
                     resultBuf.isEmpty ||

@@ -215,7 +215,7 @@ object Debug {
     new Iterator[Int] {
       private val range = upperBound - lowerBound
       def hasNext = true
-      def next = randGen.nextInt(range) + lowerBound
+      def next() = randGen.nextInt(range) + lowerBound
     }
 
   //////////////////////////////////////////////////////////////////////////////

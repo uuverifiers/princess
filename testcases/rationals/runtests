@@ -12,9 +12,13 @@ TESTS="simple0.smt2 \
        quantifiers.smt2 \
        quantifiers2.smt2 \
        quantifiers3.smt2 \
+       quantifiers4.smt2 \
        iteBug.smt2 \
        pd_no_op_accs.induction.smt2 \
        arrays.smt2"
 
 $PRI "$@" $TESTS
 
+TESTS="quantifiers4.smt2"
+
+$PRI "$@" +incremental $TESTS

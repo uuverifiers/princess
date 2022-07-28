@@ -252,7 +252,7 @@ object FunctionEncoder {
         nextReady
       }
 
-      def next : Int = {
+      def next() : Int = {
         if (!nextReady)
           hasNext
         nextReady = false

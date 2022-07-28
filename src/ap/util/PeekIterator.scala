@@ -42,7 +42,7 @@ object PeekIterator {
   def single[T](value : T) : PeekIterator[T] = new PeekIterator[T] {
     private var hasnext = true
     def hasNext = hasnext
-    def next = {
+    def next() = {
       hasnext = false
       value
     }
@@ -56,7 +56,7 @@ class PeekIteratorTrafo[T](delegate : Iterator[T]) extends PeekIterator[T] {
   
   def hasNext = nextVal.isDefined || delegate.hasNext
   
-  def next : T = nextVal match {
+  def next() : T = nextVal match {
     case None => delegate.next
     case Some(v) => { nextVal = None; v }
   }

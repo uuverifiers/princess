@@ -312,7 +312,7 @@ object PresburgerTools {
         !nextModel.isFalse
       }
       
-      def next : Conjunction = {
+      def next() : Conjunction = {
         computeModel
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, !nextModel.isFalse)

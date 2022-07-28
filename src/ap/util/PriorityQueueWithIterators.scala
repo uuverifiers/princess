@@ -107,7 +107,7 @@ class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
     maxElement
   }
   
-  def next : A = {
+  def next() : A = {
     val res = peekNext
     maxElementAvailable = false
     res

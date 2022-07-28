@@ -280,7 +280,7 @@ class UnsortedIterator[A, HC <: HeapCollector[A, HC]] extends Iterator[A] {
 
   def hasNext : Boolean = !remainder.isEmpty
 
-  def next : A = {
+  def next() : A = {
     remainder.pop match {
       case Node(data, left, right, _) => {
         // descend in right-first order, this helps to keep the stack small
@@ -302,7 +302,7 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
 
   def hasNext : Boolean = !remainder.isEmpty
 
-  def next : A = {
+  def next() : A = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre ( LeftistHeap.AC, !remainder.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////

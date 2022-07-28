@@ -102,7 +102,7 @@ abstract class CollectingVisitor[A, R] {
       def iterator = new Iterator[R] {
         var n = N - 1
         def hasNext = n >= 0
-        def next = {
+        def next() = {
           val res = subRes(n)
           n = n - 1
           res

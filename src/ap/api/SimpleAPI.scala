@@ -31,8 +31,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap
+package ap.api
 
+import ap._
 import ap.basetypes.{IdealInt, Tree}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
@@ -237,183 +238,6 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Class representing (usually partial) models of formulas computed
-   * through the API. Partial models represent values/individuals as
-   * constructor terms, in case of integers as instances of <code>IIntLit</code>
-   */
-  class PartialModel(
-         val interpretation : scala.collection.Map[IExpression, IExpression]) {
-
-    import IExpression._
-
-    /**
-     * Locations on which this model is defined.
-     */
-    def definedLocations = interpretation.keySet
-
-    /**
-     * Evaluate an expression to some value in the current model, if possible.
-     */
-    def evalExpression(e : IExpression) : Option[IExpression] =
-      Evaluator(e)
-
-    /**
-     * Evaluate a term to its internal integer representation in the model,
-     * if possible.
-     */
-    def eval(t : ITerm) : Option[IdealInt] =
-      for (EncodedInt(v) <- evalExpression(t)) yield v
-
-    /**
-     * Evaluate a term to a constructor term in the model, if possible.
-     */
-    def evalToTerm(t : ITerm) : Option[ITerm] =
-      for (s <- evalExpression(t); if s.isInstanceOf[ITerm])
-      yield s.asInstanceOf[ITerm]
-
-    /**
-     * Evaluate a formula to a truth value, if possible.
-     */
-    def eval(f : IFormula) : Option[Boolean] =
-      for (IBoolLit(b) <- evalExpression(f)) yield b
-
-    override def toString =
-      "{" +
-      (for ((l, v) <- interpretation.iterator)
-       yield ("" + l + " -> " + v)).mkString(", ") +
-      "}"
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    private def toCtorTerm(t : ITerm, s : Sort) : ITerm = t match {
-      case IIntLit(v) => s.decodeToTerm(v, Map()) getOrElse t
-      case t          => t
-    }
-
-    private object EncodedInt {
-      def unapply(t : IExpression) : Option[IdealInt] = t match {
-        case IIntLit(v) =>
-          Some(v)
-        case ADT.BoolADT.True =>
-          Some(IdealInt.ZERO)
-        case ADT.BoolADT.False =>
-          Some(IdealInt.ONE)
-        case t@IFunApp(f, _) =>
-          // check whether some theory can turn the term into an int
-          for (theory <- TheoryRegistry lookupSymbol f;
-               IIntLit(v) <- theory evalFun t)
-          yield v
-        case _ =>
-          None
-      }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    private object Evaluator
-            extends CollectingVisitor[Unit, Option[IExpression]] {
-      def apply(t : IExpression) = visit(t, ())
-
-      override def preVisit(t : IExpression,
-                            arg : Unit) : PreVisitResult = t match {
-        // handle equations directly, since we might not be able to
-        // compute the difference between two constructor tems
-        case Eq(left, right) =>
-          ShortCutResult(
-            for (l <- apply(left); r <- apply(right))
-            yield IBoolLit((l, r) match {
-                             case (EncodedInt(lv), EncodedInt(lr)) => lv == lr
-                             case _ => l == r
-                           }))
-        case _ =>
-          KeepArg
-      }
-
-      def postVisit(t : IExpression, arg : Unit,
-                    subres : Seq[Option[IExpression]]) = t match {
-        ////////////////////////////////////////////////////////////////////////
-        // Terms
-
-        case t : IIntLit =>
-          Some(t)
-        case t : IConstant =>
-          interpretation get t
-        case ITimes(coeff, _) =>
-          for (EncodedInt(v) <- subres(0)) yield IIntLit(v * coeff)
-        case _ : IPlus =>
-          for (EncodedInt(v1) <- subres(0); EncodedInt(v2) <- subres(1))
-          yield IIntLit(v1 + v2)
-
-        case t@IFunApp(f, _) =>
-          if (subres exists (_.isEmpty)) {
-            None
-          } else {
-            val actualArgs = subres map (_.get.asInstanceOf[ITerm])
-            val ctorF = t update actualArgs
-
-            (interpretation get ctorF) orElse
-            (for (theory <- TheoryRegistry lookupSymbol f;
-                  res <- theory evalFun ctorF)
-             yield toCtorTerm(res, Sort sortOf t))
-          }
-
-        case _ : ITermITE =>
-          for (IBoolLit(b) <- subres(0);
-               r <- subres(if (b) 1 else 2)) yield r
-
-        ////////////////////////////////////////////////////////////////////////
-        // Formulas
-
-        case f : IBoolLit =>
-          Some(f)
-        case _ : INot =>
-          for (IBoolLit(b) <- subres(0)) yield IBoolLit(!b)
-        case IBinFormula(IBinJunctor.And, _, _) => subres match {
-          case Seq(v@Some(IBoolLit(false)), _) => v
-          case Seq(_, v@Some(IBoolLit(false))) => v
-          case Seq(Some(IBoolLit(true)), v)    => v
-          case Seq(v, Some(IBoolLit(true)))    => v
-          case _                               => None
-        }
-        case IBinFormula(IBinJunctor.Or, _, _) => subres match {
-          case Seq(v@Some(IBoolLit(true)), _) => v
-          case Seq(_, v@Some(IBoolLit(true))) => v
-          case Seq(Some(IBoolLit(false)), v)  => v
-          case Seq(v, Some(IBoolLit(false)))  => v
-          case _                              => None
-        }
-        case IBinFormula(IBinJunctor.Eqv, _, _) =>
-          for (IBoolLit(v1) <- subres(0); IBoolLit(v2) <- subres(1))
-          yield IBoolLit(v1 == v2)
-
-        case f@IAtom(p, _) =>
-          if (subres exists (_.isEmpty)) {
-            None
-          } else {
-            val actualArgs = subres map (_.get.asInstanceOf[ITerm])
-            val ctorF = f update actualArgs
-
-            (interpretation get ctorF) orElse
-            (for (theory <- TheoryRegistry lookupSymbol p;
-                  res <- theory evalPred ctorF) yield res)
-          }
-
-        case IIntFormula(IIntRelation.EqZero, _) =>
-          for (EncodedInt(v) <- subres(0)) yield IBoolLit(v.isZero)
-        case IIntFormula(IIntRelation.GeqZero, _) =>
-          for (EncodedInt(v) <- subres(0)) yield IBoolLit(v.signum >= 0)
-        case _ : IFormulaITE =>
-          for (IBoolLit(b) <- subres(0);
-               r <- subres(if (b) 1 else 2)) yield r
-        case _ : INamedPart =>
-          subres(0)
-      }
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   object FunctionalityMode extends Enumeration {
     /**
      * Full reasoning about functionality of a function.
@@ -439,35 +263,6 @@ object SimpleAPI {
   private object ProofThreadStatus extends Enumeration {
     val Init, AtPartialModel, AtFullModel = Value
   }
-  
-  private abstract class ProverCommand
-
-  private case class CheckSatCommand(prover : ModelSearchProver.IncProver,
-                                     needLemmaBase : Boolean,
-                                     reuseLemmaBase : Boolean)
-          extends ProverCommand
-  private case class CheckValidityCommand(formula : Conjunction,
-                                          goalSettings : GoalSettings,
-                                          mostGeneralConstraint : Boolean)
-          extends ProverCommand
-  private case object NextModelCommand extends ProverCommand
-  private case class  AddFormulaCommand(formula : Conjunction) extends ProverCommand
-  private case object RecheckCommand extends ProverCommand
-  private case object DeriveFullModelCommand extends ProverCommand
-  private case object ShutdownCommand extends ProverCommand
-
-  private abstract class ProverResult
-  private case object UnsatResult extends ProverResult
-  private case class  FoundConstraintResult(constraint : Conjunction,
-                                            model : Conjunction)
-                                           extends ProverResult
-  private case class  UnsatCertResult(cert : Certificate) extends ProverResult
-  private case object InvalidResult extends ProverResult
-  private case class SatResult(model : Conjunction) extends ProverResult
-  private case class SatPartialResult(model : Conjunction) extends ProverResult
-  private case object StoppedResult extends ProverResult
-  private case class ExceptionResult(t : Throwable) extends ProverResult
-  private case object OutOfMemoryResult extends ProverResult
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
@@ -496,8 +291,8 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val COMMON_PART_NR         = -1
-  private val INTERNAL_AXIOM_PART_NR = -10
+  protected[api] val COMMON_PART_NR         = -1
+  private        val INTERNAL_AXIOM_PART_NR = -10
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -522,6 +317,11 @@ class SimpleAPI private (enableAssert        : Boolean,
                          randomSeed          : Option[Int]) {
 
   import SimpleAPI._
+  import ProofThreadRunnable._
+
+  private val apiStack = new APIStack
+
+  import apiStack._
 
 // Don't change assertion status of this thread,
 // which would have unwanted side-effects
@@ -593,7 +393,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   private def shutDownHelp : Unit = {
-    stopProofTask = true
+    proofThreadRunnable.stopProofTask
 
     // make sure that no prover command is queued at the moment;
     // repeatedly calling <code>shutDown</code> would otherwise
@@ -631,7 +431,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                                  Param.TriggerGenerationOptions.All)
 
   private def closeAllScopes = {
-    for (_ <- 0 until storedStates.size)
+    for (_ <- 0 until apiStack.frameNum)
       println("} // pop scope")
     println
   }
@@ -639,7 +439,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   def reset = {
     doDumpSMT {
       println("(reset)")
-      println("(set-logic AUFLIA)")
+      println("(set-logic ALL)")
     }
     doDumpScala {
       closeAllScopes
@@ -652,46 +452,31 @@ class SimpleAPI private (enableAssert        : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    storedStates.clear
-    
-    formulaeInProver.clear
-    currentOrder = TermOrder.EMPTY
-    functionalPreds = Set()
-    predicateMatchConfig = Map()
-    functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
-                          genTotalityAxioms)
-    abbrevFunctions = Set()
-    abbrevPredicates = Map()
-    theoryPlugin = None
-    theoryCollector = new TheoryCollector
+    apiStack.clearStack
+    apiStack.resetAPIConfig
 
     resetFormulasHelp
     resetOptionsHelp
+
+    functionEnc =
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
+                          genTotalityAxioms)
   }
 
   private def resetFormulasHelp = {
-    currentProver          = null
-    needExhaustiveProver   = false
-    matchedTotalFunctions  = false
-    ignoredQuantifiers     = false
-    formulaeTodo           = false
-    currentModel           = null
+    apiStack.resetAPIFormulas
     lastPartialModel       = null
+    currentModel           = null
+    formulaeTodo           = false
     currentConstraint      = null
     currentCertificate     = null
     currentSimpCertificate = null
-    lastStatus             = ProverStatus.Unknown
-    validityMode           = false
     proofThreadStatus      = ProofThreadStatus.Init
-    currentPartitionNum    = COMMON_PART_NR
     decoderDataCache.clear
   }
 
   private def resetOptionsHelp = {
-    existentialConstants   = Set()
-    constructProofs        = false
-    mostGeneralConstraints = false
+    apiStack.resetAPIOptions
   }
 
   private var currentDeadline : Option[Long] = None
@@ -838,12 +623,14 @@ class SimpleAPI private (enableAssert        : Boolean,
                                 sort : Sort) : IExpression.ConstantTerm = {
     import IExpression._
     
+    restartProofThread
+    resetModel
+
     val name = sanitise(rawName)
     val c = sort newConstant name
     currentOrder = currentOrder extend c
 
     addTypeTheoryIfNeeded(sort)
-    restartProofThread
     dumpCreateConstant(c, rawName, scalaCmd, sort)
     
     c
@@ -908,9 +695,13 @@ class SimpleAPI private (enableAssert        : Boolean,
                 dumpCreateConstant(c, c.name, scalaCmd, sort)
                 c
               }).toIndexedSeq
+
+    restartProofThread
+    resetModel
+
     currentOrder = currentOrder extend cs
     addTypeTheoryIfNeeded(sort)
-    restartProofThread
+
     cs
   }
 
@@ -1118,8 +909,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     dumpCreateConstant(c, c.name, "createConstant", sort)
     addTypeTheoryIfNeeded(sort)
 
-    currentOrder = currentOrder extend c
     restartProofThread
+    resetModel
+
+    currentOrder = currentOrder extend c
   }
 
   /**
@@ -1136,8 +929,10 @@ class SimpleAPI private (enableAssert        : Boolean,
       addTypeTheoryIfNeeded(sort)
     }
 
-    currentOrder = currentOrder extend cs.toSeq
     restartProofThread
+    resetModel
+
+    currentOrder = currentOrder extend cs.toSeq
   }
 
   /**
@@ -1195,8 +990,9 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   private def addRelationHelp(p : IExpression.Predicate) : Unit = {
-    currentOrder = currentOrder extendPred p
     restartProofThread
+    resetModel
+    currentOrder = currentOrder extendPred p
   }
 
   /**
@@ -1970,26 +1766,31 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   /**
    * <code>select</code> function of the theory of arrays.
+   * @deprecated
    */
   def selectFun(arity : Int) : IFunction = SimpleArray(arity).select
   
   /**
    * <code>store</code> function of the theory of arrays.
+   * @deprecated
    */
   def storeFun(arity : Int) : IFunction = SimpleArray(arity).store
   
   /**
    * Generate a <code>select</code> expression in the theory of arrays.
+   * @deprecated
    */
   def select(args : ITerm*) : ITerm = IFunApp(selectFun(args.size - 1), args)
 
   /**
    * Generate a <code>store</code> expression in the theory of arrays.
+   * @deprecated
    */
   def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
 
   /**
    * Return the value of an array as a map
+   * @deprecated
    */
   def arrayAsMap(t : IdealInt, arity : Int) : Map[Seq[IdealInt], IdealInt] =
     SimpleArray(arity).asMap(t)(decoderContext)
@@ -2078,6 +1879,12 @@ class SimpleAPI private (enableAssert        : Boolean,
       println("println(\"" + getScalaNum + ": \" + ???)")
     }
     checkTimeout
+
+    if (evaluatorWorking)
+      throw new SimpleAPIException(
+        "Cannot use SimpleAPI for other purposes while an Evaluator is " +
+          "attached. Complete model was not shut down?")
+
     getStatusHelp(true) match {
       case ProverStatus.Unknown => checkSatHelp(true, true)
       case res => res
@@ -2105,9 +1912,12 @@ class SimpleAPI private (enableAssert        : Boolean,
 
     checkSatHelp(block, true)
   }
-  
+
+  protected[api] def needsExhaustiveProver : Boolean =
+    needExhaustiveProver
+
   private def checkSatHelp(block : Boolean,
-                           allowShortCut : Boolean) : ProverStatus.Value =
+                           allowShortCut : Boolean) : ProverStatus.Value=
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -2389,10 +2199,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     getStatusHelp(false) match {
       case ProverStatus.Running => {
         // proverCmd put StopCommand
-        stopProofTask = true
+        proofThreadRunnable.stopProofTask
         if (block) {
           val res = getStatusHelp(true)
-          stopProofTask = false
+          proofThreadRunnable.resetStopProofTask
           res
         } else {
           ProverStatus.Running
@@ -3345,6 +3155,50 @@ class SimpleAPI private (enableAssert        : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Produce a model, i.e., an interpretation of constants, functions,
+   * and predicates. This method can be called in two situations after
+   * receiving the result <code>ProverStatus.Sat</code> or
+   * <code>ProverStates.Invalid</code> or
+   * <code>ProverStatus.Inconclusive</code>. The evaluator
+   * representing the model has to be shut down explicitly after use,
+   * by calling its method <code>Evaluator.shutDown</code>.
+   */
+  def completeModel : Evaluator = new Evaluator(this)
+
+  /**
+   * Produce a model, i.e., an interpretation of constants, functions,
+   * and predicates. This method can be called in two situations after
+   * receiving the result <code>ProverStatus.Sat</code> or
+   * <code>ProverStates.Invalid</code> or
+   * <code>ProverStatus.Inconclusive</code>. This method will
+   * automatically shut down the evaluator after executing the
+   * <code>comp</code> function.
+   */
+  def withCompleteModel[A](comp : Evaluator => A) : A = {
+    val evaluator = new Evaluator(this)
+    try {
+      comp(evaluator)
+    } finally {
+      evaluator.shutDown
+    }
+  }
+
+  private var evaluatorWorking = false
+
+  protected[api] def evaluatorStarted : Unit = {
+    if (evaluatorWorking)
+      throw new SimpleAPIException(
+        "Cannot attach multiple evaluators to SimpleAPI simultaneously")
+    evaluatorWorking = true
+  }
+
+  protected[api] def evaluatorStopped : Unit = {
+    evaluatorWorking = false
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Evaluate the given term in the current model. This method can be
    * called in two situations:
    * <ul>
@@ -3592,7 +3446,9 @@ class SimpleAPI private (enableAssert        : Boolean,
     case _ =>
       throw NoModelException
   }
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Evaluate the given symbol in the current model, returning <code>None</code>
    * in case the model does not completely determine the value of the symbol.
@@ -3951,8 +3807,7 @@ class SimpleAPI private (enableAssert        : Boolean,
           Right(intF)
         } else {
           val reduced =
-            ReduceWithConjunction(currentModel,
-                                  currentModel.order,
+            ReduceWithConjunction(currentModel, currentOrder,
                                   reducerSettings)(intF)
 
           if (reduced.isTrue)
@@ -4029,18 +3884,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
-    
-    storedStates push ((currentProver, needExhaustiveProver,
-                       matchedTotalFunctions, ignoredQuantifiers,
-                       currentOrder, existentialConstants,
-                       functionalPreds, predicateMatchConfig,
-                       functionEnc.clone, formulaeInProver.clone,
-                       currentPartitionNum,
-                       constructProofs, mostGeneralConstraints,
-                       validityMode, lastStatus,
-                       theoryPlugin, theoryCollector.clone,
-                       abbrevFunctions,
-                       abbrevPredicates))
+    apiStack.pushAPIFrame
   }
 
   /**
@@ -4097,37 +3941,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val (oldProver, oldNeedExhaustiveProver,
-         oldMatchedTotalFunctions, oldIgnoredQuantifiers,
-         oldOrder, oldExConstants,
-         oldFunctionalPreds, oldPredicateMatchConfig, oldFunctionEnc,
-         oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldMGCs, oldValidityMode, oldStatus,
-         oldTheoryPlugin, oldTheories,
-         oldAbbrevFunctions, oldAbbrevPredicates) =
-      storedStates.pop
-    currentProver          = oldProver
-    needExhaustiveProver   = oldNeedExhaustiveProver
-    matchedTotalFunctions  = oldMatchedTotalFunctions
-    ignoredQuantifiers     = oldIgnoredQuantifiers
-    currentOrder           = oldOrder
-    existentialConstants   = oldExConstants
-    functionalPreds        = oldFunctionalPreds
-    predicateMatchConfig   = oldPredicateMatchConfig
-    functionEnc            = oldFunctionEnc
-    formulaeInProver       = oldFormulaeInProver
-    currentPartitionNum    = oldPartitionNum
-    constructProofs        = oldConstructProofs
-    mostGeneralConstraints = oldMGCs
+    apiStack.popAPIFrame
     formulaeTodo           = false
     rawFormulaeTodo        = LazyConjunction.FALSE
-    validityMode           = oldValidityMode
-    lastStatus             = oldStatus
     proofThreadStatus      = ProofThreadStatus.Init
-    theoryPlugin           = oldTheoryPlugin
-    theoryCollector        = oldTheories
-    abbrevFunctions        = oldAbbrevFunctions
-    abbrevPredicates       = oldAbbrevPredicates
     currentModel           = null
     lastPartialModel       = null
     currentConstraint      = null
@@ -4479,54 +4296,14 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs
   }
 
-  private var currentOrder           : TermOrder = _
-  private var existentialConstants   : Set[IExpression.ConstantTerm] = _
-  private var functionalPreds        : Set[IExpression.Predicate] = _
-  private var predicateMatchConfig   : PredicateMatchConfig = Map()
-  private var functionEnc            : FunctionEncoder = _
-  private var currentProver          : ModelSearchProver.IncProver = _
-  private var needExhaustiveProver   : Boolean = false
-  private var matchedTotalFunctions  : Boolean = false
-  private var ignoredQuantifiers     : Boolean = false
   private var currentModel           : Conjunction = _
   private var lastPartialModel       : PartialModel = null
   private var currentConstraint      : Conjunction = _
   private var currentCertificate     : Certificate = _
   private var currentSimpCertificate : Certificate = _
-  private var formulaeInProver       : LinkedHashMap[Conjunction, Int] =
-                                         new LinkedHashMap[Conjunction, Int]
-  private var currentPartitionNum    : Int = COMMON_PART_NR
-  private var constructProofs        : Boolean = false
-  private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo           : IFormula = false
   private var rawFormulaeTodo        : LazyConjunction = LazyConjunction.FALSE
-  private var theoryPlugin           : Option[Plugin] = None
-  private var theoryCollector        : TheoryCollector = _
-  private var abbrevFunctions        : Set[IFunction] = Set()
-  private var abbrevPredicates       : Map[IExpression.Predicate,
-                                           (Int, IExpression.Predicate)] = Map()
 
-  private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
-                                             Boolean,
-                                             Boolean,
-                                             Boolean,
-                                             TermOrder,
-                                             Set[IExpression.ConstantTerm],
-                                             Set[IExpression.Predicate],
-                                             PredicateMatchConfig,
-                                             FunctionEncoder,
-                                             LinkedHashMap[Conjunction, Int],
-                                             Int,
-                                             Boolean,
-                                             Boolean,
-                                             Boolean,
-                                             ProverStatus.Value,
-                                             Option[Plugin],
-                                             TheoryCollector,
-                                             Set[IFunction],
-                                             Map[IExpression.Predicate,
-                                                 (Int, IExpression.Predicate)])]
-  
   private def proverRecreationNecessary = {
     currentProver = null
     resetModel
@@ -4547,155 +4324,13 @@ class SimpleAPI private (enableAssert        : Boolean,
   
   private val proverRes = new SyncVar[ProverResult]
   private val proverCmd = new SyncVar[ProverCommand]
-  private var stopProofTask = false
-  private var lastStatus : ProverStatus.Value = _
-  private var validityMode : Boolean = _
   
   private var proofThreadStatus : ProofThreadStatus.Value = _
-  
-  private val proofThread = new Thread(new Runnable { def run : Unit = {
-    Debug enableAllAssertions enableAssert
-    
-    var cont = true
-    var nextCommand : ProverCommand = null
-    var lemmaBase : LemmaBase = null
-    
-    def directorWaitForNextCmd(order : TermOrder) = {
-      var res : ModelSearchProver.SearchDirection = null
-      var forsToAdd = List[Conjunction]()
-              
-      while (res == null) proverCmd.take match {
-        case DeriveFullModelCommand =>
-          res = ModelSearchProver.DeriveFullModelDir
-        case NextModelCommand =>
-          res = ModelSearchProver.NextModelDir
-        case RecheckCommand =>
-          res = ModelSearchProver.AddFormulaDir(
-                 Conjunction.disj(forsToAdd, order))
-        case AddFormulaCommand(formula) =>
-          forsToAdd = formula :: forsToAdd
-        case c : ProverCommand => {
-          // get out of here, terminate the <code>ModelSearchProver</code> run
-          nextCommand = c
-          res = ModelSearchProver.ReturnSatDir
-        }
-      }
-              
-      res
-    }
-    
-    val commandParser : PartialFunction[Any, Unit] = {
-      case CheckSatCommand(p, needLemmaBase, reuseLemmaBase) => {
 
-        if (needLemmaBase) {
-          if (lemmaBase == null || !reuseLemmaBase) {
-            lemmaBase = new LemmaBase
-          } else {
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(AC, lemmaBase.hasEmptyStack)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-          }
-        } else {
-          lemmaBase = null
-        }
-
-        Timeout.catchTimeout {
-          val order = p.order
-
-          p.checkValidityDir({
-            case (model, false) => {
-              proverRes put SatPartialResult(model)
-              directorWaitForNextCmd(order)
-            }
-            
-            case (model, true) => {
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertPre(AC, !model.isFalse)
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              
-              proverRes put SatResult(model)
-              directorWaitForNextCmd(order)
-            }
-          }, lemmaBase)
-        } { case _ => null } match {
-
-          case null =>
-            proverRes put StoppedResult
-          case Left(m) if (nextCommand == null) =>
-            proverRes put UnsatResult
-          case Left(_) =>
-            // nothing
-          case Right(cert) =>
-            proverRes put UnsatCertResult(cert)
-              
-        }
-      }
-
-      case CheckValidityCommand(formula, goalSettings, mgc) => {
-        
-        lemmaBase = null
-
-        Timeout.catchTimeout {
-          
-          val prover = new ExhaustiveProver (!mgc, goalSettings)
-          val tree = prover(formula, formula.order)
-          tree.closingConstraint
-          
-        } { case _ => null } match {
-          
-          case null =>
-            proverRes put StoppedResult
-          case constraint =>
-            if (constraint.isFalse) {
-              proverRes put InvalidResult
-            } else {
-              val solution =
-                ModelSearchProver(constraint.negate, constraint.order)
-              proverRes put FoundConstraintResult(constraint, solution)
-            }
-            
-        }
-      }
-
-      case ShutdownCommand =>
-        cont = false
-    }
-    
-    Timeout.withChecker(() => if (stopProofTask) Timeout.raise) {
-      while (cont)
-        try {
-          stopProofTask = false
-
-          // wait for a command on what to do next
-          if (nextCommand != null) {
-            val c = nextCommand
-            nextCommand = null
-            commandParser(c)
-          } else {
-            commandParser(proverCmd.take)
-          }
-        } catch {
-          case t : Timeout =>
-            // just forward
-            throw t
-          case _ : StackOverflowError | _ : OutOfMemoryError =>
-            // hope that we are able to continue
-            proverRes put OutOfMemoryResult
-          case _ : NoClassDefFoundError =>
-            // this exception indicates a stack overflow as well,
-            // but probably the system has to be restarted at this point
-            proverRes put OutOfMemoryResult
-          case t : InterruptedException =>
-            // somebody interrupted the thread, we assume that it is
-            // supposed to die
-            cont = false
-          case t : Throwable =>
-            // hope that we are able to continue
-            proverRes put ExceptionResult(t)
-        }
-      
-    }
-  }})
+  private val proofThreadRunnable =
+    new ProofThreadRunnable(proverCmd, proverRes, enableAssert)
+  private val proofThread =
+    new Thread(proofThreadRunnable)
 
   // the prover thread is not supposed to keep the whole system running
   proofThread setDaemon true

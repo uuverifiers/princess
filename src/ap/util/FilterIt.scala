@@ -61,7 +61,7 @@ class FilterIt[T] private (baseIt : Iterator[T],
     nextValAvailable
   }
 
-  def next = {
+  def next() = {
     runToNext
     nextValAvailable = false
     nextVal

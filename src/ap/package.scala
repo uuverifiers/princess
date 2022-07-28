@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,17 +31,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.util;
-
 /**
- * Simple iterator that enumerates the natural numbers, starting with 0
+ * Package object making available some of the objects in sub-packages
  */
-class CountIt extends Iterator[Int] {
-  private var nextVal : Int = 0
-  def hasNext = true
-  def next() = {
-    val res = nextVal
-    nextVal = nextVal + 1
-    res
-  }
+package object ap {
+
+  type SimpleAPI = api.SimpleAPI
+
+  val SimpleAPI = api.SimpleAPI
+
 }

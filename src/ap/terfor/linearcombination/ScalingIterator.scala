@@ -56,7 +56,7 @@ class ScalingIterator(coeff : IdealInt, delegate : Iterator[(IdealInt, Term)])
   
   def hasNext = delegate.hasNext
   
-  def next = {
+  def next() = {
     val (c, t) = delegate.next
     (c * coeff, t)
   }

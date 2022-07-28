@@ -35,6 +35,7 @@
 package ap.parser;
 
 import ap._
+import ap.api.{SimpleAPI, Evaluator}
 import ap.parameters.{ParserSettings, Param}
 import ap.terfor.OneTerm
 import ap.terfor.conjunctions.Conjunction
@@ -518,7 +519,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.SMTFunctionType,
                                               SMTParser2InputAbsy.SMTType],
                            settings : ParserSettings,
-                           prover : SimpleAPI)
+                           _prover : SimpleAPI)
       extends Parser2InputAbsy
           [SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
@@ -678,7 +679,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private val incremental = (prover != null)
+  private def prover : SimpleAPI = {
+    if (compModelEval != null) {
+      compModelEval.shutDown
+      compModelEval = null
+    }
+    _prover
+  }
+
+  private val incremental = (_prover != null)
 
   private def incrementalNoExtract = incremental && !justStoreAssertions
   
@@ -800,6 +809,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
      })
   }
 
+  private var compModelEval : Evaluator = null
+
+  private def completeModelEvaluator : Evaluator = {
+    if (compModelEval == null) {
+      _prover.getStatus(false) match {
+        case SimpleAPI.ProverStatus.Sat |
+             SimpleAPI.ProverStatus.Invalid |
+             SimpleAPI.ProverStatus.Inconclusive =>
+          compModelEval = _prover.completeModel
+        case _ =>
+          throw SimpleAPI.NoModelException
+      }
+    }
+     
+    compModelEval
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -861,6 +887,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     Rationals.divWithSpecialZero(num, denom)
 
   private val realType = SMTReal(realAlgebra.dom)
+
+  private def addRealTheory = addTheory(Rationals)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1674,7 +1702,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             error("unexpected prover result")
         }
       } catch {
-        case e : SimpleAPI.SimpleAPIException =>
+        case ExitException =>
+          throw ExitException
+        case e : Exception =>
           error(e.getMessage)
       }
 
@@ -1685,37 +1715,29 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      // TODO: fix output of arrays
-
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
-        prover.getStatus(false) match {
-          case SimpleAPI.ProverStatus.Sat |
-               SimpleAPI.ProverStatus.Invalid |
-               SimpleAPI.ProverStatus.Inconclusive => try {
-            val expressions = cmd.listterm_.toList
+        try {
+          val evaluator = completeModelEvaluator
+          val expressions = cmd.listterm_.toList
 
-            val values = prover.withTimeout(timeoutPer) {
-              for (expr <- expressions) yield
-                translateTerm(expr, 0) match {
-                  case (f : IFormula, _) =>
-                    (prover eval f).toString
-                  case (t : ITerm, _) =>
-                    SMTLineariser asString (prover evalToTerm t)
-                }
-            }
-            
-            println("(" +
-              (for ((e, v) <- expressions.iterator zip values.iterator)
-               yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
-              ")")
-          } catch {
-            case SimpleAPI.TimeoutException =>
-              error("timeout when constructing full model")
-            case SimpleAPI.NoModelException =>
-              error("no model available")
+          val values = _prover.withTimeout(timeoutPer) {
+            for (expr <- expressions) yield
+              translateTerm(expr, 0) match {
+                case (f : IFormula, _) =>
+                  evaluator(f).toString
+                case (t : ITerm, _) =>
+                  SMTLineariser asString evaluator(t)
+              }
           }
-
-          case _ =>
+            
+          println("(" +
+            (for ((e, v) <- expressions.iterator zip values.iterator)
+             yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+            ")")
+        } catch {
+          case SimpleAPI.TimeoutException =>
+            error("timeout when constructing full model")
+          case SimpleAPI.NoModelException =>
             error("no model available")
         }
       }
@@ -1767,8 +1789,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         error("get-assignment not supported")
 
       //////////////////////////////////////////////////////////////////////////
-
-      // TODO: fix output of arrays
 
       case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
         prover.getStatus(false) match {
@@ -3683,8 +3703,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     asRealIntTerms(op, args) match {
       case (terms, SMTInteger) =>
         and(for (Seq(a, b) <- terms sliding 2) yield intOp(a, b))
-      case (terms, SMTReal(_)) =>
+      case (terms, SMTReal(_)) => {
+        addRealTheory
         and(for (Seq(a, b) <- terms sliding 2) yield realOp(a, b))
+      }
     }
   
   private def flatten(op : String, args : Seq[Term]) : Seq[Term] =
