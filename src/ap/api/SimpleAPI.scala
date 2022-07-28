@@ -3807,8 +3807,7 @@ class SimpleAPI private (enableAssert        : Boolean,
           Right(intF)
         } else {
           val reduced =
-            ReduceWithConjunction(currentModel,
-                                  currentModel.order,
+            ReduceWithConjunction(currentModel, currentOrder,
                                   reducerSettings)(intF)
 
           if (reduced.isTrue)

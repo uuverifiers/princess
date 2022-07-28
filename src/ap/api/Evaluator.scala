@@ -94,6 +94,8 @@ object Evaluator {
 class Evaluator(api : SimpleAPI) {
 
   import Evaluator._
+  import IExpression.Sort
+  import Sort.:::
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertPre(AC, satLikeStatus(api.getStatus(false)),
@@ -121,6 +123,13 @@ class Evaluator(api : SimpleAPI) {
     for (result <- evalResults)
       api.addAssertion(result.toFormula)
     evalResults.clear
+  }
+
+  private var symCounter = 0
+
+  private def freshName(prefix : String) : String = {
+    symCounter = symCounter + 1
+    prefix + (symCounter - 1)
   }
 
   /**
@@ -151,8 +160,6 @@ class Evaluator(api : SimpleAPI) {
       case None => {
         // then we have to extend the model
 
-        ensureExtendingModel
-
         import TerForConvenience._
 
         if (api.needsExhaustiveProver) {
@@ -160,25 +167,36 @@ class Evaluator(api : SimpleAPI) {
 
           throw new UnknownTermValueException(t)
 
-        } else {
+        } else t match {
+          case IConstant(c) => {
+            // then we can just extend the model by assuming that the
+            // constant has value 0
 
-          // TODO: special cases
+            evalResults += IntTermEvalResult(t, IdealInt.ZERO)
+            IdealInt.ZERO
+          }
 
-          import IExpression._
+          case _ => {
+            // general case
 
-          val x = api.createConstant("x")
-//          println("forcing decision: " + (x === t))
-          api.addAssertion(x === t)
+            ensureExtendingModel
 
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, !api.needsExhaustiveProver)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+            import IExpression._
 
-          api.checkSat(true) match {
-            case s if satLikeStatus(s) =>
-              evalToInt(x)
-            case _ =>
-              throw NoModelException
+            val x = api.createConstant(freshName("$const_"))
+//            println("forcing decision: " + (x === t))
+            api.addAssertion(x === t)
+
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, !api.needsExhaustiveProver)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            api.checkSat(true) match {
+              case s if satLikeStatus(s) =>
+                evalToInt(x)
+              case _ =>
+                throw NoModelException
+            }
           }
         }
       }
@@ -200,8 +218,6 @@ class Evaluator(api : SimpleAPI) {
       case None => {
         // then we have to extend the model
 
-        ensureExtendingModel
-
         import TerForConvenience._
 
         if (api.needsExhaustiveProver) {
@@ -209,25 +225,37 @@ class Evaluator(api : SimpleAPI) {
 
           throw new UnknownTermValueException(t)
 
-        } else {
+        } else t match {
+          case IConstant(c) ::: Sort.Numeric(s) => {
+            // then we can just extend the model by assuming that the
+            // constant has some default value
 
-          // TODO: special cases
+            val res = s.individuals.head
+            evalResults += TermEvalResult(t, res)
+            res
+          }
 
-          import IExpression._
+          case _ => {
+            // general case
 
-          val x = api.createConstant("x", Sort sortOf t)
-//          println("forcing decision: " + (x === t))
-          api.addAssertion(x === t)
+            ensureExtendingModel
 
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, !api.needsExhaustiveProver)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+            import IExpression._
 
-          api.checkSat(true) match {
-            case s if satLikeStatus(s) =>
-              evalToTerm(x)
-            case _ =>
-              throw NoModelException
+            val x = api.createConstant(freshName("$const_"), Sort sortOf t)
+//            println("forcing decision: " + (x === t))
+            api.addAssertion(x === t)
+
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, !api.needsExhaustiveProver)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            api.checkSat(true) match {
+              case s if satLikeStatus(s) =>
+                evalToTerm(x)
+              case _ =>
+                throw NoModelException
+            }
           }
         }
       }
@@ -250,34 +278,45 @@ class Evaluator(api : SimpleAPI) {
       case None => {
         // then we have to extend the model
 
-        ensureExtendingModel
-
         import TerForConvenience._
 
         if (api.needsExhaustiveProver) {
           // then we have to re-run the prover to check whether the
           // given formula is consistent with our assertions
 
+          ensureExtendingModel
+
           evalToBoolExhaustiveProver(f)
 
-        } else {
+        } else f match {
+          case IAtom(_, Seq()) => {
+            // then we can just extend the model by assuming that the
+            // boolean variable has a default value
 
-          // TODO: special cases
+            evalResults += FormulaEvalResult(f, false)
+            false
+          }
 
-          import IExpression._
+          case _ => {
+            // general case
 
-          val p = api.createBooleanVariable("p")
-//          println("forcing decision: " + (f <=> p))
-          api.addAssertion(f <=> p)
+            ensureExtendingModel
 
-          if (api.needsExhaustiveProver) {
-            evalToBoolExhaustiveProver(p)
-          } else {
-            api.checkSat(true) match {
-              case s if satLikeStatus(s) =>
-                evalToBool(p)
-              case _ =>
-                throw NoModelException
+            import IExpression._
+
+            val p = api.createBooleanVariable(freshName("$pred_"))
+//            println("forcing decision: " + (f <=> p))
+            api.addAssertion(f <=> p)
+
+            if (api.needsExhaustiveProver) {
+              evalToBoolExhaustiveProver(p)
+            } else {
+              api.checkSat(true) match {
+                case s if satLikeStatus(s) =>
+                  evalToBool(p)
+                case _ =>
+                  throw NoModelException
+              }
             }
           }
         }

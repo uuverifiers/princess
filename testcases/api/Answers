@@ -361,6 +361,13 @@ all(x => (x <= -10 ===> w(x))) = false
 (w(42) <=> w(-10)) = false
 w(42) = true
 w(-10) = false
+
+-- Scoping and extraction of complete models (4)
+Sat
+c = 115
+Sat
+!u() = true
+u() = false
 Sat
 
 -- Evaluation with rationals

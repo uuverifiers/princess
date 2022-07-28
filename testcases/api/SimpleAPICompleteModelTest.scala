@@ -144,6 +144,23 @@ object SimpleAPICompleteModelTest extends App {
     }
   }
 
+  part("Scoping and extraction of complete models (4)")
+
+  p.scope {
+    println(p???) // Sat again
+    println("c = " + p.eval(c))
+
+    // Adding an independently created predicate to the prover
+    val u = new Predicate("u", 0)
+    p.addRelation(u)
+    println(p???)                   // Sat again
+    p.withCompleteModel { model =>
+      // this order previously caused an exception
+      println("!u() = " + model.evalToBool(!u()))
+      println("u() = " + model.evalToBool(u()))
+    }
+  }
+
   println(p???)               // Sat again
 
   part("Evaluation with rationals")
