@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,8 +63,6 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
  * number N). This in particular includes bit-vector/machine arithmetic.
- *
- * Class under construction ...
  */
 object ModuloArithmetic extends Theory {
 
@@ -81,23 +79,20 @@ object ModuloArithmetic extends Theory {
   // TODO: move the following methods to IdealInt class, optimise
 
   protected[bitvectors] def pow2(bits : Int) : IdealInt =
-    IdealInt(2) pow bits
+    IdealInt.pow2(bits)
 
   protected[bitvectors] def pow2(bits : IdealInt) : IdealInt =
-    IdealInt(2) pow bits.intValueSafe
+    IdealInt.pow2(bits)
 
   protected[bitvectors] def pow2Mod(bits : IdealInt,
                                     modulus : IdealInt) : IdealInt =
-    IdealInt(2).powMod(bits, modulus)
+    IdealInt.pow2Mod(bits, modulus)
 
   protected[bitvectors] def pow2MinusOne(bits : Int) : IdealInt =
-    pow2(bits) - IdealInt.ONE
+    IdealInt.pow2MinusOne(bits)
 
   private def isPowerOf2(n : IdealInt) : Option[Int] =
-    if (n.signum > 0 && (n & (n - 1)).isZero)
-      Some(n.getHighestSetBit)
-    else
-      None
+    IdealInt.log2(n)
 
   //////////////////////////////////////////////////////////////////////////////
   // API methods that infer the right bit-width based on types
