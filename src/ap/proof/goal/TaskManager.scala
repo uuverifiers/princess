@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,10 +35,13 @@ package ap.proof.goal;
 
 import ap.util.Debug
 import ap.basetypes.{LeftistHeap, HeapCollector}
+import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
 import ap.proof.theoryPlugins.Plugin
 import ap.parameters.{GoalSettings, Param}
+
+import scala.collection.mutable.ArrayBuffer
 
 object TaskManager {
   
@@ -51,18 +54,23 @@ object TaskManager {
         thisTask.priority compare thatTask.priority
     }
   
-  protected[goal] type TaskHeap = LeftistHeap[PrioritisedTask, TaskInfoCollector]
+  protected[goal] type TaskHeap =
+    LeftistHeap[PrioritisedTask, HeapCollector.None[PrioritisedTask]]
     
   //////////////////////////////////////////////////////////////////////////////
   
-  private def EMPTY_HEAP(abbrevLabels : Map[Predicate, Predicate]) : TaskHeap =
-    LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY(abbrevLabels))
+  private def EMPTY_HEAP : TaskHeap = LeftistHeap.EMPTY_HEAP
 
-  def EMPTY(settings : GoalSettings) : TaskManager =
-    new TaskManager (EMPTY_HEAP(Param.ABBREV_LABELS(settings)),
+  def EMPTY(settings : GoalSettings) : TaskManager = {
+    val abbrevLabels = Param.ABBREV_LABELS(settings)
+    val aggregator = TaskAggregator.standardAggregator(abbrevLabels)
+    new TaskManager (EMPTY_HEAP,
                      (new EagerTaskAutomaton(
-                        Param.THEORY_PLUGIN(settings))).INITIAL)
-    
+                        Param.THEORY_PLUGIN(settings))).INITIAL,
+                     aggregator,
+                     aggregator.emptySummary)
+  }
+
   val EMPTY : TaskManager = EMPTY(GoalSettings.DEFAULT)
 
   private object TRUE_EXCEPTION extends Exception
@@ -70,32 +78,48 @@ object TaskManager {
 }
 
 /**
- * An immutable class (priority queue) for handling a set of tasks in a proof
- * goal. Currently, this is implemented using a sorted set, but it would be
- * better to use a real immutable queue (leftist heap?).
+ * An immutable class (priority queue) for handling a set of tasks in
+ * a proof goal. This is implemented using a leftist heap.
  *
- * TODO: So far, no real subsumption checks are performed
+ * TODO: So far, no subsumption checks are performed
  */
 class TaskManager private (// the regular tasks that have a priority
                            prioTasks : TaskManager.TaskHeap,
                            // Preprocessing tasks that can sneak in before
                            // regular tasks.
-                           eagerTasks : EagerTaskManager) {
+                           eagerTasks : EagerTaskManager,
+                           // Aggregator that extracts relevant
+                           // features of the stored tasks
+                           val taskAggregator : VectorTaskAggregator,
+                           aggregatedSummary : Any) {
 
   import TaskManager.TRUE_EXCEPTION
   
-  def +(t : PrioritisedTask) = new TaskManager (prioTasks + t, eagerTasks)
+  def +(t : PrioritisedTask) =
+    new TaskManager (prioTasks + t, eagerTasks,
+                     taskAggregator,
+                     taskAggregator.removeAdd(taskSummary, List(), List(t)))
 
   def ++ (elems: Iterable[PrioritisedTask]): TaskManager =
-    this ++ elems.iterator
-
-  def ++ (elems: Iterator[PrioritisedTask]): TaskManager =
-    if (elems.hasNext)
-      new TaskManager (prioTasks insertIt elems, eagerTasks)
-    else
+    if (elems.isEmpty) {
       this
+    } else {
+      new TaskManager (prioTasks insertIt elems.iterator,
+                       eagerTasks,
+                       taskAggregator,
+                       taskAggregator.removeAdd(taskSummary, List(), elems))
+    }
 
-  def enqueue(elems: PrioritisedTask*): TaskManager = (this ++ elems.iterator)
+  /*
+  def ++ (elems: Iterator[PrioritisedTask]): TaskManager =
+    if (elems.hasNext) {
+      new TaskManager (prioTasks insertIt elems, eagerTasks)
+    } else {
+      this
+    }
+   */
+
+  def enqueue(elems: PrioritisedTask*): TaskManager = this ++ elems
 
   /**
    * Remove the first task from the queue.
@@ -106,10 +130,17 @@ class TaskManager private (// the regular tasks that have a priority
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     nextEagerTask match {
-      case None =>
-        new TaskManager (prioTasks.deleteMin, eagerTasks afterTask prioTasks.findMin)
+      case None => {
+        val minTask = prioTasks.findMin
+        new TaskManager (prioTasks.deleteMin,
+                         eagerTasks afterTask minTask,
+                         taskAggregator,
+                         taskAggregator.removeAdd(taskSummary,
+                                                  List(minTask), List()))
+      }
       case Some(task) =>
-        new TaskManager (prioTasks, eagerTasks afterTask task)
+        new TaskManager (prioTasks, eagerTasks afterTask task,
+                         taskAggregator, aggregatedSummary)
     }
   }
   
@@ -159,17 +190,48 @@ class TaskManager private (// the regular tasks that have a priority
     }
     
     val res = buffer.result
-    if (res.isEmpty)
+    if (res.isEmpty) {
       (this, res)
-    else
-      (new TaskManager(newPrioTasks, newEagerTasks), res)
+    } else {
+      (new TaskManager(newPrioTasks, newEagerTasks,
+                       taskAggregator,
+                       taskAggregator.removeAdd(taskSummary, res, List())),
+       res)
+    }
   }
   
   /**
    * Compute information about the prioritised tasks (eager tasks are not
    * considered at this point)
    */
-  def taskInfos : TaskInfoCollector = prioTasks.collector
+  /*
+  def taskInfos : TaskInfoCollector = {
+    //println("infos")
+    //println(taskSummary)
+    val coll = prioTasks.collector
+    //println(coll.constants)
+    //println(taskSummaryFor(TaskAggregator.ConstantCounter).keySet)
+    assert(coll.constants == taskSummaryFor(TaskAggregator.ConstantCounter).keySet)
+    //println(coll.containsLazyMatchTask)
+    //println(!taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty)
+    assert(coll.containsLazyMatchTask == !taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty)
+    //println(coll.occurringBooleanVars)
+    //println(taskSummaryFor(TaskAggregator.BooleanVarCounter))
+    assert(coll.occurringBooleanVars == taskSummaryFor(TaskAggregator.BooleanVarCounter))
+    assert(coll.occurringAbbrevs == taskSummaryFor(TaskAggregator.extractAbbrevAggregator(taskAggregator))._1.keySet)
+    assert(coll.occurringAbbrevDefs == taskSummaryFor(TaskAggregator.extractAbbrevAggregator(taskAggregator))._2.keySet)
+    coll
+  }
+   */
+
+  def taskSummary : taskAggregator.TaskSummary =
+    aggregatedSummary.asInstanceOf[taskAggregator.TaskSummary]
+
+  def taskSummaryFor(agg : TaskAggregator) : agg.TaskSummary =
+    taskAggregator.get(taskSummary, agg)
+
+  def taskConstants : Set[ConstantTerm] =
+    taskSummaryFor(TaskAggregator.ConstantCounter).keySet
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -186,11 +248,12 @@ class TaskManager private (// the regular tasks that have a priority
     // are meaningful
     
   //  print("" + prioTasks.size + " ... ")
- 
-    val newPrioTasks : TaskManager.TaskHeap = 
+
+    val (newPrioTasks, addedTasks, removedTasks) =
       try {
-        val facts = new scala.collection.mutable.ArrayBuffer[Conjunction]
-        
+        val facts = new ArrayBuffer[Conjunction]
+        val addedTasks, removedTasks = new ArrayBuffer[Task]
+
         def factCollector(f : Conjunction) : Unit =
           if (f.isTrue) throw TRUE_EXCEPTION else (facts += f)
         var foundFactsTask : Boolean = false
@@ -206,43 +269,57 @@ class TaskManager private (// the regular tasks that have a priority
             case res => {
               if (res exists stopUpdating)
                 foundFactsTask = true
+              removedTasks +=  prioTask
+              addedTasks   ++= res
               res.iterator
             }
           }
         
         val tasks = prioTasks.flatItMap(updateTask _, (h) => foundFactsTask)
-        if (facts.isEmpty)
-          tasks
-        else
-          tasks ++ (goal formulaTasks Conjunction.disj(facts, goal.order))
+        if (facts.isEmpty) {
+          (tasks, addedTasks.toSeq, removedTasks.toSeq)
+        } else {
+          val factsTasks = goal formulaTasks Conjunction.disj(facts, goal.order)
+          addedTasks ++= factsTasks
+          (tasks ++ factsTasks, addedTasks.toSeq, removedTasks.toSeq)
+        }
       } catch {
-        case TRUE_EXCEPTION =>
-          prioTasks ++ (goal formulaTasks Conjunction.TRUE)
+        case TRUE_EXCEPTION => {
+          val trueTasks = goal formulaTasks Conjunction.TRUE
+          (prioTasks ++ trueTasks, trueTasks, List())
+        }
       }
+
   //    println(newPrioTasks.size)
     
-    new TaskManager (newPrioTasks, eagerTasks)
+    new TaskManager (newPrioTasks, eagerTasks,
+                     taskAggregator,
+                     taskAggregator.removeAdd(taskSummary,
+                                              removedTasks, addedTasks))
   }
 
   /**
    * Eliminate all prioritised tasks for which the given predicate is false.
    */
   def filter(p : PrioritisedTask => Boolean) : TaskManager = {
-    var changed = false
+    val removedTasks = new ArrayBuffer[Task]
 
     val newPrioTasks = prioTasks.flatItMap({ t =>
       if (p(t)) {
         null
       } else {
-        changed = true
+        removedTasks += t
         Iterator.empty
       }
     }, (_) => false)
 
-    if (changed)
-      new TaskManager(newPrioTasks, eagerTasks)
-    else
+    if (removedTasks.isEmpty)
       this
+    else
+      new TaskManager(newPrioTasks, eagerTasks,
+                      taskAggregator,
+                      taskAggregator.removeAdd(taskSummary,
+                                               removedTasks, List()))
   }
 
   //////////////////////////////////////////////////////////////////////////////

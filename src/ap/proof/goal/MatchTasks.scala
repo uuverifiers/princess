@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -209,7 +209,7 @@ object LazyMatchTask {
   private val AC = Debug.AC_CLAUSE_MATCHER
   
   def addTask(goal : Goal) : Seq[PrioritisedTask] =
-    if (goal.tasks.taskInfos.containsLazyMatchTask)
+    if (!goal.tasks.taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty)
       List()
     else
       List(new LazyMatchTask (goal.age,

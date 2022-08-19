@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -238,7 +238,7 @@ class Goal private (val facts : Conjunction,
                    // if clauses need to be rematched, a task for this should
                    // have been generated
                    (!compoundFormulas.lazyQuantifiedClauses.factsAreOutdated(facts.predConj) ||
-                     tasks.taskInfos.containsLazyMatchTask ||
+                      !tasks.taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty ||
                      {
                        // alternatively, it might happen that the next rule
                        // application closes the goal
@@ -357,7 +357,7 @@ class Goal private (val facts : Conjunction,
    * All constants that occur in formulas in this goal
    */
   lazy val constants : Set[ConstantTerm] =
-    facts.constants ++ compoundFormulas.constants ++ tasks.taskInfos.constants
+    facts.constants ++ compoundFormulas.constants ++ tasks.taskConstants
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -380,7 +380,7 @@ class Goal private (val facts : Conjunction,
    * (but they might occur in the facts)
    */
   lazy val eliminatedIsolatedConstants : Set[ConstantTerm] =
-    eliminatedConstants --tasks.taskInfos.constants --compoundFormulas.constants
+    eliminatedConstants --tasks.taskConstants --compoundFormulas.constants
  
   //////////////////////////////////////////////////////////////////////////////
 
