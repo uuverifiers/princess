@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -139,7 +139,7 @@ object RegularityBlockedTask {
       val defSyms =
         (for (lc <- allEqs) yield lc.leadingTerm.asInstanceOf[ConstantTerm]).toSet
 
-      if (!Seqs.disjoint(defSyms, goal.tasks.taskInfos.constants) ||
+      if (!Seqs.disjoint(defSyms, goal.tasks.taskConstants) ||
           !Seqs.disjoint(defSyms, goal.compoundFormulas.constants))
         return false
 

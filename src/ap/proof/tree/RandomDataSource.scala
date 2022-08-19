@@ -88,11 +88,14 @@ abstract class RandomDataSource {
   /**
    * Shuffle the given sequence
    */
-  def shuffleSeq[A](seq : Seq[A]) : Seq[A] = {
-    val buf = seq.toBuffer
-    shuffle(buf)
-    buf.toIndexedSeq
-  }
+  def shuffleSeq[A](seq : Seq[A]) : Seq[A] =
+    if (isRandom) {
+      val buf = seq.toBuffer
+      shuffle(buf)
+      buf.toIndexedSeq
+    } else {
+      seq
+    }
 
   /**
    * Shuffle the given sequence, and return the new ordering

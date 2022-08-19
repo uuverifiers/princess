@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -119,7 +119,7 @@ case object OmegaTask extends EagerTask {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // OmegaTask should be the last remaining task to be done
 //    Debug.assertPre(AC, Seqs.disjoint(goal.eliminatedConstants,
-//                                      goal.tasks.taskInfos.constants))
+//                                      goal.tasks.taskConstants))
     Debug.assertPre(AC, goal.tasks.prioritisedTasks forall {
                       case _ : BlockedFormulaTask => true
                       case _ => false

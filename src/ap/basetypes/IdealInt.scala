@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -141,6 +141,42 @@ object IdealInt {
     else
       new IdealInt(Long.MaxValue, i)
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Compute <code>2^exp</code>.
+   */
+  def pow2(exp : Int) : IdealInt =
+    IdealInt(2) pow exp
+
+  /**
+   * Compute <code>2^exp</code>.
+   */
+  def pow2(exp : IdealInt) : IdealInt =
+    IdealInt(2) pow exp.intValueSafe
+
+  /**
+   * Compute <code>2^exp % modulus</code>.
+   */
+  def pow2Mod(exp : IdealInt, modulus : IdealInt) : IdealInt =
+    IdealInt(2).powMod(exp, modulus)
+
+  /**
+   * Compute <code>2^exp - 1</code>.
+   */
+  def pow2MinusOne(exp : Int) : IdealInt =
+    pow2(exp) - IdealInt.ONE
+
+  /**
+   * If <code>n = 2^k</code>, return <code>Some(k)</code>, otherwise
+   * <code>None</code>.
+   */
+  def log2(n : IdealInt) : Option[Int] =
+    if (n.signum > 0 && (n & (n - 1)).isZero)
+      Some(n.getHighestSetBit)
+    else
+      None
+
   //////////////////////////////////////////////////////////////////////////////
     
   /** Implicit conversion from <code>Int</code> to <code>IdealInt</code>. */

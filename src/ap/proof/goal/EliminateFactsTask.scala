@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -140,18 +140,18 @@ private class Eliminator(oriFacts : Conjunction,
   protected def addDivisibility(f : Conjunction) =
     divJudgements = f :: divJudgements
 
-  private val taskInfoConstants = goal.tasks.taskInfos.constants
+  private val taskConstants = goal.tasks.taskConstants
   private val compoundFormulaConstants = goal.compoundFormulas.constants
   
   protected def isEliminationCandidate(t : Term) : Boolean = t match {
-    case c : ConstantTerm => !(taskInfoConstants contains c) &&
+    case c : ConstantTerm => !(taskConstants contains c) &&
                              !(compoundFormulaConstants contains c)
     case _ => false
   }
 
   private val fullElimCandidates =
     goal.order sort (
-      oriFacts.constants -- taskInfoConstants -- compoundFormulaConstants)
+      oriFacts.constants -- taskConstants -- compoundFormulaConstants)
 
   protected def eliminationCandidates(facts : Conjunction) : Iterator[Term] =
     FilterIt(fullElimCandidates.iterator, facts.constants)

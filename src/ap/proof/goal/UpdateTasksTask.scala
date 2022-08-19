@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -191,15 +191,24 @@ case object UpdateTasksTask extends EagerTask {
            criticalPreds : Set[Predicate],
            postProcs : ArrayBuffer[ProofTree => ProofTree],
            ptf : ProofTreeFactory) : TaskManager = {
+    val occurringBooleanVars =
+      tasks.taskSummaryFor(TaskAggregator.BooleanVarCounter)
+    val abbrevCounter =
+      tasks.taskSummaryFor(
+        TaskAggregator.extractAbbrevAggregator(tasks.taskAggregator))
+    val occurringAbbrevs =
+      abbrevCounter._1.keySet
+    val occurringAbbrevDefs =
+      abbrevCounter._2.keySet
+
     val eliminableBooleanVars =
-      (for ((p, n) <- tasks.taskInfos.occurringBooleanVars.iterator;
+      (for ((p, n) <- occurringBooleanVars.iterator;
             if (n == 1 && !(criticalPreds contains p)))
        yield p).toSet
 
     val danglingAbbrevDefs = 
-      tasks.taskInfos.occurringAbbrevDefs filterNot {
-        p => (tasks.taskInfos.occurringAbbrevs contains p) ||
-             (criticalPreds contains p)
+      occurringAbbrevDefs filterNot {
+        p => (occurringAbbrevs contains p) || (criticalPreds contains p)
       }
     
     if (danglingAbbrevDefs.isEmpty && eliminableBooleanVars.isEmpty) {
