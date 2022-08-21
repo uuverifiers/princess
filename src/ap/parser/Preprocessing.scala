@@ -84,11 +84,18 @@ object Preprocessing {
         !needsPreprocessing(fors1a))
       return (fors1a, interpolantSpecs, signature)
 
+    // Inline equivalences
+    val fors1b =
+      if (Param.EQUIV_INLINING(settings))
+        for (f <- fors1a) yield EquivInliner(f)
+      else
+        fors1a
+
     // theory-specific preprocessing
-    val (fors1b, signature2) = {
+    val (fors1c, signature2) = {
       val theories = signature.theories
       var sig = signature
-      val newFors = for (f <- fors1a) yield {
+      val newFors = for (f <- fors1b) yield {
         val (newF, newSig) = Theory.iPreprocess(f, signature.theories, sig)
         sig = newSig
         newF
@@ -96,11 +103,11 @@ object Preprocessing {
       (newFors, sig)
     }
 
-    checkSorts("preproc step 1b", fors1b)
+    checkSorts("preproc step 1c", fors1c)
 
     // partial evaluation, expand equivalences
     val fors2a =
-      for (f <- fors1b)
+      for (f <- fors1c)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
     checkSorts("preproc step 2a", fors2a)

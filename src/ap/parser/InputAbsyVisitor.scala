@@ -901,11 +901,30 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
      })
 
   /**
-   * Check whether given expression is in Presburger arithmetic.
+   * Check whether the given expression is in Presburger arithmetic.
    */
   def isPresburger(t : IExpression) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case _ : IFunApp | _ : IAtom => true
+       case _ => false
+     })
+
+  /**
+   * Check whether the given expression contains any functions
+   * (instances of <code>IFunApp</code>).
+   */
+  def containsFunctions(t : IExpression) : Boolean =
+    apply(t, (x:IExpression) => x match {
+       case _ : IFunApp => true
+       case _ => false
+     })
+
+  /**
+   * Check whether the given expression contains some predicate.
+   */
+  def containsPredicate(t : IExpression, p : Predicate) : Boolean =
+    apply(t, (x:IExpression) => x match {
+       case IAtom(`p`, _) => true
        case _ => false
      })
 
@@ -1062,6 +1081,14 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
 object ContainsVariable {
   def apply(e : IExpression, index : Int) : Boolean =
     !ContainsSymbol.freeFromVariableIndex(e, Set(index))
+}
+
+/**
+ * Check whether the given expression contains some predicate.
+ */
+object ContainsPredicate {
+  def apply(e : IExpression, p : Predicate) : Boolean =
+    ContainsSymbol.containsPredicate(e, p)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -212,6 +212,15 @@ object Param {
     val defau : Boolean = false
   }
 
+  /**
+   * During pre-processing, inline equivalences of the form
+   * <code>p <-> f</code>, for some Boolean variable p.
+   */
+  case object EQUIV_INLINING extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+
   case object REAL_RAT_SATURATION_ROUNDS extends Param {
     type Value = Int
     val defau : Int = 0
