@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -557,7 +557,10 @@ object IExpression {
    * no functions escape.
    */
   def containFunctionApplications(f : IFormula) : IFormula =
-    all(ITrigger(List(0), VariableShiftVisitor(f, 0, 1)))
+    if (ContainsSymbol containsFunctions f)
+      all(ITrigger(List(0), VariableShiftVisitor(f, 0, 1)))
+    else
+      f
 
   /**
    * Substitute terms for the variables with de Bruijn index

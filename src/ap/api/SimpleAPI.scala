@@ -1489,8 +1489,6 @@ class SimpleAPI private (enableAssert        : Boolean,
     val defLabel = new Predicate(a.name + "_def", 0)
     addRelationHelp(defLabel)
 
-    val depPreds =
-      (SymbolCollector nullaryPredicates f).toSet & abbrevPredicates.keySet
     abbrevPredicates =
       abbrevPredicates + (a -> ((abbrevPredicates.size, defLabel)))
 

@@ -121,6 +121,7 @@ object CmdlMain {
     println("                             positive: do not negate")
     println("                             negative: negate")
     println("                             auto:     choose automatically")
+    println(" [+-]equivInlining         Inline simple equivalences p <-> f       (default: +)")
     println(" -randomSeed=val           Seed for randomisation")
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")

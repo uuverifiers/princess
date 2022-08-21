@@ -119,6 +119,8 @@ object GlobalSettings {
           Param.CLAUSIFIER.set(settings, Param.ClausifierOptions.None)
         case ValueOpt("clausifier", "simple") =>
           Param.CLAUSIFIER.set(settings, Param.ClausifierOptions.Simple)
+        case Opt("equivInlining", value) =>
+          Param.EQUIV_INLINING.set(settings, value)
         case ValueOpt("constructProofs", "never") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.Never)
@@ -241,7 +243,7 @@ object GlobalSettings {
          Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.TIMEOUT_PER,
-         Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
+         Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER, Param.EQUIV_INLINING,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.COMPUTE_UNSAT_CORE,
          Param.COMPUTE_MODEL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
@@ -298,7 +300,7 @@ object ParserSettings {
 
 object PreprocessingSettings {
 
-  val allParams = List(Param.CLAUSIFIER,
+  val allParams = List(Param.CLAUSIFIER, Param.EQUIV_INLINING,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
                        Param.TRIGGER_GENERATION,
                        Param.GENERATE_TOTALITY_AXIOMS)

@@ -110,15 +110,6 @@ class TaskManager private (// the regular tasks that have a priority
                        taskAggregator.removeAdd(taskSummary, List(), elems))
     }
 
-  /*
-  def ++ (elems: Iterator[PrioritisedTask]): TaskManager =
-    if (elems.hasNext) {
-      new TaskManager (prioTasks insertIt elems, eagerTasks)
-    } else {
-      this
-    }
-   */
-
   def enqueue(elems: PrioritisedTask*): TaskManager = this ++ elems
 
   /**
@@ -201,29 +192,9 @@ class TaskManager private (// the regular tasks that have a priority
   }
   
   /**
-   * Compute information about the prioritised tasks (eager tasks are not
+   * Computed information about the prioritised tasks (eager tasks are not
    * considered at this point)
    */
-  /*
-  def taskInfos : TaskInfoCollector = {
-    //println("infos")
-    //println(taskSummary)
-    val coll = prioTasks.collector
-    //println(coll.constants)
-    //println(taskSummaryFor(TaskAggregator.ConstantCounter).keySet)
-    assert(coll.constants == taskSummaryFor(TaskAggregator.ConstantCounter).keySet)
-    //println(coll.containsLazyMatchTask)
-    //println(!taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty)
-    assert(coll.containsLazyMatchTask == !taskSummaryFor(TaskAggregator.LazyMatchTaskCounter).isEmpty)
-    //println(coll.occurringBooleanVars)
-    //println(taskSummaryFor(TaskAggregator.BooleanVarCounter))
-    assert(coll.occurringBooleanVars == taskSummaryFor(TaskAggregator.BooleanVarCounter))
-    assert(coll.occurringAbbrevs == taskSummaryFor(TaskAggregator.extractAbbrevAggregator(taskAggregator))._1.keySet)
-    assert(coll.occurringAbbrevDefs == taskSummaryFor(TaskAggregator.extractAbbrevAggregator(taskAggregator))._2.keySet)
-    coll
-  }
-   */
-
   def taskSummary : taskAggregator.TaskSummary =
     aggregatedSummary.asInstanceOf[taskAggregator.TaskSummary]
 
