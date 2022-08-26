@@ -125,6 +125,8 @@ object CmdlMain {
     println(" -randomSeed=val           Seed for randomisation")
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")
+    println(" -logging=flags            Comma-separated list of log flags       (default: \"\")")
+    println("                             Flags: tasks, splits, backtracking, stats")
     println
     println("Proof/interpolation options")
     println("---------------------------")
@@ -538,10 +540,14 @@ object CmdlMain {
               }
               case _ => // nothing
             }
-            
-            /* println
-            println(ap.util.Timer)
-            ap.util.Timer.reset */
+
+            if (Param.LOG_LEVEL(settings) contains Param.LOG_STATS)
+              Console.withOut(Console.err) {
+                println
+                println("Statistics:")
+                println(ap.util.Timer)
+                ap.util.Timer.reset
+              }
             
             Some(prover.result)
           } catch {

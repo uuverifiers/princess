@@ -396,16 +396,32 @@ class Goal private (val facts : Conjunction,
     // apply the first task to the goal and then stop immediately
     val task = tasks.max
 
-//    println(task)
-    
-//    task match {
-//      case WrappedFormulaTask(t, Seq(simpTask)) => println("" + simpTask + " <- " + t)
-//      case t => println(t)
-//   }
-    
-//    ap.util.Timer.measure((WrappedFormulaTask unwrapReal task).getClass.getName) {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    val logging = Param.LOG_LEVEL(settings)
+    if (logging contains Param.LOG_TASKS) {
+      task match {
+        case WrappedFormulaTask(t, Seq(simpTask)) =>
+          Console.err.println("" + simpTask + " <- " + t)
+        case t =>
+          Console.err.println(t)
+      }
+    }
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    if (logging contains Param.LOG_STATS) {
+      ap.util.Timer.measure(
+        (WrappedFormulaTask unwrapReal task).getClass.getName) {
+          task(this, ptf)
+        }
+    } else {
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
       task(this, ptf)
-//    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    }
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
   }
 
   /**

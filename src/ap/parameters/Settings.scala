@@ -63,6 +63,9 @@ object GlobalSettings {
           Param.FULL_HELP.set(settings, value)
         case Opt("quiet", value) =>
           Param.QUIET.set(settings, value)
+        case ValueOpt("logging", opts) =>
+          Param.LOG_LEVEL.set(settings,
+            ((opts split ",") map (logFlagFromString _)).toSet)
         case ValueOpt("inputFormat", "auto") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.Auto)
         case ValueOpt("inputFormat", "pri") =>
@@ -232,10 +235,18 @@ object GlobalSettings {
     
     (settings, inputs)
   }
-  
+
+  def logFlagFromString(str : String) : Param.LOG_FLAG = str match {
+    case "tasks"        => Param.LOG_TASKS
+    case "splits"       => Param.LOG_SPLITS
+    case "backtracking" => Param.LOG_BACKTRACKING
+    case "stats"        => Param.LOG_STATS
+    case str            => throw new UnknownArgumentException(str)
+  }
+
   val allParams =
     List(Param.VERSION, Param.LOGO, Param.FULL_HELP,
-         Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
+         Param.QUIET, Param.LOG_LEVEL, Param.INPUT_FORMAT, Param.STDIN,
          Param.INCREMENTAL, Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE, Param.PRINT_CERTIFICATE,
@@ -277,7 +288,7 @@ object GoalSettings {
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
                        Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS,
-                       Param.MODEL_GENERATION)
+                       Param.MODEL_GENERATION, Param.LOG_LEVEL)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -291,7 +302,8 @@ object ParserSettings {
                        Param.MAKE_QUERIES_PARTIAL,
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS,
-                       Param.STRING_THEORY_DESC, Param.STRING_ESCAPES)
+                       Param.STRING_THEORY_DESC, Param.STRING_ESCAPES,
+                       Param.LOG_LEVEL)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -303,7 +315,7 @@ object PreprocessingSettings {
   val allParams = List(Param.CLAUSIFIER, Param.EQUIV_INLINING,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
                        Param.TRIGGER_GENERATION,
-                       Param.GENERATE_TOTALITY_AXIOMS)
+                       Param.GENERATE_TOTALITY_AXIOMS, Param.LOG_LEVEL)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -312,7 +324,8 @@ object PreprocessingSettings {
 
 object ReducerSettings {
 
-  val allParams = List(Param.FUNCTIONAL_PREDICATES, Param.REDUCER_PLUGIN)
+  val allParams = List(Param.FUNCTIONAL_PREDICATES, Param.REDUCER_PLUGIN,
+                       Param.LOG_LEVEL)
 
   val DEFAULT =
     new ReducerSettings (scala.collection.immutable.HashMap[Param, Any]())
