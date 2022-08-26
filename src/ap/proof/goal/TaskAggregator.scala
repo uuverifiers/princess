@@ -37,6 +37,7 @@ import ap.basetypes.HeapCollector
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
+import ap.proof.theoryPlugins.{TheoryProcedure, PrioritisedPluginTask}
 
 object TaskAggregator {
 
@@ -52,7 +53,8 @@ object TaskAggregator {
    * <code>FormulaTask</code> instances.
    */
   val BooleanVarCounter =
-    CountingTaskAggregator.formulaCounter(_.predicates.iterator filter (_.arity == 0))
+    CountingTaskAggregator.formulaCounter(
+      _.predicates.iterator filter (_.arity == 0))
 
   /**
    * Aggregator counting instances of the <code>LazyMatchTask</code>
@@ -64,6 +66,18 @@ object TaskAggregator {
         task match {
           case _ : LazyMatchTask => Iterator(())
           case _                 => Iterator.empty
+        }
+    }
+
+  /**
+   * Aggregator counting scheduled TheoryProcedure instances.
+   */
+  val ScheduledTheoryProcedureCounter =
+    new CountingTaskAggregator[TheoryProcedure] {
+      def count(task : Task) : Iterator[TheoryProcedure] =
+        task match {
+          case task : PrioritisedPluginTask => Iterator(task.plugin)
+          case _                            => Iterator.empty
         }
     }
 
@@ -122,7 +136,8 @@ object TaskAggregator {
     new VectorTaskAggregator(Vector(ConstantCounter,
                                     LazyMatchTaskCounter,
                                     BooleanVarCounter,
-                                    abbrevCounter(abbrevLabels)))
+                                    abbrevCounter(abbrevLabels),
+                                    ScheduledTheoryProcedureCounter))
 
   def extractAbbrevAggregator(standardAggs : VectorTaskAggregator) =
     standardAggs.aggregators(3)

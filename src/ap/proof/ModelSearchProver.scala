@@ -436,7 +436,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
 
           // we might have to backtrack, if we are in an inconsistent state
           if (goal.facts.isFalse) {
-            //   println("backtracking " + depth)
+            if (Param.LOG_LEVEL(settings) contains Param.LOG_BACKTRACKING)
+              Console.err.println("Backtracking from level " + depth)
+
             if (Param.PROOF_CONSTRUCTION(settings)) {
               val cert = goal.getCertificate
               //-BEGIN-ASSERTION-/////////////////////////////////////////////
@@ -553,6 +555,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       }
 
       case tree@AndTree(left, right, partialCert) if (partialCert != null) => {
+        if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
+          Console.err.println("Splitting on level " + depth)
+
         var nonCertResult : FindModelResult = null
 
         val subCertBuilder = new PartialCertificate.CertBuilder {
@@ -600,7 +605,10 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
         }
       }
      
-      case tree@AndTree(left, right, _) =>
+      case tree@AndTree(left, right, _) => {
+        if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
+          Console.err.println("Splitting on level " + depth)
+
         findModel(left, extraFormulae, witnesses, constsToIgnore, depth + 1,
                   settings, searchDirector, null, 0) match {
           case UnsatResult =>
@@ -619,6 +627,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             throw new IllegalArgumentException("proof certificate missing")
           case lr => lr
         }
+      }
     }
   }
 

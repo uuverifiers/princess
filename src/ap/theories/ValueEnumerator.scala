@@ -40,7 +40,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.inequalities.InEqConj
-import ap.proof.goal.Goal
+import ap.proof.goal.{Goal, TaskAggregator}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.tree.NonRandomDataSource
 import ap.parser.{IFunction, ITerm, IFormula, IAtom}
@@ -95,11 +95,8 @@ class IntValueEnumTheory(name               : String,
   // magnitudeBoundPred(n, t) expresses that |t| >= 2^n - 1
   val magnitudeBoundPred       = new Predicate(name + "_mag_bigger_than", 2)
 
-  val splitterAdded            = new Predicate(name + "_splitter_added", 0)
-
   val functions                = List()
-  val predicates               = List(enumPred, magnitudeBoundPred,
-                                      splitterAdded)
+  val predicates               = List(enumPred, magnitudeBoundPred)
   val axioms                   = Conjunction.TRUE
   val totalityAxioms           = Conjunction.TRUE
   val functionPredicateMapping = List()
@@ -211,7 +208,7 @@ class IntValueEnumTheory(name               : String,
       val enumLits  = facts.predConj.positiveLitsWithPred(enumPred)
 
       if (enumLits.isEmpty) {
-        List(Plugin.RemoveFacts(conj(splitterAdded(List()))))
+        List()
       } else {
         val rand      = Param.RANDOM_DATA_SOURCE(goal.settings)
         val reducer   = goal.reduceWithFacts
@@ -264,13 +261,12 @@ class IntValueEnumTheory(name               : String,
           import TerForConvenience._
 
           val splitterActions =
-            if (facts.predicates contains splitterAdded) {
+            if (goal.tasks.taskSummaryFor(
+                  TaskAggregator.ScheduledTheoryProcedureCounter).contains(
+                    Splitter)) {
               List()
             } else {
-              List(scheduleSplitter,
-                   Plugin.AddAxiom(List(),
-                                   splitterAdded(List()),
-                                   IntValueEnumTheory.this))
+              List(scheduleSplitter)
             }
 
           val enumActions =

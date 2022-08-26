@@ -247,7 +247,28 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
      val res = new VectorBuilder[Plugin.Action]
      var cont = true
      while (cont && it.hasNext) {
-       val newActions = it.next handleGoal goal
+       val nextPlugin = it.next
+
+       //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
+       val logging = Param.LOG_LEVEL(goal.settings)
+       if (logging contains Param.LOG_TASKS) {
+         Console.err.println("Plugin: " + nextPlugin.getClass.getName)
+       }
+       //-END-ASSERTION-////////////////////////////////////////////////////////
+
+       val newActions =
+         //-BEGIN-ASSERTION-////////////////////////////////////////////////////
+         if (logging contains Param.LOG_STATS) {
+           ap.util.Timer.measure(nextPlugin.getClass.getName) {
+             nextPlugin handleGoal goal
+           }
+         } else {
+         //-END-ASSERTION-//////////////////////////////////////////////////////
+           nextPlugin handleGoal goal
+         //-BEGIN-ASSERTION-////////////////////////////////////////////////////
+         }
+         //-END-ASSERTION-//////////////////////////////////////////////////////
+
        res ++= newActions
        cont = !splittingActions(newActions)
      }
@@ -396,7 +417,7 @@ object PluginTask {
  * Task integrating a <code>Plugin</code> (or <code>TheoryProcedure</code>)
  * into a prover
  */
-abstract class PluginTask(plugin : TheoryProcedure) extends Task {
+abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
   import Plugin._
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {

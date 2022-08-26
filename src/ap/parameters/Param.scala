@@ -56,6 +56,20 @@ object Param {
     val defau : Boolean = false
   }
 
+  /**
+   * Enable logging to stderr for specific aspects of the system.
+   */
+  case object LOG_LEVEL extends Param {
+    type Value = Set[LOG_FLAG]
+    val defau : Set[LOG_FLAG] = Set()
+  }
+
+  abstract class LOG_FLAG
+  case object LOG_TASKS        extends LOG_FLAG
+  case object LOG_SPLITS       extends LOG_FLAG
+  case object LOG_BACKTRACKING extends LOG_FLAG
+  case object LOG_STATS        extends LOG_FLAG
+
   case object QUIET extends Param {
     type Value = Boolean
     val defau : Boolean = false
