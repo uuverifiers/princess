@@ -45,7 +45,7 @@ import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction,
-                  LineariseVisitor}
+                  LineariseVisitor, TPTPTParser}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -278,10 +278,14 @@ object CmdlMain {
     if (Param.COMPUTE_UNSAT_CORE(settings)) {
       Console.err.println
       Console.err.println("Unsatisfiable core:")
-      val usedNames = prover getAssumedFormulaParts cert
+      val usedNames = (prover getAssumedFormulaParts cert) - PartName.NO_NAME
+      val nameStrings = usedNames map {
+        case TPTPTParser.ConjecturePartName(n) => n
+        case pn                                => pn.toString
+      }
+
       println("{" +
-              (((usedNames - PartName.NO_NAME)
-                   map (_.toString)).toArray.sorted mkString ", ") +
+                (nameStrings.toArray.sorted mkString ", ") +
               "}")
     }
 
@@ -433,7 +437,7 @@ object CmdlMain {
 
               def prelPrinter(p : Prover) : Unit = {
                 Console.err.println
-                printResult(p, baseSettings)
+                printResult(p, baseSettings, name)
                 Console.err.println
               }
               
@@ -523,8 +527,8 @@ object CmdlMain {
               println
             }
 
-            printResult(prover, settings)
-            
+            printResult(prover, settings, name)
+
             val timeAfter = System.currentTimeMillis
             
             Console.withOut(Console.err) {
@@ -633,278 +637,325 @@ object CmdlMain {
   //////////////////////////////////////////////////////////////////////////////
   
   def printResult(prover : Prover,
-                  settings : GlobalSettings)
+                  settings : GlobalSettings,
+                  name : String)
                  (implicit format : Param.InputFormat.Value) = format match {
     case Param.InputFormat.SMTLIB => prover.result match {
-              case Prover.Proof(tree, _) => {
-                println("unsat")
-                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.ProofWithModel(tree, _, model) => {
-                println("unsat")
-                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.NoProof(_) =>  {
-                println("unknown")
-              }
-              case Prover.Invalid(_) =>  {
-                println("sat")
-              }
-              case Prover.CounterModel(optModel) =>  {
-                println("sat")
-                for (model <- optModel)
-                  printModel(model)
-              }
-              case Prover.MaybeCounterModel(optModel) =>  {
-                println("unknown")
-                for (model <- optModel)
-                  printModel(model)
-              }
-              case Prover.NoCounterModel =>  {
-                println("unsat")
-              }
-              case Prover.NoCounterModelCert(cert) =>  {
-                println("unsat")
-                printCertificate(cert, settings, prover)
-              }
-              case Prover.NoCounterModelCertInter(cert, inters) => {
-                println("unsat")
-                printCertificate(cert, settings, prover)
-                println("(")
-                for (i <- inters) {
-                  print("  ")
-                  printFormula(i)
-                }
-                println(")")
-              }
-              case Prover.Model(_) =>  {
-                println("unsat")
-              }
-              case Prover.AllModels(_, _) =>  {
-                println("unsat")
-              }
-              case Prover.NoModel =>  {
-                println("sat")
-              }
-              case Prover.TimeoutProof(tree) =>  {
-                println("unknown")
-                Console.err.println("Cancelled or timeout")
-                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.TimeoutResult() =>  {
-                println("unknown")
-                Console.err.println("Cancelled or timeout")
-              }
+
+      case Prover.Proof(tree, _) => {
+        println("unsat")
+        maybePrintTree(tree, settings, true)
+      }
+      case Prover.ProofWithModel(tree, _, model) => {
+        println("unsat")
+        maybePrintTree(tree, settings, true)
+      }
+      case Prover.NoProof(_) =>  {
+        println("unknown")
+      }
+      case Prover.Invalid(_) =>  {
+        println("sat")
+      }
+      case Prover.CounterModel(optModel) =>  {
+        println("sat")
+        for (model <- optModel)
+          printModel(model)
+      }
+      case Prover.MaybeCounterModel(optModel) =>  {
+        println("unknown")
+        for (model <- optModel)
+          printModel(model)
+      }
+      case Prover.NoCounterModel =>  {
+        println("unsat")
+      }
+      case Prover.NoCounterModelCert(cert) =>  {
+        println("unsat")
+        printCertificate(cert, settings, prover)
+      }
+      case Prover.NoCounterModelCertInter(cert, inters) => {
+        println("unsat")
+        printCertificate(cert, settings, prover)
+        println("(")
+        for (i <- inters) {
+          print("  ")
+          printFormula(i)
+        }
+        println(")")
+      }
+      case Prover.Model(_) =>  {
+        println("unsat")
+      }
+      case Prover.AllModels(_, _) =>  {
+        println("unsat")
+      }
+      case Prover.NoModel =>  {
+        println("sat")
+      }
+      case Prover.TimeoutProof(tree) =>  {
+        println("unknown")
+        Console.err.println("Cancelled or timeout")
+        maybePrintTree(tree, settings, true)
+      }
+      case Prover.TimeoutResult() =>  {
+        println("unknown")
+        Console.err.println("Cancelled or timeout")
+      }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+      
+    case Param.InputFormat.TPTP => prover.result match {
+
+      case Prover.Proof(tree, constraint) => {
+        printTPTPResult(true, prover, name)
+        maybePrintTree(tree, settings, true)
+      }
+
+      case Prover.ProofWithModel(tree, constraint, model) => {
+        printTPTPResult(true, prover, name)
+        maybePrintTree(tree, settings, true)
+      }
+
+      case Prover.NoProof(tree) => {
+        println("% SZS status GaveUp for " + name)
+      }
+
+      case Prover.Invalid(tree) => {
+        printTPTPResult(false, prover, name)
+      }
+
+      case Prover.CounterModel(optModel) =>  {
+        printTPTPResult(false, prover, name)
+        maybePrintModel(optModel, "Countermodel", true)
+      }
+
+      case Prover.MaybeCounterModel(optModel) =>  {
+        println("% SZS status GaveUp for " + name)
+        maybePrintModel(optModel, "Possible countermodel", true)
+      }
+
+      case Prover.NoCounterModel =>  {
+        printTPTPResult(true, prover, name)
+      }
+
+      case Prover.NoCounterModelCert(cert) =>  {
+        printTPTPResult(true, prover, name)
+        printCertificate(cert, settings, prover)
+      }
+
+      case Prover.NoCounterModelCertInter(cert, inters) => {
+        printTPTPResult(true, prover, name)
+        Console.withOut(Console.err) {
+          println
+          println("Interpolants:")
+          for (i <- inters) printFormula(i)
+        }
+        printCertificate(cert, settings, prover)
+      }
+
+      case Prover.Model(optModel) =>  {
+        printTPTPResult(true, prover, name)
+        maybePrintModel(optModel, "Under the assignment", true)
+      }
+
+      case Prover.AllModels(constraint, optModel) =>  {
+        printTPTPResult(true, prover, name)
+        maybePrintModel(optModel, "Concrete witness", true)
+      }
+
+      case Prover.NoModel =>  {
+        printTPTPResult(false, prover, name)
+      }
+
+      case Prover.TimeoutProof(tree) =>  {
+        println("% SZS status Timeout for " + name)
+      }
+
+      case Prover.TimeoutResult() =>  {
+        println("% SZS status Timeout for " + name)
+      }
     }
       
+    ////////////////////////////////////////////////////////////////////////////
+
     case _ => prover.result match {
-              case Prover.Proof(tree, constraint) => {
-                println("VALID")
-                if (!constraint.isTrue ||
-                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Under the " +
-                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                             "most-general "
-                           else
-                             "") + "constraint:")
-                  printFormula(constraint)
-                }
-//                Console.err.println("Number of existential constants: " +
-//                                    existentialConstantNum(tree))
-                if (Param.PRINT_TREE(settings)) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.ProofWithModel(tree, constraint, model) => {
-                println("VALID")
-                if (!constraint.isTrue ||
-                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Under the " +
-                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                             "most-general "
-                           else
-                             "") + "constraint:")
-                  printFormula(constraint)
-                }
-//                Console.err.println("Number of existential constants: " +
-//                                    existentialConstantNum(tree))
-                model match {
-                  case _ if (
-                          LineariseVisitor(constraint, IBinJunctor.And) forall {
-                            case IExpression.Eq(_, _) => true
-                            case _ => false
-                          }) => // nothing
-                  case _ => {
-                    println
-                    println("Concrete witness:")
-                    printModel(model)
-                  }
-                }
-                if (Param.PRINT_TREE(settings)) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.NoProof(tree) => {
-                println("UNKNOWN")
-//                Console.err.println("Number of existential constants: " +
-//                                    existentialConstantNum(tree))
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("false")
-                }
-              }
-              case Prover.Invalid(tree) => {
-                println("INVALID")
-//                Console.err.println("Number of existential constants: " +
-//                                    existentialConstantNum(tree))
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("false")
-                }
-              }
-              case Prover.CounterModel(optModel) =>  {
-                println("INVALID")
-                optModel match {
-                  case None => // nothing
-                  case Some(model) => {
-                    println
-                    println("Countermodel:")
-                    printModel(model)
-                  }
-                }
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("false")
-                }
-              }
-              case Prover.MaybeCounterModel(optModel) =>  {
-                println("UNKNOWN")
-                optModel match {
-                  case None => // nothing
-                  case Some(model) => {
-                    println
-                    println("Possible countermodel:")
-                    printModel(model)
-                  }
-                }
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("false")
-                }
-              }
-              case Prover.NoCounterModel =>  {
-                println("VALID")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
-              }
-              case Prover.NoCounterModelCert(cert) =>  {
-                println("VALID")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
 
-                printCertificate(cert, settings, prover)
-              }
-              case Prover.NoCounterModelCertInter(cert, inters) => {
-                println("VALID")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
+      case Prover.Proof(tree, constraint) => {
+        println("VALID")
+        maybePrintConstraint(constraint, settings)
+        maybePrintTree(tree, settings)
+      }
 
-                println
-                println("Interpolants:")
-                for (i <- inters) printFormula(i)
+      case Prover.ProofWithModel(tree, constraint, model) => {
+        println("VALID")
+        maybePrintConstraint(constraint, settings)
+        model match {
+          case _ if (
+            LineariseVisitor(constraint, IBinJunctor.And) forall {
+              case IExpression.Eq(_, _) => true
+              case _ => false
+            }) => // nothing
+          case _ => {
+            println
+            println("Concrete witness:")
+            printModel(model)
+          }
+        }
+        maybePrintTree(tree, settings)
+      }
 
-                printCertificate(cert, settings, prover)
-              }
-              case Prover.Model(optModel) =>  {
-                println("VALID")
-                for (model <- optModel) {
-                  println
-                  println("Under the assignment:")
-                  printModel(model)
-                }
-              }
-              case Prover.AllModels(constraint, optModel) =>  {
-                println("VALID")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Equivalent constraint:")
-                  printFormula(constraint)
-                }
-                for (model <- optModel) {
-                  println
-                  println("Concrete witness:")
-                  printModel(model)
-                }
-              }
-              case Prover.NoModel =>  {
-                println("INVALID")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Equivalent constraint:")
-                  println("false")
-                }
-              }
-              case Prover.TimeoutProof(tree) =>  {
-                println("CANCELLED/TIMEOUT")
-//                Console.err.println("Number of existential constants: " +
-//                                    existentialConstantNum(tree))
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Current constraint:")
-                  Timeout.withTimeoutMillis(1000) {
-                    printFormula(tree.closingConstraint)
-                  }{
-                    println("(timeout)")
-                  }
-                }
-                if (Param.PRINT_TREE(settings)) {
-                  println
-                  println("Proof tree:")
-                  println(tree)
-                }
-              }
-              case Prover.TimeoutResult() =>  {
-                println("CANCELLED/TIMEOUT")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Current constraint:")
-                  println("false")
-                }
-              }
+      case Prover.NoProof(tree) => {
+        println("UNKNOWN")
+        maybePrintFixedConstraint(false, "Most-general constraint", settings)
+      }
+
+      case Prover.Invalid(tree) => {
+        println("INVALID")
+        maybePrintFixedConstraint(false, "Most-general constraint", settings)
+      }
+
+      case Prover.CounterModel(optModel) =>  {
+        println("INVALID")
+        maybePrintModel(optModel, "Countermodel")
+        maybePrintFixedConstraint(false, "Most-general constraint", settings)
+      }
+
+      case Prover.MaybeCounterModel(optModel) =>  {
+        println("UNKNOWN")
+        maybePrintModel(optModel, "Possible countermodel")
+        maybePrintFixedConstraint(false, "Most-general constraint", settings)
+      }
+
+      case Prover.NoCounterModel =>  {
+        println("VALID")
+        maybePrintFixedConstraint(true, "Most-general constraint", settings)
+      }
+
+      case Prover.NoCounterModelCert(cert) =>  {
+        println("VALID")
+        maybePrintFixedConstraint(true, "Most-general constraint", settings)
+        printCertificate(cert, settings, prover)
+      }
+
+      case Prover.NoCounterModelCertInter(cert, inters) => {
+        println("VALID")
+        maybePrintFixedConstraint(true, "Most-general constraint", settings)
+
+        println
+        println("Interpolants:")
+        for (i <- inters) printFormula(i)
+
+        printCertificate(cert, settings, prover)
+      }
+
+      case Prover.Model(optModel) =>  {
+        println("VALID")
+        maybePrintModel(optModel, "Under the assignment")
+      }
+
+      case Prover.AllModels(constraint, optModel) =>  {
+        println("VALID")
+        if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+          println
+          println("Equivalent constraint:")
+          printFormula(constraint)
+        }
+        maybePrintModel(optModel, "Concrete witness")
+      }
+
+      case Prover.NoModel =>  {
+        println("INVALID")
+        maybePrintFixedConstraint(false, "Equivalent constraint", settings)
+      }
+
+      case Prover.TimeoutProof(tree) =>  {
+        println("CANCELLED/TIMEOUT")
+
+        if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+          println
+          println("Current constraint:")
+          Timeout.withTimeoutMillis(1000) {
+            printFormula(tree.closingConstraint)
+          }{
+            println("(timeout)")
+          }
+        }
+
+        maybePrintTree(tree, settings)
+      }
+
+      case Prover.TimeoutResult() =>  {
+        println("CANCELLED/TIMEOUT")
+        maybePrintFixedConstraint(false, "Current constraint", settings)
+      }
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def containsTPTPConjecture(p : Prover) : Boolean =
+    p.getInputFormulaParts exists {
+      case (p, _) => p.toString endsWith TPTPTParser.CONJECTURE_SUFFIX
+    }
+
+  private def printTPTPResult(positive : Boolean,
+                              prover   : Prover,
+                              name     : String) : Unit = {
+    val status = (positive, containsTPTPConjecture(prover)) match {
+      case (true,  true ) => "Theorem"
+      case (true,  false) => "Unsatisfiable"
+      case (false, true ) => "CounterSatisfiable"
+      case (false, false) => "Satisfiable"
+    }
+        
+    println("% SZS status " + status + " for " + name)
+  }
+
+  private def maybePrintTree(tree     : ProofTree,
+                             settings : GlobalSettings,
+                             stderr   : Boolean = false) =
+    if (Param.PRINT_TREE(settings))
+      Console.withOut(if (stderr) Console.err else Console.out) {
+        println
+        println("Proof tree:")
+        println(tree)
+      }
   
+  private def maybePrintConstraint(constraint : IFormula,
+                                   settings : GlobalSettings)
+                                  (implicit format : Param.InputFormat.Value) =
+    if (!constraint.isTrue ||
+          Param.MOST_GENERAL_CONSTRAINT(settings)) {
+      println
+      println("Under the " +
+                (if (Param.MOST_GENERAL_CONSTRAINT(settings))
+                   "most-general "
+                 else
+                   "") + "constraint:")
+      printFormula(constraint)
+    }
+
+  private def maybePrintFixedConstraint(value    : Boolean,
+                                        name     : String,
+                                        settings : GlobalSettings) =
+    if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+      println
+      println(name + ":")
+      println(value)
+    }
+
+  private def maybePrintModel(optModel : Option[IFormula],
+                              name     : String,
+                              stderr   : Boolean = false)
+                             (implicit format : Param.InputFormat.Value) =
+    for (model <- optModel)
+      Console.withOut(if (stderr) Console.err else Console.out) {
+        println
+        println(name + ":")
+        printModel(model)
+      }
+
   //////////////////////////////////////////////////////////////////////////////
   
   def main(args: Array[String]) : Unit = doMain(args, false)
