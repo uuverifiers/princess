@@ -361,6 +361,9 @@ abstract class AbstractFileProver(reader : java.io.Reader,
        yield n).toSet
     }
 
+    def getInputFormulaParts : Map[PartName, IFormula] =
+      (for (INamedPart(n, f) <- inputFormulas) yield (n -> f)).toMap
+
     def getFormulaParts : Map[PartName, Conjunction] =
       namedParts
 
@@ -632,6 +635,8 @@ abstract class AbstractFileProver(reader : java.io.Reader,
   def signature : Signature =
     usedTranslation.transSignature
 
+  override def getInputFormulaParts : Map[PartName, IFormula] =
+    usedTranslation.getInputFormulaParts
   override def getFormulaParts : Map[PartName, Conjunction] =
     usedTranslation.getFormulaParts
   override def getAssumedFormulaParts(cert : Certificate) : Set[PartName] =

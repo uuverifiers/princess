@@ -37,7 +37,7 @@ import ap.DialogUtil
 import ap.terfor.preds.Predicate
 import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   Internal2InputAbsy, IFunction, Transform2NNF,
-                  VariableSortInferenceVisitor}
+                  VariableSortInferenceVisitor, TPTPTParser}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.TermOrder
 
@@ -56,16 +56,23 @@ object CertificatePrettyPrinter {
 
     def for2String(f : CertFormula) : String
     def term2String(t : LinearCombination) : String
+    def partName2String(pn : PartName) : String
   }
 
   class PrincessFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends FormulaPrinter(predTranslation) {
+
     def for2String(f : CertFormula) : String = DialogUtil.asString {
       PrincessLineariser printExpression translate(f)
     }
+
     def term2String(t : LinearCombination) : String = DialogUtil.asString {
       PrincessLineariser printExpression translate(t)
     }
+
+    def partName2String(pn : PartName) : String =
+      pn.toString
+
   }
 
   class TPTPFormulaPrinter(predTranslation : Map[Predicate, IFunction])
@@ -75,9 +82,16 @@ object CertificatePrettyPrinter {
     def for2String(f : CertFormula) : String = DialogUtil.asString {
       lin printFormula translate(f)
     }
+
     def term2String(t : LinearCombination) : String = DialogUtil.asString {
       lin printTerm translate(t)
     }
+
+    def partName2String(pn : PartName) : String =
+      pn match {
+        case TPTPTParser.ConjecturePartName(n) => n
+        case pn                                => pn.toString
+      }
   }
 
   class SMTLIBFormulaPrinter(predTranslation : Map[Predicate, IFunction])
@@ -91,6 +105,9 @@ object CertificatePrettyPrinter {
       ap.DialogUtil.asString {
         SMTLineariser applyNoPrettyBitvectors translate(t)
       }
+
+    def partName2String(pn : PartName) : String =
+      pn.toString
   }
 
   private val LINE_WIDTH = 80
@@ -132,7 +149,7 @@ class CertificatePrettyPrinter(
           case PartName.NO_NAME         => "input"
           case PartName.FUNCTION_AXIOMS => "function-axioms"
           case PartName.THEORY_AXIOMS   => "theory-axioms"
-          case _                        => "" + name
+          case _                        => formulaPrinter.partName2String(name)
         }
         introduceFormula(initialFormulas(name), label)
       }
@@ -142,7 +159,9 @@ class CertificatePrettyPrinter(
         println("Further assumptions not needed in the proof:")
         println("--------------------------------------------")
         printlnPrefBreaking("",
-             (unusedNames filterNot PartName.predefNamesSet) mkString ", ")
+                            (unusedNames filterNot PartName.predefNamesSet)
+                              .map(formulaPrinter.partName2String _)
+                              .mkString(", "))
       }
 
       println

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -158,6 +158,9 @@ object Prover {
 trait Prover {
 
   val result : Prover.Result
+
+  def getInputFormulaParts : Map[PartName, IFormula] =
+    throw new UnsupportedOperationException
 
   def getFormulaParts : Map[PartName, Conjunction] =
     throw new UnsupportedOperationException

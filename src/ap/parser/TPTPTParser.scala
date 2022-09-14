@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -117,6 +117,18 @@ object TPTPTParser {
   }
      
   private val singleQuotedQuote = """\\(['\\])""".r
+
+  val CONJECTURE_SUFFIX = " - $conjecture"
+
+  private val ConjecturePartNameRegex = """(.*) - \$conjecture""".r
+
+  object ConjecturePartName {
+    def unapply(pn : PartName) : Option[String] =
+      pn.toString match {
+        case ConjecturePartNameRegex(n) => Some(n)
+        case n                          => None
+      }
+  }
 
 }
 
@@ -679,7 +691,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case name ~ "," ~ role ~ "," ~ f => 
 	role match {
 	  case "conjecture" =>
-            (true, INamedPart(env lookupPartName name, f))
+            (true, INamedPart(env lookupPartName (name + CONJECTURE_SUFFIX), f))
           case _ => // Assume f sits on the premise side
             (false, INamedPart(env lookupPartName name, !f))
 	}
@@ -765,7 +777,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       case name ~ "," ~ role ~ "," ~ f => 
 	  role match {
             case "conjecture" =>
-              (true, INamedPart(env lookupPartName name, f))
+              (true,
+               INamedPart(env lookupPartName (name + CONJECTURE_SUFFIX), f))
             case _ => // Assume f sits on the premise side
               (false, INamedPart(env lookupPartName name, !f))
 	  }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,7 @@ package ap
 import ap.parameters.{GlobalSettings, Param}
 import ap.proof.certificates.Certificate
 import ap.proof.tree.{SeededRandomDataSource, NonRandomDataSource}
-import ap.parser.{PartName, IFunction}
+import ap.parser.{PartName, IFunction, IFormula}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
@@ -774,6 +774,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
   override def getFormulaParts : Map[PartName, Conjunction] =
     successfulProver.get.getFormulaParts
+
+  override def getInputFormulaParts : Map[PartName, IFormula] =
+    successfulProver.get.getInputFormulaParts
 
   override def getAssumedFormulaParts(certificate : Certificate)
                                      : Set[PartName] =
