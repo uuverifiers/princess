@@ -38,7 +38,8 @@ import ap._
 import ap.parameters.{ParserSettings, Param}
 import ap.basetypes.{IdealInt, IdealRat}
 import ap.terfor.{Formula, ConstantTerm}
-import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate,
+                 UninterpretedSortTheory}
 import ap.util.Seqs
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
@@ -68,7 +69,7 @@ object TPTPTParser {
   // cannot call the object iType because if so Scala pattern matching assumes i
   // Type is a *variable*
   private object IType
-          extends Type("$i", Sort.createInfUninterpretedSort("$i"))
+          extends Type("$i", Sort.createUninterpretedSort("$i"))
 
   // Truth values
   private object OType
@@ -200,6 +201,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   for (t <- preDeclaredTypes)
     env.addSort(t.name, t)
+
+  addTheory(IType.toSort
+                 .asInstanceOf[UninterpretedSortTheory.UninterpretedSort]
+                 .theory)
 
   //////////////////////////////////////////////////////////////////////////////
   
