@@ -162,22 +162,32 @@ abstract class AbstractFileProver(reader : java.io.Reader,
         functionEnc addTheory t
   
       val ((inputFormulas, interpolantS, sig), incomp) = Incompleteness.track {
-        Preprocessing(rawFormula, rawInterpolantSpecs,
-                      rawSignature, preprocSettings, functionEnc)
+        Timeout.withChecker(stoppingCond) {
+          val rawFormula2 =
+            if (constructProofs) {
+              rawFormula
+            } else {
+              // we keep part names that identify TPTP conjectures;
+              // otherwise we won't be able to distinguish between
+              // results Theorem/Unsatisfiable/etc. later.
+              val elim =
+                new PredPartNameEliminator(
+                  name => TPTPTParser.ConjecturePartName.unapply(name).isEmpty)
+              elim(rawFormula)
+            }
+          Preprocessing(rawFormula2, rawInterpolantSpecs,
+                        rawSignature, preprocSettings, functionEnc)
+        }
       }
 
       if (incomp)
         incompletePreproc = true
       
       val sig2 =
-        if (sig.isSorted) {
-  //        Console.withOut(Console.err) {
-  //          println("Warning: adding theory of types")
-  //        }
+        if (sig.isSorted)
           sig.addTheories(List(ap.types.TypeTheory), true)
-        } else {
+        else
           sig
-        }
   
       val gcedFunctions = Param.FUNCTION_GC(settings) match {
         case Param.FunctionGCOptions.None =>
@@ -593,8 +603,15 @@ abstract class AbstractFileProver(reader : java.io.Reader,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def catchTranslationTimeout(comp : => Translation) : Translation =
+    Timeout.catchTimeout[Translation] {
+      comp
+    } {
+      case _ => null
+    }
+
   protected lazy val posTranslation =
-    new Translation(rawInputFormula, settings)
+    catchTranslationTimeout(new Translation(rawInputFormula, settings))
 
   protected lazy val negTranslation = {
     val order =
@@ -619,9 +636,11 @@ abstract class AbstractFileProver(reader : java.io.Reader,
     val quanFor =
       IExpression.quanConsts(Quantifier.ALL, quantifiedConsts, substFor)
 
-    new Translation(!quanFor,
-                    Param.CLAUSIFIER.set(settings,
-                                         Param.ClausifierOptions.ExMaxiscope))
+    catchTranslationTimeout(
+      new Translation(!quanFor,
+                      Param.CLAUSIFIER.set(settings,
+                                           Param.ClausifierOptions.ExMaxiscope))
+    )
   }
 
   protected val usedTranslation : Translation

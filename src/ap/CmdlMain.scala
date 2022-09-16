@@ -108,6 +108,7 @@ object CmdlMain {
   def printExoticOptions = {
     println("Further general options")
     println("-----------------------")
+    println(" -timeoutSec=val           Set a timeout in seconds             (default: infty)")
     println(" [+-]printTree             Output the internal constraint tree     (default: -)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
