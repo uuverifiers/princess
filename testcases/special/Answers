@@ -91,7 +91,7 @@ Constructing countermodel ...
 % SZS status GaveUp for GEO212+3-complete.p
 
 Possible countermodel:
-not_orthogonal_lines($i!10, $i!12) & orthogonal_lines($i!6, $i!8) & convergent_lines($i!2, $i!4) & !not_orthogonal_lines($i!12, $i!14) & !unorthogonal_lines($i!6, $i!8) & !convergent_lines($i!10, $i!14)
+not_orthogonal_lines($i!10, $i!12) & orthogonal_lines($i!6, $i!8) & !not_orthogonal_lines($i!12, $i!14) & !convergent_lines($i!10, $i!14)
 
 Loading diamonds.16.3.i.a.u.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
