@@ -162,8 +162,10 @@ abstract class AbstractFileProver(reader : java.io.Reader,
         functionEnc addTheory t
   
       val ((inputFormulas, interpolantS, sig), incomp) = Incompleteness.track {
-        Preprocessing(rawFormula, rawInterpolantSpecs,
-                      rawSignature, preprocSettings, functionEnc)
+        Timeout.withChecker(stoppingCond) {
+          Preprocessing(rawFormula, rawInterpolantSpecs,
+                        rawSignature, preprocSettings, functionEnc)
+        }
       }
 
       if (incomp)
@@ -592,8 +594,15 @@ abstract class AbstractFileProver(reader : java.io.Reader,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def catchTranslationTimeout(comp : => Translation) : Translation =
+    Timeout.catchTimeout[Translation] {
+      comp
+    } {
+      case _ => null
+    }
+
   protected lazy val posTranslation =
-    new Translation(rawInputFormula, settings)
+    catchTranslationTimeout(new Translation(rawInputFormula, settings))
 
   protected lazy val negTranslation = {
     val order =
@@ -618,9 +627,11 @@ abstract class AbstractFileProver(reader : java.io.Reader,
     val quanFor =
       IExpression.quanConsts(Quantifier.ALL, quantifiedConsts, substFor)
 
-    new Translation(!quanFor,
-                    Param.CLAUSIFIER.set(settings,
-                                         Param.ClausifierOptions.ExMaxiscope))
+    catchTranslationTimeout(
+      new Translation(!quanFor,
+                      Param.CLAUSIFIER.set(settings,
+                                           Param.ClausifierOptions.ExMaxiscope))
+    )
   }
 
   protected val usedTranslation : Translation

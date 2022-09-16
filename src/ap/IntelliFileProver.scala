@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -162,8 +162,9 @@ class IntelliFileProver(reader : java.io.Reader,
     }
 
   // currently, only the ModelSearchProver can construct proofs
-  if (Param.PROOF_CONSTRUCTION(usedTranslation.goalSettings) &&
-      !usedTranslation.canUseModelSearchProver)
+  if (usedTranslation != null &&
+        Param.PROOF_CONSTRUCTION(usedTranslation.goalSettings) &&
+        !usedTranslation.canUseModelSearchProver)
     throw new Exception (
       "Currently no proofs can be constructed for the given" +
       " problem,\nsince it contains existential constants or" +
@@ -344,7 +345,9 @@ class IntelliFileProver(reader : java.io.Reader,
   //////////////////////////////////////////////////////////////////////////////
 
   val result : Prover.Result = {
-    if (usingNegatedFormula) {
+    if (usedTranslation == null) {
+      TimeoutProof(null)
+    } else if (usingNegatedFormula) {
       if (onlyExistentialConstsVars)
         // try to find a model
         modelResult

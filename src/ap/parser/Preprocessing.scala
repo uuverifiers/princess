@@ -170,8 +170,10 @@ object Preprocessing {
     val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None | Param.ClausifierOptions.ExMaxiscope =>
         fors5
-      case Param.ClausifierOptions.Simple =>
-        for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
+      case Param.ClausifierOptions.Simple => {
+        val clausifier = new SimpleClausifier
+        for (f <- fors5) yield clausifier(f).asInstanceOf[INamedPart]
+      }
     }
 
     checkSorts("preproc final", fors6)
