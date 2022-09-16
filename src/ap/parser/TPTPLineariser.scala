@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -437,13 +437,13 @@ class TPTPLineariser(benchmarkName : String) {
                 ctxt
             })
         }
-        case IQuantified(quan, _) => {
+        case ISortedQuantified(quan, sort, _) => {
           val varName = "v" + ctxt.vars.size
           print(quan match {
             case Quantifier.ALL => " !"
             case Quantifier.EX => " ?"
           })
-          print(" [" + varName + ": $int] : ")
+          print(" [" + varName + ": " + sort + "] : ")
           noParentOp(ctxt pushVar varName)
         }
         case INamedPart(_, f) => {
