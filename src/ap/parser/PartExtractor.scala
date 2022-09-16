@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -149,13 +149,21 @@ class PartExtractor private (errorForIllegalNames : Boolean)
  * Visitor that eliminates all occurrences of the <code>INamedPart</code>
  * operator from a formula.
  */
-object PartNameEliminator extends CollectingVisitor[Unit, IExpression] {
+object PartNameEliminator extends PredPartNameEliminator(_ => true)
+
+/**
+ * Visitor that eliminates occurrences of the <code>INamedPart</code>
+ * operator from a formula. All parts with a name accepted by
+ * <code>toElim</code> will be stripped of their name.
+ */
+class PredPartNameEliminator(toElim : PartName => Boolean)
+      extends CollectingVisitor[Unit, IExpression] {
 
   def apply(f : IFormula) : IFormula = this.visit(f, ()).asInstanceOf[IFormula]
 
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[IExpression]) : IExpression = t match {
-    case t : INamedPart => subres(0)
+    case INamedPart(name, _) if toElim(name) => subres(0)
     case _ => t update subres
   }
 

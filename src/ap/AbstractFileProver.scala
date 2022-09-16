@@ -163,7 +163,19 @@ abstract class AbstractFileProver(reader : java.io.Reader,
   
       val ((inputFormulas, interpolantS, sig), incomp) = Incompleteness.track {
         Timeout.withChecker(stoppingCond) {
-          Preprocessing(rawFormula, rawInterpolantSpecs,
+          val rawFormula2 =
+            if (constructProofs) {
+              rawFormula
+            } else {
+              // we keep part names that identify TPTP conjectures;
+              // otherwise we won't be able to distinguish between
+              // results Theorem/Unsatisfiable/etc. later.
+              val elim =
+                new PredPartNameEliminator(
+                  name => TPTPTParser.ConjecturePartName.unapply(name).isEmpty)
+              elim(rawFormula)
+            }
+          Preprocessing(rawFormula2, rawInterpolantSpecs,
                         rawSignature, preprocSettings, functionEnc)
         }
       }
@@ -172,14 +184,10 @@ abstract class AbstractFileProver(reader : java.io.Reader,
         incompletePreproc = true
       
       val sig2 =
-        if (sig.isSorted) {
-  //        Console.withOut(Console.err) {
-  //          println("Warning: adding theory of types")
-  //        }
+        if (sig.isSorted)
           sig.addTheories(List(ap.types.TypeTheory), true)
-        } else {
+        else
           sig
-        }
   
       val gcedFunctions = Param.FUNCTION_GC(settings) match {
         case Param.FunctionGCOptions.None =>
