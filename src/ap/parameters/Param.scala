@@ -250,6 +250,11 @@ object Param {
     val defau : PortfolioOptions.Value = PortfolioOptions.None
   }
 
+  case object PORTFOLIO_THREAD_NUM extends Param {
+    type Value = Int
+    val defau : Int = 1
+  }
+
   object NegSolvingOptions extends Enumeration {
     val Auto, Positive, Negative = Value
   }

@@ -118,6 +118,7 @@ object CmdlMain {
     println("                             casc:   Optimised for CASC/TPTP")
     println("                             qf_lia: Optimised for quantifier-free LIA")
     println("                             bv:     Optimised for quantified BV")
+    println(" -threads=num              Number of threads to use for portfolio   (default: 1)")
     println(" -formulaSign=val          Optionally negate input formula       (default: auto)")
     println("                             positive: do not negate")
     println("                             negative: negate")
@@ -457,9 +458,10 @@ object CmdlMain {
                                      baseSettings,
                                      cascStrategies2016,
                                      1,
-                                     3,
+                                     3 max Param.PORTFOLIO_THREAD_NUM(settings),
                                      needProof,
-                                     prelPrinter _)
+                                     prelPrinter _,
+                                     Param.PORTFOLIO_THREAD_NUM(settings))
 
                 case Param.PortfolioOptions.QF_LIA => {
                   val strategies =
@@ -485,7 +487,8 @@ object CmdlMain {
                                      1,
                                      2,
                                      needProof,
-                                     prelPrinter _)
+                                     prelPrinter _,
+                                     Param.PORTFOLIO_THREAD_NUM(settings))
                 }
 
                 case Param.PortfolioOptions.BV => {
@@ -512,7 +515,8 @@ object CmdlMain {
                                      1,
                                      2,
                                      needProof,
-                                     prelPrinter _)
+                                     prelPrinter _,
+                                     Param.PORTFOLIO_THREAD_NUM(settings))
                 }
               }
 

@@ -224,6 +224,8 @@ object GlobalSettings {
           Param.PORTFOLIO.set(settings, Param.PortfolioOptions.QF_LIA)
         case ValueOpt("portfolio", "bv") =>
           Param.PORTFOLIO.set(settings, Param.PortfolioOptions.BV)
+        case ValueOpt("threads", IntVal(num)) =>
+          Param.PORTFOLIO_THREAD_NUM.set(settings, num)
         case ValueOpt("formulaSign", "positive") =>
           Param.NEG_SOLVING.set(settings, Param.NegSolvingOptions.Positive)
         case ValueOpt("formulaSign", "negative") =>
@@ -268,7 +270,8 @@ object GlobalSettings {
          Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
-         Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED)
+         Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED,
+         Param.PORTFOLIO_THREAD_NUM)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
