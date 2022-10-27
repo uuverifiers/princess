@@ -128,6 +128,13 @@ object Debug {
     if (enabledAssertions.value(at, ac)) assert(assertion, message)
   }
 
+  def warnIfNot(at : ASSERTION_TYPE, ac : ASSERTION_CATEGORY,
+                assertion : => Boolean, message : => String) : Unit = {
+    if (enabledAssertions.value(at, ac) &&
+        !assertion)
+      Console.err.println("Warning: " + message)
+  }
+
   def assertTrue(at : ASSERTION_TYPE, ac : ASSERTION_CATEGORY,
                  assertion : => Boolean) : Unit = {
     if (enabledAssertions.value(at, ac)) assert(assertion)
@@ -166,6 +173,16 @@ object Debug {
   def assertPreFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_PRE, ac, withoutAssertions(assertion))
 
+  /** Preconditions of methods, output a warning in case of violations */
+  def warnIfNotPreFast(ac : ASSERTION_CATEGORY,
+                       assertion : => Boolean, message : => String) : Unit =
+    warnIfNot(AT_METHOD_PRE, ac, withoutAssertions(assertion), message)
+
+  /** Preconditions of methods, output a warning in case of violations */
+  def warnIfNotPre(ac : ASSERTION_CATEGORY,
+                   assertion : => Boolean, message : => String) : Unit =
+    warnIfNot(AT_METHOD_PRE, ac, assertion, message)
+
   /** Postconditions of methods */
   def assertPost(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_POST, ac, assertion)
@@ -178,6 +195,16 @@ object Debug {
   /** Postconditions of methods */
   def assertPostFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_POST, ac, withoutAssertions(assertion))
+
+  /** Postconditions of methods, output a warning in case of violations */
+  def warnIfNotPostFast(ac : ASSERTION_CATEGORY,
+                        assertion : => Boolean, message : => String) : Unit =
+    warnIfNot(AT_METHOD_POST, ac, withoutAssertions(assertion), message)
+
+  /** Postconditions of methods, output a warning in case of violations */
+  def warnIfNotPost(ac : ASSERTION_CATEGORY,
+                    assertion : => Boolean, message : => String) : Unit =
+    warnIfNot(AT_METHOD_POST, ac, assertion, message)
 
   /** Method-internal assertions (invariants) */
   def assertInt(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =

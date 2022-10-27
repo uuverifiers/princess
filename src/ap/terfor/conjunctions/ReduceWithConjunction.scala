@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -507,9 +507,11 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
-    Debug.assertPostFast(ReduceWithConjunction.AC,
-               (ReduceWithConjunction.reduceConj(res, this, logger) eq res) &&
-               ((res eq conj) || (res != conj)))
+    Debug.warnIfNotPostFast(
+      ReduceWithConjunction.AC,
+      (ReduceWithConjunction.reduceConj(res, this, logger) eq res) &&
+        ((res eq conj) || (res != conj)),
+      "reduction of formula did not converge: " + conj)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -540,11 +542,13 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
 }*/
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPostFast(ReduceWithConjunction.AC,
-                         ((res eq conj) || (res != conj)) &&
-                         // if the input had been reduced at some previous point,
-                         // it is guaranteed to be fully reduced now
-                         (!(withoutFacts(conj) eq conj) || (apply(res) eq res)))
+    Debug.warnIfNotPostFast(
+      ReduceWithConjunction.AC,
+      ((res eq conj) || (res != conj)) &&
+        // if the input had been reduced at some previous point,
+        // it is guaranteed to be fully reduced now
+        (!(withoutFacts(conj) eq conj) || (apply(res) eq res)),
+      "reduction of formula did not converge: " + conj)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -563,9 +567,11 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
-    Debug.assertPostFast(ReduceWithConjunction.AC,
-                         Logic.forall(for (c <- res.iterator) yield (this(c) eq c)) &&
-                         ((res eq conjs) || (res != conjs)))
+    Debug.warnIfNotPostFast(
+      ReduceWithConjunction.AC,
+      Logic.forall(for (c <- res.iterator) yield (this(c) eq c)) &&
+        ((res eq conjs) || (res != conjs)),
+      "reduction of formula did not converge: " + conjs)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
