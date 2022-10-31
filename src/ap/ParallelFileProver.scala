@@ -43,7 +43,7 @@ import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.concurrent.SyncVar
 import scala.collection.mutable.{PriorityQueue, ArrayBuffer}
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 object ParallelFileProver {
 
@@ -90,7 +90,8 @@ object ParallelFileProver {
             repetitions : Int,
             maxParallelProvers : Int,
             runUntilProof : Boolean,
-            prelResultPrinter : Prover => Unit) : ParallelFileProver =
+            prelResultPrinter : Prover => Unit,
+            threadNum : Int) : ParallelFileProver =
     new ParallelFileProver(createReader,
                            timeout,
                            output,
@@ -98,7 +99,8 @@ object ParallelFileProver {
                            strategies.iterator,
                            maxParallelProvers,
                            runUntilProof,
-                           prelResultPrinter)
+                           prelResultPrinter,
+                           threadNum)
 
   /**
    * Create a parallel prover with the given set of strategies
@@ -113,7 +115,8 @@ object ParallelFileProver {
             repetitions : Int,
             maxParallelProvers : Int,
             runUntilProof : Boolean,
-            prelResultPrinter : Prover => Unit) : ParallelFileProver = {
+            prelResultPrinter : Prover => Unit,
+            threadNum : Int) : ParallelFileProver = {
 
     val randomDataSource = Param.RANDOM_SEED(baseSettings) match {
       case Some(seed) => new SeededRandomDataSource(seed)
@@ -148,7 +151,8 @@ object ParallelFileProver {
                            strategies,
                            maxParallelProvers,
                            runUntilProof,
-                           prelResultPrinter)
+                           prelResultPrinter,
+                           threadNum)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -319,7 +323,7 @@ object ParallelFileProver {
         resume(nextDiff min maxNextPeriod)
       }
 
-      val subProverCommands = new SyncVar[SubProverCommand]
+      val subProverCommands = new LinkedBlockingQueue[SubProverCommand]
       
       def resume(nextPeriod : Long) : Unit = {
         lastStartTime = System.currentTimeMillis
@@ -400,8 +404,9 @@ object ParallelFileProver {
           var startTime : Long = 0
 
           def localStoppingCond : Boolean = actorStopped || {
-            if (subProverCommands.isSet) subProverCommands.take match {
-              case SubProverStop => actorStopped = true
+            subProverCommands.poll(0, TimeUnit.SECONDS) match {
+              case null               => // nothing
+              case SubProverStop      => actorStopped = true
               case SubProverResume(u) => runUntil = u
             }
       
@@ -517,7 +522,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          settings : Iterator[ParallelFileProver.Configuration],
                          maxParallelProvers : Int,
                          runUntilProof : Boolean,
-                         prelResultPrinter : Prover => Unit) extends Prover {
+                         prelResultPrinter : Prover => Unit,
+                         threadNum : Int) extends Prover {
 
   import ParallelFileProver._
   
@@ -650,6 +656,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         false
       }
     
+    def spawnOrResume : Unit = {
+      spawnNewProverIfPossible
+      while (!pendingProvers.isEmpty &&
+               runningProverNum - pendingProvers.size < threadNum)
+        resumeProver
+    }
+
     def addResult(res : Prover.Result,
                   prover : Option[Prover],
                   proverNum : Int) : Boolean =
@@ -689,15 +702,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           manager.stopSubProver
 
     def activateNextProver =
-      if (overallTimeout)
+      if (overallTimeout || completeResult != null)
         stopAllProvers
       else
-        spawnNewProverIfPossible || resumeProver
+        spawnOrResume
 
     ////////////////////////////////////////////////////////////////////////////
     
-    spawnNewProverIfPossible
-//    resumeProver
+    for (_ <- 0 until threadNum)
+      spawnNewProverIfPossible
     
     // the main loop of the controller    
     while (runningProverNum > 0) messageQueue.take match {
@@ -724,6 +737,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case r @ SubProverKilled(num, res) => {
         spawnedProvers(num).recordRuntime
         retireProver(num, r)
+        activateNextProver
       }
       
       case SubProverSuspended(num) => {
@@ -740,12 +754,12 @@ class ParallelFileProver(createReader : () => java.io.Reader,
               pendingProvers += spawnedProvers(num)
               if (exclusiveRun >= 0)
                 updateOffset
-              spawnNewProverIfPossible || resumeProver
+              spawnOrResume
             }
             case SuspensionTimeout => {
               if (exclusiveRun >= 0)
                 updateOffset
-              spawnNewProverIfPossible || resumeProver
+              spawnOrResume
             }
           }
         }
