@@ -1643,7 +1643,21 @@ class SimpleAPI private (enableAssert        : Boolean,
     ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
       toInternalNoAxioms(f, currentOrder))
   }
-  
+
+  /**
+   * Create a reducer with the current settings.
+   */
+  def reduce : ReduceWithConjunction = reduceWithFormula(Conjunction.TRUE)
+
+  /**
+   * Create a reducer with the current settings, reducing with
+   * <code>c</code> as assumptions.
+   */
+  def reduceWithFormula(c : Conjunction) : ReduceWithConjunction = {
+    flushTodo
+    ReduceWithConjunction(c, currentOrder, reducerSettings)
+  }
+
   /**
    * Convert a formula from the internal prover format to input syntax.
    */
