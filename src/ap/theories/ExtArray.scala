@@ -64,6 +64,10 @@ object ExtArray {
   
   private val instances = new MHashMap[(Seq[Sort], Sort), ExtArray]
 
+  /**
+   * Get a unique instance of the array theory with the given index
+   * and element sorts.
+   */
   def apply(indexSorts : Seq[Sort], objSort : Sort) : ExtArray = synchronized {
     instances.getOrElseUpdate((indexSorts, objSort),
                               new ExtArray(indexSorts, objSort))
@@ -266,8 +270,8 @@ object ExtArray {
 /**
  * Theory of extensional arrays.
  */
-class ExtArray private (val indexSorts : Seq[Sort],
-                        val objSort : Sort) extends Theory {
+class ExtArray (val indexSorts : Seq[Sort],
+                val objSort : Sort) extends Theory {
   import ExtArray.{AC, AbstractArray}
 
   private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
