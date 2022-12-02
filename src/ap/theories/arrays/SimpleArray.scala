@@ -31,8 +31,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.arrays
 
+import ap.theories._
 import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._

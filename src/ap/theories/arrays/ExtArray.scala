@@ -31,8 +31,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.arrays
 
+import ap.theories._
 import ap.basetypes.{IdealInt, UnionFind}
 import ap.Signature
 import ap.parser._
@@ -521,11 +522,8 @@ class ExtArray (val indexSorts : Seq[Sort],
                            valueAlmostEverywhere(const(obj)) === obj))
     } else {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, {
-        Console.err.println("Warning: arrays over finite domains are not fully "
-                              + "supported yet")
-        true
-      })
+      Debug.warnIfNotCtor(AC, false,
+                      "arrays over finite domains are not fully supported yet")
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       i(true)
     }
