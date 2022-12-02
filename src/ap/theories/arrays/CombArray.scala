@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,41 +31,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap
+package ap.theories.arrays
+
+import ap.theories._
+import ap.util.Debug
+import ap.types.Sort
+import ap.terfor.conjunctions.Conjunction
+
+object CombArray {
+
+  val AC = Debug.AC_ARRAY
+
+  case class LiftedFun(name       : String,
+                       argsSorts  : Seq[Int],
+                       resSort    : Int,
+                       definition : Conjunction)
+
+}
 
 /**
- * Package object making available some of the objects in sub-packages
+ * A theory of combinatorial arrays.
  */
-package object theories {
+abstract class CombArray(val subTheories : IndexedSeq[ExtArray],
+                         val liftedFuns  : IndexedSeq[CombArray.LiftedFun])
+         extends Theory {
 
-  /**
-   * Non-linear arithmetic, support for general multiplication
-   */
-  val GroebnerMultiplication = ap.theories.nia.GroebnerMultiplication
+  import CombArray.AC
 
-  /**
-   * Bit-vectors and modular arithmetic
-   */
-  val ModuloArithmetic = ap.theories.bitvectors.ModuloArithmetic
+  val indexSorts : Seq[Sort] = subTheories.head.indexSorts
+  val objSorts   : Seq[Sort] = subTheories.map(_.objSort)
 
-  /**
-   * Untyped arrays
-   */
-  val SimpleArray = ap.theories.arrays.SimpleArray
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertInt(AC,
+                  subTheories forall { t => t.indexSorts == indexSorts })
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  /**
-   * Untyped arrays
-   */
-  type SimpleArray = ap.theories.arrays.SimpleArray
-
-  /**
-   * Extensional arrays
-   */
-  val ExtArray = ap.theories.arrays.ExtArray
-
-  /**
-   * Extensional arrays
-   */
-  type ExtArray = ap.theories.arrays.ExtArray
 
 }

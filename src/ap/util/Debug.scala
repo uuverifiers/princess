@@ -226,6 +226,12 @@ object Debug {
                  assertion : => Boolean, message : => String) : Unit =
     assertTrue(AT_OBJECT_CONSTRUCTION, ac, assertion, message)
 
+  /** Assertions about the construction of an object of a class, output
+    * a warning in case of violations */
+  def warnIfNotCtor(ac : ASSERTION_CATEGORY,
+                    assertion : => Boolean, message : => String) : Unit =
+    warnIfNot(AT_OBJECT_CONSTRUCTION, ac, assertion, message)
+
   //////////////////////////////////////////////////////////////////////////////
   // The following functions for generating random numbers should only be used
   // in assertions and testcases
