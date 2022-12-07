@@ -62,10 +62,17 @@ class SetTheory(val elementSort : Sort)
   val arTheory = subTheories.head
   import arTheory.{select, store}
 
+  val sort = arTheory.sort
+
+  /**
+   * TODO: turn this into a proper function.
+   */
   def contains(set : ITerm, el : ITerm) : IFormula = {
     import IExpression._
     eqZero(select(set, el))
   }
+
+  val Seq(union, isect, compl) = combinators
 
   override def toString = "SetTheory[" + elementSort + "]"
 
