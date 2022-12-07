@@ -644,23 +644,23 @@ class ExtArray (val indexSorts : Seq[Sort],
   private val pluginObj = new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-        goalState(goal) match {
-          case Plugin.GoalState.Intermediate =>
-            store2store2Eager(goal)
-          case Plugin.GoalState.Final =>
-            expandExtensionality(goal)  elseDo
-            store2store2Lazy(goal)      elseDo
-            equalityPropagation(goal)
-        }
+      goalState(goal) match {
+        case Plugin.GoalState.Intermediate =>
+          store2store2Eager(goal)
+        case Plugin.GoalState.Final =>
+          expandExtensionality(goal)  elseDo
+          store2store2Lazy(goal)      elseDo
+          equalityPropagation(goal)
+      }
 
     override def computeModel(goal : Goal) : Seq[Plugin.Action] =
-        goalState(goal) match {
-          case Plugin.GoalState.Intermediate =>
-            List()
-          case Plugin.GoalState.Final =>
-            augmentModel(goal)      elseDo
-            extractArrayModel(goal)
-        }
+      goalState(goal) match {
+        case Plugin.GoalState.Intermediate =>
+          List()
+        case Plugin.GoalState.Final =>
+          augmentModel(goal)      elseDo
+          extractArrayModel(goal)
+      }
 
   }
 
@@ -1134,7 +1134,11 @@ class ExtArray (val indexSorts : Seq[Sort],
    * The extensionality axiom is implemented by rewriting negated
    * equations about arrays.
    */
-  private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] = {
+  protected[arrays]
+    def expandExtensionality(goal : Goal,
+                             additionalFuns : Seq[(IExpression.Predicate,
+                                                   Seq[Int])] = List())
+                           : Seq[Plugin.Action] = {
     val facts = goal.facts
 
     if (!facts.arithConj.negativeEqs.isTrue) {
@@ -1153,6 +1157,11 @@ class ExtArray (val indexSorts : Seq[Sort],
       }
       for (a <- predConj.positiveLitsWithPred(_const))
         arrayConsts ++= a.last.constants
+
+      for ((p, args) <- additionalFuns)
+        for (a <- predConj.positiveLitsWithPred(p))
+          for (ind <- args)
+            arrayConsts ++= a(ind).constants
 
       if (!arrayConsts.isEmpty) {
         implicit val order = goal.order

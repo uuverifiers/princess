@@ -41,11 +41,19 @@ object SetTheory {
   import CombArray.CombinatorSpec
   import IExpression._
 
+  /**
+   * Combinators on sets, represented as Boolean-valued
+   * arrays. Booleans are represented as numbers <code>{0, 1}</code>,
+   * with <code>0</code> representing <code>true</code>.
+   */
   def setOps(suffix : String) = Vector(
     CombinatorSpec("union_" + suffix, List(0, 0), 0,
-                   (v(2) <= v(0)) & (v(2) <= v(1)) & (v(0) + v(1) >= 2*v(2))),
+                   (v(2) <= v(0)) & (v(2) <= v(1)) & (v(0) + v(1) <= v(2) + 1)),
     CombinatorSpec("isect_" + suffix, List(0, 0), 0,
-                   (v(0) <= v(2)) & (v(1) <= v(2)) & (v(0) + v(1) <= 2*v(2))),
+                   (v(0) <= v(2)) & (v(1) <= v(2)) & (v(0) + v(1) >= v(2))),
+    CombinatorSpec("minus_" + suffix, List(0, 0), 0,
+                   (v(0) <= v(2)) & (v(1) + v(2) >= 1) &
+                     (v(0) + 1 >= v(1) + v(2))),
     CombinatorSpec("compl_" + suffix, List(0), 0,
                    v(0) + v(1) === 1)
   )
@@ -60,19 +68,29 @@ class SetTheory(val elementSort : Sort)
                         SetTheory.setOps(elementSort.name)) {
 
   val arTheory = subTheories.head
-  import arTheory.{select, store}
+  import arTheory.{select, store, const}
 
   val sort = arTheory.sort
 
   /**
-   * TODO: turn this into a proper function.
+   * <code>el in set</code>.
+   * TODO: turn this into a proper predicate.
    */
   def contains(set : ITerm, el : ITerm) : IFormula = {
     import IExpression._
     eqZero(select(set, el))
   }
 
-  val Seq(union, isect, compl) = combinators
+  /**
+   * <code>set1</code> is a subset of <code>set2</code>.
+   * TODO: turn this into a proper predicate.
+   */
+  def subsetOf(set1 : ITerm, set2 : ITerm) : IFormula = {
+    import IExpression._
+    minus(set1, set2) === const(1)
+  }
+
+  val Seq(union, isect, minus, compl) = combinators
 
   override def toString = "SetTheory[" + elementSort + "]"
 
