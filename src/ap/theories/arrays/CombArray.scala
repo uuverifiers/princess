@@ -39,6 +39,8 @@ import ap.theories._
 import ap.util.Debug
 import ap.types.{Sort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
+import ap.proof.goal.Goal
+import ap.proof.theoryPlugins.Plugin
 
 object CombArray {
 
@@ -103,11 +105,34 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val axiom1 : IFormula = {
-    import IExpression._
-    true
-  }
+  // select(map_f(ar1, ..., arn), ind) = f(select(ar1, ind), ..., select(arn, ind))
+  val axiom1 : IFormula = IExpression.and(
+    for (((map1, map2), CombinatorSpec(_, argSortInds, resSortInd, fDef))
+           <- (combinators zip combinators2) zip combinatorSpecs) yield {
+      import IExpression._
 
+      val argSorts  = for (n <- argSortInds) yield arraySorts(n)
+      val arrayVars = for ((s, n) <- argSorts.zipWithIndex)
+                      yield v(n, s)
+      val indexVars = for ((s, n) <- indexSorts.toList.zipWithIndex)
+                      yield v(n + arrayVars.size, s)
+      val allVars   = arrayVars ++ indexVars
+      val varSorts  = for (ISortedVariable(_, s) <- allVars) yield s
+
+      val rhsArgs   = for ((arVar, n) <- arrayVars zip argSortInds)
+                      yield subTheories(n).select(arVar :: indexVars : _*)
+
+      and(for (mapf <- List(map1, map2)) yield {
+        val mapExpr   = mapf(arrayVars : _*)
+        val lhs       = subTheories(resSortInd).select(mapExpr ::indexVars : _*)
+
+        val fDefSubst = (rhsArgs ++ List(lhs)).toList
+        val matrix    = ITrigger(List(lhs), subst(fDef, fDefSubst, 0))
+
+        all(varSorts, matrix)
+      })
+    })
+//println(axiom1)
   val allAxioms =
     axiom1 // & axiom2 & axiom3 & axiom4 & axiom5 & axiom6 & axiom7 & axiom8
 
@@ -125,6 +150,9 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 
   val functionPredicateMapping =
     for (f <- functions) yield (f -> funPredMap(f))
+
+  val _combinators  = combinators map funPredMap
+  val _combinators2 = combinators2 map funPredMap
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
@@ -145,8 +173,39 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val plugin = None
+  private val pluginObj = new Plugin {
 
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+//      println(goal.facts)
+      goalState(goal) match {
+        case Plugin.GoalState.Intermediate =>
+          List()
+        case Plugin.GoalState.Final =>
+          expandExtensionality(goal)
+      }
+    }
+
+  }
+
+  val plugin = Some(pluginObj)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val mapArrayIndexes =
+    for (n <- 0 until subTheories.size) yield {
+      for (((map1, map2), CombinatorSpec(_, aI, rI, _))
+             <- (_combinators zip _combinators2) zip combinatorSpecs;
+           arrayInds = (for ((`n`, k) <- (aI++List(rI)).zipWithIndex) yield k);
+           if !arrayInds.isEmpty;
+           mapf <- List(map1, map2))
+      yield (mapf, arrayInds)
+    }
+
+  private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] =
+    for ((t, inds) <- subTheories zip mapArrayIndexes;
+         act <- t.expandExtensionality(goal, inds))
+    yield act
+  
   //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
