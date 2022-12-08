@@ -204,7 +204,7 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 //      println(goal.facts)
       goalState(goal) match {
         case Plugin.GoalState.Intermediate =>
-          List()
+          comb2comb2Eager(goal)
         case Plugin.GoalState.Final =>
           expandExtensionality(goal) elseDo
           comb2comb2Lazy(goal)
@@ -288,7 +288,7 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
     val actions =
       for (a1 <- mapAtoms;
            if needBi(a1);
-           action <- mapConversionActions(a1, goal))
+           action <- combConversionActions(a1, goal))
       yield action
 
 //    println(actions)
@@ -296,8 +296,72 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
     actions
   }
 
-  private def mapConversionActions(a : Atom,
-                                   goal : Goal) : Seq[Plugin.Action] = {
+  private val combinators2PerArrayArgs =
+    for (n <- 0 until subTheories.size) yield {
+      for ((m, CombinatorSpec(_, aI, _, _))
+             <- _combinators2 zip combinatorSpecs;
+           arrayInds = (for ((`n`, k) <- aI.zipWithIndex) yield k);
+           if !arrayInds.isEmpty)
+      yield (m, arrayInds)
+    }
+
+  /**
+   * When the array-valued functions form a graph that is not
+   * tree-shaped, start replacing "map" with "map2" to initiate
+   * bidirectional propagation.
+   */
+  private def comb2comb2Eager(goal : Goal) : Seq[Plugin.Action] =
+    for (n <- 0 until subTheories.size; act <- comb2comb2Eager(goal, n))
+    yield act
+
+  private def comb2comb2Eager(goal : Goal,
+                              subTheoryInd : Int) : Seq[Plugin.Action] = {
+    val facts     = goal.facts.predConj
+    val subTheory = subTheories(subTheoryInd)
+
+    import subTheory.{_store, _store2}
+
+    val comb2Arrays = (
+      (for (a <- facts.positiveLitsWithPred(_store2).iterator) yield a.head) ++(
+       for ((m, inds) <- combinators2PerArrayArgs(subTheoryInd).iterator;
+            a <- facts.positiveLitsWithPred(m).iterator;
+            ind <- inds.iterator)
+       yield a(ind))).toSet
+
+    if (comb2Arrays.isEmpty)
+      return List()
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val mayAlias = goal.mayAlias
+
+    def couldAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+
+    val storeActions =
+      for (a <- facts.positiveLitsWithPred(_store);
+           if comb2Arrays exists { t => couldAlias(t, a.last) };
+           action <- subTheory.storeConversionActions(a, goal))
+      yield action
+
+    val combActions =
+      for (m <- combinatorsPerArray(subTheoryInd);
+           a <- facts.positiveLitsWithPred(m);
+           if comb2Arrays exists { t => couldAlias(t, a.last) };
+           action <- combConversionActions(a, goal))
+      yield action
+
+//    println(storeActions ++ combActions)
+
+    storeActions ++ combActions
+  }
+
+  private def combConversionActions(a : Atom,
+                                    goal : Goal) : Seq[Plugin.Action] = {
     implicit val order = goal.order
     import TerForConvenience._
 

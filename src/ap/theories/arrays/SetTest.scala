@@ -18,7 +18,7 @@ object SetTest extends App {
     val setTheory = new SetTheory(Sort.Integer)
     addTheory(setTheory)
 
-    import setTheory.{contains, subsetOf, union, isect, compl}
+    import setTheory.{contains, subsetOf, union, isect, compl, set, emptySet}
 
     val s = createConstant("s", setTheory.sort)
     val t = createConstant("t", setTheory.sort)
@@ -27,6 +27,7 @@ object SetTest extends App {
 
     val x = createConstant("x")
     val y = createConstant("y")
+    val z = createConstant("z")
 
     !! (contains(s, x))
     !! (!contains(s, y))
@@ -70,6 +71,30 @@ object SetTest extends App {
       ?? ((union(s, t) === isect(s, t)) <=> (s === t))
       println(???) // valid
     }
+
+    scope {
+      ?? (set(x, y) === emptySet)
+      println(???) // invalid
+    }
+
+    scope {
+      ?? ((set(x, y) === set(x)) <=> (x === y))
+      println(???) // valid
+    }
+
+    scope {
+      !! (set(x, y, z) === set(1, 2, 3))
+      println(???) // sat
+      ?? (x > 0)
+      println(???) // valid
+    }
+
+    scope {
+      !! (union(union(set(1), set(2)), union(set(3), set(4))) ===
+          union(union(set(1), set(2)), union(set(3), set(5))))
+      println(???) // unsat
+    }
+
   }
 
 }

@@ -73,6 +73,35 @@ class SetTheory(val elementSort : Sort)
   val sort = arTheory.sort
 
   /**
+   * <code>{}</code>.
+   * TODO: turn this into a proper function.
+   */
+  def emptySet : ITerm = {
+    import IExpression._
+    const(1)
+  }
+
+  /**
+   * <code>union(set, {el})</code>.
+   * TODO: turn this into a proper function.
+   */
+  def including(set : ITerm, el : ITerm) : ITerm = {
+    import IExpression._
+    store(set, el, 0)
+  }
+
+  /**
+   * <code>{el1, ..., eln}</code>.
+   */
+  def set(els : ITerm*) : ITerm = {
+    import IExpression._
+    var res = emptySet
+    for (el <- els)
+      res = including(res, el)
+    res
+  }
+
+  /**
    * <code>el in set</code>.
    * TODO: turn this into a proper predicate.
    */
@@ -87,7 +116,7 @@ class SetTheory(val elementSort : Sort)
    */
   def subsetOf(set1 : ITerm, set2 : ITerm) : IFormula = {
     import IExpression._
-    minus(set1, set2) === const(1)
+    minus(set1, set2) === emptySet
   }
 
   val Seq(union, isect, minus, compl) = combinators
