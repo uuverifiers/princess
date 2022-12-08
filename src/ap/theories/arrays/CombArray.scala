@@ -41,6 +41,9 @@ import ap.types.{Sort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
+import ap.terfor.{TermOrder, TerForConvenience, AliasStatus}
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.preds.Atom
 
 object CombArray {
 
@@ -105,7 +108,14 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // select(map_f(ar1, ..., arn), ind) = f(select(ar1, ind), ..., select(arn, ind))
+  // Upward propagation for combinators, combinators2:
+  // select(map_f(ar1, ..., arn), ind) =
+  //   f(select(ar1, ind), ..., select(arn, ind))
+  //
+  // Downward propagation for combinators2:
+  // map2_f(ar1, ..., arn) == ar & select(ari, ind) == obj
+  //   => select(ar, ind) = f(select(ar1, ind), ..., select(arn, ind))
+  //
   val axiom1 : IFormula = IExpression.and(
     for (((map1, map2), CombinatorSpec(_, argSortInds, resSortInd, fDef))
            <- (combinators zip combinators2) zip combinatorSpecs) yield {
@@ -129,10 +139,23 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
         val fDefSubst = (rhsArgs ++ List(lhs)).toList
         val matrix    = ITrigger(List(lhs), subst(fDef, fDefSubst, 0))
 
-        all(varSorts, matrix)
+        val compMatrix =
+          if (mapf == map2) {
+            // for combinators2, add triggers for downward propagation
+            var m = matrix
+            for (selExpr <- rhsArgs)
+              m = ITrigger(List(selExpr, mapExpr), m)
+            m
+          } else {
+            matrix
+          }
+
+        all(varSorts, compMatrix)
       })
     })
-//println(axiom1)
+
+//  println(axiom2)
+
   val allAxioms =
     axiom1 // & axiom2 & axiom3 & axiom4 & axiom5 & axiom6 & axiom7 & axiom8
 
@@ -153,6 +176,8 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
 
   val _combinators  = combinators map funPredMap
   val _combinators2 = combinators2 map funPredMap
+
+  private val comb2comb2 = (_combinators zip _combinators2).toMap
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
@@ -181,7 +206,8 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
         case Plugin.GoalState.Intermediate =>
           List()
         case Plugin.GoalState.Final =>
-          expandExtensionality(goal)
+          expandExtensionality(goal) elseDo
+          comb2comb2Lazy(goal)
       }
     }
 
@@ -205,7 +231,80 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
     for ((t, inds) <- subTheories zip mapArrayIndexes;
          act <- t.expandExtensionality(goal, inds))
     yield act
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val combinatorsPerArray =
+    for (n <- 0 until subTheories.size) yield {
+      for ((m, CombinatorSpec(_, _, `n`, _))
+           <- _combinators zip combinatorSpecs)
+      yield m
+    }
+
+  /**
+   * When the array-valued functions form a graph that is not
+   * tree-shaped, start replacing "map" with "map2" to initiate
+   * bidirectional propagation
+   * 
+   * TODO: do we have to do something special about cycles in the
+   * graph?
+   */
+  private def comb2comb2Lazy(goal : Goal) : Seq[Plugin.Action] =
+    for (n <- 0 until subTheories.size; act <- comb2comb2Lazy(goal, n))
+    yield act
+
+  private def comb2comb2Lazy(goal : Goal,
+                             subTheoryInd : Int) : Seq[Plugin.Action] = {
+    val facts      = goal.facts.predConj
+    val mapAtoms   = for (m <- combinatorsPerArray(subTheoryInd);
+                          a <- facts.positiveLitsWithPred(m))
+                     yield a
+
+    if (mapAtoms.isEmpty)
+      return List()
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val mayAlias   = goal.mayAlias
+    val subTheory  = subTheories(subTheoryInd)
+
+    import subTheory.{_store, _store2, _const}
+
+    val allAtoms   = mapAtoms ++
+                     facts.positiveLitsWithPred(_store) ++
+                     facts.positiveLitsWithPred(_store2) ++
+                     facts.positiveLitsWithPred(_const)
+
+    def couldAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+
+    def needBi(a1 : Atom) : Boolean =
+      allAtoms exists { a2 => a1 != a2 && couldAlias(a1.last, a2.last) }
+
+    val actions =
+      for (a1 <- mapAtoms;
+           if needBi(a1);
+           action <- mapConversionActions(a1, goal))
+      yield action
+
+//    println(actions)
+
+    actions
+  }
+
+  private def mapConversionActions(a : Atom,
+                                   goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val newA = comb2comb2(a.pred)(a.toSeq)
+    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, CombArray.this))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
