@@ -63,7 +63,12 @@ object SetTest extends App {
 
     scope {
       ?? ((subsetOf(s, t) & subsetOf(t, s)) <=> (s === t))
-      println(???) // valid, not working yet
+      println(???) // valid
+    }
+
+    scope {
+      ?? ((union(s, t) === isect(s, t)) <=> (s === t))
+      println(???) // valid
     }
   }
 
