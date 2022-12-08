@@ -1251,8 +1251,9 @@ class ExtArray (val indexSorts : Seq[Sort],
     actions
   }
 
-  private def storeConversionActions(a : Atom,
-                                     goal : Goal) : Seq[Plugin.Action] = {
+  protected[arrays]
+  def storeConversionActions(a : Atom,
+                             goal : Goal) : Seq[Plugin.Action] = {
     implicit val order = goal.order
     import TerForConvenience._
 
