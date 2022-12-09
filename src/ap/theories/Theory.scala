@@ -46,7 +46,8 @@ import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 HashSet => MHashSet}
 
 object Theory {
 
@@ -56,25 +57,33 @@ object Theory {
    * Preprocess a set of axioms and convert them to internal representation.
    */
   def genAxioms(theoryFunctions : Seq[IFunction] = List(),
-                theoryAxioms : IFormula = IExpression.i(true),
+                theoryAxioms : IFormula          = IExpression.i(true),
                 extraPredicates : Seq[Predicate] = List(),
-                genTotalityAxioms : Boolean = false,
-                preOrder : TermOrder = TermOrder.EMPTY,
-                functionEnc : FunctionEncoder =
-                  new FunctionEncoder(true, false),
-                otherTheories : Seq[Theory] = List())
-              : (Seq[Predicate],
-                 Formula,
-                 TermOrder,
-                 Map[IFunction, IExpression.Predicate]) = {
+                genTotalityAxioms : Boolean      = false,
+                preOrder : TermOrder             = TermOrder.EMPTY,
+                functionEnc : FunctionEncoder    = new FunctionEncoder(true,
+                                                                       false),
+                otherTheories : Seq[Theory]      = List())
+             : (Seq[Predicate],
+                Formula,
+                TermOrder,
+                Map[IFunction, IExpression.Predicate]) = {
     import IExpression._
 
     var currentOrder = preOrder extendPred extraPredicates
 
-    for (t <- otherTheories) {
-      currentOrder = t extend currentOrder
-      functionEnc addTheory t
-    }
+    val knownTheories = new MHashSet[Theory]
+
+    def addTheory(t : Theory) : Unit =
+      if (knownTheories add t) {
+        for (s <- t.dependencies)
+          addTheory(s)
+        currentOrder = t extend currentOrder
+        functionEnc addTheory t
+      }
+
+    for (t <- otherTheories)
+      addTheory(t)
 
     for (f <- theoryFunctions) {
       val (_, o) =
