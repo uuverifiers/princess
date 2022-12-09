@@ -26,6 +26,7 @@ all:
 		ap/theories/sequences/*.scala \
 		ap/theories/bitvectors/*.scala \
 		ap/theories/rationals/*.scala \
+		ap/theories/arrays/*.scala \
 		ap/types/*.scala \
 		ap/algebra/*.scala \
 		ap/api/*.scala \
@@ -57,6 +58,7 @@ doc:
 		ap/theories/sequences/*.scala \
 		ap/theories/bitvectors/*.scala \
 		ap/theories/rationals/*.scala \
+		ap/theories/arrays/*.scala \
 		ap/types/*.scala \
 		ap/algebra/*.scala \
 		ap/api/*.scala \
