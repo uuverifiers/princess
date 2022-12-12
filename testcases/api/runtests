@@ -35,8 +35,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \
        TestStrings.scala TestBVEval.scala \
        simplifier-bug.scala ManyEqvs.scala project-bug.scala \
-       printBooleanTerm.scala SimplePrint.scala TestFunctionRange.scala \
-       ArrayQuantifiers.scala"
+       printBooleanTerm.scala SimplePrint.scala TestFunctionRange.scala"
 
 for testname in $TESTS; do
   echo
@@ -48,7 +47,7 @@ done
 
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
-TESTS="readSMTLIB.scala ExtArrayCrash.scala"
+TESTS="readSMTLIB.scala"
 
 for testname in $TESTS; do
   echo
