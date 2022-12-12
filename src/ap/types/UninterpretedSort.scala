@@ -74,7 +74,8 @@ object UninterpretedSortTheory {
 
   class UninterpretedSort protected[types]
                          (val name : String,
-                          val theory : UninterpretedSortTheory) extends Sort {
+                          val theory : UninterpretedSortTheory)
+        extends Theory.TheorySort {
 
     def membershipConstraint(t : ITerm) : IFormula =
       IAtom(theory.domainPredicate, List(t))

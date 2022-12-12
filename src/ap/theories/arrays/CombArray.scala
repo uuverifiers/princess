@@ -69,8 +69,9 @@ object CombArray {
 /**
  * A theory of combinatorial arrays.
  */
-class CombArray(val subTheories     : IndexedSeq[ExtArray],
-                val combinatorSpecs : IndexedSeq[CombArray.CombinatorSpec])
+class CombArray(val subTheories       : IndexedSeq[ExtArray],
+                val combinatorSpecs   : IndexedSeq[CombArray.CombinatorSpec],
+                val extraDependencies : Seq[Theory] = List())
          extends Theory {
 
   import CombArray.{AC, CombinatorSpec}
@@ -162,7 +163,7 @@ class CombArray(val subTheories     : IndexedSeq[ExtArray],
   //////////////////////////////////////////////////////////////////////////////
 
   override val dependencies =
-    subTheories
+    subTheories ++ extraDependencies
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,

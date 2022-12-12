@@ -44,10 +44,11 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
+import ap.types.Sort
 import ap.util.Debug
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 HashSet => MHashSet}
+                                 LinkedHashSet}
 
 object Theory {
 
@@ -72,7 +73,7 @@ object Theory {
 
     var currentOrder = preOrder extendPred extraPredicates
 
-    val knownTheories = new MHashSet[Theory]
+    val knownTheories = new LinkedHashSet[Theory]
 
     def addTheory(t : Theory) : Unit =
       if (knownTheories add t) {
@@ -93,7 +94,7 @@ object Theory {
     }
 
     val sig = Signature(Set(), Set(), currentOrder.orderedConstants,
-                        Map(), currentOrder, otherTheories)
+                        Map(), currentOrder, knownTheories.toSeq)
     val preprocSettings = PreprocessingSettings.DEFAULT
     val (fors, _, newSig) =
       Preprocessing(INamedPart(PartName.NO_NAME, ~theoryAxioms),
@@ -319,6 +320,20 @@ object Theory {
      * functions, and arbitrary quantifiers can exist.
      */
     val General = Value
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Trait for sorts that belong to a specific theory.
+   */
+  trait TheorySort extends Sort {
+
+    /**
+     * Query the theory that the sort belongs to.
+     */
+    def theory : Theory
+
   }
 
 }

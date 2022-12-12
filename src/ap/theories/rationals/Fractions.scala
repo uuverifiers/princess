@@ -76,9 +76,11 @@ class Fractions(name : String,
    */
   protected def individualsStream : Option[Stream[ITerm]] = None
 
-  object FractionSort extends ProxySort (RingSort) {
+  object FractionSort extends ProxySort (RingSort) with Theory.TheorySort {
 
     override val name = Fractions.this.name
+
+    val theory = Fractions.this
 
     override lazy val individuals : Stream[ITerm] =
       individualsStream match {

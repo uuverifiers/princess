@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -483,14 +483,17 @@ object AbstractStringTheoryWithSort {
    * Sort for strings that will reconstruct terms with the help of the
    * <code>str_empty</code> and <code>str_cons</code> functions.
    */
-  class AbstractStringSort extends ProxySort(Sort.Integer) {
+  class AbstractStringSort extends ProxySort(Sort.Integer)
+                           with    Theory.TheorySort {
     override val name = "String"
 
-    private var theory : AbstractStringTheoryWithSort = null
+    private var theoryVar : AbstractStringTheoryWithSort = null
 
     protected[strings] def setTheory(
                              _theory : AbstractStringTheoryWithSort) : Unit =
-      theory = _theory
+      theoryVar = _theory
+
+    def theory = theoryVar
 
     override lazy val individuals : Stream[ITerm] =
       IFunApp(theory.str_empty, List()) #::

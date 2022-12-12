@@ -60,7 +60,8 @@ object Heap {
   class HeapException(m : String) extends Exception(m)
 
   class AddressSort(sortName : String,
-                    val heapTheory : Heap) extends ProxySort(Sort.Nat) {
+                    val heapTheory : Heap) extends ProxySort(Sort.Nat)
+                                           with Theory.TheorySort {
     import IExpression.toFunApplier
 
     override val name = sortName
@@ -71,15 +72,20 @@ object Heap {
 
     override lazy val individuals : Stream[ITerm] =
       for (t <- Sort.Nat.individuals) yield heapTheory.nthAddr(t)
+
+    val theory = heapTheory
   }
 
   class HeapSort(sortName : String,
-                 val heapTheory : Heap) extends ProxySort(Sort.Integer) {
+                 val heapTheory : Heap) extends ProxySort(Sort.Integer)
+                                        with Theory.TheorySort {
     import IExpression.toFunApplier
     import ap.terfor.conjunctions.Conjunction
     import ap.terfor.preds.Atom
     import heapTheory.{ObjectSort, alloc, emptyHeap, newHeap}
     override val name = sortName
+
+    val theory = heapTheory
 
     override lazy val individuals : Stream[ITerm] =
       emptyHeap() #:: (for (t <- individuals;

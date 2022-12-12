@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 package ap.theories
 
 import ap.parser._
+import ap.types.Sort
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -52,6 +53,11 @@ object TheoryRegistry {
 
   def lookupSymbol(p : IExpression.Predicate) : Option[Theory] = synchronized {
     theoryIndex get p
+  }
+
+  def lookupSort(s : Sort) : Option[Theory] = s match {
+    case s : Theory.TheorySort => Some(s.theory)
+    case _                     => None
   }
 
   def register(t : Theory) = synchronized {

@@ -167,7 +167,10 @@ object ADT {
    */
   class ADTProxySort(val sortNum : Int,
                      underlying : Sort,
-                     val adtTheory : ADT) extends ProxySort(underlying) {
+                     val adtTheory : ADT) extends ProxySort(underlying)
+                                          with Theory.TheorySort {
+
+    val theory = adtTheory
 
     override lazy val individuals : Stream[ITerm] =
       depthSortedInterl(
