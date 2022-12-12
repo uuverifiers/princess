@@ -205,7 +205,8 @@ object ExtArray {
   /**
    * Sort representing arrays.
    */
-  case class ArraySort(theory : ExtArray) extends ProxySort(Sort.Integer) {
+  case class ArraySort(val theory : ExtArray) extends ProxySort(Sort.Integer)
+                                              with    Theory.TheorySort {
     import theory.{indexSorts, objSort,
                    select, store, const, _select, _store, _store2, _const}
     import IExpression._
@@ -271,9 +272,8 @@ object ExtArray {
 /**
  * Theory of extensional arrays.
  */
-class ExtArray (val indexSorts        : Seq[Sort],
-                val objSort           : Sort,
-                val extraDependencies : Seq[Theory] = List()) extends Theory {
+class ExtArray (val indexSorts : Seq[Sort],
+                val objSort    : Sort) extends Theory {
   import ExtArray.{AC, AbstractArray}
 
   private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
@@ -543,10 +543,8 @@ class ExtArray (val indexSorts        : Seq[Sort],
 
   // TODO: we need a more generic way to discover theories a sort belongs to
   override val dependencies =
-    (for (s <- indexSorts ++ List(objSort);
-          if s.isInstanceOf[UninterpretedSortTheory.UninterpretedSort])
-     yield s.asInstanceOf[UninterpretedSortTheory.UninterpretedSort].theory) ++
-    extraDependencies
+    for (s <- indexSorts ++ List(objSort);
+         t <- (TheoryRegistry lookupSort s).toSeq) yield t
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,

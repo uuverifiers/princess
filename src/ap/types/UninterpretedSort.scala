@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2019-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,7 +74,8 @@ object UninterpretedSortTheory {
 
   class UninterpretedSort protected[types]
                          (val name : String,
-                          val theory : UninterpretedSortTheory) extends Sort {
+                          val theory : UninterpretedSortTheory)
+        extends Theory.TheorySort {
 
     def membershipConstraint(t : ITerm) : IFormula =
       IAtom(theory.domainPredicate, List(t))

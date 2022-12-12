@@ -232,7 +232,8 @@ object ModuloArithmetic extends Theory {
    * <code>[lower, upper]</code> with wrap-around arithmetic.
    */
   case class ModSort(lower : IdealInt, upper : IdealInt)
-             extends ProxySort(Sort.Interval(Some(lower), Some(upper))) {
+             extends ProxySort(Sort.Interval(Some(lower), Some(upper)))
+             with    Theory.TheorySort {
     override val name : String = this match {
       case UnsignedBVSort(bits) =>
         "bv[" + bits + "]"
@@ -241,6 +242,8 @@ object ModuloArithmetic extends Theory {
       case _ =>
         "mod[" + lower + ", " + upper + "]"
     }
+
+    val theory = ModuloArithmetic.this
     
     val modulus = upper - lower + IdealInt.ONE
 
