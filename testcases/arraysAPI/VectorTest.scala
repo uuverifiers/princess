@@ -52,8 +52,13 @@ object VectorTest extends App {
       !! (vec_select(v, 2) > 0)
       println(???) // sat
 
-      !! (w === vec_plus(v, vec_const(1)))
+      !! (w === vec_plus(v, vec_const(10)))
       println(???) // sat
+
+      withCompleteModel { eval =>
+        for (x <- List(v, w))
+          println("" + x + " = " + eval(x))
+      }
 
       !! (vec_select(w, 2) < 2)
       println(???) // unsat
@@ -77,6 +82,13 @@ object VectorTest extends App {
       val b = vec(3, 2, 1)
       !! (vec_times(a, vec_const(-1)) === b)
       println(???) // sat
+    }
+
+    scope {
+      !! (v === vec_const(1))
+      !! (w === vec_const(3))
+      !! (w === vec_plus(v, v))
+      println(???) // unsat
     }
   }
 

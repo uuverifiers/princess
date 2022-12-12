@@ -33,14 +33,20 @@ Unsat
 VectorTest
 Sat
 Sat
+v = store(const(12), 2, 1)
+w = store(const(22), 2, 11)
 Unsat
 Valid
 Valid
 Sat
+Unsat
 
 PairTest
 Valid
 Invalid
+a = store(const(43), 42, 1)
+b = store(const(true), 42, false)
+c = store(const(43), 42, 0)
 Valid
 Sat
 

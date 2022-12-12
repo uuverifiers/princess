@@ -155,10 +155,42 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
       })
     })
 
+  // Downward propagation for valueAlmostEverywhere:
+  // map2_f(ar1, ..., arn) == ar & valueAlmostEverywhere(ari) == obj
+  //   => VAE(ar) = f(VAE(ar1), ..., VAE(arn))
+  val axiom2 = IExpression.and(
+    for ((map2, CombinatorSpec(_, argSortInds, resSortInd, fDef))
+           <- combinators2 zip combinatorSpecs) yield {
+      import IExpression._
+
+      val argSorts  = for (n <- argSortInds) yield arraySorts(n)
+      val arrayVars = for ((s, n) <- argSorts.zipWithIndex)
+                      yield v(n, s)
+      val varSorts  = for (ISortedVariable(_, s) <- arrayVars) yield s
+
+      val rhsArgs   = for ((arVar, n) <- arrayVars zip argSortInds)
+                      yield subTheories(n).valueAlmostEverywhere(arVar)
+
+      val mapExpr   = map2(arrayVars : _*)
+      val lhs       = subTheories(resSortInd).valueAlmostEverywhere(mapExpr)
+
+      val fDefSubst = (rhsArgs ++ List(lhs)).toList
+      val matrix    = subst(fDef, fDefSubst, 0)
+
+      val compMatrix = {
+        var m = matrix
+        for (vaeExpr <- rhsArgs)
+          m = ITrigger(List(vaeExpr, mapExpr), m)
+        m
+      }
+
+      all(varSorts, compMatrix)
+    })
+
 //  println(axiom2)
 
   val allAxioms =
-    axiom1 // & axiom2 & axiom3 & axiom4 & axiom5 & axiom6 & axiom7 & axiom8
+    axiom1 & axiom2 // & axiom3 & axiom4 & axiom5 & axiom6 & axiom7 & axiom8
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -210,6 +242,10 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
           expandExtensionality(goal) elseDo
           comb2comb2Lazy(goal)
       }
+    }
+
+    override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
+      comb2comb2Global(goal)
     }
 
   }
@@ -297,6 +333,17 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     actions
   }
 
+  private def combConversionActions(a : Atom,
+                                    goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val newA = comb2comb2(a.pred)(a.toSeq)
+    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, CombArray.this))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val combinators2PerArrayArgs =
     for (n <- 0 until subTheories.size) yield {
       for ((m, CombinatorSpec(_, aI, _, _))
@@ -361,13 +408,18 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     storeActions ++ combActions
   }
 
-  private def combConversionActions(a : Atom,
-                                    goal : Goal) : Seq[Plugin.Action] = {
-    implicit val order = goal.order
-    import TerForConvenience._
+  //////////////////////////////////////////////////////////////////////////////
 
-    val newA = comb2comb2(a.pred)(a.toSeq)
-    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, CombArray.this))
+  /**
+   * Convert all combinators to the bi-directional version; this is
+   * necessary to generate correct models.
+   */
+  private def comb2comb2Global(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts.predConj
+    for (map <- _combinators;
+         a   <- facts.positiveLitsWithPred(map);
+         act <- combConversionActions(a, goal))
+    yield act
   }
 
   //////////////////////////////////////////////////////////////////////////////

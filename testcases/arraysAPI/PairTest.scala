@@ -62,6 +62,10 @@ object PairTest extends App {
       scope {
         ?? (int_select(c, 42) > 0)
         println(???) // invalid
+        withCompleteModel { eval =>
+          for (x <- List(a, b, c))
+            println("" + x + " = " + eval(x))
+        }
       }
 
       scope {
