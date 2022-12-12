@@ -272,22 +272,6 @@ Sat
 Sat
 {y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
 
-TestExtArray
-
--- Test 1
-Some term: store(ar, x, 42)
-Sat
-Unsat
-
--- Test 2
-Sat
-ar = store(const(2), 1, 1)
-ar2 = const(2)
-m.evalToTerm(ar): Some(store(const(2), 1, 1))
-m.evalToTerm(select(ar, 0)): Some(2)
-m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
-m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
-
 SimpleAPIModelTest
 
 -- Declaration of symbols
@@ -855,11 +839,6 @@ SimplePrint.scala
 TestFunctionRange.scala
 Valid
 
-ArrayQuantifiers.scala
-Sat
-Inconclusive
-Unsat
-
 readSMTLIB.scala
 x - y >= 1 & y - 50 >= 1
 Sat
@@ -868,7 +847,3 @@ x - y >= 1 & y - 50 >= 1
 Sat
 Unsat
 x - y >= 1 & y - 50 >= 1
-
-ExtArrayCrash.scala
-Warning: arrays over finite domains are not fully supported yet
-Unsat
