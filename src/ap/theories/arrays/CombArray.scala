@@ -82,8 +82,7 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
   val arraySorts : IndexedSeq[ArraySort] = subTheories.map(_.sort)
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertInt(AC,
-                  subTheories forall { t => t.indexSorts == indexSorts })
+  Debug.assertInt(AC, subTheories forall { t => t.indexSorts == indexSorts })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private val partial = false
