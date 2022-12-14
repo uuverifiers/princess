@@ -90,6 +90,15 @@ object VectorTest extends App {
       !! (w === vec_plus(v, v))
       println(???) // unsat
     }
+
+    scope {
+      val u = createConstant("u", intVector)
+      !! (v === vec_const(1))
+      !! (w === vec_const(3))
+      !! (u === vec_store(w, 0, 3))
+      !! (u === vec_plus(v, v))
+      println(???) // unsat
+    }
   }
 
 }

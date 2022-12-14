@@ -133,12 +133,12 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // Upward propagation for projections:
+  // Upward propagation for projections, projections2:
   // select(proj_i(ar, indi), ind1, ..., indk) =
   //   select(ar, ind1, ..., indi, ..., indk)
   //
   val axiom1 : IFormula = IExpression.and(
-    for ((key@(fromSorts, ind), proj) <- projections) yield {
+    for ((key@(fromSorts, ind), proj1) <- projections) yield {
       import IExpression._
 
       val toSorts        = projSorts(key)
@@ -153,12 +153,16 @@ class CartArray(val indexSorts         : Seq[Sort],
 
       val otherIndexVars = indexVars.patch(ind, List(), 1)
 
-      val projExpr       = proj(arVar, indexVars(ind))
-      val selExpr        = toExtTheory.select(projExpr :: otherIndexVars : _*)
       val sel2Expr       = fromExtTheory.select(arVar :: indexVars : _*)
 
-      val matrix         = ITrigger(List(selExpr), selExpr === sel2Expr)
-      all(varSorts, matrix)
+      val proj2          = projections2(key)
+
+      and(for (proj <- List(proj1, proj2)) yield {
+            val projExpr = proj(arVar, indexVars(ind))
+            val selExpr  = toExtTheory.select(projExpr :: otherIndexVars : _*)
+            val matrix   = ITrigger(List(selExpr), selExpr === sel2Expr)
+            all(varSorts, matrix)
+          })
     })
 
 //    println(axiom1)
