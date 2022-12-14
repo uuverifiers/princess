@@ -48,6 +48,7 @@ object CartTest extends App {
 
     val a = createConstant("a", array3.sort)
     val b = createConstant("b", array3.sort)
+    val c = createConstant("c", array3.sort)
 
     scope {
       val aF = createConstant("aF", array2.sort)
@@ -69,14 +70,16 @@ object CartTest extends App {
         !! (array3.select(a, False, True, False) > 0)
         !! (array3.select(a, True,  True, False) > 0)
         ?? (array3.select(b, False, True, False) > 0)
-        println(???) // valid, does not work yet
-        println(partialModel)
+        println(???) // valid
       }
     }
 
     scope {
       !! (Rot(1, a, b))
+      !! (Rot(2, b, c))
       println(???) // sat
+//      println(partialModel)        // does not work yet
+//      println(evalToTerm(a))
     }
   }
 

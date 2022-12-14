@@ -36,7 +36,6 @@ package ap.theories.arrays
 import ap.Signature
 import ap.parser._
 import ap.theories._
-import ap.util.Debug
 import ap.types.{Sort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.goal.Goal
@@ -44,6 +43,7 @@ import ap.proof.theoryPlugins.Plugin
 import ap.terfor.{TermOrder, TerForConvenience, AliasStatus}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
+import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  ArrayBuffer, LinkedHashSet}
@@ -97,8 +97,9 @@ class CartArray(val indexSorts         : Seq[Sort],
      }).toMap
 
   val combTheories : Map[Seq[Sort], CombArray] =
-    extTheories.mapValues(t =>
-      new CombArray(Vector(t), combinatorSpecs, extraDependencies))
+    (for ((s, t) <- extTheories.iterator) yield {
+       s -> new CombArray(Vector(t), combinatorSpecs, extraDependencies)
+     }).toMap
 
   val (projections  : Map[(Seq[Sort], Int), IFunction],
        projections2 : Map[(Seq[Sort], Int), IFunction],
@@ -134,8 +135,12 @@ class CartArray(val indexSorts         : Seq[Sort],
   //////////////////////////////////////////////////////////////////////////////
 
   // Upward propagation for projections, projections2:
-  // select(proj_i(ar, indi), ind1, ..., indk) =
+  // select(proj_i(ar, indi), ind1, ..., indk) ==
   //   select(ar, ind1, ..., indi, ..., indk)
+  //
+  // Downward propagation for projections2:
+  // proj2_i(ar, indi) == ar2 & select(ar, ind1, ..., indi, ..., indk) = obj
+  //   => select(ar2, ind1, ..., indk) == obj
   //
   val axiom1 : IFormula = IExpression.and(
     for ((key@(fromSorts, ind), proj1) <- projections) yield {
@@ -148,7 +153,7 @@ class CartArray(val indexSorts         : Seq[Sort],
       val arVar          = v(0, fromExtTheory.sort)
       val indexVars      = for ((s, n) <- fromSorts.toList.zipWithIndex)
                            yield v(n + 1, s)
-      val allVars        = List(arVar) ++ indexVars
+      val allVars        = arVar :: indexVars
       val varSorts       = for (ISortedVariable(_, s) <- allVars) yield s
 
       val otherIndexVars = indexVars.patch(ind, List(), 1)
@@ -161,7 +166,15 @@ class CartArray(val indexSorts         : Seq[Sort],
             val projExpr = proj(arVar, indexVars(ind))
             val selExpr  = toExtTheory.select(projExpr :: otherIndexVars : _*)
             val matrix   = ITrigger(List(selExpr), selExpr === sel2Expr)
-            all(varSorts, matrix)
+
+            val compMatrix =
+              if (proj == proj2) {
+                ITrigger(List(projExpr, sel2Expr), matrix)
+              } else {
+                matrix
+              }
+
+            all(varSorts, compMatrix)
           })
     })
 
@@ -187,7 +200,9 @@ class CartArray(val indexSorts         : Seq[Sort],
   val _projections  = projections.mapValues(funPredMap(_))
   val _projections2 = projections2.mapValues(funPredMap(_))
 
-  private val proj2proj2 = (_projections zip _projections2).toMap
+  private val proj2proj2 =
+    (for ((key, p) <- _projections.iterator)
+     yield (p -> _projections2(key))).toMap
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
@@ -208,7 +223,157 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val plugin = None
+  private val pluginObj = new Plugin {
+
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+//      println(goal.facts)
+      goalState(goal) match {
+        case Plugin.GoalState.Intermediate =>
+          List() // comb2comb2Eager(goal)
+        case Plugin.GoalState.Final => {
+//           expandExtensionality(goal) elseDo
+          proj2proj2Lazy(goal)
+        }
+      }
+    }
+
+    override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
+//      augmentModel(goal)      elseDo
+      proj2proj2Global(goal)
+    }
+
+  }
+
+  val plugin = Some(pluginObj)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Scan a goal for occurring array terms t, and add arrayConstant(t)
+   * atoms for those. Add valueAlmostEverywhere literals for all
+   * arrays that do not have a default value yet.
+   */
+/*
+  private def augmentModel(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order = goal.order
+    val facts = goal.facts.predConj
+
+    val arrayConstantAtoms =
+      (for ((key@(fromSorts, ind), proj) <- _projections2.iterator;
+            toSorts = projSorts(key);
+            a <- facts.positiveLitsWithPred(proj).iterator;
+            (theory, t) <- Iterator((extTheories(fromSorts), a.head),
+                                    (extTheories(toSorts),   a.last));
+            b <- Iterator(conj(theory.arrayConstant(List(t))),
+                          conj(existsSorted(List(theory.objSort),
+                                            theory._valueAlmostEverywhere(List(t, l(v(0)))))));
+            red = goal reduceWithFacts b;
+            if !red.isTrue)
+       yield a).toSet
+
+    println(arrayConstantAtoms)
+
+    for (c <- arrayConstantAtoms.toSeq)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
+  }
+ */
+  //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: make sure those lists are sorted
+  private val projectionsPerResultSort =
+    projSorts.groupBy(_._2).mapValues {
+      sortList => for ((key, _) <- sortList.toSeq) yield _projections(key)
+    }
+
+  private val projections2PerResultSort =
+    projSorts.groupBy(_._2).mapValues {
+      sortList => for ((key, _) <- sortList.toSeq) yield _projections2(key)
+    }
+
+  /**
+   * When the array-valued functions form a graph that is not
+   * tree-shaped, start replacing "map" with "map2" to initiate
+   * bidirectional propagation
+   * 
+   * TODO: do we have to do something special about cycles in the
+   * graph?
+   */
+  private def proj2proj2Lazy(goal : Goal) : Seq[Plugin.Action] = {
+    (for (toSorts    <- projectionsPerResultSort.keys.toSeq;
+          combTheory =  combTheories(toSorts);
+          extTheory  =  combTheory.subTheories.head;
+          act        <- proj2proj2Lazy(goal, toSorts,
+                                       combTheory.combinatorsPerArray.head ++
+                                         combTheory.combinators2PerArray.head ++
+                                         List(extTheory._store,
+                                              extTheory._store2,
+                                              extTheory._const), true))
+     yield act) ++
+    (for (toSorts      <- projectionsPerResultSort.keys.toSeq;
+          combTheory   = combTheories(toSorts);
+          extTheory    = combTheory.subTheories.head;
+          checkedPreds = projectionsPerResultSort(toSorts) ++
+                         projections2PerResultSort(toSorts);
+          combActs     = combTheory.comb2comb2Lazy(goal, 0, checkedPreds,false);
+          extActs      = extTheory.store2store2Lazy(goal, checkedPreds);
+          act          <- combActs ++ extActs)
+     yield act)
+  }
+
+  protected[arrays]
+  def proj2proj2Lazy(goal         : Goal,
+                     toSorts      : Seq[Sort],
+                     checkedPreds : Seq[IExpression.Predicate],
+                     checkProj    : Boolean)
+                                  : Seq[Plugin.Action] = {
+    val facts = goal.facts.predConj
+    val preds = projectionsPerResultSort(toSorts)
+
+    if (Seqs.disjointSeq(facts.predicates, preds))
+      return List()
+
+    val projAtoms = for (m <- preds;
+                         a <- facts.positiveLitsWithPred(m))
+                    yield a
+    val allAtoms  = (if (checkProj) projAtoms else List()) ++
+                    (for (p <- checkedPreds;
+                          a <- facts.positiveLitsWithPred(p)) yield a)
+
+    val needBi    = ExtArray.bidirChecker(allAtoms, goal)
+    
+    for (a1 <- projAtoms;
+         if needBi(a1);
+         action <- projConversionActions(a1, goal))
+    yield action
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def projConversionActions(a    : Atom,
+                                    goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val newA = proj2proj2(a.pred)(a.toSeq)
+    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, CartArray.this))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Convert all combinators to the bi-directional version; this is
+   * necessary to generate correct models.
+   * 
+   * TODO: determinism
+   */
+  private def proj2proj2Global(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts.predConj
+    for (p   <- _projections.values.toSeq;
+         a   <- facts.positiveLitsWithPred(p);
+         act <- projConversionActions(a, goal))
+    yield act
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
