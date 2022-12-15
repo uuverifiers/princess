@@ -229,7 +229,7 @@ class CartArray(val indexSorts         : Seq[Sort],
 //      println(goal.facts)
       goalState(goal) match {
         case Plugin.GoalState.Intermediate =>
-          List() // comb2comb2Eager(goal)
+          proj2proj2Eager(goal)
         case Plugin.GoalState.Final => {
 //           expandExtensionality(goal) elseDo
           proj2proj2Lazy(goal)
@@ -291,6 +291,11 @@ class CartArray(val indexSorts         : Seq[Sort],
       sortList => for ((key, _) <- sortList.toSeq) yield _projections2(key)
     }
 
+  private val projections2PerArgSort =
+    _projections2.groupBy(_._1._1).mapValues {
+      projList => projList map (_._2)
+    }
+
   /**
    * When the array-valued functions form a graph that is not
    * tree-shaped, start replacing "map" with "map2" to initiate
@@ -321,12 +326,11 @@ class CartArray(val indexSorts         : Seq[Sort],
      yield act)
   }
 
-  protected[arrays]
-  def proj2proj2Lazy(goal         : Goal,
-                     toSorts      : Seq[Sort],
-                     checkedPreds : Seq[IExpression.Predicate],
-                     checkProj    : Boolean)
-                                  : Seq[Plugin.Action] = {
+  private def proj2proj2Lazy(goal         : Goal,
+                             toSorts      : Seq[Sort],
+                             checkedPreds : Seq[IExpression.Predicate],
+                             checkProj    : Boolean)
+                                          : Seq[Plugin.Action] = {
     val facts = goal.facts.predConj
     val preds = projectionsPerResultSort(toSorts)
 
@@ -345,6 +349,49 @@ class CartArray(val indexSorts         : Seq[Sort],
     for (a1 <- projAtoms;
          if needBi(a1);
          action <- projConversionActions(a1, goal))
+    yield action
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def proj2proj2Eager(goal : Goal) : Seq[Plugin.Action] = {
+    (for (toSorts    <- projectionsPerResultSort.keys.toSeq;
+          act        <- proj2proj2Eager(goal, toSorts))
+     yield act) ++
+    (for (fromSorts  <- projections2PerArgSort.keys.toSeq;
+          combTheory =  combTheories(fromSorts);
+          arrayTerms =  consumedArrayTerms(goal, fromSorts);
+          act        <- combTheory.comb2comb2Eager(goal, 0, arrayTerms))
+     yield act)
+  }
+
+  private def consumedArrayTerms(goal    : Goal,
+                                 toSorts : Seq[Sort])
+                                         : Set[LinearCombination] = {
+    val facts = goal.facts.predConj
+    (for (p <- projections2PerArgSort.getOrElse(toSorts, List()).iterator;
+          a <- facts.positiveLitsWithPred(p).iterator)
+     yield a.head).toSet
+  }
+
+  private def proj2proj2Eager(goal    : Goal,
+                              toSorts : Seq[Sort]) : Seq[Plugin.Action] = {
+    val facts      = goal.facts.predConj
+    val combTheory = combTheories(toSorts)
+
+    val arrayTerms =
+      combTheory.consumedArrayTerms(goal, 0) ++
+      consumedArrayTerms(goal, toSorts)
+
+    if (arrayTerms.isEmpty)
+      return List()
+
+    val couldAlias = ExtArray.aliasChecker(goal)
+
+    for (p <- projectionsPerResultSort(toSorts);
+         a <- facts.positiveLitsWithPred(p);
+         if arrayTerms exists { t => couldAlias(t, a.last) };
+         action <- projConversionActions(a, goal))
     yield action
   }
 

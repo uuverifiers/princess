@@ -1,10 +1,9 @@
 
-package ap.theories.arrays
-
 import ap.SimpleAPI
 import ap.parser._
 import ap.theories.ADT
 import ADT.BoolADT.{True, False}
+import ap.theories.arrays._
 
 object CartTest extends App {
 
@@ -26,8 +25,10 @@ object CartTest extends App {
   
   val array3 = CartTheory.extTheories(bools(3))
   val array2 = CartTheory.extTheories(bools(2))
+  val array1 = CartTheory.extTheories(bools(1))
 
   def proj3(k : Int) = CartTheory.projections((bools(3), k))
+  def proj2(k : Int) = CartTheory.projections((bools(2), k))
 
   val array2Comb = CartTheory.combTheories(bools(2))
   val Seq(vec_plus2, vec_minus2) = array2Comb.combinators
@@ -80,6 +81,30 @@ object CartTest extends App {
       println(???) // sat
 //      println(partialModel)        // does not work yet
 //      println(evalToTerm(a))
+    }
+
+    scope {
+      val a2 = createConstant("a2", array2.sort)
+      val b2 = createConstant("b2", array2.sort)
+      val x = createConstant("x", array1.sort)
+      !! (array3.select(a, False, False, False) > 0)
+      !! (a2 === proj3(2)(a, False))
+      !! (x === proj2(1)(a2, False))
+      !! (array3.select(b, False, False, False) < 0)
+      !! (b2 === proj3(2)(b, False))
+      !! (x === proj2(1)(b2, False))
+      println(???) // unsat
+    }
+
+    scope {
+      val x = createConstant("x", array2.sort)
+      val b2 = createConstant("b2", array3.sort)
+      val c2 = createConstant("c2", array3.sort)
+      !! (b2 === array3.store(b, False, False, False, 42))
+      !! (c2 === array3.store(c, False, False, False, 43))
+      !! (x === proj3(2)(b2, False))
+      !! (x === proj3(2)(c2, False))
+      println(???) // unsat
     }
   }
 
