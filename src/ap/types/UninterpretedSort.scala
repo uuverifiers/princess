@@ -84,51 +84,66 @@ object UninterpretedSortTheory {
       Atom(theory.domainPredicate, List(LinearCombination(t, order)), order)
 
     val cardinality : Option[IdealInt] = None
-    
+
+    private val individualHandler = new IndividualHandler(this)
+
     /**
      * We just create numbered constants to represent the individuals.
      */
-    override val individuals : Stream[ITerm] =
-      for (n <- Stream.iterate(0)(_ + 1))
-      yield IConstant(newConstant(name + "!" + n))
+    override val individuals : Stream[ITerm] = individualHandler.individuals
+
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(individualHandler(d))
 
     def augmentModelTermSet(model : Conjunction,
                             assignment : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {}
-    
-    override def decodeToTerm(
-                   d : IdealInt,
-                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
-      val ind = d.intValueSafe
-      if (ind >= 0)
-        Some(individuals(2*ind))
-      else
-        Some(individuals(-2*ind - 1))
-    }
-
   }
 
   class InfUninterpretedSort protected[types] (override val name : String)
         extends ProxySort(Sort.Integer) {
 
+    private val individualHandler = new IndividualHandler(this)
+
     /**
      * We just create numbered constants to represent the individuals.
      */
-    override val individuals : Stream[ITerm] =
-      for (n <- Stream.iterate(0)(_ + 1))
-      yield IConstant(newConstant(name + "!" + n))
+    override val individuals : Stream[ITerm] = individualHandler.individuals
 
     override def decodeToTerm(
                    d : IdealInt,
-                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
-      val ind = d.intValueSafe
-      if (ind >= 0)
-        Some(individuals(2*ind))
-      else
-        Some(individuals(-2*ind - 1))
-    }
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(individualHandler(d))
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private class IndividualHandler(sort : Sort) {
+
+    private val individualMap = new MHashMap[IdealInt, ITerm]
+
+    def apply(d : IdealInt) : ITerm = synchronized {
+      individualMap.getOrElseUpdate(d, {
+        val name = if (d.signum >= 0)
+                     sort.name + "!" + (2*d)
+                   else
+                     sort.name + "!" + (-2*d - 1)
+        IConstant(sort newConstant name)
+      })
+    }
+
+    val individuals : Stream[ITerm] =
+      for (n <- Stream.iterate(IdealInt.ZERO){
+             n => if (n.signum >= 0) (-n-1) else -n
+           })
+      yield apply(n)
+
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def lookupDomainPredicate(p : Predicate) : Option[UninterpretedSortTheory] =
     (TheoryRegistry lookupSymbol p) match {
