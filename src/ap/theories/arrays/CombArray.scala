@@ -36,7 +36,6 @@ package ap.theories.arrays
 import ap.Signature
 import ap.parser._
 import ap.theories._
-import ap.util.Debug
 import ap.types.{Sort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.goal.Goal
@@ -44,6 +43,10 @@ import ap.proof.theoryPlugins.Plugin
 import ap.terfor.{TermOrder, TerForConvenience, AliasStatus}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
+import ap.util.{Debug, Tarjan}
+
+import scala.collection.mutable.{HashMap => MHashMap, LinkedHashSet}
+
 
 object CombArray {
 
@@ -239,11 +242,14 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
           comb2comb2Eager(goal)
         case Plugin.GoalState.Final =>
           expandExtensionality(goal) elseDo
-          comb2comb2Lazy(goal)
+          comb2comb2Lazy(goal)       elseDo
+          cycles2comb2(goal)         elseDo
+          addDefaultValue(goal)
       }
     }
 
     override def computeModel(goal : Goal) : Seq[Plugin.Action] = {
+      augmentModel(goal)      elseDo
       comb2comb2Global(goal)
     }
 
@@ -268,6 +274,80 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
          act <- t.expandExtensionality(goal, inds))
     yield act
 
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Scan a goal for occurring array terms t, and add arrayConstant(t)
+   * atoms for those.
+   */
+  private def augmentModel(goal : Goal) : Seq[Plugin.Action] =
+    for ((theory, n) <- subTheories.zipWithIndex;
+         arrayTerms = goalArrayTerms(goal, n);
+         act <- addArrayConstant(goal, theory, arrayTerms))
+    yield act
+
+  /**
+   * Scan a goal for occurring array terms t, and add
+   * valueAlmostEverywhere literals for all arrays that do not have a
+   * default value yet.
+   */
+  private def addDefaultValue(goal : Goal) : Seq[Plugin.Action] =
+    for ((theory, n) <- subTheories.zipWithIndex;
+         arrayTerms = goalArrayTerms(goal, n);
+         act <- addDefaultValue(goal, theory, arrayTerms))
+    yield act
+
+  private def goalArrayTerms(goal         : Goal,
+                             subTheoryInd : Int) : Set[LinearCombination] = {
+    val facts = goal.facts.predConj
+    (for ((mapf, inds) <- mapArrayIndexes(subTheoryInd).iterator;
+          a <- facts.positiveLitsWithPred(mapf).iterator;
+          ind <- inds.iterator)
+     yield a(ind)).toSet
+  }
+
+  private def addArrayConstant(goal         : Goal,
+                               subTheory    : ExtArray,
+                               arrayTerms   : Set[LinearCombination])
+                                            : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order = goal.order
+
+    val constAtoms =
+      (for (t <- arrayTerms;
+            a = conj(subTheory.arrayConstant(List(t)));
+            red = goal reduceWithFacts a;
+            if !red.isTrue)
+       yield red).toVector
+    
+    for (c <- constAtoms)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
+  }
+
+  private def addDefaultValue(goal         : Goal,
+                              subTheory    : ExtArray,
+                              arrayTerms   : Set[LinearCombination])
+                                           : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    import subTheory.{_valueAlmostEverywhere, objSort}
+
+    implicit val order = goal.order
+    val facts = goal.facts.predConj
+
+    val defValueTerms =
+      (for (a <- facts.positiveLitsWithPred(_valueAlmostEverywhere))
+       yield a.head).toSet
+
+    val defValueConjuncts =
+      (for (t <- arrayTerms; if !(defValueTerms contains t))
+       yield existsSorted(List(objSort),
+                          _valueAlmostEverywhere(List(t, l(v(0)))))).toList
+
+    for (c <- defValueConjuncts)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected[arrays] val combinatorsPerArray =
@@ -288,9 +368,6 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
    * When the array-valued functions form a graph that is not
    * tree-shaped, start replacing "map" with "map2" to initiate
    * bidirectional propagation
-   * 
-   * TODO: do we have to do something special about cycles in the
-   * graph?
    */
   private def comb2comb2Lazy(goal : Goal) : Seq[Plugin.Action] = {
     (for (n <- 0 until subTheories.size;
@@ -409,6 +486,53 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
 //    println(storeActions ++ combActions)
 
     storeActions ++ combActions
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Check for cycles in the graph formed by the array operations. We
+   * need to perform bidirectional propagation in cycles.
+   */
+  private def cycles2comb2(goal : Goal) : Seq[Plugin.Action] = {
+    val facts =
+      goal.facts.predConj
+    val arrayDeps =
+      new MHashMap[LinearCombination, LinkedHashSet[LinearCombination]]
+
+    for (m <- _combinators.iterator;
+         a <- facts.positiveLitsWithPred(m).iterator)
+      arrayDeps.getOrElseUpdate(a.last, new LinkedHashSet) ++= a.init
+
+    if (arrayDeps.isEmpty)
+      return List()
+
+    for (subTheory <- subTheories.iterator;
+         a <- facts.positiveLitsWithPred(subTheory._store).iterator)
+      arrayDeps.getOrElseUpdate(a.last, new LinkedHashSet) += a.head
+
+    val selfDeps =
+      arrayDeps.keySet filter { t => arrayDeps(t) contains t }
+
+    val depGraph = new Tarjan.Graph[LinearCombination] {
+      val nodes = arrayDeps.keys
+      def successors(n : LinearCombination) =
+        arrayDeps.getOrElse(n, List()).iterator
+    }
+
+    val depSCCs = Tarjan(depGraph)
+    val termsInCycles =
+      ((for (scc <- depSCCs.iterator; if scc.size > 1; t <- scc.iterator)
+        yield t) ++ selfDeps).toSet
+
+    val actions =
+      for (m <- _combinators;
+           a <- facts.positiveLitsWithPred(m);
+           if termsInCycles contains a.last;
+           act <- combConversionActions(a, goal))
+      yield act
+
+    actions
   }
 
   //////////////////////////////////////////////////////////////////////////////

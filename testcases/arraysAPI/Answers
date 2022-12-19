@@ -41,13 +41,22 @@ Valid
 Sat
 Unsat
 Unsat
+Sat
+v = const(0)
+w = const(1)
+Unsat
+Unsat
 
 PairTest
 Valid
 Invalid
 a = store(const(43), 42, 1)
+b = const(false)
+c = const(0)
+Sat
+a = store(store(const(43), 41, 44), 42, 1)
 b = store(const(true), 42, false)
-c = store(const(43), 42, 0)
+c = store(store(const(43), 41, 44), 42, 0)
 Valid
 Sat
 
