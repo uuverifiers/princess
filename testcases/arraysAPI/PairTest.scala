@@ -69,6 +69,15 @@ object PairTest extends App {
       }
 
       scope {
+        !! (bool_select(b, 41) === 0)
+        println(???)
+        withCompleteModel { eval =>
+          for (x <- List(a, b, c))
+            println("" + x + " = " + eval(x))
+        }
+      }
+
+      scope {
         !! (d === zip(a, c))
         !! (q === pair_select(d, 42))
         ?? (f1(q) > 0 & f2(q) === 0)

@@ -17,18 +17,20 @@ object VectorTest extends App {
     CombArray.CombinatorSpec("vec_plus", List(0, 0), 0,
                              v(0) + v(1) === v(2)),
     CombArray.CombinatorSpec("vec_times", List(0, 0), 0,
-                             GroebnerMultiplication.mul(v(0), v(1)) === v(2))
+                             GroebnerMultiplication.mul(v(0), v(1)) === v(2)),
+    CombArray.CombinatorSpec("vec_plus1", List(0), 0,
+                             v(0) + 1 === v(1))
   )
 
   val VectorTheory =
     new CombArray(Vector(new ExtArray(List(Sort.Integer), Sort.Integer)),
                   vectorOps, List(GroebnerMultiplication))
 
-  val Seq(intVector)           = VectorTheory.arraySorts
-  val Seq(vec_plus, vec_times) = VectorTheory.combinators
-  val vec_select               = VectorTheory.subTheories(0).select
-  val vec_store                = VectorTheory.subTheories(0).store
-  val vec_const                = VectorTheory.subTheories(0).const
+  val Seq(intVector)                      = VectorTheory.arraySorts
+  val Seq(vec_plus, vec_times, vec_plus1) = VectorTheory.combinators
+  val vec_select                          = VectorTheory.subTheories(0).select
+  val vec_store                           = VectorTheory.subTheories(0).store
+  val vec_const                           = VectorTheory.subTheories(0).const
 
   def vec(ts : ITerm*) : ITerm = {
     var res : ITerm = vec_const(0)
@@ -97,6 +99,23 @@ object VectorTest extends App {
       !! (w === vec_const(3))
       !! (u === vec_store(w, 0, 3))
       !! (u === vec_plus(v, v))
+      println(???) // unsat
+    }
+
+    scope {
+      !! (w === vec_plus(v, w))
+      println(???) // sat
+      withCompleteModel { eval =>
+        for (x <- List(v, w))
+          println("" + x + " = " + eval(x))
+      }
+      !! (vec_select(v, 10) > 10)
+      println(???) // unsat
+    }
+
+    scope {
+      !! (w === vec_plus1(v))
+      !! (v === vec_plus1(w))
       println(???) // unsat
     }
   }
