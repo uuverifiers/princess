@@ -70,6 +70,14 @@ Sat
 Unsat
 Unsat
 
+ComplexTest
+Warning: arrays over finite domains are not fully supported yet
+Warning: arrays over finite domains are not fully supported yet
+Sat
+Complex(2, 2, 2, 2, 3)
+Complex(4, 4, 4, 4, 3)
+Valid
+
 ArrayQuantifiers.scala
 Sat
 Inconclusive

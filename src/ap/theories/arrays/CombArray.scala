@@ -345,7 +345,7 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
                           _valueAlmostEverywhere(List(t, l(v(0)))))).toList
 
     for (c <- defValueConjuncts)
-    yield Plugin.AddFormula(Conjunction.negate(c, order))
+    yield Plugin.AddAxiom(List(), c, subTheory)
   }
 
   //////////////////////////////////////////////////////////////////////////////

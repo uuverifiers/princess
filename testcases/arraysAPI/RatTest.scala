@@ -46,20 +46,28 @@ object RatTest extends App {
 
     scope {
       !! (Rationals.gt(vec_select(v, 2), Rationals.zero))
-      println(???)
+      println(???) // sat
+      withCompleteModel { eval =>
+        for (x <- List(x, v, w))
+          println("" + x + " = " + eval(x))
+      }
 
       !! (w === vec_plus(v, vec_const(Rationals.one)))
-      println(???)
+      println(???) // sat
+      withCompleteModel { eval =>
+        for (x <- List(x, v, w))
+          println("" + x + " = " + eval(x))
+      }
 
       !! (Rationals.lt(vec_select(w, 2), Rationals.one))
-      println(???)
+      println(???) // unsat
     }
 
     scope {
       !! (v === vec_const(Rationals.one))
       !! (w === vec_plus(v, v))
       ?? (vec_select(w, x) === Rationals.int2ring(2))
-      println(???)
+      println(???) // valid
     }
 
     scope {
@@ -67,7 +75,7 @@ object RatTest extends App {
                    vec_const(Rationals.int2ring(2))) ===
             vec_times(vec_const(Rationals.int2ring(2)),
                       vec_const(Rationals.int2ring(2))))
-      println(???)
+      println(???) // valid
     }
   }
 
