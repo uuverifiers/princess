@@ -228,12 +228,14 @@ class CartArray(val indexSorts         : Seq[Sort],
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
 //      println(goal.facts)
       goalState(goal) match {
-        case Plugin.GoalState.Intermediate =>
+        case Plugin.GoalState.Eager =>
           proj2proj2Eager(goal)
-        case Plugin.GoalState.Final => {
+        case Plugin.GoalState.Intermediate => {
 //           expandExtensionality(goal) elseDo
           proj2proj2Lazy(goal)
         }
+        case _ =>
+          List()
       }
     }
 

@@ -8,7 +8,7 @@ import ap.theories.arrays._
 
 object ComplexTest extends App {
 
-  val debug = true
+  val debug = true // change to false for much faster solving
 
   ap.util.Debug.enableAllAssertions(debug)
 
@@ -21,10 +21,13 @@ object ComplexTest extends App {
                                          ("d", Sort.Integer),
                                          ("k", Sort.Nat)))
 
+  // This just assumes (and does not verify) that the k's are consistent
   def complexPlus(s : ITerm, t : ITerm) : ITerm =
-    ite(k(s) === k(t),
-        complex(a(s) + a(t), b(s) + b(t), c(s) + c(t), d(s) + d(t), k(s)),
-        complex(0, 0, 0, 0, 0))
+    complex(a(s) + a(t), b(s) + b(t), c(s) + c(t), d(s) + d(t), k(s))
+
+  // This just assumes (and does not verify) that the k's are consistent
+  def complexMinus(s : ITerm, t : ITerm) : ITerm =
+    complex(a(s) - a(t), b(s) - b(t), c(s) - c(t), d(s) - d(t), k(s))
 
   def omegaMult(s : ITerm) : ITerm =
     complex(-d(s), a(s), b(s), c(s), k(s))
@@ -46,6 +49,8 @@ object ComplexTest extends App {
   val vectorOps = Vector(
     CombArray.CombinatorSpec("vec_plus", List(0, 0), 0,
                              v(2, complexSort) === complexPlus(v(0, complexSort), v(1, complexSort))),
+    CombArray.CombinatorSpec("vec_minus", List(0, 0), 0,
+                             v(2, complexSort) === complexMinus(v(0, complexSort), v(1, complexSort))),
     CombArray.CombinatorSpec("vec_omegaMult", List(0), 0,
                              v(1, complexSort) === omegaMult(v(0, complexSort))),
     CombArray.CombinatorSpec("vec_negate", List(0), 0,
@@ -58,6 +63,8 @@ object ComplexTest extends App {
 
   def bools(n : Int) = for (_ <- 0 until n) yield Sort.Bool
 
+  def nFalse(n : Int) = (for (_ <- 0 until n) yield False).toList
+
   val CartTheory =
     new CartArray(bools(N), complexSort, 1, vectorOps)
   
@@ -67,16 +74,23 @@ object ComplexTest extends App {
   def projN(k : Int)  = CartTheory.projections((bools(N), k))
 
   val arrayNComb = CartTheory.combTheories(bools(N))
-  val Seq(vec_plusN, vec_omegaMultN, vec_negateN, vec_sqrt2DivN, vec_setK1N) = arrayNComb.combinators
+  val Seq(vec_plusN, vec_minusN,
+          vec_omegaMultN, vec_negateN,
+          vec_sqrt2DivN, vec_setK1N) = arrayNComb.combinators
 
   val arrayN1Comb = CartTheory.combTheories(bools(N - 1))
-  val Seq(vec_plusN1, vec_omegaMultN1, vec_negateN1, vec_sqrt2DivN1, vec_setK1N1) = arrayN1Comb.combinators
+  val Seq(vec_plusN1, vec_minusN1,
+          vec_omegaMultN1, vec_negateN1,
+          vec_sqrt2DivN1, vec_setK1N1) = arrayN1Comb.combinators
+
+  def selectN(ar : ITerm, indexes : ITerm*) : ITerm =
+    IFunApp(arrayN.select, List(ar) ++ indexes)
 
   def hadam(k : Int, x : ITerm, hx : ITerm) : IFormula =
     arrayN1.sort.ex( (p0, p1) => {
       p0 === projN(k)(x, False) & p1 === projN(k)(x, True) &
       projN(k)(hx, False) === vec_sqrt2DivN1(vec_plusN1(p0, p1)) &
-      projN(k)(hx, True)  === vec_sqrt2DivN1(vec_plusN1(p0, vec_negateN1(p1)))
+      projN(k)(hx, True)  === vec_sqrt2DivN1(vec_minusN1(p0, p1))
     })
 
   SimpleAPI.withProver(enableAssert = debug) { p =>
@@ -97,21 +111,17 @@ object ComplexTest extends App {
     scope {
       !! (hadam(0, x, y))
       !! (hadam(0, y, z))
-      !! (arrayN.select(x, False, False, False, False, False, False, False, False, False, False) ===
-            complex(1, 1, 1, 1, 1))
-      !! (arrayN.select(x, True,  False, False, False, False, False, False, False, False, False) ===
-            complex(2, 2, 2, 2, 1))
-      !! (arrayN.select(z, False, False, False, False, False, False, False, False, False, False) ===
-            comp0)
-      !! (arrayN.select(z, True, False, False, False, False, False, False, False, False, False) ===
-            comp1)
+      !! (selectN(x, False :: nFalse(N - 1) : _*) === complex(1, 1, 1, 1, 1))
+      !! (selectN(x, True  :: nFalse(N - 1) : _*) === complex(2, 2, 2, 2, 1))
+      !! (selectN(z, False :: nFalse(N - 1) : _*) === comp0)
+      !! (selectN(z, True  :: nFalse(N - 1) : _*) === comp1)
       println(???) // sat
       println(evalToTerm(comp0))
       println(evalToTerm(comp1))
     }
 
     scope {
-      val Seq(b0, b1, b2, b3, b4, b5, b6, b7, b8, b9) = createConstants(N, Sort.Bool)
+      val qbits = createConstants(N, Sort.Bool)
 
       // Assert that all k-components are initially 1
       !! (x === vec_setK1N(x0))
@@ -119,12 +129,11 @@ object ComplexTest extends App {
       // Encoding of the circuit
       !! (hadam(1, x, y))
       !! (hadam(1, y, z))
-//      !! (hadam(2, z, y1))             // not working properly yet
-//      !! (hadam(2, y1, z1))
+      !! (hadam(2, z, y1))
+      !! (hadam(2, y1, z1))
 
       // Assertion: x, z coincide modulo normalization
-      ?? (kInc2(arrayN.select(x, b0, b1, b2, b3, b4, b5, b6, b7, b8, b9)) ===
-                arrayN.select(z, b0, b1, b2, b3, b4, b5, b6, b7, b8, b9))
+      ?? (kInc2(kInc2(selectN(x, qbits : _*))) === selectN(z1, qbits : _*))
 
       println(???) // valid
     }

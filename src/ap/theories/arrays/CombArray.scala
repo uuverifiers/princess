@@ -238,12 +238,13 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
 //      println(goal.facts)
       goalState(goal) match {
-        case Plugin.GoalState.Intermediate =>
+        case Plugin.GoalState.Eager =>
           comb2comb2Eager(goal)
-        case Plugin.GoalState.Final =>
+        case Plugin.GoalState.Intermediate =>
           expandExtensionality(goal) elseDo
           comb2comb2Lazy(goal)       elseDo
-          cycles2comb2(goal)         elseDo
+          cycles2comb2(goal)
+        case Plugin.GoalState.Final =>
           addDefaultValue(goal)
       }
     }
