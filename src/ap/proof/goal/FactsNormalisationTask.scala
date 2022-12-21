@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -209,7 +209,7 @@ case object FactsNormalisationTask extends EagerTask {
         if (facts.predConj == goal.facts.predConj)
           newTasks
         else
-          newTasks ++ (LazyMatchTask addTask goal)
+          newTasks ++ (MatchTasks addPredicateTasks goal)
       
       postProcessor(ptf.updateGoal(facts, newCompoundFormulas,
                                    eliminatedConstants, updatedVocabulary,

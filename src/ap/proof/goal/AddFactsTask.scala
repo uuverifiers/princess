@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -147,7 +147,7 @@ class AddFactsTask(_formula : Conjunction, _age : Int)
       
       val newTasks =
         if (hasPreds || !goal.compoundFormulas.lazyQuantifiedClauses.isEmpty)
-          LazyMatchTask addTask goal
+          MatchTasks addPredicateTasks goal
         else
           List()
       ptf.updateGoal(updatedFacts, newTaskManager ++ newTasks,

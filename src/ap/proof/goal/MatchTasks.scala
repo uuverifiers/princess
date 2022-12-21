@@ -36,6 +36,7 @@ package ap.proof.goal
 import ap.proof.Vocabulary
 import ap.proof.certificates.BranchInferenceCollector
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.proof.theoryPlugins.IntermediatePluginTask
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier,
                                IterativeClauseMatcher}
 import ap.terfor.{ConstantTerm, VariableTerm, TermOrder}
@@ -43,6 +44,21 @@ import ap.parameters.Param
 import ap.util.Debug
 
 import scala.collection.mutable.ArrayBuffer
+
+object MatchTasks {
+
+  /**
+   * Add the prioritised tasks for handling predicates: the
+   * <code>LazyMatchtask</code> and
+   * <code>IntermediatePluginTask</code>.
+   */
+  def addPredicateTasks(goal : Goal) : Seq[PrioritisedTask] = {
+    val tasks1 = LazyMatchTask addTask goal
+    val tasks2 = IntermediatePluginTask addTask goal
+    tasks1 ++ tasks2
+  }
+
+}
 
 private object MatchFunctions {
   
