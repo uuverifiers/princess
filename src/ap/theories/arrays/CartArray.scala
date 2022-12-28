@@ -132,6 +132,38 @@ class CartArray(val indexSorts         : Seq[Sort],
     (projs.toMap, projs2.toMap, functions.toSeq)
   }
 
+  /**
+   * Project a Cartesian array by assigning some of its indexes to
+   * fixed values.
+   */
+  def proj(ar : ITerm, projectedIndexes : (Int, ITerm)*) : ITerm = {
+    val indexes = projectedIndexes sortBy (-_._1)
+    var res : ITerm = ar
+
+    for ((ind, value) <- indexes) {
+      val indexSorts =
+        (Sort sortOf res) match {
+          case ExtArray.ArraySort(theory) =>
+            theory.indexSorts
+          case _ =>
+            throw new Exception(
+              "Projection can only be applied to array terms, not " + res)
+        }
+      val projection =
+        (projections get (indexSorts, ind)) match {
+          case Some(f) =>
+            f
+          case None =>
+            throw new Exception(
+              "Projection for index " + ind +
+                " not defined for arrays of type " + (Sort sortOf res))
+        }
+      res = IFunApp(projection, List(res, value))
+    }
+
+    res
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   // Upward propagation for projections, projections2:
