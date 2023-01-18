@@ -23,23 +23,21 @@ object CartTest extends App {
   val CartTheory =
     new CartArray(bools(3), Sort.Integer, 2, vectorOps)
   
-  val array3 = CartTheory.extTheories(bools(3))
-  val array2 = CartTheory.extTheories(bools(2))
-  val array1 = CartTheory.extTheories(bools(1))
+  val array3Sort = CartTheory.arraySorts(bools(3))
+  val array2Sort = CartTheory.arraySorts(bools(2))
+  val array1Sort = CartTheory.arraySorts(bools(1))
 
-  def proj3(k : Int) = CartTheory.projections((bools(3), k))
-  def proj2(k : Int) = CartTheory.projections((bools(2), k))
+  import CartTheory.{proj, sel, sto}
 
-  val array2Comb = CartTheory.combTheories(bools(2))
-  val Seq(vec_plus2, vec_minus2) = array2Comb.combinators
+  val Seq(vec_plus, vec_minus) = CartTheory.combinators
 
   // Initial version of Hadamart. Missing is the sqrt(2) factor
   def Rot(k : Int, x : ITerm, y : ITerm) : IFormula =
-    array2.sort.ex((xF, xT) =>
-      xF === proj3(k)(x, False) &
-      xT === proj3(k)(x, True) &
-      proj3(k)(y, False) === vec_plus2(xF, xT) &
-      proj3(k)(y, True) === vec_minus2(xF, xT)
+    array2Sort.ex((xF, xT) =>
+      xF === proj(x, k -> False) &
+      xT === proj(x, k -> True) &
+      proj(y, k -> False) === vec_plus(xF, xT) &
+      proj(y, k -> True)  === vec_minus(xF, xT)
     )
 
   SimpleAPI.withProver(enableAssert = true) { p =>
@@ -47,30 +45,30 @@ object CartTest extends App {
 
     addTheory(CartTheory)
 
-    val a = createConstant("a", array3.sort)
-    val b = createConstant("b", array3.sort)
-    val c = createConstant("c", array3.sort)
+    val a = createConstant("a", array3Sort)
+    val b = createConstant("b", array3Sort)
+    val c = createConstant("c", array3Sort)
 
     scope {
-      val aF = createConstant("aF", array2.sort)
-      val aT = createConstant("aT", array2.sort)
+      val aF = createConstant("aF", array2Sort)
+      val aT = createConstant("aT", array2Sort)
 
-      !! (aF === proj3(0)(a, False))
-      !! (aT === proj3(0)(a, True))
+      !! (aF === proj(a, 0 -> False))
+      !! (aT === proj(a, 0 -> True))
 
       scope {
-        !! (array3.select(a, False, True, False) > 0)
-        ?? (array2.select(aF, True, False) > 0)
+        !! (sel(a, False, True, False) > 0)
+        ?? (sel(aF, True, False) > 0)
         println(???) // valid
       }
 
-      !! (proj3(0)(b, False) === vec_plus2(aF, aT))
-      !! (proj3(0)(b, True)  === vec_minus2(aF, aT))
+      !! (proj(b, 0 -> False) === vec_plus(aF, aT))
+      !! (proj(b, 0 -> True)  === vec_minus(aF, aT))
 
       scope {
-        !! (array3.select(a, False, True, False) > 0)
-        !! (array3.select(a, True,  True, False) > 0)
-        ?? (array3.select(b, False, True, False) > 0)
+        !! (sel(a, False, True, False) > 0)
+        !! (sel(a, True,  True, False) > 0)
+        ?? (sel(b, False, True, False) > 0)
         println(???) // valid
       }
     }
@@ -84,26 +82,26 @@ object CartTest extends App {
     }
 
     scope {
-      val a2 = createConstant("a2", array2.sort)
-      val b2 = createConstant("b2", array2.sort)
-      val x = createConstant("x", array1.sort)
-      !! (array3.select(a, False, False, False) > 0)
-      !! (a2 === proj3(2)(a, False))
-      !! (x === proj2(1)(a2, False))
-      !! (array3.select(b, False, False, False) < 0)
-      !! (b2 === proj3(2)(b, False))
-      !! (x === proj2(1)(b2, False))
+      val a2 = createConstant("a2", array2Sort)
+      val b2 = createConstant("b2", array2Sort)
+      val x = createConstant("x", array1Sort)
+      !! (sel(a, False, False, False) > 0)
+      !! (a2 === proj(a,  2 -> False))
+      !! (x  === proj(a2, 1 -> False))
+      !! (sel(b, False, False, False) < 0)
+      !! (b2 === proj(b,  2 -> False))
+      !! (x  === proj(b2, 1 -> False))
       println(???) // unsat
     }
 
     scope {
-      val x = createConstant("x", array2.sort)
-      val b2 = createConstant("b2", array3.sort)
-      val c2 = createConstant("c2", array3.sort)
-      !! (b2 === array3.store(b, False, False, False, 42))
-      !! (c2 === array3.store(c, False, False, False, 43))
-      !! (x === proj3(2)(b2, False))
-      !! (x === proj3(2)(c2, False))
+      val x = createConstant("x", array2Sort)
+      val b2 = createConstant("b2", array3Sort)
+      val c2 = createConstant("c2", array3Sort)
+      !! (b2 === sto(b, False, False, False, 42))
+      !! (c2 === sto(c, False, False, False, 43))
+      !! (x === proj(b2, 2 -> False))
+      !! (x === proj(c2, 2 -> False))
       println(???) // unsat
     }
   }

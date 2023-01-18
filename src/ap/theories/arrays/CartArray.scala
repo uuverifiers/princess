@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2022-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -133,6 +133,46 @@ class CartArray(val indexSorts         : Seq[Sort],
   }
 
   /**
+   * Map index sorts ot the corresponding array sort.
+   */
+  val arraySorts =
+    extTheories mapValues (_.sort)
+
+  /**
+   * Polymorphic select.
+   */
+  def sel(ar : ITerm, indexes : ITerm*) : ITerm = {
+    val indexSorts = (Sort sortOf ar) match {
+      case ExtArray.ArraySort(theory) =>
+        theory.indexSorts
+      case _ =>
+        throw new Exception(
+          "select can only be applied to array terms, not " + ar)
+    }
+    IFunApp(extTheories(indexSorts).select, List(ar) ++ indexes)
+  }
+
+  /**
+   * Polymorphic store.
+   */
+  def sto(ar : ITerm, args : ITerm*) : ITerm = {
+    val indexSorts = (Sort sortOf ar) match {
+      case ExtArray.ArraySort(theory) =>
+        theory.indexSorts
+      case _ =>
+        throw new Exception(
+          "select can only be applied to array terms, not " + ar)
+    }
+    IFunApp(extTheories(indexSorts).store, List(ar) ++ args)
+  }
+
+  /**
+   * Polymorphic const.
+   */
+  def con(indexSorts : Seq[Sort], value : ITerm) : ITerm =
+    IFunApp(extTheories(indexSorts).const, List(value))
+
+  /**
    * Project a Cartesian array by assigning some of its indexes to
    * fixed values.
    */
@@ -163,6 +203,33 @@ class CartArray(val indexSorts         : Seq[Sort],
 
     res
   }
+
+  class CombinatorApplicator(n : Int) {
+    def apply(arrays : ITerm*) : ITerm = {
+      val sorts = arrays map (Sort sortOf _)
+      if (sorts.toSet.size != 1)
+        throw new Exception(
+          "Combinators can only be applied to arrays with consistent sorts, "+
+            "not " + (arrays mkString ", "))
+      val indexSorts = sorts.head match {
+        case ExtArray.ArraySort(theory) =>
+          theory.indexSorts
+        case _ =>
+          throw new Exception(
+            "Combinators can only be applied to arrays, not " +
+              (arrays mkString ", "))
+      }
+      IFunApp(combTheories(indexSorts).combinators(n), arrays)
+    }
+  }
+
+  /**
+   * Polymorphic array combinators, corresponding to the
+   * <code>combinatorSpecs</code> passed as constructor arguments.
+   */
+  val combinators : IndexedSeq[CombinatorApplicator] =
+    for ((_, n) <- combinatorSpecs.zipWithIndex)
+    yield new CombinatorApplicator(n)
 
   //////////////////////////////////////////////////////////////////////////////
 

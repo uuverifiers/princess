@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2334,6 +2334,10 @@ class SimpleAPI private (enableAssert        : Boolean,
             new PartName ("" + name + "_" + num)
           else
             name
+        case None if n == INTERNAL_AXIOM_PART_NR =>
+          new PartName ("axioms_" + num)
+        case None if n == COMMON_PART_NR =>
+          new PartName ("input_" + num)
         case None if (n < 0 && !(formulaParts contains PartName.NO_NAME)) =>
           PartName.NO_NAME
         case _ =>
