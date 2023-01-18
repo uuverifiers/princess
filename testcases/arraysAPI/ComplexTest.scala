@@ -71,26 +71,20 @@ object ComplexTest extends App {
   val arrayN  = CartTheory.extTheories(bools(N))
   val arrayN1 = CartTheory.extTheories(bools(N - 1))
 
-  def projN(k : Int)  = CartTheory.projections((bools(N), k))
+  import CartTheory.proj
 
-  val arrayNComb = CartTheory.combTheories(bools(N))
-  val Seq(vec_plusN, vec_minusN,
-          vec_omegaMultN, vec_negateN,
-          vec_sqrt2DivN, vec_setK1N) = arrayNComb.combinators
-
-  val arrayN1Comb = CartTheory.combTheories(bools(N - 1))
-  val Seq(vec_plusN1, vec_minusN1,
-          vec_omegaMultN1, vec_negateN1,
-          vec_sqrt2DivN1, vec_setK1N1) = arrayN1Comb.combinators
+  val Seq(vec_plus, vec_minus,
+          vec_omegaMult, vec_negate,
+          vec_sqrt2Div, vec_setK1) = CartTheory.combinators
 
   def selectN(ar : ITerm, indexes : ITerm*) : ITerm =
     IFunApp(arrayN.select, List(ar) ++ indexes)
 
   def hadam(k : Int, x : ITerm, hx : ITerm) : IFormula =
     arrayN1.sort.ex( (p0, p1) => {
-      p0 === projN(k)(x, False) & p1 === projN(k)(x, True) &
-      projN(k)(hx, False) === vec_sqrt2DivN1(vec_plusN1(p0, p1)) &
-      projN(k)(hx, True)  === vec_sqrt2DivN1(vec_minusN1(p0, p1))
+      p0 === proj(x, k -> False) & p1 === proj(x, k -> True) &
+      proj(hx, k -> False) === vec_sqrt2Div(vec_plus(p0, p1)) &
+      proj(hx, k -> True)  === vec_sqrt2Div(vec_minus(p0, p1))
     })
 
   SimpleAPI.withProver(enableAssert = debug) { p =>
@@ -124,7 +118,7 @@ object ComplexTest extends App {
       val qbits = createConstants(N, Sort.Bool)
 
       // Assert that all k-components are initially 1
-      !! (x === vec_setK1N(x0))
+      !! (x === vec_setK1(x0))
 
       // Encoding of the circuit
       !! (hadam(1, x, y))

@@ -2352,6 +2352,10 @@ class SimpleAPI private (enableAssert        : Boolean,
             new PartName ("" + name + "_" + num)
           else
             name
+        case None if n == INTERNAL_AXIOM_PART_NR =>
+          new PartName ("axioms_" + num)
+        case None if n == COMMON_PART_NR =>
+          new PartName ("input_" + num)
         case None if (n < 0 && !(formulaParts contains PartName.NO_NAME)) =>
           PartName.NO_NAME
         case _ =>
