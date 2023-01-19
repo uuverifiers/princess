@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -208,6 +208,8 @@ object GlobalSettings {
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case ValueOpt("stringSolver", value) =>
           Param.STRING_THEORY_DESC.set(settings, value)
+        case ValueOpt("seqSolver", value) =>
+          Param.SEQ_THEORY_DESC.set(settings, value)
         case Opt("stringEscapes", value) =>
           Param.STRING_ESCAPES.set(settings, value)
         case ValueOpt("randomSeed", "off") =>
@@ -266,7 +268,8 @@ object GlobalSettings {
          Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS, Param.IGNORE_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-         Param.USE_FUNCTIONAL_CONSISTENCY_THEORY, Param.STRING_THEORY_DESC,
+         Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
+         Param.STRING_THEORY_DESC, Param.SEQ_THEORY_DESC,
          Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
@@ -308,7 +311,7 @@ object ParserSettings {
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS,
                        Param.STRING_THEORY_DESC, Param.STRING_ESCAPES,
-                       Param.LOG_LEVEL)
+                       Param.SEQ_THEORY_DESC, Param.LOG_LEVEL)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

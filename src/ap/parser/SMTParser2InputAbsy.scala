@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2023 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap, DivZero}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
+import ap.theories.sequences.{SeqTheory, SeqTheoryBuilder}
 import ap.theories.rationals.Rationals
 import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
                    RingWithIntConversions}
@@ -119,6 +120,12 @@ object SMTParser2InputAbsy {
   case class SMTRegLan(sort : TSort)               extends SMTType {
     def toSort = sort
     override def toString = "RegLan"
+  }
+
+  case class SMTSeq(theory : SeqTheory,
+                    elementType : SMTType)         extends SMTType {
+    def toSort = theory.sort
+    override def toString = theory.toString
   }
 
   private def toNormalBool(s : TSort) : TSort = s match {
@@ -885,11 +892,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private var stringTheoryBuilder =
-    StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+  private var stringTheoryBuilder : StringTheoryBuilder = _
 
   private val defaultStringAlphabetSize = 3 * (1 << 16)
-  stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+
+  private def resetStringTheoryBuilder = {
+    stringTheoryBuilder =
+      StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+    stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+  }
+
+  resetStringTheoryBuilder
 
   private var usingStrings = false
 
@@ -917,6 +930,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def charType =   SMTChar(stringTheory.CharSort)
   private def stringType = SMTString(stringTheory.StringSort)
   private def regexType =  SMTRegLan(stringTheory.RegexSort)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def sequenceTheories = new MHashMap[TSort, SeqTheory]
+
+  private def sequenceTheory(elSort : TSort) =
+    sequenceTheories.getOrElseUpdate(elSort, {
+      val builder = SeqTheoryBuilder(Param.SEQ_THEORY_DESC(settings))
+      builder setElementSort elSort
+      builder.theory
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1003,9 +1027,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     polyADTs             = Map()
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
-    stringTheoryBuilder =
-      StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
-    stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+    resetStringTheoryBuilder
   }
 
   protected override def addAxiom(f : IFormula) : Unit =
@@ -1999,6 +2021,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTArray(args.init, args.last)
       }
 
+      case "Seq" => {
+        val args =
+          for (t <- s.listsort_.toList) yield translateSort(t)
+        if (args.size != 1)
+          throw new Parser2InputAbsy.TranslationException(
+            "Expected one sort argument in " + (printer print s))
+        SMTSeq(sequenceTheory(args.head.toSort), args.head)
+      }
+
       case id if (polyADTs contains id) => {
         val encodedSortName = SMTADT.POLY_PREFIX + (printer print s)
         env.lookupSortPartial(encodedSortName) match {
@@ -2888,13 +2919,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          translateStringArgs("char.from-int", args, List(SMTInteger)).head),
        charType)
 
-    // Function seq.unit provided by Z3
-    case PlainSymbol("seq.unit") => {
-      checkArgNum("seq.unit", 1, args)
-      (stringTheory.str_from_code(asTerm(translateTerm(args(0), 0))),
-       stringType)
-    }
-
     case PlainSymbol(id)
       if usingStrings && (stringTheory.extraOps contains id) =>
       stringTheory.extraOps(id) match {
@@ -2932,6 +2956,41 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         case u =>
           throw new TranslationException("cannot handle string operator " + u)
       }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Sequence operations
+
+    case CastSymbol("seq.empty", sort) =>
+      translateSort(sort) match {
+        case s : SMTSeq => {
+          checkArgNum("seq.empty", 0, args)
+          (s.theory.seq_empty(), s)
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "seq.empty can only be used with sequence types")
+      }
+    
+    case PlainSymbol("seq.cons") => {
+      checkArgNum("seq.cons", 2, args)
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      val elType = transArgs(0)._2
+      val theory = transArgs(1)._2 match {
+        case SMTSeq(t, `elType`) => t
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "seq.cons can only be used with sequence types")
+      }
+      (theory.seq_cons(asTerm(transArgs(0)), asTerm(transArgs(1))),
+       transArgs(1)._2)
+    }
+
+    case PlainSymbol("seq.unit") => {
+      checkArgNum("seq.unit", 1, args)
+      val arg = translateTerm(args(0), 0)
+      val theory = sequenceTheory(arg._2.toSort)
+      (theory.seq_unit(asTerm(arg)), SMTSeq(theory, arg._2))
     }
 
     ////////////////////////////////////////////////////////////////////////////

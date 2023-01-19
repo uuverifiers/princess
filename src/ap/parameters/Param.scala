@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -311,6 +311,11 @@ object Param {
   case object STRING_THEORY_DESC extends Param {
     type Value = String
     val defau : String = "ap.theories.strings.SeqStringTheory"
+  }
+
+  case object SEQ_THEORY_DESC extends Param {
+    type Value = String
+    val defau : String = "ap.theories.sequences.ArraySeqTheory"
   }
 
   /**

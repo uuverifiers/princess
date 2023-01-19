@@ -23,6 +23,7 @@ all:
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
 		ap/theories/strings/*.scala \
+		ap/theories/sequences/*.scala \
 		ap/theories/bitvectors/*.scala \
 		ap/theories/rationals/*.scala \
 		ap/types/*.scala \
@@ -53,6 +54,7 @@ doc:
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
 		ap/theories/strings/*.scala \
+		ap/theories/sequences/*.scala \
 		ap/theories/bitvectors/*.scala \
 		ap/theories/rationals/*.scala \
 		ap/types/*.scala \
