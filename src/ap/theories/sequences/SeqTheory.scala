@@ -110,6 +110,8 @@ trait SeqTheory extends Theory {
   val seq_at         : IFunction    // SeqSort x Nat -> SeqSort
   val seq_nth        : IFunction    // SeqSort x Nat -> ElementSort
 
+  val seq_update     : IFunction    // SeqSort x Nat x SeqSort -> SeqSort
+
   val seq_contains   : Predicate    // SeqSort x SeqSort -> Boolean
 
   val seq_prefixof   : Predicate    // SeqSort x SeqSort -> Boolean
