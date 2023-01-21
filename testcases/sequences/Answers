@@ -4,6 +4,16 @@ Constructing countermodel ...
 
 unsat
 
+Loading simple2b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun t () (Seq Int) (seq.cons 1 (as seq.empty (Seq Int))))
+  (define-fun s () (Seq Int) (seq.cons 0 (seq.cons 1 (seq.cons 2 (as seq.empty (Seq Int))))))
+)
+
 Loading simple3.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -23,9 +33,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun i1 () Int 3)
-  (define-fun i0 () Int 2)
-  (define-fun a1 () |Seq[Element]| (|Seq[Element]| (store (store ((as const (Array Int Element)) Element!16) 2 Element!12) 3 Element!10) 0))
+  (define-fun i1 () Int 1)
+  (define-fun i0 () Int 0)
+  (define-fun a1 () (Seq Element) (seq.cons Element!12 (as seq.empty (Seq Element))))
 )
 
 Loading simple.smt2 ...

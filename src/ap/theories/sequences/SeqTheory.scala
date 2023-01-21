@@ -40,6 +40,8 @@ import ap.theories.{Theory, TheoryRegistry}
 import ap.types.Sort
 import ap.terfor.conjunctions.Conjunction
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object SeqTheory {
 
   /**
@@ -73,6 +75,15 @@ object SeqTheory {
       case _ =>
         None
     }
+  }
+
+  private val seqSorts = new MHashMap[Sort, SeqTheory]
+
+  def lookupSeqSort(s : Sort) : Option[SeqTheory] =
+    synchronized { seqSorts get s }
+
+  def register(t : SeqTheory) : Unit = synchronized {
+    seqSorts.put(t.SeqSort, t)
   }
 
 }
