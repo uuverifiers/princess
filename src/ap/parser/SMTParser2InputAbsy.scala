@@ -933,7 +933,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def sequenceTheories = new MHashMap[TSort, SeqTheory]
+  private val sequenceTheories = new MHashMap[TSort, SeqTheory]
 
   private def sequenceTheory(elSort : TSort) =
     sequenceTheories.getOrElseUpdate(elSort, {
@@ -1030,6 +1030,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
     resetStringTheoryBuilder
+    sequenceTheories.clear
   }
 
   protected override def addAxiom(f : IFormula) : Unit =
