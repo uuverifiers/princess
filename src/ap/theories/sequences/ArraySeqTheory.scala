@@ -85,13 +85,20 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory {
   val pairTheory = pairSort.asInstanceOf[ADT.ADTProxySort].adtTheory
 
   object SeqSort extends ProxySort(pairSort) {
+    import IExpression._
+
+    override def individuals : Stream[ITerm] = elementLists
+
+    private lazy val elementLists : Stream[ITerm] =
+      seq_empty() #::
+      (for (tail <- elementLists; t <- ElementSort.individuals)
+       yield seq_cons(t, tail))
+
     override def augmentModelTermSet(
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      import IExpression._
-
       pairSort.augmentModelTermSet(model, terms, allTerms, definedTerms)
 
       val toRemove = new ArrayBuffer[(IdealInt, Sort)]
@@ -275,8 +282,10 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory {
         val start = subres(1).asInstanceOf[ITerm]
         val len   = subres(2).asInstanceOf[ITerm]
         withEps(seq, SeqSort, (cont, size) =>
-          ite((0 <= start) & (start + len <= size),
-              seqPair(arrayCopy(cont, emptyArray, start, start + len, 0), len),
+          ite((0 <= start) & (0 <= len) & (start < size),
+              seqPair(arrayCopy(cont, emptyArray,
+                                start, min(List(start + len, size)), 0),
+                      min(List(len, size - start))),
               emptySeq)
         )
       }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -212,7 +212,9 @@ object ExtArray {
     override val name : String =
       "ExtArray[" + (indexSorts mkString ", ") + ", " + objSort + "]"
 
-    override def individuals : Stream[ITerm] = {
+    override def individuals : Stream[ITerm] = individualsVar
+
+    private lazy val individualsVar : Stream[ITerm] = {
       val obj1 = objSort.individuals.head
       val obj2 = objSort.individuals.tail.head
       val indexStream = ADT.depthSortedVectors(indexSorts.toList)
