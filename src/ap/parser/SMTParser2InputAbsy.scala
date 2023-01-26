@@ -2085,7 +2085,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       symApp(t.symbolref_, t.listterm_, polarity)
 
     case t : QuantifierTerm =>
-      translateQuantifier(t, polarity)
+      t.quantifier_ match {
+        case _ : LbdQuantifier =>
+          translateLambda(t, polarity)
+        case _ =>
+          translateQuantifier(t, polarity)
+      }
     
     case t : AnnotationTerm => {
       val triggers = for (annot <- t.listannotation_;
@@ -2193,6 +2198,42 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         (types.head.toSort eps matrix, types.head)
       }
     }
+  }
+  
+  private def translateLambda(t : QuantifierTerm, polarity : Int)
+                             : (IExpression, SMTType) = {
+    ensureEnvironmentCopy
+
+    var quantNum : Int = 0
+    
+    for (binder <- t.listsortedvariablec_.reverse) binder match {
+      case binder : SortedVariable => {
+        pushVar(binder.sort_, binder.symbol_)
+        quantNum = quantNum + 1
+      }
+    }
+
+    val body = translateTerm(t.term_, polarity)
+
+    // pop the variables from the environment
+    val argumentTypes = for (_ <- 0 until quantNum)
+                        yield env.popVar.asInstanceOf[BoundVariable].varType
+
+    val arrayType = SMTArray(argumentTypes.toList, body._2)
+
+    // We need to take sure that the right Boolean sort is used for
+    // quantified variables
+    // TODO: only apply substitution if there are actually Boolean sorts
+
+    val varSubstitution : List[ITerm] =
+      for ((t, n) <- arrayType.arguments.zipWithIndex) yield {
+        IVariable(n, toNormalBool(t.toSort))
+      }
+
+    (ExtArray.Lambda(arrayType.theory.indexSorts,
+                     arrayType.theory.objSort,
+                     subst(asTerm(body), varSubstitution, 0)),
+     arrayType)
   }
   
   //////////////////////////////////////////////////////////////////////////////

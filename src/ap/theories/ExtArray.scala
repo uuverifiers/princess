@@ -109,6 +109,24 @@ object ExtArray {
       }
   }
 
+  object Lambda {
+    def apply(argumentSorts : Seq[Sort],
+              resultSort    : Sort,
+              body          : ITerm) : ITerm = {
+      import IExpression._
+      val arity       = argumentSorts.size
+      val arrayTheory = ExtArray(argumentSorts, resultSort)
+      val arraySort   = arrayTheory.sort
+      val shiftedBody = shiftVars(body, arity, 1)
+      val lhs         = arrayTheory.select(
+                          List(v(arity, arraySort)) ++
+                            (for ((s, n) <- argumentSorts.zipWithIndex)
+                             yield v(n, s)) : _*)
+      arraySort.eps(all(argumentSorts,
+                        ITrigger(List(lhs), lhs === shiftedBody)))
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private object AbstractArray {
