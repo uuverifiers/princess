@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,7 @@ import ap.theories._
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
 import ap.theories.bitvectors.ModPostprocessor
+import ap.theories.sequences.SeqTheory
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -444,8 +445,8 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
-                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
-                              SMTADT, SMTHeap, SMTHeapAddress}
+                              SMTBitVec, SMTString, SMTSeq, SMTFunctionType,
+                              SMTUnint, SMTADT, SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -501,6 +502,11 @@ object SMTLineariser {
     }
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
+    case SMTSeq(_, elType)   => {
+      print("(Seq ")
+      printSMTType(elType)
+      print(")")
+    }
     case SMTArray(args, res) => {
       print("(Array")
       for (s <- args) {
@@ -531,6 +537,10 @@ object SMTLineariser {
       (SMTBool, None)
     case sort if (StringTheory lookupStringSort sort).isDefined =>
       (SMTString(sort), None)
+    case sort if (SeqTheory lookupSeqSort sort).isDefined => {
+      val Some(theory) = SeqTheory lookupSeqSort sort
+      (SMTSeq(theory, sort2SMTType(theory.ElementSort)._1), None)
+    }
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
@@ -878,6 +888,12 @@ object SMTLineariser {
       case Some(DivZero.IntDivZeroTheory) => fun match {
         case DivZero.IntDivZero => Some(("div", "0"))
         case DivZero.IntModZero => Some(("mod", "0"))
+      }
+      case Some(theory : SeqTheory) => fun match {
+        case theory.seq_empty =>
+          Some(("(as seq.empty " + sort2SMTString(theory.SeqSort) + ")", ""))
+        case _ =>
+          Some((fun.name.replace("seq_", "seq."), ""))
       }
       case _ =>
         None

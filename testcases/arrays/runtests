@@ -12,7 +12,8 @@ TESTS="downwardsPropagation.smt2 \
        boolean-array.smt2 array-sorted.smt2 array-sorted-2.smt2 \
        extensionality1.smt2 extensionality2.smt2 extensionality3.smt2 \
        extensionality4.smt2 extensionality4b.smt2 extensionality5.smt2 \
-       extensionality6.smt2 quantifiers.smt2"
+       extensionality6.smt2 quantifiers.smt2 lambda.smt2 lambda2.smt2 \
+       lambda3.smt2"
 
 $PRI "$@" $TESTS
 

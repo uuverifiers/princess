@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions are met:
@@ -159,6 +159,7 @@ separator nonempty BindingC "";
 AllQuantifier.	Quantifier	::= "forall";
 ExQuantifier.	Quantifier	::= "exists";
 EpsQuantifier.	Quantifier	::= "_eps";
+LbdQuantifier.	Quantifier	::= "lambda";
 
 --------------------------------------------------------------------------------
 -- Functions, constants, variables
