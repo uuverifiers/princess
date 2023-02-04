@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,9 +86,12 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
 } with AbstractStringTheory {
 
-  val Seq(str_empty, str_cons) =        seqADT.constructors
+  val Seq(str_empty, str_cons)        = seqADT.constructors
   val Seq(_, Seq(str_head, str_tail)) = seqADT.selectors
 
+  private val adtSize                 = seqADT.termSize.head
+  private val _adtSize                = seqADT.termSizePreds.head
+  
   def int2Char(t : ITerm) : ITerm =
     ModuloArithmetic.cast2Interval(IdealInt.ZERO, upperBound, t)
 
@@ -96,13 +99,55 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   val extraOps : Map[String, Either[IFunction, Predicate]] = Map()
   val extraIndexedOps : Map[(String, Int), Either[IFunction, Predicate]] = Map()
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val strAtAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_at(str, n)),
+               ite(n >= 0 & n < adtSize(str) - 1,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                                   (str === str_cons(c, str1)) &
+                                   str_at(str, n) ===
+                                     ite(n === 0,
+                                         str_cons(c, ""),
+                                         str_at(str1, n - 1))
+                                 )),
+                   str_at(str, n) === ""))))
+  }
+
+  val strSubstrAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all((start, len) =>
+      ITrigger(List(str_substr(str, start, len)),
+               ite(start >= 0 & len > 0 & start < adtSize(str) - 1,
+                   ite(start === 0 & len >= adtSize(str) - 1,
+                       str_substr(str, start, len) === str,
+                       StringSort.ex(str1 => CharSort.ex(c =>
+                                       (str === str_cons(c, str1)) &
+                                       str_substr(str, start, len) ===
+                                         ite(start > 0,
+                                             str_substr(str1, start - 1, len),
+                                             str_cons(
+                                               c,str_substr(str1, 0, len - 1))
+                                             )))),
+                   str_substr(str, start, len) === ""))))
+  }
+
+  val allAxioms =
+    strAtAxioms & strSubstrAxioms
+
   //////////////////////////////////////////////////////////////////////////////
 
   val functions = predefFunctions
   
   val (funPredicates, axioms, _, funPredMap) =
-    Theory.genAxioms(theoryFunctions = functions)
+    Theory.genAxioms(theoryFunctions = functions,
+                     theoryAxioms    = allAxioms,
+                     otherTheories   = List(seqADT))
   val predicates = predefPredicates ++ funPredicates
 
   val functionPredicateMapping = functions zip funPredicates
@@ -115,8 +160,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val adtSize    = seqADT.termSize.head
-  private val _adtSize   = seqADT.termSizePreds.head
   val _str_empty = seqADT.constructorPreds(0)
   val _str_cons  = seqADT.constructorPreds(1)
   val _str_++    = funPredMap(str_++)
@@ -151,6 +194,16 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         ite(code >= 0 & code <= upperBound,
             str_cons(code, str_empty()),
             str_empty())
+      }
+      case IAtom(`str_prefixof`, _) => {
+        val fst = subres(0).asInstanceOf[ITerm]
+        val snd = subres(1).asInstanceOf[ITerm]
+        fst === str_substr(snd, 0, adtSize(fst) - 1)
+      }
+      case IAtom(`str_suffixof`, _) => {
+        val fst = subres(0).asInstanceOf[ITerm]
+        val snd = subres(1).asInstanceOf[ITerm]
+        fst === str_substr(snd, adtSize(snd) - adtSize(fst), adtSize(fst) - 1)
       }
       case t =>
         t update subres
@@ -512,7 +565,8 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   // Set of the predicates that are fully supported at this point
   private val supportedPreds : Set[Predicate] =
-    (for (f <- Set(str_++, str_len)) yield funPredMap(f)) ++ seqADT.predicates
+    (for (f <- Set(str_++, str_len, str_at, str_substr))
+     yield funPredMap(f)) ++ seqADT.predicates
 
   private val unsupportedPreds = predicates.toSet -- supportedPreds
   

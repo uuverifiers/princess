@@ -143,7 +143,7 @@ Constructing countermodel ...
 
 unknown
 (model
-  (define-fun R () RegLan RegLan!2)
+  (define-fun R () RegLan RegLan!4)
 )
 
 Loading chars.smt2 ...
@@ -182,6 +182,55 @@ sat
   (define-fun y () String "\u{0}")
   (define-fun x () String "aaaaa")
   (define-fun f ((x!0 String)) Int (ite (= x!0 "aaaaa") 1 (ite (= x!0 "\u{0}") 2 0)))
+)
+
+Loading str-at.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun n () Int 0)
+  (define-fun w () String "a")
+)
+
+Loading str-substr.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun n () Int 0)
+  (define-fun w () String "abc\u{0}")
+)
+
+Loading str-substr2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun w () String "\u{0}\u{0}\u{ffff}\u{0}\u{ffff}\u{ffff}\u{0}\u{0}abc")
+)
+
+Loading str-prefixof.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun v () String "\u{ffff}\u{ffff}\u{0}\u{0}")
+  (define-fun w () String "\u{ffff}\u{ffff}\u{0}\u{0}")
+)
+
+Loading str-suffixof.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun v () String "a\u{ffff}\u{0}b")
+  (define-fun w () String "\u{ffff}\u{ffff}a\u{ffff}\u{0}b")
 )
 
 Loading escape.smt2 ...

@@ -20,7 +20,12 @@ TESTS="simple-cycle.smt2 \
        chars.smt2 \
        single-quoted.smt2 \
        single-quoted2.smt2 \
-       completeness.smt2"
+       completeness.smt2 \
+       str-at.smt2 \
+       str-substr.smt2 \
+       str-substr2.smt2 \
+       str-prefixof.smt2 \
+       str-suffixof.smt2"
 
 $PRI "$@" $TESTS
 

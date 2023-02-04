@@ -578,13 +578,20 @@ object CmdlMain {
         None
       }
       case e : Throwable => {
-        if (format == Param.InputFormat.SMTLIB) {
-          println("(error \"" + SMTLineariser.escapeString(e.getMessage) +"\")")
-	} else {
-          println("ERROR: " + e.getMessage)
-        }
         if (stackTraces)
           e.printStackTrace
+        if (format == Param.InputFormat.SMTLIB) {
+          e.getMessage match {
+            case null => println("error")
+            case str  => println("(error \"" +
+                                   SMTLineariser.escapeString(str) +"\")")
+          }
+	} else {
+          e.getMessage match {
+            case null => println("ERROR")
+            case str  => println("ERROR: " + str)
+          }
+        }
         None
       }
     }
