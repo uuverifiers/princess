@@ -136,36 +136,34 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   val strAtAxioms = {
     import IExpression._
 
+    StringSort.all(str1 => CharSort.all(c => all(n =>
+      ITrigger(List(str_at(str_cons(c, str1), n)),
+               str_at(str_cons(c, str1), n) ===
+                 ite(n >= 0 & n < adtSize(str1),
+                     ite(n === 0, str_cons(c, ""), str_at(str1, n - 1)),
+                     ""))))) &
     StringSort.all(str => all(n =>
-      ITrigger(List(str_at(str, n)),
-               ite(n >= 0 & n < adtSize(str) - 1,
-                   StringSort.ex(str1 => CharSort.ex(c =>
-                                   (str === str_cons(c, str1)) &
-                                   str_at(str, n) ===
-                                     ite(n === 0,
-                                         str_cons(c, ""),
-                                         str_at(str1, n - 1))
-                                 )),
-                   str_at(str, n) === ""))))
+      ITrigger(List(str_at(str_empty(), n)),
+               str_at(str_empty(), n) === "")))
   }
 
   val strSubstrAxioms = {
     import IExpression._
 
     StringSort.all(str => all((start, len) =>
-      ITrigger(List(str_substr(str, start, len)),
-               ite(start >= 0 & len > 0 & start < adtSize(str) - 1,
-                   ite(start === 0 & len >= adtSize(str) - 1,
-                       str_substr(str, start, len) === str,
-                       StringSort.ex(str1 => CharSort.ex(c =>
-                                       (str === str_cons(c, str1)) &
-                                       str_substr(str, start, len) ===
-                                         ite(start > 0,
-                                             str_substr(str1, start - 1, len),
-                                             str_cons(
-                                               c,str_substr(str1, 0, len - 1))
-                                             )))),
-                   str_substr(str, start, len) === ""))))
+      ITrigger(List(str_substr(str_empty(), start, len)),
+               str_substr(str_empty(), start, len) === ""))) &
+    StringSort.all(str1 => CharSort.all(c => all((start, len) =>
+      ITrigger(List(str_substr(str_cons(c, str1), start, len)),
+               str_substr(str_cons(c, str1), start, len) ===
+                 ite(start >= 0 & len > 0 & start < adtSize(str1),
+                     ite(start === 0 & len >= adtSize(str1),
+                         str_cons(c, str1),
+                         ite(start > 0,
+                             str_substr(str1, start - 1, len),
+                             str_cons(c, str_substr(str1, 0, len - 1))
+                         )),
+                     "")))))
   }
 
   val strToIntAxioms = {
@@ -340,6 +338,21 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                     _adtSize(List(shiftedA(0), l(v(0)))) &
                     _adtSize(List(shiftedA(1), l(v(1)))) &
                     _adtSize(List(shiftedA(2), v(0) + v(1) - 1)))
+        }
+        case StringPred(`str_at`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 2, order)(a)
+          exists(2, shiftedA & (v(1) >= 1) & (v(1) <= 2) & (v(1) <= v(0)) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(2), l(v(1)))))
+        }
+        case StringPred(`str_substr`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 2, order)(a)
+          exists(2, shiftedA &
+                    (v(1) >= 1) &
+                    (v(1) <= v(0)) &
+                    ((v(1) <= shiftedA(2) + 1) | (v(1) <= 1)) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(3), l(v(1)))))
         }
         case _ =>
           a
