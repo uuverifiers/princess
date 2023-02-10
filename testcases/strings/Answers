@@ -200,8 +200,8 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun n () Int 1)
-  (define-fun w () String "\u{0}abc")
+  (define-fun n () Int 0)
+  (define-fun w () String "abc")
 )
 
 Loading str-substr2.smt2 ...
@@ -210,7 +210,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun w () String "\u{ffff}\u{0}\u{ffff}\u{ffff}\u{ffff}\u{ffff}\u{ffff}\u{ffff}\u{0}abc")
+  (define-fun w () String "\u{0}\u{0}\u{ffff}\u{0}\u{ffff}\u{ffff}\u{0}\u{0}abc")
 )
 
 Loading str-prefixof.smt2 ...
@@ -248,7 +248,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun w () String "31931")
+  (define-fun w () String "31090")
 )
 
 Loading str-to-int3.smt2 ...
@@ -277,7 +277,7 @@ Constructing countermodel ...
 sat
 (model
   (define-fun v () String "\u{0}")
-  (define-fun w () String "\u{1}\u{0}\u{2}")
+  (define-fun w () String "\u{1}\u{0}")
 )
 
 Loading str-indexof2.smt2 ...
@@ -304,7 +304,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun w () String "cab")
+  (define-fun w () String "cba")
 )
 
 Loading escape.smt2 ...

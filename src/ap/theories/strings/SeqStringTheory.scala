@@ -120,6 +120,83 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // Version of the axioms with non-strict triggers
+
+  val strAtAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_at(str, n)),
+               ite(n >= 0 & n < adtSize(str) - 1,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                                   (str === str_cons(c, str1)) &
+                                   str_at(str, n) ===
+                                     ite(n === 0,
+                                         str_cons(c, ""),
+                                         str_at(str1, n - 1))
+                                 )),
+                   str_at(str, n) === ""))))
+  }
+
+  val strSubstrAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all((start, len) =>
+      ITrigger(List(str_substr(str, start, len)),
+               ite(start >= 0 & len > 0 & start < adtSize(str) - 1,
+                   ite(start === 0 & len >= adtSize(str) - 1,
+                       str_substr(str, start, len) === str,
+                       StringSort.ex(str1 => CharSort.ex(c =>
+                                       (str === str_cons(c, str1)) &
+                                       str_substr(str, start, len) ===
+                                         ite(start > 0,
+                                             str_substr(str1, start - 1, len),
+                                             str_cons(
+                                               c,str_substr(str1, 0, len - 1))
+                                             )))),
+                   str_substr(str, start, len) === ""))))
+  }
+
+  val strToIntAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_to_int_help(n, str)),
+               ite(isEmptyString(str),
+                   str_to_int_help(n, str) === n,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                                   (str === str_cons(c, str1)) &
+                                   (str_to_int_help(n, str) === 
+                                    ite(c >= 48 & c <= 57,
+                                        str_to_int_help(n*10 + c - 48, str1),
+                                        -1))
+                                 )))))) &
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_to_int_help(n, str)),
+               (str_to_int_help(n, str) === -1) |
+               (str_to_int_help(n, str) >= n))))
+  }
+
+  val strIndexofAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr) => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str, searchStr, start, offset)),
+               ite((start <= 0) &
+                     (searchStr === str_substr(str, 0, adtSize(searchStr) - 1)),
+                   str_indexof_help(str, searchStr, start, offset) === offset,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                     (str === str_cons(c, str1)) &
+                     str_indexof_help(str, searchStr, start, offset) ===
+                       str_indexof_help(str1, searchStr, start - 1, offset + 1)
+                                 )) |
+                   ((str === str_empty()) &
+                    (str_indexof_help(str, searchStr, start, offset) === -1))
+               ))))
+  }
+
+  // Version of the axioms with strict triggers
+
 /*
   val strConcatAxioms = {
     import IExpression._
@@ -133,7 +210,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                   str_cons(c, str_++(str1, str2))
       )))
   }
- */
 
   val strAtAxioms = {
     import IExpression._
@@ -210,6 +286,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                      ),
                      -1)))))
   }
+ */
 
   val allAxioms =
 //    strConcatAxioms &
