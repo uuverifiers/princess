@@ -171,17 +171,15 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   val strToIntAxioms = {
     import IExpression._
 
-    StringSort.all(str => all(n =>
-      ITrigger(List(str_to_int_help(n, str)),
-               ite(isEmptyString(str),
-                   str_to_int_help(n, str) === n,
-                   StringSort.ex(str1 => CharSort.ex(c =>
-                                   (str === str_cons(c, str1)) &
-                                   (str_to_int_help(n, str) === 
-                                    ite(c >= 48 & c <= 57,
-                                        str_to_int_help(n*10 + c - 48, str1),
-                                        -1))
-                                 )))))) &
+    all(n =>
+      ITrigger(List(str_to_int_help(n, str_empty())),
+               str_to_int_help(n, str_empty()) === n)) &
+    StringSort.all(str1 => CharSort.all(c => all(n =>
+      ITrigger(List(str_to_int_help(n, str_cons(c, str1))),
+               str_to_int_help(n, str_cons(c, str1)) ===
+                  ite(c >= 48 & c <= 57,
+                      str_to_int_help(n*10 + c - 48, str1),
+                      -1))))) &
     StringSort.all(str => all(n =>
       ITrigger(List(str_to_int_help(n, str)),
                (str_to_int_help(n, str) === -1) |
@@ -191,19 +189,26 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   val strIndexofAxioms = {
     import IExpression._
 
-    StringSort.all((str, searchStr) => all((start, offset) =>
-      ITrigger(List(str_indexof_help(str, searchStr, start, offset)),
-               ite((start <= 0) &
-                     (searchStr === str_substr(str, 0, adtSize(searchStr) - 1)),
-                   str_indexof_help(str, searchStr, start, offset) === offset,
-                   StringSort.ex(str1 => CharSort.ex(c =>
-                     (str === str_cons(c, str1)) &
-                     str_indexof_help(str, searchStr, start, offset) ===
-                       str_indexof_help(str1, searchStr, start - 1, offset + 1)
-                                 )) |
-                   ((str === str_empty()) &
-                    (str_indexof_help(str, searchStr, start, offset) === -1))
-               ))))
+    StringSort.all(searchStr => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str_empty(), searchStr, start, offset)),
+               str_indexof_help(str_empty(), searchStr, start, offset) === 
+                 ite((start <= 0) & (searchStr === str_empty()), offset, -1)
+               ))) &
+    StringSort.all((str1, searchStr) => CharSort.all(c => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str_cons(c, str1),
+                                     searchStr, start, offset)),
+               str_indexof_help(str_cons(c, str1),
+                                searchStr, start, offset) ===
+                 ite((start + adtSize(searchStr) <= adtSize(str1) + 1) &
+                     (adtSize(searchStr) <= adtSize(str1) + 1),
+                     ite((start <= 0) &
+                           (searchStr ===
+                              str_substr(str_cons(c, str1),
+                                         0, adtSize(searchStr) - 1)),
+                         offset,
+                         str_indexof_help(str1, searchStr, start - 1, offset +1)
+                     ),
+                     -1)))))
   }
 
   val allAxioms =
@@ -355,6 +360,22 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                     ((v(1) <= shiftedA(2) + 1) | (v(1) <= 1)) &
                     _adtSize(List(shiftedA(0), l(v(0)))) &
                     _adtSize(List(shiftedA(3), l(v(1)))))
+        }
+        case StringPred(`str_to_int_help`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 1, order)(a)
+          exists(1, shiftedA &
+                    (v(1) >= 1) & _adtSize(List(shiftedA(0), l(v(0)))))
+        }
+        case StringPred(`str_indexof_help`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 3, order)(a)
+          exists(3, shiftedA &
+                    (v(2) >= -1) &
+                    (v(2) <= v(0) - 1) &
+                    (v(2) >= shiftedA(2) | v(2) === -1) &
+                    (v(2) <= v(0) - v(1) | v(2) === -1) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(1), l(v(1)))) &
+                    shiftedA(3) === v(2))
         }
         case _ =>
           a
