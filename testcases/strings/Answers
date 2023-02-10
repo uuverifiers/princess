@@ -248,7 +248,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun w () String "31031")
+  (define-fun w () String "31931")
 )
 
 Loading str-to-int3.smt2 ...
@@ -277,7 +277,7 @@ Constructing countermodel ...
 sat
 (model
   (define-fun v () String "\u{0}")
-  (define-fun w () String "\u{ffff}\u{0}\u{ffff}")
+  (define-fun w () String "\u{1}\u{0}\u{2}")
 )
 
 Loading str-indexof2.smt2 ...
@@ -304,7 +304,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun w () String "bca")
+  (define-fun w () String "cab")
 )
 
 Loading escape.smt2 ...
