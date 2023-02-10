@@ -666,23 +666,24 @@ class ExtArray (val indexSorts : Seq[Sort],
   private val pluginObj = new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-        goalState(goal) match {
-          case Plugin.GoalState.Intermediate =>
-            store2store2Eager(goal)
-          case Plugin.GoalState.Final =>
-            expandExtensionality(goal)  elseDo
-            store2store2Lazy(goal)      elseDo
-            equalityPropagation(goal)
-        }
+      goalState(goal) match {
+        case Plugin.GoalState.Eager =>
+          store2store2Eager(goal)
+        case Plugin.GoalState.Intermediate =>
+          expandExtensionality(goal)  elseDo
+          store2store2Lazy(goal)
+        case Plugin.GoalState.Final =>
+          equalityPropagation(goal)
+      }
 
     override def computeModel(goal : Goal) : Seq[Plugin.Action] =
-        goalState(goal) match {
-          case Plugin.GoalState.Intermediate =>
-            List()
-          case Plugin.GoalState.Final =>
-            augmentModel(goal)      elseDo
-            extractArrayModel(goal)
-        }
+      goalState(goal) match {
+        case Plugin.GoalState.Final =>
+          augmentModel(goal)      elseDo
+          extractArrayModel(goal)
+        case _ =>
+          List()
+      }
 
   }
 

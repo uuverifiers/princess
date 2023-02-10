@@ -35,7 +35,7 @@ package ap.proof.theoryPlugins;
 
 import ap.basetypes.IdealInt
 import ap.theories.Theory
-import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
+import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask, TaskAggregator}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates._
 import ap.terfor.{Formula, TermOrder, TerForConvenience, ConstantTerm}
@@ -155,7 +155,7 @@ object Plugin {
   }
 
   object GoalState extends Enumeration {
-    val Intermediate, Final = Value
+    val Eager, Intermediate, Final = Value
   }
 }
 
@@ -173,10 +173,18 @@ trait TheoryProcedure {
   def handleGoal(goal : Goal) : Seq[Plugin.Action]
 
   /**
-   * Determine in which state a given goal is.
+   * From a theory procedure, determine in which state a given goal
+   * is.
    */
-  def goalState(goal : Goal) : GoalState.Value =
-    if (goal.tasks.finalEagerTask) GoalState.Final else GoalState.Intermediate
+  def goalState(goal : Goal) : GoalState.Value = {
+    val tasks = goal.tasks
+    if (tasks.finalEagerTask)
+      GoalState.Final
+    else if (tasks.max.isInstanceOf[EagerTask])
+      GoalState.Eager
+    else
+      GoalState.Intermediate
+  }
 
   /**
    * An implicit function to simplify cascading of possible actions.
@@ -908,6 +916,40 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
 class EagerPluginTask(plugin : TheoryProcedure)
       extends PluginTask(plugin) with EagerTask {
   override def toString = "EagerPluginTask(" + plugin + ")"
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object IntermediatePluginTask {
+  def addTask(goal : Goal) : Seq[PrioritisedTask] =
+    if (!goal.tasks.taskSummaryFor(
+          TaskAggregator.IntermediatePluginTaskCounter).isEmpty) {
+      List()
+    } else {
+      (for (plugin <- Param.THEORY_PLUGIN(goal.settings))
+       yield new IntermediatePluginTask(plugin,
+                                        Param.MATCHING_BASE_PRIORITY(
+                                          goal.settings),
+                                        goal.age)).toList
+    }
+}
+
+class IntermediatePluginTask(plugin : TheoryProcedure,
+                             basePriority : Int,
+                             age : Int)
+      extends PluginTask(plugin) with PrioritisedTask {
+
+  val priority : Int = - basePriority + age
+ 
+  /**
+   * Update the task with possibly new information from the goal.
+   * Currently, this does not modify the theory procedure.
+   */
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
+                                                   : Seq[PrioritisedTask] =
+    List(this)
+
+  override def toString = "IntermediatePluginTask(" + plugin + ")"
 }
 
 ////////////////////////////////////////////////////////////////////////////////

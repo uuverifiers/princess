@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,8 @@
 
 package ap.proof.goal;
 
-import ap.proof.theoryPlugins.{Plugin, EagerPluginTask, PrioritisedPluginTask}
+import ap.proof.theoryPlugins.{Plugin, EagerPluginTask, PrioritisedPluginTask,
+                               IntermediatePluginTask}
 
 
 /**
@@ -124,6 +125,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
+           _ : IntermediatePluginTask |
            _ : BoundStrengthenTask |
            _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
@@ -150,6 +152,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
+           _ : IntermediatePluginTask |
            _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
@@ -174,6 +177,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
+           _ : IntermediatePluginTask |
            _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
@@ -198,6 +202,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : LazyMatchTask |
+           _ : IntermediatePluginTask |
            _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
@@ -225,6 +230,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : LazyMatchTask |
+           _ : IntermediatePluginTask |
            _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false

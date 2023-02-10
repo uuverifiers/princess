@@ -5,7 +5,7 @@ Constructing satisfying assignment for the existential constants ...
 VALID
 
 Under the assignment:
-b9 & b8 & !b7 & b6 & b5 & !b4 & b3 & !b2 & !b1 & !b0
+b9 & b8 & !b7 & b6 & !b5 & !b4 & !b3 & !b2 & !b1 & !b0
 
 Loading bvsdiv.smt2 ...
 Preprocessing ...
@@ -43,9 +43,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv1 8))
-  (define-fun d () (_ BitVec 8) (_ bv191 8))
-  (define-fun c () (_ BitVec 8) (_ bv191 8))
+  (define-fun x () (_ BitVec 8) (_ bv32 8))
+  (define-fun d () (_ BitVec 8) (_ bv31 8))
+  (define-fun c () (_ BitVec 8) (_ bv31 8))
 )
 
 Loading bvsdiv6c.smt2 ...
@@ -342,7 +342,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-z = 1.\as[bv[3]] & y = 5.\as[bv[3]] & x = 3.\as[bv[3]]
+z = 1.\as[bv[3]] & y = 3.\as[bv[3]] & x = 5.\as[bv[3]]
 
 Loading bv-ops2.pri ...
 Preprocessing ...
@@ -759,7 +759,7 @@ End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 821)
+Found proof (size 830)
 
 unsat
 
