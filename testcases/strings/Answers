@@ -229,8 +229,8 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun v () String "a\u{ffff}\u{ffff}\u{ffff}")
-  (define-fun w () String "\u{0}\u{0}a\u{ffff}\u{ffff}\u{ffff}")
+  (define-fun v () String "a\u{ffff}\u{0}b")
+  (define-fun w () String "\u{ffff}\u{ffff}a\u{ffff}\u{0}b")
 )
 
 Loading str-to-int.smt2 ...
@@ -306,6 +306,22 @@ sat
 (model
   (define-fun w () String "cba")
 )
+
+Loading str-replace.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun v () String "bbAacc")
+  (define-fun w () String "bbaacc")
+)
+
+Loading str-replace2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
 
 Loading escape.smt2 ...
 Preprocessing ...
