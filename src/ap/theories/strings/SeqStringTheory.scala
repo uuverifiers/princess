@@ -120,6 +120,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   //////////////////////////////////////////////////////////////////////////////
 
+/*
   val strConcatAxioms = {
     import IExpression._
 
@@ -132,6 +133,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                   str_cons(c, str_++(str1, str2))
       )))
   }
+ */
 
   val strAtAxioms = {
     import IExpression._
@@ -205,7 +207,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   }
 
   val allAxioms =
-    strConcatAxioms &
+//    strConcatAxioms &
     strAtAxioms &
     strSubstrAxioms &
     strToIntAxioms &
@@ -559,9 +561,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def plugin = None
-
-  /* Some(new Plugin {
+  def plugin = Some(new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val facts = goal.facts
@@ -620,7 +620,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
       }
     }
   })
-   */
 
   //////////////////////////////////////////////////////////////////////////////
 
