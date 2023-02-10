@@ -490,11 +490,11 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           exists(3, shiftedA &
                     (v(2) >= -1) &
                     (v(2) <= v(0) - 1) &
-                    (v(2) >= shiftedA(2) | v(2) === -1) &
-                    (v(2) <= v(0) - v(1) | v(2) === -1) &
+                    ((v(2) >= shiftedA(2)) | (v(2) === -1)) &
+                    ((v(2) <= v(0) - v(1)) | (v(2) === -1)) &
                     _adtSize(List(shiftedA(0), l(v(0)))) &
                     _adtSize(List(shiftedA(1), l(v(1)))) &
-                    shiftedA(3) === v(2))
+                    (shiftedA(4) === v(2)))
         }
         case StringPred(`str_replace`) if negated => {
           val shiftedA = VariableShiftSubst(0, 4, order)(a)
