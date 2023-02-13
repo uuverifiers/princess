@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,16 +90,17 @@ object SimpleAPI {
    * Create a new prover. Note that the prover has to be shut down explicitly
    * by calling the method <code>SimpleAPI.shutDown</code> after use.
    */
-  def apply(enableAssert : Boolean = false,
-            sanitiseNames : Boolean = true,
-            dumpSMT : Boolean = false,
-            smtDumpBasename : String = SMTDumpBasename,
-            dumpScala : Boolean = false,
-            scalaDumpBasename : String = ScalaDumpBasename,
-            dumpDirectory : File = null,
-            tightFunctionScopes : Boolean = true,
-            genTotalityAxioms : Boolean = false,
-            randomSeed : Option[Int] = Some(1234567)) : SimpleAPI =
+  def apply(enableAssert        : Boolean             = false,
+            sanitiseNames       : Boolean             = true,
+            dumpSMT             : Boolean             = false,
+            smtDumpBasename     : String              = SMTDumpBasename,
+            dumpScala           : Boolean             = false,
+            scalaDumpBasename   : String              = ScalaDumpBasename,
+            dumpDirectory       : File                = null,
+            tightFunctionScopes : Boolean             = true,
+            genTotalityAxioms   : Boolean             = false,
+            randomSeed          : Option[Int]         = Some(1234567),
+            logging             : Set[Param.LOG_FLAG] = Set()) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
@@ -107,7 +108,8 @@ object SimpleAPI {
                    dumpDirectory,
                    tightFunctionScopes,
                    genTotalityAxioms,
-                   randomSeed)
+                   randomSeed,
+                   logging)
 
   def spawn : SimpleAPI = apply()
 
@@ -163,22 +165,23 @@ object SimpleAPI {
    * Run the given function with a fresh prover, and shut down the prover
    * afterwards.
    */
-  def withProver[A](enableAssert : Boolean = false,
-                    sanitiseNames : Boolean = true,
-                    dumpSMT : Boolean = false,
-                    smtDumpBasename : String = SMTDumpBasename,
-                    dumpScala : Boolean = false,
-                    scalaDumpBasename : String = ScalaDumpBasename,
-                    dumpDirectory : File = null,
-                    tightFunctionScopes : Boolean = true,
-                    genTotalityAxioms : Boolean = false,
-                    randomSeed : Option[Int] = Some(1234567))
+  def withProver[A](enableAssert        : Boolean             = false,
+                    sanitiseNames       : Boolean             = true,
+                    dumpSMT             : Boolean             = false,
+                    smtDumpBasename     : String              = SMTDumpBasename,
+                    dumpScala           : Boolean             = false,
+                    scalaDumpBasename   : String              = ScalaDumpBasename,
+                    dumpDirectory       : File                = null,
+                    tightFunctionScopes : Boolean             = true,
+                    genTotalityAxioms   : Boolean             = false,
+                    randomSeed          : Option[Int]         = Some(1234567),
+                    logging             : Set[Param.LOG_FLAG] = Set())
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename, dumpDirectory,
                   tightFunctionScopes, genTotalityAxioms,
-                  randomSeed)
+                  randomSeed, logging)
     try {
       f(p)
     } finally {
@@ -314,7 +317,8 @@ class SimpleAPI private (enableAssert        : Boolean,
                          dumpDirectory       : File,
                          tightFunctionScopes : Boolean,
                          genTotalityAxioms   : Boolean,
-                         randomSeed          : Option[Int]) {
+                         randomSeed          : Option[Int],
+                         logging             : Set[Param.LOG_FLAG] = Set()) {
 
   import SimpleAPI._
   import ProofThreadRunnable._
@@ -4273,6 +4277,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, randomDataSource)
     gs = Param.REDUCER_SETTINGS.set(gs, reducerSettings)
+    gs = Param.LOG_LEVEL.set(gs, logging)
     gs
   }
 
@@ -4339,7 +4344,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   private var proofThreadStatus : ProofThreadStatus.Value = _
 
   private val proofThreadRunnable =
-    new ProofThreadRunnable(proverCmd, proverRes, enableAssert)
+    new ProofThreadRunnable(proverCmd, proverRes, enableAssert, logging)
   private val proofThread =
     new Thread(proofThreadRunnable)
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,7 +110,7 @@ object LemmaBase {
 /**
  * Mutable class for managing sets of certificates.
  */
-class LemmaBase {
+class LemmaBase(printLemmas : Boolean = false) {
 
   import LemmaBase._
 
@@ -342,6 +342,11 @@ class LemmaBase {
     val record = new LemmaRecord(cert, watchable, certNum)
     certNum = certNum + 1
 
+    if (printLemmas)
+      Console.err.println(
+        "Lemma #" + record.id +
+          " shows inconsistency of " + record.watchable.mkString(", "))
+
 //println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
 //record.printWatchable
 
@@ -358,7 +363,17 @@ class LemmaBase {
     obsoleteConstants ++= consts
 
     literals2Certs retain {
-      case (a, _) => Seqs.disjoint(a.constants, constsSet)
+      case (a, lemmas) => {
+        if (Seqs.disjoint(a.constants, constsSet)) {
+          true
+        } else {
+          if (printLemmas)
+            Console.err.println(
+              "Dropping " + (if (lemmas.size > 1) "lemmas " else "lemma ") +
+                (for (l <- lemmas) yield ("#" + l.id)).mkString(", "))
+          false
+        }
+      }
     }
   }
 
@@ -377,6 +392,8 @@ class LemmaBase {
       if (!(obsoleteConstants.isEmpty ||
             Seqs.disjoint(key.constants, obsoleteConstants))) {
         // if the certificate contains obsolete constants, it can be dropped
+        if (printLemmas)
+          Console.err.println("Dropping lemma #" + record.id)
         null
       } else if (assumedFormulasL0 contains key) {
         // then additional formulas have been assumed on level 0 after creating
@@ -391,11 +408,14 @@ class LemmaBase {
     } else {
 
       if (obsoleteConstants.isEmpty ||
-          Seqs.disjoint(record.cert.constants, obsoleteConstants))
+          Seqs.disjoint(record.cert.constants, obsoleteConstants)) {
         record
-      else
+      } else {
         // if the certificate contains obsolete constants, it can be dropped
+        if (printLemmas)
+          Console.err.println("Dropping lemma #" + record.id)
         null
+      }
 
     }
   }

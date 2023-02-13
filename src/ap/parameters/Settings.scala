@@ -247,6 +247,7 @@ object GlobalSettings {
     case "splits"       => Param.LOG_SPLITS
     case "backtracking" => Param.LOG_BACKTRACKING
     case "stats"        => Param.LOG_STATS
+    case "lemmas"       => Param.LOG_LEMMAS
     case str            => throw new UnknownArgumentException(str)
   }
 

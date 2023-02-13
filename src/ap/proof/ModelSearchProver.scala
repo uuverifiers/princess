@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -259,7 +259,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                                   vocabulary, settings)
     val lemmaBase : LemmaBase =
       if (Param.PROOF_CONSTRUCTION(settings)) {
-        val base = new LemmaBase
+        val printL = Param.LOG_LEVEL(settings) contains Param.LOG_LEMMAS
+        val base = new LemmaBase(printLemmas = printL)
         base assumeFormulas certFormulas.iterator
         base
       } else {
