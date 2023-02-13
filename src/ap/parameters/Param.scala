@@ -69,6 +69,7 @@ object Param {
   case object LOG_SPLITS       extends LOG_FLAG
   case object LOG_BACKTRACKING extends LOG_FLAG
   case object LOG_STATS        extends LOG_FLAG
+  case object LOG_LEMMAS       extends LOG_FLAG
 
   case object QUIET extends Param {
     type Value = Boolean

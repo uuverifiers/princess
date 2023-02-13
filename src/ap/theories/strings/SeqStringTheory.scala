@@ -195,6 +195,47 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                ))))
   }
 
+/*
+  val strReplaceAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr, replStr) =>
+      ITrigger(List(str_replace(str, searchStr, replStr)),
+                 ite(searchStr === str_substr(str, 0, adtSize(searchStr) - 1),
+                     str_replace(str, searchStr, replStr) ===
+                       str_++(replStr,
+                              str_substr(str,
+                                         adtSize(searchStr) - 1, adtSize(str))),
+                     ite(isEmptyString(str),
+                         str_replace(str, searchStr, replStr) === "",
+                         StringSort.ex(str1 => CharSort.ex(c =>
+                           (str === str_cons(c, str1)) &
+                             (str_replace(str, searchStr, replStr) ===
+                              str_cons(c, str_replace(str1, searchStr, replStr))
+                             )))))))
+  }
+ */
+
+  val strReplaceAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr, replStr) =>
+      ITrigger(List(str_replace(str, searchStr, replStr)),
+               ite(adtSize(searchStr) > adtSize(str),
+                   str_replace(str, searchStr, replStr) === str,
+                   ite(searchStr === str_substr(str, 0, adtSize(searchStr) - 1),
+                       str_replace(str, searchStr, replStr) ===
+                       str_++(replStr,
+                              str_substr(str,
+                                         adtSize(searchStr) - 1, adtSize(str))),
+                       StringSort.ex(str1 => CharSort.ex(c =>
+                         (str === str_cons(c, str1)) &
+                           (str_replace(str, searchStr, replStr) ===
+                              str_cons(c, str_replace(str1, searchStr, replStr))
+                           )))))))
+  }
+
+
   // Version of the axioms with strict triggers
 
 /*
@@ -293,7 +334,8 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     strAtAxioms &
     strSubstrAxioms &
     strToIntAxioms &
-    strIndexofAxioms
+    strIndexofAxioms &
+    strReplaceAxioms
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -448,11 +490,20 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           exists(3, shiftedA &
                     (v(2) >= -1) &
                     (v(2) <= v(0) - 1) &
-                    (v(2) >= shiftedA(2) | v(2) === -1) &
-                    (v(2) <= v(0) - v(1) | v(2) === -1) &
+                    ((v(2) >= shiftedA(2)) | (v(2) === -1)) &
+                    ((v(2) <= v(0) - v(1)) | (v(2) === -1)) &
                     _adtSize(List(shiftedA(0), l(v(0)))) &
                     _adtSize(List(shiftedA(1), l(v(1)))) &
-                    shiftedA(3) === v(2))
+                    (shiftedA(4) === v(2)))
+        }
+        case StringPred(`str_replace`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 4, order)(a)
+          exists(4, shiftedA &
+                    ((v(3) === v(0)) | (v(3) + v(1) === v(0) + v(2))) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(1), l(v(1)))) &
+                    _adtSize(List(shiftedA(2), l(v(2)))) &
+                    _adtSize(List(shiftedA(3), l(v(3)))))
         }
         case _ =>
           a
@@ -775,7 +826,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   // Set of the predicates that are fully supported at this point
   private val supportedPreds : Set[Predicate] =
     (for (f <- Set(str_++, str_len, str_at, str_substr,
-                   str_to_int_help, str_indexof_help))
+                   str_to_int_help, str_indexof_help, str_replace))
      yield funPredMap(f)) ++ seqADT.predicates
 
   private val unsupportedPreds = predicates.toSet -- supportedPreds
