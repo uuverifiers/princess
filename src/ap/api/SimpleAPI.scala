@@ -4348,7 +4348,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   private var proofThreadStatus : ProofThreadStatus.Value = _
 
   private val proofThreadRunnable =
-    new ProofThreadRunnable(proverCmd, proverRes, enableAssert)
+    new ProofThreadRunnable(proverCmd, proverRes, enableAssert, logging)
   private val proofThread =
     new Thread(proofThreadRunnable)
 

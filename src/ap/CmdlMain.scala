@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -68,7 +68,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
-    println("(c) Philipp Rümmer, 2009-2022")
+    println("(c) Philipp Rümmer, 2009-2023")
     println("Contributors: Angelo Brillout, Peter Backeman, Peter Baumgartner, Zafer Esen.")
     println("Free software under BSD-3-Clause.")
     println("Bug reports to ph_r@gmx.net")
@@ -128,7 +128,7 @@ object CmdlMain {
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")
     println(" -logging=flags            Comma-separated list of log flags       (default: \"\")")
-    println("                             Flags: tasks, splits, backtracking, stats")
+    println("                             Flags: tasks, splits, backtracking, stats, lemmas")
     println
     println("Proof/interpolation options")
     println("---------------------------")
@@ -193,6 +193,8 @@ object CmdlMain {
     println("                             size:     size of terms                (default)")
     println(" -stringSolver=val         Specify the used string solver")
     println("                             (default: ap.theories.strings.SeqStringTheory)")
+    println(" -seqSolver=val            Specify the used sequence solver")
+    println("                             (default: ap.theories.sequences.ArraySeqTheory)")
     println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
   }
 
@@ -576,13 +578,20 @@ object CmdlMain {
         None
       }
       case e : Throwable => {
-        if (format == Param.InputFormat.SMTLIB) {
-          println("(error \"" + SMTLineariser.escapeString(e.getMessage) +"\")")
-	} else {
-          println("ERROR: " + e.getMessage)
-        }
         if (stackTraces)
           e.printStackTrace
+        if (format == Param.InputFormat.SMTLIB) {
+          e.getMessage match {
+            case null => println("error")
+            case str  => println("(error \"" +
+                                   SMTLineariser.escapeString(str) +"\")")
+          }
+	} else {
+          e.getMessage match {
+            case null => println("ERROR")
+            case str  => println("ERROR: " + str)
+          }
+        }
         None
       }
     }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,7 @@ import ap.parser._
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry,
                     Incompleteness}
-import ap.types.Sort
+import ap.types.{Sort, MonoSortedIFunction}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPlugin, ReducerPluginFactory}
 import ap.terfor.preds.{PredConj, Atom}
@@ -86,9 +86,12 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
 } with AbstractStringTheory {
 
-  val Seq(str_empty, str_cons) =        seqADT.constructors
+  val Seq(str_empty, str_cons)        = seqADT.constructors
   val Seq(_, Seq(str_head, str_tail)) = seqADT.selectors
 
+  private val adtSize                 = seqADT.termSize.head
+  private val _adtSize                = seqADT.termSizePreds.head
+  
   def int2Char(t : ITerm) : ITerm =
     ModuloArithmetic.cast2Interval(IdealInt.ZERO, upperBound, t)
 
@@ -96,13 +99,252 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   val extraOps : Map[String, Either[IFunction, Predicate]] = Map()
   val extraIndexedOps : Map[(String, Int), Either[IFunction, Predicate]] = Map()
-  
+
+  private def isEmptyString(t : ITerm) : IFormula = seqADT.hasCtor(t, 0)
+
+  private val SSo = StringSort
+  import Sort.{Nat, Integer}
+
+  // str_to_int_help(a, b) = a * 10^b.len + b.toInt
+  val str_to_int_help =
+    new MonoSortedIFunction("str_to_int_help", List(Integer, SSo),
+                            Integer, true, false)
+
+  // str_indexof_help(s, t, i, k)
+  //    = str_indexof(s, t, i) + k if str_indexof(...) >= 0
+  //    = -1                       otherwise
+  val str_indexof_help =
+    new MonoSortedIFunction("str_indexof_help",
+                            List(SSo, SSo, Integer, Integer),
+                            Integer, true, false)
+
   //////////////////////////////////////////////////////////////////////////////
 
-  val functions = predefFunctions
+  // Version of the axioms with non-strict triggers
+
+  val strAtAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_at(str, n)),
+               ite(n >= 0 & n < adtSize(str) - 1,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                                   (str === str_cons(c, str1)) &
+                                   str_at(str, n) ===
+                                     ite(n === 0,
+                                         str_cons(c, ""),
+                                         str_at(str1, n - 1))
+                                 )),
+                   str_at(str, n) === ""))))
+  }
+
+  val strSubstrAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all((start, len) =>
+      ITrigger(List(str_substr(str, start, len)),
+               ite(start >= 0 & len > 0 & start < adtSize(str) - 1,
+                   ite(start === 0 & len >= adtSize(str) - 1,
+                       str_substr(str, start, len) === str,
+                       StringSort.ex(str1 => CharSort.ex(c =>
+                                       (str === str_cons(c, str1)) &
+                                       str_substr(str, start, len) ===
+                                         ite(start > 0,
+                                             str_substr(str1, start - 1, len),
+                                             str_cons(
+                                               c,str_substr(str1, 0, len - 1))
+                                             )))),
+                   str_substr(str, start, len) === ""))))
+  }
+
+  val strToIntAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_to_int_help(n, str)),
+               ite(isEmptyString(str),
+                   str_to_int_help(n, str) === n,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                                   (str === str_cons(c, str1)) &
+                                   (str_to_int_help(n, str) === 
+                                    ite(c >= 48 & c <= 57,
+                                        str_to_int_help(n*10 + c - 48, str1),
+                                        -1))
+                                 )))))) &
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_to_int_help(n, str)),
+               (str_to_int_help(n, str) === -1) |
+               (str_to_int_help(n, str) >= n))))
+  }
+
+  val strIndexofAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr) => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str, searchStr, start, offset)),
+               ite((start <= 0) &
+                     (searchStr === str_substr(str, 0, adtSize(searchStr) - 1)),
+                   str_indexof_help(str, searchStr, start, offset) === offset,
+                   StringSort.ex(str1 => CharSort.ex(c =>
+                     (str === str_cons(c, str1)) &
+                     str_indexof_help(str, searchStr, start, offset) ===
+                       str_indexof_help(str1, searchStr, start - 1, offset + 1)
+                                 )) |
+                   ((str === str_empty()) &
+                    (str_indexof_help(str, searchStr, start, offset) === -1))
+               ))))
+  }
+
+/*
+  val strReplaceAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr, replStr) =>
+      ITrigger(List(str_replace(str, searchStr, replStr)),
+                 ite(searchStr === str_substr(str, 0, adtSize(searchStr) - 1),
+                     str_replace(str, searchStr, replStr) ===
+                       str_++(replStr,
+                              str_substr(str,
+                                         adtSize(searchStr) - 1, adtSize(str))),
+                     ite(isEmptyString(str),
+                         str_replace(str, searchStr, replStr) === "",
+                         StringSort.ex(str1 => CharSort.ex(c =>
+                           (str === str_cons(c, str1)) &
+                             (str_replace(str, searchStr, replStr) ===
+                              str_cons(c, str_replace(str1, searchStr, replStr))
+                             )))))))
+  }
+ */
+
+  val strReplaceAxioms = {
+    import IExpression._
+
+    StringSort.all((str, searchStr, replStr) =>
+      ITrigger(List(str_replace(str, searchStr, replStr)),
+               ite(adtSize(searchStr) > adtSize(str),
+                   str_replace(str, searchStr, replStr) === str,
+                   ite(searchStr === str_substr(str, 0, adtSize(searchStr) - 1),
+                       str_replace(str, searchStr, replStr) ===
+                       str_++(replStr,
+                              str_substr(str,
+                                         adtSize(searchStr) - 1, adtSize(str))),
+                       StringSort.ex(str1 => CharSort.ex(c =>
+                         (str === str_cons(c, str1)) &
+                           (str_replace(str, searchStr, replStr) ===
+                              str_cons(c, str_replace(str1, searchStr, replStr))
+                           )))))))
+  }
+
+
+  // Version of the axioms with strict triggers
+
+/*
+  val strConcatAxioms = {
+    import IExpression._
+
+    StringSort.all(str =>
+      ITrigger(List(str_++(str_empty(), str)),
+               str_++(str_empty(), str) === str)) &
+    StringSort.all((str1, str2) => CharSort.all(c =>
+      ITrigger(List(str_++(str_cons(c, str1), str2)),
+               str_++(str_cons(c, str1), str2) ===
+                  str_cons(c, str_++(str1, str2))
+      )))
+  }
+
+  val strAtAxioms = {
+    import IExpression._
+
+    StringSort.all(str1 => CharSort.all(c => all(n =>
+      ITrigger(List(str_at(str_cons(c, str1), n)),
+               str_at(str_cons(c, str1), n) ===
+                 ite(n >= 0 & n < adtSize(str1),
+                     ite(n === 0, str_cons(c, ""), str_at(str1, n - 1)),
+                     ""))))) &
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_at(str_empty(), n)),
+               str_at(str_empty(), n) === "")))
+  }
+
+  val strSubstrAxioms = {
+    import IExpression._
+
+    StringSort.all(str => all((start, len) =>
+      ITrigger(List(str_substr(str_empty(), start, len)),
+               str_substr(str_empty(), start, len) === ""))) &
+    StringSort.all(str1 => CharSort.all(c => all((start, len) =>
+      ITrigger(List(str_substr(str_cons(c, str1), start, len)),
+               str_substr(str_cons(c, str1), start, len) ===
+                 ite(start >= 0 & len > 0 & start < adtSize(str1),
+                     ite(start === 0 & len >= adtSize(str1),
+                         str_cons(c, str1),
+                         ite(start > 0,
+                             str_substr(str1, start - 1, len),
+                             str_cons(c, str_substr(str1, 0, len - 1))
+                         )),
+                     "")))))
+  }
+
+  val strToIntAxioms = {
+    import IExpression._
+
+    all(n =>
+      ITrigger(List(str_to_int_help(n, str_empty())),
+               str_to_int_help(n, str_empty()) === n)) &
+    StringSort.all(str1 => CharSort.all(c => all(n =>
+      ITrigger(List(str_to_int_help(n, str_cons(c, str1))),
+               str_to_int_help(n, str_cons(c, str1)) ===
+                  ite(c >= 48 & c <= 57,
+                      str_to_int_help(n*10 + c - 48, str1),
+                      -1))))) &
+    StringSort.all(str => all(n =>
+      ITrigger(List(str_to_int_help(n, str)),
+               (str_to_int_help(n, str) === -1) |
+               (str_to_int_help(n, str) >= n))))
+  }
+
+  val strIndexofAxioms = {
+    import IExpression._
+
+    StringSort.all(searchStr => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str_empty(), searchStr, start, offset)),
+               str_indexof_help(str_empty(), searchStr, start, offset) === 
+                 ite((start <= 0) & (searchStr === str_empty()), offset, -1)
+               ))) &
+    StringSort.all((str1, searchStr) => CharSort.all(c => all((start, offset) =>
+      ITrigger(List(str_indexof_help(str_cons(c, str1),
+                                     searchStr, start, offset)),
+               str_indexof_help(str_cons(c, str1),
+                                searchStr, start, offset) ===
+                 ite((start + adtSize(searchStr) <= adtSize(str1) + 1) &
+                     (adtSize(searchStr) <= adtSize(str1) + 1),
+                     ite((start <= 0) &
+                           (searchStr ===
+                              str_substr(str_cons(c, str1),
+                                         0, adtSize(searchStr) - 1)),
+                         offset,
+                         str_indexof_help(str1, searchStr, start - 1, offset +1)
+                     ),
+                     -1)))))
+  }
+ */
+
+  val allAxioms =
+//    strConcatAxioms &
+    strAtAxioms &
+    strSubstrAxioms &
+    strToIntAxioms &
+    strIndexofAxioms &
+    strReplaceAxioms
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val functions = predefFunctions ++ List(str_to_int_help, str_indexof_help)
   
   val (funPredicates, axioms, _, funPredMap) =
-    Theory.genAxioms(theoryFunctions = functions)
+    Theory.genAxioms(theoryFunctions = functions,
+                     theoryAxioms    = allAxioms,
+                     otherTheories   = List(seqADT))
   val predicates = predefPredicates ++ funPredicates
 
   val functionPredicateMapping = functions zip funPredicates
@@ -115,8 +357,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val adtSize    = seqADT.termSize.head
-  private val _adtSize   = seqADT.termSizePreds.head
   val _str_empty = seqADT.constructorPreds(0)
   val _str_cons  = seqADT.constructorPreds(1)
   val _str_++    = funPredMap(str_++)
@@ -127,11 +367,11 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
    * Visitor called during pre-processing to eliminate symbols
    * <code>str, str_len</code>
    */
-  private object Preproc extends CollectingVisitor[Unit, IExpression] {
+  private object Preproc extends ContextAwareVisitor[Unit, IExpression] {
     import IExpression._
 
     def postVisit(t : IExpression,
-                  arg : Unit,
+                  ctxt : Context[Unit],
                   subres : Seq[IExpression]) : IExpression = t match {
       case IFunApp(`str_from_char`, _) =>
         str_cons(subres.head.asInstanceOf[ITerm], str_empty())
@@ -152,6 +392,39 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
             str_cons(code, str_empty()),
             str_empty())
       }
+      case IAtom(`str_prefixof`, _) => {
+        val fst = subres(0).asInstanceOf[ITerm]
+        val snd = subres(1).asInstanceOf[ITerm]
+        fst === str_substr(snd, 0, adtSize(fst) - 1)
+      }
+      case IAtom(`str_suffixof`, _) => {
+        val fst = subres(0).asInstanceOf[ITerm]
+        val snd = subres(1).asInstanceOf[ITerm]
+        fst === str_substr(snd, adtSize(snd) - adtSize(fst), adtSize(fst) - 1)
+      }
+      case IAtom(`str_contains`, _) if ctxt.polarity < 0 => {
+        StringSort.ex((a, b) =>
+          subres(0).asInstanceOf[ITerm] ===
+            str_++(str_++(a, subres(1).asInstanceOf[ITerm]), b))
+      }
+      case IAtom(`str_contains`, _) => {
+        geqZero(str_indexof_help(subres(0).asInstanceOf[ITerm],
+                                 subres(1).asInstanceOf[ITerm],
+                                 0, 0))
+      }
+      case IFunApp(`str_to_int`, _) => {
+        val fst = subres(0).asInstanceOf[ITerm]
+        ite(isEmptyString(fst), -1, str_to_int_help(0, fst))
+      }
+      case IFunApp(`str_indexof`, _) => {
+        val start = subres(2).asInstanceOf[ITerm]
+        ite(start < 0,
+            -1,
+            str_indexof_help(subres(0).asInstanceOf[ITerm],
+                             subres(1).asInstanceOf[ITerm],
+                             start,
+                             0))
+      }
       case t =>
         t update subres
     }
@@ -159,7 +432,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) =
-    (Preproc.visit(f, ()).asInstanceOf[IFormula], signature)
+    (Preproc.visit(f, Context(())).asInstanceOf[IFormula], signature)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -191,6 +464,46 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                     _adtSize(List(shiftedA(0), l(v(0)))) &
                     _adtSize(List(shiftedA(1), l(v(1)))) &
                     _adtSize(List(shiftedA(2), v(0) + v(1) - 1)))
+        }
+        case StringPred(`str_at`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 2, order)(a)
+          exists(2, shiftedA & (v(1) >= 1) & (v(1) <= 2) & (v(1) <= v(0)) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(2), l(v(1)))))
+        }
+        case StringPred(`str_substr`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 2, order)(a)
+          exists(2, shiftedA &
+                    (v(1) >= 1) &
+                    (v(1) <= v(0)) &
+                    ((v(1) <= shiftedA(2) + 1) | (v(1) <= 1)) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(3), l(v(1)))))
+        }
+        case StringPred(`str_to_int_help`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 1, order)(a)
+          exists(1, shiftedA &
+                    (v(1) >= 1) & _adtSize(List(shiftedA(0), l(v(0)))))
+        }
+        case StringPred(`str_indexof_help`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 3, order)(a)
+          exists(3, shiftedA &
+                    (v(2) >= -1) &
+                    (v(2) <= v(0) - 1) &
+                    ((v(2) >= shiftedA(2)) | (v(2) === -1)) &
+                    ((v(2) <= v(0) - v(1)) | (v(2) === -1)) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(1), l(v(1)))) &
+                    (shiftedA(4) === v(2)))
+        }
+        case StringPred(`str_replace`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 4, order)(a)
+          exists(4, shiftedA &
+                    ((v(3) === v(0)) | (v(3) + v(1) === v(0) + v(2))) &
+                    _adtSize(List(shiftedA(0), l(v(0)))) &
+                    _adtSize(List(shiftedA(1), l(v(1)))) &
+                    _adtSize(List(shiftedA(2), l(v(2)))) &
+                    _adtSize(List(shiftedA(3), l(v(3)))))
         }
         case _ =>
           a
@@ -512,7 +825,9 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   // Set of the predicates that are fully supported at this point
   private val supportedPreds : Set[Predicate] =
-    (for (f <- Set(str_++, str_len)) yield funPredMap(f)) ++ seqADT.predicates
+    (for (f <- Set(str_++, str_len, str_at, str_substr,
+                   str_to_int_help, str_indexof_help, str_replace))
+     yield funPredMap(f)) ++ seqADT.predicates
 
   private val unsupportedPreds = predicates.toSet -- supportedPreds
   

@@ -1503,7 +1503,9 @@ class ADT (sortNames : Seq[String],
     if (!nonEnumSorts.isEmpty && termSize != null) Some(new Plugin {
 
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-        if (goalState(goal) == Plugin.GoalState.Final) {
+        goalState(goal) match {
+          case Plugin.GoalState.Final | Plugin.GoalState.Intermediate => {
+
           implicit val order = goal.order
           val predFacts = goal.facts.predConj
 
@@ -1565,9 +1567,11 @@ class ADT (sortNames : Seq[String],
           } else {
             List()
           }
-        } else {
-          List()
         }
+
+        case _ =>
+          List()
+      }
     }) else {
     None
   }

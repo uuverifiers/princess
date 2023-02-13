@@ -1,6 +1,7 @@
 #!/bin/sh
 
 ./rundir arraysAPI ""
+./rundir sequences "" -logo +assert +model -timeout=30000
 ./rundir arrays "" -logo +assert +model -timeout=30000
 ./rundir heap "" -logo +assert +model -timeout=30000
 ./rundir rationals "" -logo +assert +model -timeout=30000

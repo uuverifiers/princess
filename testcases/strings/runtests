@@ -20,7 +20,24 @@ TESTS="simple-cycle.smt2 \
        chars.smt2 \
        single-quoted.smt2 \
        single-quoted2.smt2 \
-       completeness.smt2"
+       completeness.smt2 \
+       str-at.smt2 \
+       str-substr.smt2 \
+       str-substr2.smt2 \
+       str-prefixof.smt2 \
+       str-suffixof.smt2 \
+       str-to-int.smt2 \
+       str-to-int2.smt2 \
+       str-to-int3.smt2 \
+       str-to-int4.smt2 \
+       str-indexof.smt2 \
+       str-indexof2.smt2 \
+       str-indexof3.smt2 \
+       str-indexof4.smt2 \
+       str-indexof5.smt2 \
+       str-contains.smt2 \
+       str-replace.smt2 \
+       str-replace2.smt2"
 
 $PRI "$@" $TESTS
 

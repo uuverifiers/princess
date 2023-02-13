@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2023 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap, DivZero}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
+import ap.theories.sequences.{SeqTheory, SeqTheoryBuilder}
 import ap.theories.rationals.Rationals
 import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
                    RingWithIntConversions}
@@ -119,6 +120,12 @@ object SMTParser2InputAbsy {
   case class SMTRegLan(sort : TSort)               extends SMTType {
     def toSort = sort
     override def toString = "RegLan"
+  }
+
+  case class SMTSeq(theory : SeqTheory,
+                    elementType : SMTType)         extends SMTType {
+    def toSort = theory.sort
+    override def toString = theory.toString
   }
 
   private def toNormalBool(s : TSort) : TSort = s match {
@@ -885,11 +892,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private var stringTheoryBuilder =
-    StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+  private var stringTheoryBuilder : StringTheoryBuilder = _
 
   private val defaultStringAlphabetSize = 3 * (1 << 16)
-  stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+
+  private def resetStringTheoryBuilder = {
+    stringTheoryBuilder =
+      StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+    stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+  }
+
+  resetStringTheoryBuilder
 
   private var usingStrings = false
 
@@ -917,6 +930,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def charType =   SMTChar(stringTheory.CharSort)
   private def stringType = SMTString(stringTheory.StringSort)
   private def regexType =  SMTRegLan(stringTheory.RegexSort)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val sequenceTheories = new MHashMap[TSort, SeqTheory]
+
+  private def sequenceTheory(elSort : TSort) =
+    sequenceTheories.getOrElseUpdate(elSort, {
+      val builder = SeqTheoryBuilder(Param.SEQ_THEORY_DESC(settings))
+      builder setElementSort elSort
+      val t = builder.theory
+      addTheory(t)
+      t
+    })
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1003,9 +1029,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     polyADTs             = Map()
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
-    stringTheoryBuilder =
-      StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
-    stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
+    resetStringTheoryBuilder
+    sequenceTheories.clear
   }
 
   protected override def addAxiom(f : IFormula) : Unit =
@@ -1999,6 +2024,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTArray(args.init, args.last)
       }
 
+      case "Seq" => {
+        val args =
+          for (t <- s.listsort_.toList) yield translateSort(t)
+        if (args.size != 1)
+          throw new Parser2InputAbsy.TranslationException(
+            "Expected one sort argument in " + (printer print s))
+        SMTSeq(sequenceTheory(args.head.toSort), args.head)
+      }
+
       case id if (polyADTs contains id) => {
         val encodedSortName = SMTADT.POLY_PREFIX + (printer print s)
         env.lookupSortPartial(encodedSortName) match {
@@ -2051,7 +2085,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       symApp(t.symbolref_, t.listterm_, polarity)
 
     case t : QuantifierTerm =>
-      translateQuantifier(t, polarity)
+      t.quantifier_ match {
+        case _ : LbdQuantifier =>
+          translateLambda(t, polarity)
+        case _ =>
+          translateQuantifier(t, polarity)
+      }
     
     case t : AnnotationTerm => {
       val triggers = for (annot <- t.listannotation_;
@@ -2159,6 +2198,42 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         (types.head.toSort eps matrix, types.head)
       }
     }
+  }
+  
+  private def translateLambda(t : QuantifierTerm, polarity : Int)
+                             : (IExpression, SMTType) = {
+    ensureEnvironmentCopy
+
+    var quantNum : Int = 0
+    
+    for (binder <- t.listsortedvariablec_.reverse) binder match {
+      case binder : SortedVariable => {
+        pushVar(binder.sort_, binder.symbol_)
+        quantNum = quantNum + 1
+      }
+    }
+
+    val body = translateTerm(t.term_, polarity)
+
+    // pop the variables from the environment
+    val argumentTypes = for (_ <- 0 until quantNum)
+                        yield env.popVar.asInstanceOf[BoundVariable].varType
+
+    val arrayType = SMTArray(argumentTypes.toList, body._2)
+
+    // We need to take sure that the right Boolean sort is used for
+    // quantified variables
+    // TODO: only apply substitution if there are actually Boolean sorts
+
+    val varSubstitution : List[ITerm] =
+      for ((t, n) <- arrayType.arguments.zipWithIndex) yield {
+        IVariable(n, toNormalBool(t.toSort))
+      }
+
+    (ExtArray.Lambda(arrayType.theory.indexSorts,
+                     arrayType.theory.objSort,
+                     subst(asTerm(body), varSubstitution, 0)),
+     arrayType)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -2888,13 +2963,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          translateStringArgs("char.from-int", args, List(SMTInteger)).head),
        charType)
 
-    // Function seq.unit provided by Z3
-    case PlainSymbol("seq.unit") => {
-      checkArgNum("seq.unit", 1, args)
-      (stringTheory.str_from_code(asTerm(translateTerm(args(0), 0))),
-       stringType)
-    }
-
     case PlainSymbol(id)
       if usingStrings && (stringTheory.extraOps contains id) =>
       stringTheory.extraOps(id) match {
@@ -2935,6 +3003,116 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Sequence operations
+
+    case CastSymbol("seq.empty", sort) =>
+      translateSort(sort) match {
+        case s : SMTSeq => {
+          checkArgNum("seq.empty", 0, args)
+          (s.theory.seq_empty(), s)
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "seq.empty can only be used with sequence types")
+      }
+    
+    case PlainSymbol("seq.cons") => {
+      checkArgNum("seq.cons", 2, args)
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      val elType = transArgs(0)._2
+      val theory = transArgs(1)._2 match {
+        case SMTSeq(t, `elType`) => t
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "seq.cons can only be used with sequence types")
+      }
+      (theory.seq_cons(asTerm(transArgs(0)), asTerm(transArgs(1))),
+       transArgs(1)._2)
+    }
+
+    case PlainSymbol("seq.unit") => {
+      checkArgNum("seq.unit", 1, args)
+      val arg = translateTerm(args(0), 0)
+      val theory = sequenceTheory(arg._2.toSort)
+      (theory.seq_unit(asTerm(arg)), SMTSeq(theory, arg._2))
+    }
+
+    case PlainSymbol("seq.++") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      val (theory, seqType) = (transArgs map (_._2)).distinct match {
+        case Seq(t@SMTSeq(theory, _)) => (theory, t)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "seq.++ can only be applied to a non-empty list of sequences")
+      }
+      val res =
+        (transArgs.iterator map (asTerm(_))) reduceLeft {
+          (s, t) => theory.seq_++(s, t)
+        }
+      (res, seqType)
+    }
+
+    case PlainSymbol("seq.len") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.len", args, t => List(t))
+      (seqType.theory.seq_len(argTerms : _*), SMTInteger)
+    }
+
+    case PlainSymbol("seq.extract") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.extract", args,
+                         t => List(t, SMTInteger, SMTInteger))
+      (seqType.theory.seq_extract(argTerms : _*), seqType)
+    }
+
+    case PlainSymbol("seq.indexof") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.indexof", args,
+                         t => List(t, t.elementType, SMTInteger))
+      (seqType.theory.seq_indexof(argTerms : _*), SMTInteger)
+    }
+
+    case PlainSymbol("seq.at") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.at", args, t => List(t, SMTInteger))
+      (seqType.theory.seq_at(argTerms : _*), seqType)
+    }
+
+    case PlainSymbol("seq.nth") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.nth", args, t => List(t, SMTInteger))
+      (seqType.theory.seq_nth(argTerms : _*), seqType.elementType)
+    }
+
+    case PlainSymbol("seq.update") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.update", args, t => List(t, SMTInteger, t))
+      (seqType.theory.seq_update(argTerms : _*), seqType)
+    }
+
+    case PlainSymbol("seq.contains") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.contains", args, t => List(t, t))
+      (seqType.theory.seq_contains(argTerms : _*), SMTBool)
+    }
+    case PlainSymbol("seq.prefixof") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.prefixof", args, t => List(t, t))
+      (seqType.theory.seq_prefixof(argTerms : _*), SMTBool)
+    }
+    case PlainSymbol("seq.suffixof") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.suffixof", args, t => List(t, t))
+      (seqType.theory.seq_suffixof(argTerms : _*), SMTBool)
+    }
+
+    case PlainSymbol("seq.replace") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.replace", args, t => List(t, t, t))
+      (seqType.theory.seq_replace(argTerms : _*), seqType)
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
     case PlainSymbol(name@"valid") =>
@@ -2958,11 +3136,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
 
     case PlainSymbol(name@"alloc") =>
-      translateHeapFun(_.alloc,
-                       args,
-                       heap => List(objectType(heap)),
-                       heap => SMTADT(heap.heapADTs, heap.HeapADTSortId.allocResSortId.id)).getOrElse(
-      unintFunApp(name, sym, args, polarity))
+      translateHeapFun(
+        _.alloc,
+        args,
+        heap => List(objectType(heap)),
+        heap => SMTADT(heap.heapADTs, heap.HeapADTSortId.allocResSortId.id)).
+      getOrElse(unintFunApp(name, sym, args, polarity))
 
     case PlainSymbol(name@"batchAlloc") =>
       translateHeapFun(_.batchAlloc,
@@ -3255,6 +3434,31 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case t.StringSort => stringType
       case s => throw new TranslationException("" + s + " is not a string sort")
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateSeqArgs(name       : String,
+                               args       : Seq[Term],
+                               argTypes   : SMTSeq => Seq[SMTType])
+                            : (Seq[ITerm], SMTSeq) = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    // We assume that the first argument is a sequence
+    val seqType = transArgs(0)._2 match {
+      case t : SMTSeq => {
+        val expectedTypes = argTypes(t)
+        if (transArgs.size > 1 && expectedTypes != (transArgs map (_._2)))
+          throw new TranslationException(
+            name + " cannot be applied to arguments of type " +
+              (transArgs map (_._2) mkString ", "))
+        t
+      }
+      case t => {
+        throw new TranslationException(
+          name + " cannot be applied to first argument of type " + t)
+      }
+    }
+    (transArgs map (asTerm(_)), seqType)
   }
 
   //////////////////////////////////////////////////////////////////////////////

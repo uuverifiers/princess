@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.certificates.{Certificate, LemmaBase}
 import ap.terfor.TermOrder
-import ap.parameters.GoalSettings
+import ap.parameters.{GoalSettings, Param}
 import ap.util.{Debug, Timeout}
 
 import scala.concurrent.SyncVar
@@ -78,9 +78,10 @@ object ProofThreadRunnable {
 }
 
 class ProofThreadRunnable(
-                     proverCmd : SyncVar[ProofThreadRunnable.ProverCommand],
-                     proverRes : SyncVar[ProofThreadRunnable.ProverResult],
-                     enableAssert : Boolean) extends Runnable {
+                     proverCmd    : SyncVar[ProofThreadRunnable.ProverCommand],
+                     proverRes    : SyncVar[ProofThreadRunnable.ProverResult],
+                     enableAssert : Boolean,
+                     logging      : Set[Param.LOG_FLAG]) extends Runnable {
   import ProofThreadRunnable._
 
   private var stopProofTaskVar = false
@@ -124,7 +125,8 @@ class ProofThreadRunnable(
 
         if (needLemmaBase) {
           if (lemmaBase == null || !reuseLemmaBase) {
-            lemmaBase = new LemmaBase
+            val printL = logging contains Param.LOG_LEMMAS
+            lemmaBase = new LemmaBase(printLemmas = printL)
           } else {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, lemmaBase.hasEmptyStack)
