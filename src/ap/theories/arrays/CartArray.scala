@@ -103,33 +103,53 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   val (projections  : Map[(Seq[Sort], Int), IFunction],
        projections2 : Map[(Seq[Sort], Int), IFunction],
+       arrayStores  : Map[(Seq[Sort], Int), IFunction],
+       arrayStores2 : Map[(Seq[Sort], Int), IFunction],
        functions    : Seq[IFunction]) = {
-    val projs, projs2 = new MHashMap[(Seq[Sort], Int), IFunction]
-    val functions     = new ArrayBuffer[IFunction]
+    val projs, projs2, aStore, aStore2 =
+      new MHashMap[(Seq[Sort], Int), IFunction]
+    val functions =
+      new ArrayBuffer[IFunction]
 
     for ((key@(fromSorts, ind), toSorts) <- projSorts) {
-      val name1 =
+      val projName1 =
         "proj_" + (
           for ((s, n) <- fromSorts.zipWithIndex)
           yield (if (n == ind) s.name.toUpperCase else s)).mkString("_")
-      val name2 =
-        name1.patch(4, "2", 0)
+      val projName2 =
+        projName1.patch(4, "2", 0)
+      val aStoreName1 =
+        projName1.patch(0, "arrayStore", 4)
+      val aStoreName2 =
+        projName2.patch(0, "arrayStore", 4)
 
-      val Seq(f1, f2) =
-        for (name <- List(name1, name2))
+      val Seq(proj1, proj2) =
+        for (name <- List(projName1, projName2))
         yield MonoSortedIFunction(name,
                                   List(extTheories(fromSorts).sort,
                                        fromSorts(ind)),
                                   extTheories(toSorts).sort,
                                   partial, false)
+      val Seq(arrayStore1, arrayStore2) =
+        for (name <- List(aStoreName1, aStoreName2))
+        yield MonoSortedIFunction(name,
+                                  List(extTheories(fromSorts).sort,
+                                       fromSorts(ind),
+                                       extTheories(toSorts).sort),
+                                  extTheories(fromSorts).sort,
+                                  partial, false)
 
-      projs.put(key, f1)
-      projs2.put(key, f2)
-      functions += f1
-      functions += f2
+      projs  .put(key, proj1)
+      projs2 .put(key, proj2)
+      aStore .put(key, arrayStore1)
+      aStore2.put(key, arrayStore2)
+      functions += proj1
+      functions += proj2
+      functions += arrayStore1
+      functions += arrayStore2
     }
 
-    (projs.toMap, projs2.toMap, functions.toSeq)
+    (projs.toMap, projs2.toMap, aStore.toMap, aStore2.toMap, functions.toSeq)
   }
 
   /**
@@ -202,6 +222,41 @@ class CartArray(val indexSorts         : Seq[Sort],
     }
 
     res
+  }
+
+  /**
+   * Update a slice of a Cartesian array.
+   */
+  def arraySto(ar : ITerm, updatedSlice : ((Int, ITerm), ITerm)) : ITerm = {
+    val ((ind, indValue), ar2) = updatedSlice
+
+    val indexSorts =
+      (Sort sortOf ar) match {
+        case ExtArray.ArraySort(theory) =>
+          theory.indexSorts
+        case _ =>
+          throw new Exception(
+            "arrayStore can only be applied to array terms, not " + ar)
+      }
+    val aStore =
+      (arrayStores get (indexSorts, ind)) match {
+          case Some(f) =>
+            f
+          case None =>
+            throw new Exception(
+              "arrayStore for index " + ind +
+                " not defined for arrays of type " + (Sort sortOf ar))
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    val toSorts = projSorts((indexSorts, ind))
+    Debug.assertPre(AC, (Sort sortOf indValue) == indexSorts(ind),
+                    "arrayStore with ill-typed index term")
+    Debug.assertPre(AC, (Sort sortOf ar2) == extTheories(toSorts).sort,
+                    "arrayStore with ill-typed array slice")
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    IFunApp(aStore, List(ar, indValue, ar2))
   }
 
   class CombinatorApplicator(n : Int) {
@@ -277,9 +332,77 @@ class CartArray(val indexSorts         : Seq[Sort],
           })
     })
 
-//    println(axiom1)
+  // Upward propagation for arrayStore, arrayStore2:
+  // select(arrayStore_i(ar, indi, ar2), ind1, ..., indk) ==
+  //   select(ar2, ind1, ..., indi-1, indi+1, ..., indk)
+  //
+  val axiom2 : IFormula = IExpression.and(
+    for ((key@(fromSorts, ind), aStore1) <- arrayStores) yield {
+      import IExpression._
 
-  val allAxioms = axiom1
+      val toSorts        = projSorts(key)
+      val fromExtTheory  = extTheories(fromSorts)
+      val toExtTheory    = extTheories(toSorts)
+
+      val arVar          = v(0, fromExtTheory.sort)
+      val ar2Var         = v(1, toExtTheory.sort)
+      val indexVars      = for ((s, n) <- fromSorts.toList.zipWithIndex)
+                           yield v(n + 2, s)
+      val allVars        = arVar :: ar2Var :: indexVars
+      val varSorts       = for (ISortedVariable(_, s) <- allVars) yield s
+
+      val otherIndexVars = indexVars.patch(ind, List(), 1)
+
+      val sel2Expr       = toExtTheory.select(ar2Var :: otherIndexVars : _*)
+
+      val aStore2        = arrayStores2(key)
+
+      and(for (aStore <- List(aStore1, aStore2)) yield {
+            val storeExpr = aStore(arVar, indexVars(ind), ar2Var)
+            val selExpr   = fromExtTheory.select(storeExpr :: indexVars : _*)
+
+            val matrix    = ITrigger(List(selExpr), selExpr === sel2Expr)
+            all(varSorts, matrix)
+          })
+    })
+
+  // Upward propagation part 2 for arrayStore, arrayStore2:
+  // indi != ind' ->
+  // select(arrayStore_i(ar, indi', ar2), ind1, ..., indk) ==
+  //   select(ar, ind1, ..., indk)
+  //
+  val axiom3 : IFormula = IExpression.and(
+    for ((key@(fromSorts, ind), aStore1) <- arrayStores) yield {
+      import IExpression._
+
+      val toSorts        = projSorts(key)
+      val fromExtTheory  = extTheories(fromSorts)
+      val toExtTheory    = extTheories(toSorts)
+
+      val arVar          = v(0, fromExtTheory.sort)
+      val ar2Var         = v(1, toExtTheory.sort)
+      val indexVar2      = v(2, fromSorts(ind))
+      val indexVars      = for ((s, n) <- fromSorts.toList.zipWithIndex)
+                           yield v(n + 3, s)
+      val allVars        = arVar :: ar2Var :: indexVar2 :: indexVars
+      val varSorts       = for (ISortedVariable(_, s) <- allVars) yield s
+
+      val sel2Expr       = fromExtTheory.select(arVar :: indexVars : _*)
+
+      val aStore2        = arrayStores2(key)
+
+      and(for (aStore <- List(aStore1, aStore2)) yield {
+            val storeExpr = aStore(arVar, indexVar2, ar2Var)
+            val selExpr   = fromExtTheory.select(storeExpr :: indexVars : _*)
+
+            val matrix    = ITrigger(List(selExpr),
+                                     indexVar2 === indexVars(ind) |
+                                       selExpr === sel2Expr)
+            all(varSorts, matrix)
+          })
+    })
+
+  val allAxioms = axiom1 & axiom2 & axiom3
   
   //////////////////////////////////////////////////////////////////////////////
 
