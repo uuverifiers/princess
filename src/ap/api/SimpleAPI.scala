@@ -35,23 +35,24 @@ package ap.api
 
 import ap._
 import ap.basetypes.{IdealInt, Tree}
+import ap.interpolants.{InterpolationContext, Interpolator, ProofSimplifier}
+import ap.parser.IExpression.Sort
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
                       ReducerSettings, Param}
 import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
-import ap.proof.goal.{SymbolWeights, FormulaTask}
-import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
+import ap.proof.goal.SymbolWeights
+import ap.proof.certificates.{Certificate, CertFormula}
 import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
-import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator}
 import ap.terfor.equations.ReduceWithEqs
-import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
+import ap.terfor.preds.{Atom, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction, SeqReducerPluginFactory}
-import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
+import ap.theories.{Theory, TheoryRegistry,
                     SimpleArray, MulTheory, Incompleteness, ADT}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.types.{SortedConstantTerm, SortedIFunction,
@@ -59,8 +60,6 @@ import ap.types.{SortedConstantTerm, SortedIFunction,
                  SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
-import IExpression.Sort
-import Signature.PredicateMatchConfig
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  ArrayStack, LinkedHashMap, ArrayBuffer}
@@ -267,7 +266,7 @@ object SimpleAPI {
     val Init, AtPartialModel, AtFullModel = Value
   }
 
-  private val badStringChar = """[^a-zA-Z_0-9']""".r
+  private val badStringChar = """[^a-zA-Z_\d']""".r
   
   private def sanitiseHelp(s : String) : String =
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
@@ -320,6 +319,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                          randomSeed          : Option[Int],
                          logging             : Set[Param.LOG_FLAG] = Set()) {
 
+  import ProofThreadRunnable._
   import SimpleAPI._
   import ProofThreadRunnable._
 
@@ -359,7 +359,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
   
   private def doDumpSMT(comp : => Unit) =
-    if (dumpSMT != None) Console.withOut(dumpSMTStream) {
+    if (dumpSMT.isDefined) Console.withOut(dumpSMTStream) {
       comp
     }
   
@@ -373,7 +373,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
   
   private def doDumpScala(comp : => Unit) =
-    if (dumpScala != None) Console.withOut(dumpScalaStream) {
+    if (dumpScala.isDefined) Console.withOut(dumpScalaStream) {
       comp
     }
   
@@ -625,7 +625,6 @@ class SimpleAPI private (enableAssert        : Boolean,
   private def createConstantRaw(rawName : String,
                                 scalaCmd : String,
                                 sort : Sort) : IExpression.ConstantTerm = {
-    import IExpression._
     
     restartProofThread
     resetModel
@@ -692,7 +691,6 @@ class SimpleAPI private (enableAssert        : Boolean,
                                  scalaCmd : String,
                                  sort : Sort)
                                 : IndexedSeq[IExpression.ConstantTerm] = {
-    import IExpression._
     val cs = (for (i <- nums)
               yield {
                 val c = sort newConstant (prefix + i)
@@ -1360,7 +1358,6 @@ class SimpleAPI private (enableAssert        : Boolean,
    * cannot be used within triggers.
    */
   def createRelation(rawName : String, argSorts : Seq[Sort]) = {
-    import IExpression._
     
     val name = sanitise(rawName)
     val r = MonoSortedPredicate(name, argSorts)
@@ -1952,7 +1949,7 @@ class SimpleAPI private (enableAssert        : Boolean,
 
             if (constructProofs)
               // Restart, but keep lemmas that have been derived previously
-              proverCmd put CheckSatCommand(currentProver, true, true)
+              proverCmd put CheckSatCommand(currentProver, needLemmaBase = true, reuseLemmaBase = true)
             else
               // We can just add new formulas to the running proof thread,
               // without a complete restart
@@ -1984,7 +1981,7 @@ class SimpleAPI private (enableAssert        : Boolean,
               // use a ModelCheckProver
               lastStatus = ProverStatus.Running
               proverCmd put CheckSatCommand(currentProver, constructProofs,
-                                            false)
+                                            reuseLemmaBase = false)
             }
             
         }
@@ -2308,8 +2305,8 @@ class SimpleAPI private (enableAssert        : Boolean,
    * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
    * produce a certificate in textual/readable format.
    */
-  def certificateAsString(partNames : Map[Int, PartName],
-                          format : Param.InputFormat.Value) : String = {
+  def certificateAsString(partNames : Map[Int, PartName] = Map(),
+                          format : Param.InputFormat.Value = Param.InputFormat.Auto) : String = {
     doDumpSMT {
       println("(get-proof)")
     }
@@ -3415,7 +3412,6 @@ class SimpleAPI private (enableAssert        : Boolean,
    */
   private def reduceTerm(t : ITerm)
                         : (Conjunction, IExpression.ConstantTerm, TermOrder) = {
-        import TerForConvenience._
         val existential = setupTermEval
         
         val c = new IExpression.ConstantTerm ("c")
