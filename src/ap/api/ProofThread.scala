@@ -33,14 +33,14 @@
 
 package ap.api
 
-import ap.proof.{ModelSearchProver, ExhaustiveProver}
+import ap.proof.{ExhaustiveProver, ModelSearchProver}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.certificates.{Certificate, LemmaBase}
 import ap.terfor.TermOrder
 import ap.parameters.{GoalSettings, Param}
 import ap.util.{Debug, Timeout}
 
-import scala.concurrent.SyncVar
+import java.util.concurrent.LinkedBlockingQueue
 
 object ProofThreadRunnable {
 
@@ -78,10 +78,10 @@ object ProofThreadRunnable {
 }
 
 class ProofThreadRunnable(
-                     proverCmd    : SyncVar[ProofThreadRunnable.ProverCommand],
-                     proverRes    : SyncVar[ProofThreadRunnable.ProverResult],
-                     enableAssert : Boolean,
-                     logging      : Set[Param.LOG_FLAG]) extends Runnable {
+                           proverCmd : LinkedBlockingQueue[ProofThreadRunnable.ProverCommand],
+                           proverRes : LinkedBlockingQueue[ProofThreadRunnable.ProverResult],
+                           enableAssert : Boolean,
+                           logging      : Set[Param.LOG_FLAG]) extends Runnable {
   import ProofThreadRunnable._
 
   private var stopProofTaskVar = false

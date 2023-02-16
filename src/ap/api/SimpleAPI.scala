@@ -36,36 +36,26 @@ package ap.api
 import ap._
 import ap.basetypes.{IdealInt, Tree}
 import ap.interpolants.{InterpolationContext, Interpolator, ProofSimplifier}
+import ap.parameters._
 import ap.parser.IExpression.Sort
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
-                      ReducerSettings, Param}
-import ap.terfor.{TermOrder, Formula}
-import ap.terfor.TerForConvenience
-import ap.proof.{ModelSearchProver, ExhaustiveProver}
+import ap.proof.certificates.{CertFormula, Certificate}
 import ap.proof.goal.SymbolWeights
-import ap.proof.certificates.{Certificate, CertFormula}
+import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
+import ap.proof.{ExhaustiveProver, ModelSearchProver}
+import ap.terfor.conjunctions._
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
-                               IterativeClauseMatcher, Quantifier,
-                               LazyConjunction, SeqReducerPluginFactory}
-import ap.theories.{Theory, TheoryRegistry,
-                    SimpleArray, MulTheory, Incompleteness, ADT}
-import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.types.{SortedConstantTerm, SortedIFunction,
-                 MonoSortedIFunction, MonoSortedPredicate,
-                 SortedPredicate, TypeTheory}
-import ap.util.{Debug, Timeout, Seqs}
-
-
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 ArrayStack, LinkedHashMap, ArrayBuffer}
-import scala.concurrent.SyncVar
+import ap.terfor.{Formula, TerForConvenience, TermOrder}
+import ap.theories._
+import ap.types._
+import ap.util.{Debug, Seqs, Timeout}
 
 import java.io.File
+import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, HashMap => MHashMap, HashSet => MHashSet}
 
 object SimpleAPI {
   
@@ -321,7 +311,6 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   import ProofThreadRunnable._
   import SimpleAPI._
-  import ProofThreadRunnable._
 
   private val apiStack = new APIStack
 
@@ -404,8 +393,8 @@ class SimpleAPI private (enableAssert        : Boolean,
     // hang
 
     try {
-      if (proverCmd.isSet)
-        proverCmd take 0
+      if (!proverCmd.isEmpty)
+        proverCmd.poll(0, TimeUnit.SECONDS)
     } catch {
       case _ : NoSuchElementException => // nothing
     }
@@ -1934,7 +1923,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+        Debug.assertInt(SimpleAPI.AC, proverRes.isEmpty)
         //-END-ASSERTION-///////////////////////////////////////////////////////
     
         flushTodo
@@ -2043,7 +2032,7 @@ class SimpleAPI private (enableAssert        : Boolean,
       checkTimeout
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+    Debug.assertInt(SimpleAPI.AC, proverRes.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     lastStatus = ProverStatus.Running
@@ -2080,7 +2069,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   private def getStatusHelp(block : Boolean) : ProverStatus.Value = {
-    if (lastStatus == ProverStatus.Running && (block || proverRes.isSet))
+    if (lastStatus == ProverStatus.Running && (block || !proverRes.isEmpty))
       evalProverResult(proverRes.take)
     lastStatus
   }
@@ -2098,12 +2087,17 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
   
   private def getStatusHelp(timeout : Long) : ProverStatus.Value = {
-    if (lastStatus == ProverStatus.Running &&
-        // behaviour of SyncVar for timeout 0 is unclear
-        (if (timeout <= 0)
-           proverRes.isSet
-         else
-           (proverRes get timeout).isDefined))
+    lazy val proverResultAvailable = {
+      val res = proverRes.poll(timeout, TimeUnit.MILLISECONDS)
+      if (res == null) {
+        false
+      } else {
+        proverRes.put(res) // There is no peek with timeout, so we have to simulate it
+        true
+      }
+    }
+
+    if (lastStatus == ProverStatus.Running && proverResultAvailable)
       evalProverResult(proverRes.take)
     lastStatus
   }
@@ -2990,7 +2984,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     ensurePartialModel
     while (proofThreadStatus != ProofThreadStatus.AtFullModel) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+      Debug.assertInt(SimpleAPI.AC, proverRes.isEmpty)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       // let's get a complete model
@@ -4335,8 +4329,8 @@ class SimpleAPI private (enableAssert        : Boolean,
   //
   // Prover thread, for the hard work
   
-  private val proverRes = new SyncVar[ProverResult]
-  private val proverCmd = new SyncVar[ProverCommand]
+  private val proverRes = new LinkedBlockingQueue[ProverResult](1)
+  private val proverCmd = new LinkedBlockingQueue[ProverCommand](1)
   
   private var proofThreadStatus : ProofThreadStatus.Value = _
 
