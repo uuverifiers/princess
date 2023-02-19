@@ -72,23 +72,25 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   private val partial = false
 
-  private val (projSorts : Map[(Seq[Sort], Int), Seq[Sort]],
-               allIndexSorts : LinkedHashSet[Seq[Sort]]) = {
-    val projs    = new MHashMap[(Seq[Sort], Int), Seq[Sort]]
-    val allSorts = new LinkedHashSet[Seq[Sort]]
+  private val (projSorts     : Map[(Seq[Sort], Int), Seq[Sort]],
+               allIndexSorts : LinkedHashSet[Seq[Sort]],
+               allToSorts    : Seq[Seq[Sort]]) = {
+    val projs                = new MHashMap[(Seq[Sort], Int), Seq[Sort]]
+    val allSorts, allToSorts = new LinkedHashSet[Seq[Sort]]
 
     def addProj(sorts : Seq[Sort], depth : Int) : Unit =
       if ((allSorts add sorts) && depth > 0) {
         for (n <- 0 until sorts.size) {
           val newSorts = sorts.patch(n, List(), 1)
           projs.put((sorts, n), newSorts)
+          allToSorts add newSorts
           addProj(newSorts, depth - 1)
         }
       }
 
     addProj(indexSorts, maxProjectionDepth)
 
-    (projs.toMap, allSorts)
+    (projs.toMap, allSorts, allToSorts.toVector)
   }
 
   val extTheories : Map[Seq[Sort], ExtArray] =
@@ -332,7 +334,8 @@ class CartArray(val indexSorts         : Seq[Sort],
           })
     })
 
-  // Upward propagation for arrayStore, arrayStore2:
+  // Upward propagation for arrayStore, arrayStore2; and
+  // downward propagation for arrayStore2:
   // select(arrayStore_i(ar, indi, ar2), ind1, ..., indk) ==
   //   select(ar2, ind1, ..., indi-1, indi+1, ..., indk)
   //
@@ -362,12 +365,21 @@ class CartArray(val indexSorts         : Seq[Sort],
             val selExpr   = fromExtTheory.select(storeExpr :: indexVars : _*)
 
             val matrix    = ITrigger(List(selExpr), selExpr === sel2Expr)
-            all(varSorts, matrix)
+
+            val compMatrix =
+              if (aStore == aStore2) {
+                ITrigger(List(storeExpr, sel2Expr), matrix)
+              } else {
+                matrix
+              }
+
+            all(varSorts, compMatrix)
           })
     })
 
-  // Upward propagation part 2 for arrayStore, arrayStore2:
-  // indi != ind' ->
+  // Upward propagation part 2 for arrayStore, arrayStore2; and
+  // downward propagation for arrayStore2:
+  // indi != ind' =>
   // select(arrayStore_i(ar, indi', ar2), ind1, ..., indk) ==
   //   select(ar, ind1, ..., indk)
   //
@@ -398,7 +410,15 @@ class CartArray(val indexSorts         : Seq[Sort],
             val matrix    = ITrigger(List(selExpr),
                                      indexVar2 === indexVars(ind) |
                                        selExpr === sel2Expr)
-            all(varSorts, matrix)
+
+            val compMatrix =
+              if (aStore == aStore2) {
+                ITrigger(List(storeExpr, sel2Expr), matrix)
+              } else {
+                matrix
+              }
+
+            all(varSorts, compMatrix)
           })
     })
 
@@ -421,10 +441,14 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   val _projections  = projections.mapValues(funPredMap(_))
   val _projections2 = projections2.mapValues(funPredMap(_))
+  val _arrayStores  = arrayStores.mapValues(funPredMap(_))
+  val _arrayStores2 = arrayStores2.mapValues(funPredMap(_))
 
   private val proj2proj2 =
     (for ((key, p) <- _projections.iterator)
-     yield (p -> _projections2(key))).toMap
+     yield (p -> _projections2(key))).toMap ++
+    (for ((key, p) <- _arrayStores.iterator)
+     yield (p -> _arrayStores2(key))).toMap
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
@@ -506,19 +530,42 @@ class CartArray(val indexSorts         : Seq[Sort],
 
   // TODO: make sure those lists are sorted
   private val projectionsPerResultSort =
-    projSorts.groupBy(_._2).mapValues {
-      sortList => for ((key, _) <- sortList.toSeq) yield _projections(key)
-    }
+    (projSorts.groupBy(_._2).mapValues {
+       sortList => for ((key, _) <- sortList.toSeq) yield _projections(key)
+     }).withDefaultValue(List())
 
   private val projections2PerResultSort =
-    projSorts.groupBy(_._2).mapValues {
-      sortList => for ((key, _) <- sortList.toSeq) yield _projections2(key)
-    }
+    (projSorts.groupBy(_._2).mapValues {
+       sortList => for ((key, _) <- sortList.toSeq) yield _projections2(key)
+     }).withDefaultValue(List())
+
+  private val aStoresPerResultSort =
+    (for (fromSorts <- allIndexSorts.iterator) yield {
+       val aStores =
+         for (ind <- 0 until fromSorts.size;
+              p <- (_arrayStores get (fromSorts, ind)).toSeq)
+         yield p
+       fromSorts -> aStores
+     }).toMap
+
+  private val aStores2PerResultSort =
+    (for (fromSorts <- allIndexSorts.iterator) yield {
+       val aStores =
+         for (ind <- 0 until fromSorts.size;
+              p <- (_arrayStores2 get (fromSorts, ind)).toSeq)
+         yield p
+       fromSorts -> aStores
+     }).toMap
 
   private val projections2PerArgSort =
-    _projections2.groupBy(_._1._1).mapValues {
-      projList => projList map (_._2)
-    }
+    (_projections2.groupBy(_._1._1).mapValues {
+       projList => projList map (_._2)
+     }).withDefaultValue(List())
+
+  private val aStores2PerUpdateSort =
+    (projSorts.groupBy(_._2).mapValues {
+       sortList => for ((key, _) <- sortList.toSeq) yield _arrayStores2(key)
+     }).withDefaultValue(List())
 
   /**
    * When the array-valued functions form a graph that is not
@@ -529,7 +576,7 @@ class CartArray(val indexSorts         : Seq[Sort],
    * graph?
    */
   private def proj2proj2Lazy(goal : Goal) : Seq[Plugin.Action] = {
-    (for (toSorts    <- projectionsPerResultSort.keys.toSeq;
+    (for (toSorts    <- allIndexSorts.toSeq;
           combTheory =  combTheories(toSorts);
           extTheory  =  combTheory.subTheories.head;
           act        <- proj2proj2Lazy(goal, toSorts,
@@ -539,13 +586,15 @@ class CartArray(val indexSorts         : Seq[Sort],
                                               extTheory._store2,
                                               extTheory._const), true))
      yield act) ++
-    (for (toSorts      <- projectionsPerResultSort.keys.toSeq;
-          combTheory   = combTheories(toSorts);
-          extTheory    = combTheory.subTheories.head;
-          checkedPreds = projectionsPerResultSort(toSorts) ++
-                         projections2PerResultSort(toSorts);
-          combActs     = combTheory.comb2comb2Lazy(goal, 0, checkedPreds,false);
-          extActs      = extTheory.store2store2Lazy(goal, checkedPreds);
+    (for (toSorts      <- allIndexSorts.toSeq;
+          combTheory   =  combTheories(toSorts);
+          extTheory    =  combTheory.subTheories.head;
+          checkedPreds =  projectionsPerResultSort(toSorts) ++
+                          projections2PerResultSort(toSorts) ++
+                          aStoresPerResultSort(toSorts) ++
+                          aStores2PerResultSort(toSorts);
+          combActs     =  combTheory.comb2comb2Lazy(goal,0,checkedPreds,false);
+          extActs      =  extTheory.store2store2Lazy(goal, checkedPreds);
           act          <- combActs ++ extActs)
      yield act)
   }
@@ -556,7 +605,8 @@ class CartArray(val indexSorts         : Seq[Sort],
                              checkProj    : Boolean)
                                           : Seq[Plugin.Action] = {
     val facts = goal.facts.predConj
-    val preds = projectionsPerResultSort(toSorts)
+    val preds = projectionsPerResultSort(toSorts) ++
+                aStoresPerResultSort(toSorts)
 
     if (Seqs.disjointSeq(facts.predicates, preds))
       return List()
@@ -579,10 +629,10 @@ class CartArray(val indexSorts         : Seq[Sort],
   //////////////////////////////////////////////////////////////////////////////
 
   private def proj2proj2Eager(goal : Goal) : Seq[Plugin.Action] = {
-    (for (toSorts    <- projectionsPerResultSort.keys.toSeq;
+    (for (toSorts    <- allToSorts;
           act        <- proj2proj2Eager(goal, toSorts))
      yield act) ++
-    (for (fromSorts  <- projections2PerArgSort.keys.toSeq;
+    (for (fromSorts  <- allIndexSorts.toSeq;
           combTheory =  combTheories(fromSorts);
           arrayTerms =  consumedArrayTerms(goal, fromSorts);
           act        <- combTheory.comb2comb2Eager(goal, 0, arrayTerms))
@@ -593,9 +643,12 @@ class CartArray(val indexSorts         : Seq[Sort],
                                  toSorts : Seq[Sort])
                                          : Set[LinearCombination] = {
     val facts = goal.facts.predConj
-    (for (p <- projections2PerArgSort.getOrElse(toSorts, List()).iterator;
-          a <- facts.positiveLitsWithPred(p).iterator)
-     yield a.head).toSet
+    ((for (p <- projections2PerArgSort(toSorts).iterator ++
+                aStores2PerResultSort(toSorts).iterator;
+           a <- facts.positiveLitsWithPred(p).iterator) yield a.head) ++ (
+      for (p <- aStores2PerUpdateSort(toSorts).iterator;
+           a <- facts.positiveLitsWithPred(p).iterator) yield a(2)
+     )).toSet
   }
 
   private def proj2proj2Eager(goal    : Goal,
@@ -612,7 +665,7 @@ class CartArray(val indexSorts         : Seq[Sort],
 
     val couldAlias = ExtArray.aliasChecker(goal)
 
-    for (p <- projectionsPerResultSort(toSorts);
+    for (p <- projectionsPerResultSort(toSorts) ++aStoresPerResultSort(toSorts);
          a <- facts.positiveLitsWithPred(p);
          if arrayTerms exists { t => couldAlias(t, a.last) };
          action <- projConversionActions(a, goal))
@@ -640,7 +693,7 @@ class CartArray(val indexSorts         : Seq[Sort],
    */
   private def proj2proj2Global(goal : Goal) : Seq[Plugin.Action] = {
     val facts = goal.facts.predConj
-    for (p   <- _projections.values.toSeq;
+    for (p   <- _projections.values.toSeq ++ _arrayStores.values.toSeq;
          a   <- facts.positiveLitsWithPred(p);
          act <- projConversionActions(a, goal))
     yield act

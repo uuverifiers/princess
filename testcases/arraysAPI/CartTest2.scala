@@ -53,15 +53,15 @@ object CartTest2 extends App {
       !! (x === sel(c, True,  True,  False))
       !! (y === sel(c, False, False, False))
 
-      println(???)
-      println(evalToTerm(x))
-      println(evalToTerm(y))
+      println(???)           // sat
+      println(evalToTerm(x)) // 42
+      println(evalToTerm(y)) // 13
     }
 
     scope {
       !! (sel(b, bits : _*) =/= sel(c, bits : _*))
 
-      println(???)
+      println(???)           // sat
       println(bits map (evalToTerm(_)))
     }
 
@@ -69,7 +69,7 @@ object CartTest2 extends App {
       !! (d === arraySto(c, (0, False) -> proj(b, 0 -> False)))
       !! (sel(d, bits : _*) =/= sel(b, bits : _*))
 
-      println(???)
+      println(???)           // unsat
     }
 
     scope {
@@ -82,9 +82,22 @@ object CartTest2 extends App {
       !! (x === sel(d, True,  True,  False))
       !! (y === sel(d, False, False, True))
 
-      println(???)
+      println(???)           // Sat
       println(evalToTerm(x))
       println(evalToTerm(y))
+    }
+
+    scope {
+      !! (c === sto(d, True, True, True, 43))
+
+      println(???) // Unsat
+    }
+
+    scope {
+      !! (c === arraySto(sto(d, True, True, True, 43),
+                         (2, False) -> con(bools(2), 0)))
+
+      println(???) // Unsat
     }
   }
 

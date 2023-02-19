@@ -83,6 +83,8 @@ Unsat
 Sat
 84
 0
+Unsat
+Unsat
 
 ComplexTest
 Warning: arrays over finite domains are not fully supported yet
