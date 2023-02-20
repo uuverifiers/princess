@@ -2071,7 +2071,12 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   private def getStatusHelp(block : Boolean) : ProverStatus.Value =
     getOrUpdateLastStatus(if (block) proverRes.take() else proverRes.poll())
-  
+
+  private def getStatusHelp(timeout : Long) : ProverStatus.Value =
+    getOrUpdateLastStatus(proverRes.poll(timeout, TimeUnit.MILLISECONDS))
+    // Experiments (and convention) seems to suggest that polling for zero
+    // or less time means "finish immediately".
+
   /**
    * Query result of the last <code>checkSat</code> or <code>nextModel</code>
    * call. Will block until a result is available, or until <code>timeout</code>
@@ -2083,10 +2088,6 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
     getStatusHelp(timeout)
   }
-
-  
-  private def getStatusHelp(timeout : Long) : ProverStatus.Value =
-    getOrUpdateLastStatus(proverRes.poll(timeout, TimeUnit.MILLISECONDS))
 
   private def evalProverResult(pr : ProverResult) : Unit = pr match {
         case UnsatResult => {
