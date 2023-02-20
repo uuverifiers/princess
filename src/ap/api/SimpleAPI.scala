@@ -391,14 +391,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     // make sure that no prover command is queued at the moment;
     // repeatedly calling <code>shutDown</code> would otherwise
     // hang
-
-    try {
-      if (!proverCmd.isEmpty)
-        proverCmd.poll(0, TimeUnit.SECONDS)
-    } catch {
-      case _ : NoSuchElementException => // nothing
-    }
-
+    proverCmd.clear()
     proverCmd put ShutdownCommand
   }
 
@@ -2068,11 +2061,16 @@ class SimpleAPI private (enableAssert        : Boolean,
     getStatusWithDeadline(block)
   }
 
-  private def getStatusHelp(block : Boolean) : ProverStatus.Value = {
-    if (lastStatus == ProverStatus.Running && (block || !proverRes.isEmpty))
-      evalProverResult(proverRes.take)
+  @inline
+  private def getOrUpdateLastStatus(pollExpr: => ProverResult): ProverStatus.Value = {
+    if (lastStatus == ProverStatus.Running) {
+      Option(pollExpr).foreach(evalProverResult)
+    }
     lastStatus
   }
+
+  private def getStatusHelp(block : Boolean) : ProverStatus.Value =
+    getOrUpdateLastStatus(if (block) proverRes.take() else proverRes.poll())
   
   /**
    * Query result of the last <code>checkSat</code> or <code>nextModel</code>
@@ -2085,22 +2083,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
     getStatusHelp(timeout)
   }
-  
-  private def getStatusHelp(timeout : Long) : ProverStatus.Value = {
-    lazy val proverResultAvailable = {
-      val res = proverRes.poll(timeout, TimeUnit.MILLISECONDS)
-      if (res == null) {
-        false
-      } else {
-        proverRes.put(res) // There is no peek with timeout, so we have to simulate it
-        true
-      }
-    }
 
-    if (lastStatus == ProverStatus.Running && proverResultAvailable)
-      evalProverResult(proverRes.take)
-    lastStatus
-  }
+  
+  private def getStatusHelp(timeout : Long) : ProverStatus.Value =
+    getOrUpdateLastStatus(proverRes.poll(timeout, TimeUnit.MILLISECONDS))
 
   private def evalProverResult(pr : ProverResult) : Unit = pr match {
         case UnsatResult => {
