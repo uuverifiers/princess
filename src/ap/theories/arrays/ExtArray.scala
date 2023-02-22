@@ -184,7 +184,10 @@ object ExtArray {
                                 case Some(oldVal) => value == oldVal
                                 case None => true
                               })
-                         }))
+                         }),
+                      "Incomplete propagation of arrays detected. " +
+                        "This might be because of missing support for " +
+                        "finite indexes.")
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       normalize(this.defaultValue orElse that.defaultValue,
                 this.values ++
