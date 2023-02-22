@@ -1263,6 +1263,9 @@ class ExtArray (val indexSorts : Seq[Sort],
    * 
    * TODO: do we have to do something special about cycles in the
    * graph?
+   * 
+   * TODO: the current code is converting more store to store2 than
+   * necessary; 
    */
   protected[arrays]
   def store2store2Lazy(goal         : Goal,
