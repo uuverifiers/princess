@@ -262,21 +262,31 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val mapArrayIndexes =
-    for (n <- 0 until subTheories.size) yield {
-      for (((map1, map2), CombinatorSpec(_, aI, rI, _))
-             <- (_combinators zip _combinators2) zip combinatorSpecs;
-           arrayInds = (for ((`n`, k) <- (aI++List(rI)).zipWithIndex) yield k);
-           if !arrayInds.isEmpty;
-           mapf <- List(map1, map2))
-      yield (mapf, arrayInds)
-    }
+  private val mapArrayIndexes : IndexedSeq[Seq[(IExpression.Predicate,
+                                                Seq[Int])]] =
+    (for (n <- 0 until subTheories.size) yield {
+       for (((map1, map2), CombinatorSpec(_, aI, rI, _))
+              <- (_combinators zip _combinators2) zip combinatorSpecs;
+            arrayInds = (for ((`n`, k) <- (aI++List(rI)).zipWithIndex) yield k);
+            if !arrayInds.isEmpty;
+            mapf <- List(map1, map2))
+       yield (mapf, arrayInds)
+     }).toVector
 
   private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] =
-    for ((t, inds) <- subTheories zip mapArrayIndexes;
-         act <- t.expandExtensionality(goal, inds))
+    for (ind <- 0 until subTheories.size;
+         act <- expandExtensionality(goal, ind))
     yield act
 
+  protected[arrays] def expandExtensionality(
+                          goal           : Goal,
+                          extTheoryInd   : Int,
+                          additionalFuns : Seq[(IExpression.Predicate,
+                                                Seq[Int])] = List())
+                                         : Seq[Plugin.Action] = {
+    val inds = mapArrayIndexes(extTheoryInd)
+    subTheories(extTheoryInd).expandExtensionality(goal, inds ++ additionalFuns)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
