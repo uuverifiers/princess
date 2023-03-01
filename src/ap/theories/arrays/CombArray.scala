@@ -88,6 +88,8 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
   Debug.assertInt(AC, subTheories forall { t => t.indexSorts == indexSorts })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
+  private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
+
   private val partial = false
 
   /**
@@ -294,10 +296,14 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
    * default value yet.
    */
   private def addDefaultValue(goal : Goal) : Seq[Plugin.Action] =
-    for ((theory, n) <- subTheories.zipWithIndex;
-         arrayTerms = goalArrayTerms(goal, n);
-         act <- addDefaultValue(goal, theory, arrayTerms))
-    yield act
+    if (infiniteIndex) {
+      for ((theory, n) <- subTheories.zipWithIndex;
+           arrayTerms = goalArrayTerms(goal, n);
+           act <- addDefaultValue(goal, theory, arrayTerms))
+      yield act
+    } else {
+      List()
+    }
 
   private def goalArrayTerms(goal         : Goal,
                              subTheoryInd : Int) : Set[LinearCombination] = {
