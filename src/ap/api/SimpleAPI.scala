@@ -100,7 +100,8 @@ object SimpleAPI {
             tightFunctionScopes : Boolean             = true,
             genTotalityAxioms   : Boolean             = false,
             randomSeed          : Option[Int]         = Some(1234567),
-            logging             : Set[Param.LOG_FLAG] = Set()) : SimpleAPI =
+            otherSettings       : GlobalSettings      = GlobalSettings.DEFAULT)
+                                : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
@@ -109,7 +110,7 @@ object SimpleAPI {
                    tightFunctionScopes,
                    genTotalityAxioms,
                    randomSeed,
-                   logging)
+                   otherSettings)
 
   def spawn : SimpleAPI = apply()
 
@@ -175,13 +176,13 @@ object SimpleAPI {
                     tightFunctionScopes : Boolean             = true,
                     genTotalityAxioms   : Boolean             = false,
                     randomSeed          : Option[Int]         = Some(1234567),
-                    logging             : Set[Param.LOG_FLAG] = Set())
+                    otherSettings       : GlobalSettings      = GlobalSettings.DEFAULT)
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename, dumpDirectory,
                   tightFunctionScopes, genTotalityAxioms,
-                  randomSeed, logging)
+                  randomSeed, otherSettings)
     try {
       f(p)
     } finally {
@@ -318,7 +319,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                          tightFunctionScopes : Boolean,
                          genTotalityAxioms   : Boolean,
                          randomSeed          : Option[Int],
-                         logging             : Set[Param.LOG_FLAG]) {
+                         otherSettings       : GlobalSettings) {
 
   import SimpleAPI._
   import ProofThreadRunnable._
@@ -428,11 +429,12 @@ class SimpleAPI private (enableAssert        : Boolean,
     println
   }
   
-  private val basicPreprocSettings =
+  private val basicPreprocSettings = {
+    val ps = otherSettings.toPreprocessingSettings
     Param.TRIGGER_GENERATION.set(
-    Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
-                                    tightFunctionScopes),
+    Param.TIGHT_FUNCTION_SCOPES.set(ps, tightFunctionScopes),
                                  Param.TriggerGenerationOptions.All)
+  }
 
   private def closeAllScopes = {
     for (_ <- 0 until apiStack.frameNum)
@@ -1706,13 +1708,15 @@ class SimpleAPI private (enableAssert        : Boolean,
     map
   }
 
+  private val parserSettings = otherSettings.toParserSettings
+
   /**
    * Execute an SMT-LIB script. Symbols declared in the script will
    * be added to the prover; however, if the prover already knows about
    * symbols with the same name, they will be reused.
    */
   def execSMTLIB(input : java.io.Reader) : Unit = {
-    val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    val parser = SMTParser2InputAbsy(parserSettings, this)
     parser.processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
   }
 
@@ -1723,7 +1727,7 @@ class SimpleAPI private (enableAssert        : Boolean,
    * symbols with the same name, they will be reused.
    */
   def extractSMTLIBAssertions(input : java.io.Reader) : Seq[IFormula] = {
-    val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    val parser = SMTParser2InputAbsy(parserSettings, this)
     parser.extractAssertions(input)
   }
 
@@ -1741,7 +1745,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                 Map[IFunction,                SMTParser2InputAbsy.SMTFunctionType],
                 Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType],
                 Map[IExpression.Predicate,    SMTParser2InputAbsy.SMTFunctionType]) = {
-    val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    val parser = SMTParser2InputAbsy(parserSettings, this)
     if (fullyInline) {
       val options =
         "(set-option :inline-size-limit " + Int.MaxValue + ")" +
@@ -4251,7 +4255,8 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   private def goalSettings = {
-    var gs = GoalSettings.DEFAULT
+    var gs = otherSettings.toGoalSettings
+
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
 //    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
 
@@ -4281,12 +4286,11 @@ class SimpleAPI private (enableAssert        : Boolean,
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, randomDataSource)
     gs = Param.REDUCER_SETTINGS.set(gs, reducerSettings)
-    gs = Param.LOG_LEVEL.set(gs, logging)
     gs
   }
 
   private def reducerSettings = {
-    var rs = ReducerSettings.DEFAULT
+    var rs = otherSettings.toReducerSettings
     rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
     rs = Param.REDUCER_PLUGIN.set(
          rs, SeqReducerPluginFactory(for (t <- theories) yield t.reducerPlugin))
@@ -4348,7 +4352,8 @@ class SimpleAPI private (enableAssert        : Boolean,
   private var proofThreadStatus : ProofThreadStatus.Value = _
 
   private val proofThreadRunnable =
-    new ProofThreadRunnable(proverCmd, proverRes, enableAssert, logging)
+    new ProofThreadRunnable(proverCmd, proverRes, enableAssert,
+                            Param.LOG_LEVEL(otherSettings))
   private val proofThread =
     new Thread(proofThreadRunnable)
 
