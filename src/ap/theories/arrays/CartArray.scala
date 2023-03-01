@@ -601,7 +601,9 @@ class CartArray(val indexSorts         : Seq[Sort],
           combTheory =  combTheories(toSorts);
           extTheory  =  combTheory.subTheories.head;
           act        <- proj2proj2Lazy(goal, toSorts,
-                                       combTheory.combinatorsPerArray.head ++
+                                       projections2PerResultSort(toSorts) ++
+                                         aStores2PerResultSort(toSorts) ++
+                                         combTheory.combinatorsPerArray.head ++
                                          combTheory.combinators2PerArray.head ++
                                          List(extTheory._store,
                                               extTheory._store2,

@@ -37,7 +37,7 @@ import ap._
 import ap.basetypes.{IdealInt, Tree}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
-                      ReducerSettings, Param}
+                      ReducerSettings, Param, GlobalSettings}
 import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
