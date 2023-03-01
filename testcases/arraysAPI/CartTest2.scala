@@ -99,6 +99,13 @@ object CartTest2 extends App {
 
       println(???) // Unsat
     }
+
+    scope {
+      !! (d === arraySto(c, (0, True) -> proj(c, 0 -> True)))
+
+      ?? (d === c)
+      println(???) // Valid
+    }
   }
 
 }

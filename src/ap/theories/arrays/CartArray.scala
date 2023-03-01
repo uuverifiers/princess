@@ -36,7 +36,7 @@ package ap.theories.arrays
 import ap.Signature
 import ap.parser._
 import ap.theories._
-import ap.types.{Sort, MonoSortedIFunction}
+import ap.types.{Sort, MonoSortedIFunction, MonoSortedPredicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
@@ -477,7 +477,7 @@ class CartArray(val indexSorts         : Seq[Sort],
         case Plugin.GoalState.Eager =>
           proj2proj2Eager(goal)
         case Plugin.GoalState.Intermediate => {
-//           expandExtensionality(goal) elseDo
+          expandExtensionality(goal) elseDo
           proj2proj2Lazy(goal)
         }
         case _ =>
@@ -526,6 +526,27 @@ class CartArray(val indexSorts         : Seq[Sort],
     yield Plugin.AddFormula(Conjunction.negate(c, order))
   }
  */
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val predArrayIndexes : Map[Seq[Sort],
+                                     Seq[(IExpression.Predicate, Seq[Int])]] =
+    (for ((indexes, arSort) <- arraySorts.iterator) yield {
+       val preds =
+         for (pred <- predicates;
+              argSorts = MonoSortedPredicate argumentSorts pred;
+              arInds = argSorts.zipWithIndex.filter(_._1 == `arSort`).map(_._2);
+              if !arInds.isEmpty)
+         yield (pred, arInds)
+       indexes -> preds
+     }).toMap
+
+  private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] =
+    (for (indexSorts <- allIndexSorts.iterator;
+          inds = predArrayIndexes(indexSorts);
+          act <- combTheories(indexSorts).expandExtensionality(goal, 0, inds))
+     yield act).toSeq
+
   //////////////////////////////////////////////////////////////////////////////
 
   // TODO: make sure those lists are sorted
