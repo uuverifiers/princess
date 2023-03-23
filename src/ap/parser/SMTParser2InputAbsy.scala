@@ -399,7 +399,7 @@ object SMTParser2InputAbsy {
       asString(id.symbol_)
     case id : IndexIdent =>
       asString(id.symbol_) + "_" +
-      ((id.listindexc_ map (_.asInstanceOf[Index].numeral_)) mkString "_")
+      ((id.listindexc_ map (_.asInstanceOf[NumIndex].numeral_)) mkString "_")
   }
   
   def asString(s : Symbol) : String = s match {
@@ -452,7 +452,7 @@ object SMTParser2InputAbsy {
       case id : IndexIdent => id.symbol_ match {
         case s : NormalSymbol =>
           Some(List(s.normalsymbolt_) ++
-               (id.listindexc_ map (_.asInstanceOf[Index].numeral_)))
+               (id.listindexc_ map (_.asInstanceOf[NumIndex].numeral_)))
         case _ => None
       }
       case _ => None
