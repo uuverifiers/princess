@@ -393,13 +393,17 @@ object SMTParser2InputAbsy {
     case s : IdentifierRef     => asString(s.identifier_)
     case s : CastIdentifierRef => asString(s.identifier_)
   }
+
+  def asString(id : IndexC) : String = id match {
+    case id : NumIndex => id.numeral_
+    case id : SymIndex => asString(id.symbol_)
+  }
   
   def asString(id : Identifier) : String = id match {
     case id : SymbolIdent =>
       asString(id.symbol_)
     case id : IndexIdent =>
-      asString(id.symbol_) + "_" +
-      ((id.listindexc_ map (_.asInstanceOf[NumIndex].numeral_)) mkString "_")
+      asString(id.symbol_) + "_" + ((id.listindexc_ map asString) mkString "_")
   }
   
   def asString(s : Symbol) : String = s match {
@@ -447,12 +451,27 @@ object SMTParser2InputAbsy {
     }
   }
 
+  object NumIndexedSymbol1 {
+    def unapply(s : SymbolRef) : scala.Option[(String, IdealInt)] = s match {
+      case IndexedSymbol(s1, DecLiteral(s2)) => Some((s1, IdealInt(s2)))
+      case _ => None
+    }
+  }
+
+  object NumIndexedSymbol2 {
+    def unapply(s : SymbolRef)
+              : scala.Option[(String, IdealInt, IdealInt)] = s match {
+      case IndexedSymbol(s1, DecLiteral(s2), DecLiteral(s3)) =>
+        Some((s1, IdealInt(s2), IdealInt(s3)))
+      case _ => None
+    }
+  }
+
   object IndexedIdentifier {
     def unapplySeq(id : Identifier) : scala.Option[Seq[String]] = id match {
       case id : IndexIdent => id.symbol_ match {
         case s : NormalSymbol =>
-          Some(List(s.normalsymbolt_) ++
-               (id.listindexc_ map (_.asInstanceOf[NumIndex].numeral_)))
+          Some(List(s.normalsymbolt_) ++ (id.listindexc_ map asString))
         case _ => None
       }
       case _ => None
@@ -472,6 +491,7 @@ object SMTParser2InputAbsy {
     }
   }  
 
+  val DecLiteral = """([0-9]+)""".r
   val BVDecLiteral = """bv([0-9]+)""".r
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2495,9 +2515,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateChainableRealIntPred(">",  args, _ > _,  realAlgebra.gt _),
        SMTBool)
     
-    case IndexedSymbol("divisible", denomStr) => {
+    case NumIndexedSymbol1("divisible", denomVal) => {
       checkArgNum("divisible", 1, args)
-      val denom = i(IdealInt(denomStr))
+      val denom = i(denomVal)
       val num = VariableShiftVisitor(asTerm(translateTerm(args.head, 0)), 0, 1)
       (ex(num === v(0) * denom), SMTBool)
     }
@@ -2632,8 +2652,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Bit-vector operations
 
-    case IndexedSymbol(BVDecLiteral(value), width) => {
-      val t = SMTBitVec(width.toInt)
+    case NumIndexedSymbol1(BVDecLiteral(value), width) => {
+      val t = SMTBitVec(width.intValueSafe)
       (ModuloArithmetic.cast2Sort(t.toSort, IdealInt(value)), t)
     }
 
@@ -2647,10 +2667,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        SMTBitVec(width0 + width1))
     }
 
-    case IndexedSymbol("extract", beginStr, endStr) => {
+    case NumIndexedSymbol2("extract", IdealInt(begin), IdealInt(end)) => {
       checkArgNum("extract", 1, args)
-      val begin = beginStr.toInt
-      val end = endStr.toInt
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
       val width0 = extractBVWidth("extract", type0, args(0))
       val resType = SMTBitVec(begin - end + 1)
@@ -2731,17 +2749,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("bvsge") =>
       translateBVBinPredInv("bvsge", ModuloArithmetic.bv_sle, args)
 
-    case IndexedSymbol("zero_extend", digitsStr) => {
+    case NumIndexedSymbol1("zero_extend", IdealInt(digits)) => {
       checkArgNum("zero_extend", 1, args)
-      val digits = digitsStr.toInt
       val (transArg0, type0) = translateTerm(args(0), 0)
       val width = extractBVWidth("zero_extend", type0, args(0))
       (transArg0, SMTBitVec(width + digits))
     }
 
-    case IndexedSymbol("sign_extend", digitsStr) => {
+    case NumIndexedSymbol1("sign_extend", IdealInt(digits)) => {
       checkArgNum("sign_extend", 1, args)
-      val digits = digitsStr.toInt
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
       val width = extractBVWidth("sign_extend", type0, args(0))
       (ModuloArithmetic.cast2UnsignedBV(width + digits,
@@ -2763,9 +2779,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (ModuloArithmetic.cast2SignedBV(width0, asTerm(a0)), SMTInteger)
     }
 
-    case IndexedSymbol(op@("nat2bv" | "int2bv"), digitsStr) => {
+    case NumIndexedSymbol1(op@("nat2bv" | "int2bv"), IdealInt(digits)) => {
       checkArgNum(op, 1, args)
-      val digits = digitsStr.toInt
       (ModuloArithmetic.cast2UnsignedBV(digits,
                                         asTerm(translateTerm(args(0), 0))),
        SMTBitVec(digits))
@@ -2794,11 +2809,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
+    case IndexedSymbol("is", ctorName) =>
+      // TODO: does this work correctly for quoted identifiers?
+      unintFunApp("is-" + ctorName, sym, args, polarity)
+
     ////////////////////////////////////////////////////////////////////////////
     // String operations
 
-    case IndexedSymbol("char", valStr) =>
-      (stringTheory int2Char IdealInt(valStr), charType)
+    case NumIndexedSymbol1("char", value) =>
+      (stringTheory int2Char value, charType)
 
     case PlainSymbol("str.empty") =>
       (translateStringFun(stringTheory.str_empty, args, List()), stringType)
@@ -2944,14 +2963,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.re_comp, args,
                           List(regexType)), regexType)
 
-    case IndexedSymbol("re.^", n) => {
+    case NumIndexedSymbol1("re.^", IdealInt(num)) => {
       val Seq(arg) = translateStringArgs("re.^", args, List(regexType))
-      val num = n.toInt
       (stringTheory.re_loop(num, num, arg), regexType)
     }
-    case IndexedSymbol("re.loop", n1, n2) => {
+    case NumIndexedSymbol2("re.loop", n1, n2) => {
       val Seq(arg) = translateStringArgs("re.loop", args, List(regexType))
-      (stringTheory.re_loop(n1.toInt, n2.toInt, arg), regexType)
+      (stringTheory.re_loop(n1, n2, arg), regexType)
     }
 
     case PlainSymbol("char.code") =>
