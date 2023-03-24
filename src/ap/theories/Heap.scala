@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
+ * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
+ *               2020-2023 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -469,7 +469,7 @@ class Heap(heapSortName : String, addressSortName : String,
   }
 
   implicit def HeapADTSortIdToInt(id : HeapADTSortId) : Int = id.id
-  private val objectSortId = objectSort.num
+  val objectSortId : Int = objectSort.num
 
   /** Create return sort of alloc as an ADT: Heap x Address */
   private val allocResCtorSignature = ADT.CtorSignature(
@@ -500,10 +500,13 @@ class Heap(heapSortName : String, addressSortName : String,
                       addressRangeCtorSignature))
   )
 
+  val userSortNames : Seq[String] = sortNames
+  val userCtorSignatures : Seq[(String, Heap.CtorSignature)] = ctorSignatures
+
   val heapADTs : ADT = new ADT(
-    sortNames ++ //Object ADT and other input ADTs are defined first
+    userSortNames ++ //Object ADT and other input ADTs are defined first
       heapADTDefinitions.values.map(_._1), // names from theory declared ADTs
-    HeapSortToADTSort(ctorSignatures) ++ // Object and other input ADT signatures
+    HeapSortToADTSort(userCtorSignatures) ++ // Object and other input ADT signatures
       heapADTDefinitions.values.toSeq // signatures of theory declared ADTs
   )
 
