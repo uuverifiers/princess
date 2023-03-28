@@ -404,7 +404,7 @@ object ParallelFileProver {
           var startTime : Long = 0
 
           def localStoppingCond : Boolean = actorStopped || {
-            subProverCommands.poll(0, TimeUnit.SECONDS) match {
+            subProverCommands.poll() match {
               case null               => // nothing
               case SubProverStop      => actorStopped = true
               case SubProverResume(u) => runUntil = u
