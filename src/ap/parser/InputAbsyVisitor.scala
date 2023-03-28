@@ -1303,11 +1303,16 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
 /**
  * Visitor for checking whether a formula contains any existential
  * quantifiers without explicitly specified triggers.
+ *
+ * TODO: this does not capture all cases, and has quadratic
+ * complexity, should be revised.
  */
 object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
 
   private object FoundQuantifier extends Exception
   private val v0Set = Set(0)
+
+  import IExpression.Eq
 
   def apply(f : IExpression) : Boolean = try {
     this.visitWithoutResult(f, Context({}))
@@ -1316,20 +1321,49 @@ object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
     case FoundQuantifier => false
   }
 
-  private def isEX(q : Quantifier, ctxt : Context[Unit]) = q match {
-    case Quantifier.EX  if ctxt.polarity >= 0 => true
-    case Quantifier.ALL if ctxt.polarity <= 0 => true
+  private def isEX(q : Quantifier, polarity : Int) = q match {
+    case Quantifier.EX  if polarity >= 0 => true
+    case Quantifier.ALL if polarity <= 0 => true
     case _ => false
+  }
+
+  private def isTriggerFor(varId : Int, t : ITerm) : Boolean = t match {
+    case IFunApp(f, _) => f.partial && ContainsVariable(t, varId)
+    case _             => false
+  }
+
+  private def isTriggerDefined(varId    : Int,
+                               f        : IFormula,
+                               polarity : Int) : Boolean = f match {
+    case IQuantified(q, f2) if isEX(q, polarity) =>
+      isTriggerDefined(varId + 1, f2, polarity)
+    case ITrigger(trigs, body) =>
+      trigs.exists((isTriggerFor(varId, _))) ||
+      isTriggerDefined(varId, body, polarity)
+    case INot(f2) =>
+      isTriggerDefined(varId, f2, -polarity)
+    case IBinFormula(IBinJunctor.Or, f1, f2) if polarity < 0 =>
+      isTriggerDefined(varId, f1, polarity) ||
+      isTriggerDefined(varId, f2, polarity)
+    case IBinFormula(IBinJunctor.And, f1, f2) if polarity > 0 =>
+      isTriggerDefined(varId, f1, polarity) ||
+      isTriggerDefined(varId, f2, polarity)
+    case Eq(_ : IFunApp, IVariable(`varId`)) |
+         Eq(IVariable(`varId`), _ : IFunApp) if polarity > 0 =>
+      true
+    case _ =>
+      false
   }
 
   override def preVisit(t : IExpression,
                         ctxt : Context[Unit]) : PreVisitResult = t match {
-    case IQuantified(q, ITrigger(Seq(IFunApp(f, _)), body)) if f.partial =>
-      super.preVisit(t, ctxt)
-    case IQuantified(q, body)
-      if (isEX(q, ctxt) &&
-          !ContainsSymbol.freeFromVariableIndex(body, v0Set)) =>
+    case IQuantified(q, body) => {
+      if (isEX(q, ctxt.polarity) &&
+            ContainsVariable(body, 0) &&
+            !isTriggerDefined(0, body, ctxt.polarity))
         throw FoundQuantifier
+      super.preVisit(t, ctxt)
+    }
     case _ =>
       super.preVisit(t, ctxt)
   }

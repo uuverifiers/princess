@@ -871,7 +871,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   /**
    * Limit beyond which let-expressions or functions are never inlined
    */
-  private var inlineSizeLimit = 100
+  private var inlineSizeLimit = Param.INLINE_SIZE_LIMIT(settings)
   /**
    * Totality axioms?
    */
@@ -1044,7 +1044,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
     inlineLetExpressions = true
     inlineDefinedFuns    = true
-    inlineSizeLimit      = 100
+    inlineSizeLimit      =
+      Param.INLINE_SIZE_LIMIT(settings)
     totalityAxiom        = true
     functionalityAxiom   = true
     genProofs            = false

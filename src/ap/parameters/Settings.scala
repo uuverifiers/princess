@@ -126,6 +126,8 @@ object GlobalSettings {
           Param.CLAUSIFIER.set(settings, Param.ClausifierOptions.Simple)
         case Opt("equivInlining", value) =>
           Param.EQUIV_INLINING.set(settings, value)
+        case ValueOpt("inlineSizeLimit", IntVal(value)) =>
+          Param.INLINE_SIZE_LIMIT.set(settings, value)
         case ValueOpt("constructProofs", "never") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.Never)
@@ -275,7 +277,7 @@ object GlobalSettings {
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED,
-         Param.PORTFOLIO_THREAD_NUM)
+         Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -312,7 +314,8 @@ object ParserSettings {
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS,
                        Param.STRING_THEORY_DESC, Param.STRING_ESCAPES,
-                       Param.SEQ_THEORY_DESC, Param.LOG_LEVEL)
+                       Param.SEQ_THEORY_DESC, Param.LOG_LEVEL,
+                       Param.INLINE_SIZE_LIMIT)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
