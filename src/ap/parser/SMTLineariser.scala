@@ -1722,7 +1722,7 @@ class SMTLineariser(benchmarkName : String,
                IIntLit(IdealInt.ONE))
            ))
          if (num1 == num2 && denom1 == denom2 && denom2.abs == denom3 &&
-             ContainsSymbol.freeFrom(num1, Set(IVariable(0)))) => {
+             ContainsSymbol.freeFromVariableIndex(num1, Set(0))) => {
         print("(div ")
         visit(VariableShiftVisitor(num1, 1, -1), ctxt)
         print(" " + toSMTExpr(denom1) + ")")
@@ -1737,7 +1737,7 @@ class SMTLineariser(benchmarkName : String,
            IQuantified(Quantifier.EX,
                        IExpression.Eq(num, IPlus(
                               ITimes(denom2, IVariable(0)), IVariable(1))))))
-         if (ContainsSymbol.freeFrom(num, Set(IVariable(0), IVariable(1))) &&
+         if (ContainsSymbol.freeFromVariableIndex(num, Set(0, 1)) &&
              denom1 == denom2.abs) => {
         print("(mod ")
         visit(VariableShiftVisitor(num, 2, -2), ctxt)

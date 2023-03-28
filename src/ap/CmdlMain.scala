@@ -124,6 +124,7 @@ object CmdlMain {
     println("                             negative: negate")
     println("                             auto:     choose automatically")
     println(" [+-]equivInlining         Inline simple equivalences p <-> f       (default: +)")
+    println(" -inlineSizeLimit=val      Maximum size of functions to inline    (default: 100)")
     println(" -randomSeed=val           Seed for randomisation")
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")

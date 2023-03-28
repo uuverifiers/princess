@@ -236,6 +236,14 @@ object Param {
     val defau : Boolean = true
   }
 
+  /**
+   * Maximum size of function bodies to inline.
+   */
+  case object INLINE_SIZE_LIMIT extends Param {
+    type Value = Int
+    val defau : Int = 100
+  }
+
   case object REAL_RAT_SATURATION_ROUNDS extends Param {
     type Value = Int
     val defau : Int = 0
