@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2022-11-03"
+  val version = "2023-04-07"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -69,9 +69,9 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2023")
-    println("Contributors: Angelo Brillout, Peter Backeman, Peter Baumgartner, Zafer Esen.")
+    println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
+    println("              Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
-    println("Bug reports to ph_r@gmx.net")
     println
     println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
   }
