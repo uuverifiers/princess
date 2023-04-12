@@ -1381,8 +1381,6 @@ object QuantifierCollectingVisitor {
       case FoundAll => visitor.foundQuantifiers.toSet
     }
   }
-
-  private val V0Eq = IExpression.SymbolEquation(IVariable(0))
 }
 
 /**
@@ -1392,18 +1390,13 @@ object QuantifierCollectingVisitor {
 class QuantifierCollectingVisitor extends ContextAwareVisitor[Unit, Unit] {
 
   import QuantifierCollectingVisitor._
-  import IExpression.Sort
+  import IExpression.{Sort, Divisibility, NonDivisibility}
 
   private val foundQuantifiers = new MHashSet[Quantifier]
 
   override def preVisit(t : IExpression,
                         ctxt : Context[Unit]) : PreVisitResult = t match {
-    case ISortedQuantified(Quantifier.EX,
-                           Sort.Integer,
-                           V0Eq(_, _)) |
-         ISortedQuantified(Quantifier.ALL,
-                           Sort.Integer,
-                           INot(V0Eq(_, _))) =>
+    case Divisibility(_, _) | NonDivisibility(_, _) =>
       // divisibility, ignored
       super.preVisit(t, ctxt)
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,8 @@ import Quantifier._
  */
 object ExMaxiscoper {
 
+  import IExpression.{Divisibility, NonDivisibility}
+
   private val AC = Debug.AC_INPUT_ABSY
 
   def apply(f : IFormula) : IFormula =
@@ -51,14 +53,18 @@ object ExMaxiscoper {
 
   private def rewriteFun(t : IExpression) : IExpression = t match {
     case IBinFormula(Or,
-                     ISortedQuantified(EX, sort1, f1),
-                     ISortedQuantified(EX, sort2, f2))
-        if sort1 == sort2 =>
+                     g1@ISortedQuantified(EX, sort1, f1),
+                     g2@ISortedQuantified(EX, sort2, f2))
+        if sort1 == sort2 &&
+           Divisibility.unapply(g1).isEmpty &&
+           Divisibility.unapply(g2).isEmpty =>
       ISortedQuantified(EX, sort1, IBinFormula(Or, f1, f2))
-    case IBinFormula(j, ISortedQuantified(EX, sort, f1), f2) =>
+    case IBinFormula(j, g1@ISortedQuantified(EX, sort, f1), f2)
+        if Divisibility.unapply(g1).isEmpty =>
       ISortedQuantified(EX, sort,
                         IBinFormula(j, f1, VariableShiftVisitor(f2, 0, 1)))
-    case IBinFormula(j, f2, ISortedQuantified(EX, sort, f1)) =>
+    case IBinFormula(j, f2, g1@ISortedQuantified(EX, sort, f1))
+        if Divisibility.unapply(g1).isEmpty =>
       ISortedQuantified(EX, sort,
                         IBinFormula(j, VariableShiftVisitor(f2, 0, 1), f1))
     case t => t
