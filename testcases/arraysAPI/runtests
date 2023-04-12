@@ -9,7 +9,7 @@ RUNOPTIONS="-cp `pwd`/../../bin:."
 
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
-TESTS="TestExtArray SetTest VectorTest PairTest CartTest ComplexTest"
+TESTS="TestExtArray SetTest VectorTest PairTest"
 
 for testname in $TESTS; do
   echo

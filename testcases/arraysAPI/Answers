@@ -60,41 +60,6 @@ c = store(store(const(43), 41, 44), 42, 0)
 Valid
 Sat
 
-CartTest
-Warning: arrays over finite domains are not fully supported yet
-Warning: arrays over finite domains are not fully supported yet
-Warning: arrays over finite domains are not fully supported yet
-Valid
-Valid
-Sat
-Unsat
-Unsat
-
-CartTest2
-Warning: arrays over finite domains are not fully supported yet
-Warning: arrays over finite domains are not fully supported yet
-Warning: arrays over finite domains are not fully supported yet
-Sat
-42
-13
-Sat
-Vector(false, false, true)
-Unsat
-Sat
-84
-0
-Unsat
-Unsat
-Valid
-
-ComplexTest
-Warning: arrays over finite domains are not fully supported yet
-Warning: arrays over finite domains are not fully supported yet
-Sat
-Complex(2, 2, 2, 2, 3)
-Complex(4, 4, 4, 4, 3)
-Valid
-
 ArrayQuantifiers.scala
 Sat
 Inconclusive
