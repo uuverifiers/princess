@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -691,7 +691,42 @@ object IExpression {
         None
     }
   }
-  
+
+  /**
+   * Generate or match a divisibility expression ex x. denom*x = t.
+   */
+  object Divisibility {
+    def apply(denom : IdealInt, t : ITerm) =
+      ex((v(0) * denom) === shiftVars(t, 0, 1))
+
+    def unapply(f : IFormula) : Option[(IdealInt, ITerm)] = f match {
+      case ISortedQuantified(Quantifier.EX, Sort.Integer, V0Eq(denom, rem)) =>
+        Some((denom, shiftVars(rem, 1, -1)))
+      case _ =>
+        None
+    }
+
+    private val V0Eq = IExpression.SymbolEquation(IVariable(0))
+  }
+
+  /**
+   * Generate or match a non-divisibility expression forall x. denom*x != t.
+   */
+  object NonDivisibility {
+    def apply(denom : IdealInt, t : ITerm) =
+      all((v(0) * denom) =/= shiftVars(t, 0, 1))
+
+    def unapply(f : IFormula) : Option[(IdealInt, ITerm)] = f match {
+      case ISortedQuantified(Quantifier.ALL, Sort.Integer,
+                             INot(V0Eq(denom, rem))) =>
+        Some((denom, shiftVars(rem, 1, -1)))
+      case _ =>
+        None
+    }
+
+    private val V0Eq = IExpression.SymbolEquation(IVariable(0))
+  }
+
   /**
    * Generate the inequality <code>t >= 0</code>.
    */
