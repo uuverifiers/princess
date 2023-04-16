@@ -40,12 +40,13 @@ import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry,
                     Incompleteness}
 import ap.types.{Sort, MonoSortedIFunction}
+import ap.terfor.{TermOrder, TerForConvenience, Term, Formula,
+                  ComputationLogger}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPlugin, ReducerPluginFactory}
 import ap.terfor.preds.{PredConj, Atom}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.{TermOrder, TerForConvenience, Term, ComputationLogger}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
@@ -102,7 +103,9 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   private def isEmptyString(t : ITerm) : IFormula = seqADT.hasCtor(t, 0)
 
+  private val CSo = CharSort
   private val SSo = StringSort
+  private val RSo = RegexSort
   import Sort.{Nat, Integer}
 
   // str_to_int_help(a, b) = a * 10^b.len + b.toInt
@@ -117,6 +120,22 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     new MonoSortedIFunction("str_indexof_help",
                             List(SSo, SSo, Integer, Integer),
                             Integer, true, false)
+
+  // Determine whether a regular expression matches a string
+  val re_matches_str_help =
+    new MonoSortedIFunction("re_matches_str_help",
+                            List(RSo, SSo), Sort.Bool, true, false)
+
+  // Map a regular expression to re.eps if it accepts the empty string,
+  // to re.none otherwise
+  val re_nullable_help =
+    new MonoSortedIFunction("re_nullable_help",
+                            List(RSo), RSo, true, false)
+
+  // Compute the Brzozowski derivative of a regular expression
+  val re_derivative_help =
+    new MonoSortedIFunction("re_derivative_help",
+                            List(CSo, RSo), RSo, true, false)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -329,25 +348,177 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   }
  */
 
+  private implicit def toRichTerm(t : ITerm) = new AnyRef {
+    def ~~>(s : ITerm) = IExpression.trig(t === s, t)
+  }
+
+  val reMatchingAxioms = {
+    import IExpression._
+
+    CharSort.all(c => StringSort.all(str => RegexSort.all(re =>
+      re_matches_str_help(re, str_cons(c, str)) ~~>
+        re_matches_str_help(re_derivative_help(c, re), str)
+    ))) &
+    RegexSort.all(re =>
+      re_matches_str_help(re_+(re), str_empty()) ~~>
+        re_matches_str_help(re, str_empty())
+    ) &
+    RegexSort.all((re1, re2) =>
+      re_matches_str_help(re_union(re1, re2), str_empty()) ~~>
+        ADT.BoolADT.Or(re_matches_str_help(re1, str_empty()),
+                       re_matches_str_help(re2, str_empty()))
+    ) &
+    CharSort.all(c => StringSort.all(str =>
+      re_matches_str_help(str_to_re(str_cons(c, str)), str_empty()) ~~>
+        1
+    ))
+  }
+
+  val reNullableAxioms = {
+    import IExpression._
+
+    CharSort.all(c => StringSort.all(str =>        // str.to_re
+      re_nullable_help(str_to_re(str_cons(c, str))) ~~>
+        re_none())) &
+    CharSort.all((c1, c2) =>                       // re.charrange
+      re_nullable_help(re_charrange(c1, c2)) ~~>
+        re_none()) &
+    StringSort.all((str1, str2) =>                 // re.range // TODO
+      re_nullable_help(re_range(str1, str2)) ~~>
+        re_none()) &
+    RegexSort.all((re1, re2) =>                    // re.++
+      re_nullable_help(re_++(re1, re2)) ~~>
+        re_inter(re_nullable_help(re1), re2)) &
+    RegexSort.all((re1, re2) =>                    // re.union
+      re_nullable_help(re_union(re1, re2)) ~~>
+        re_union(re_nullable_help(re1), re_nullable_help(re2))) &
+    RegexSort.all((re1, re2) =>                    // re.inter
+      re_nullable_help(re_inter(re1, re2)) ~~>
+        re_inter(re_nullable_help(re1), re2)) &
+    RegexSort.all((re1, re2) =>                    // re.diff
+      re_nullable_help(re_diff(re1, re2)) ~~>
+        re_diff(re_nullable_help(re1), re2)) &
+    RegexSort.all(re =>                            // re.*
+      re_nullable_help(re_*(re)) ~~>
+        re_eps()) &
+    RegexSort.all(re =>                            // re.+
+      re_nullable_help(re_+(re)) ~~>
+        re_nullable_help(re)) &
+    RegexSort.all(re =>                            // re.opt
+      re_nullable_help(re_opt(re)) ~~>
+        re_eps()) &
+    RegexSort.all(re =>                            // re.comp
+      re_nullable_help(re_comp(re)) ~~>
+        re_diff(re_eps(), re))
+  }
+
+  val reDerivativeAxioms = {
+    import IExpression._
+
+    CharSort.all(c =>                              // str.none
+      re_derivative_help(c, re_none()) ~~>
+        re_none()) &
+    CharSort.all(c =>                              // str.eps
+      re_derivative_help(c, re_eps()) ~~>
+        re_none()) &
+    CharSort.all(c =>                              // str.all
+      re_derivative_help(c, re_all()) ~~>
+        re_all()) &
+    CharSort.all(c =>                              // str.allchar
+      re_derivative_help(c, re_allchar()) ~~>
+        re_eps()) &
+    CharSort.all(c =>                              // str.to_re ""
+      re_derivative_help(c, str_to_re(str_empty())) ~~>
+        re_none()) &
+    CharSort.all((c1, c2) => StringSort.all(str => // str.to_re
+      re_derivative_help(c1, str_to_re(str_cons(c2, str))) ~~>
+        ite(c1 === c2, str_to_re(str), re_none()))) &
+    CharSort.all((c, c1, c2) =>                    // str.charrange
+      re_derivative_help(c, re_charrange(c1, c2)) ~~>
+        ite(c1 <= c & c <= c2, re_eps(), re_none())) &
+    CharSort.all(c => RegexSort.all((re1, re2) =>  // re.++
+      re_derivative_help(c, re_++(re1, re2)) ~~>
+        re_union(re_++(re_derivative_help(c, re1), re2),
+                 re_++(re_nullable_help(re1), re_derivative_help(c, re2))))) &
+    CharSort.all(c => RegexSort.all((re1, re2) =>  // re.union
+      re_derivative_help(c, re_union(re1, re2)) ~~>
+        re_union(re_derivative_help(c, re1), re_derivative_help(c, re2)))) &
+    CharSort.all(c => RegexSort.all((re1, re2) =>  // re.inter
+      re_derivative_help(c, re_inter(re1, re2)) ~~>
+        re_inter(re_derivative_help(c, re1), re_derivative_help(c, re2)))) &
+    CharSort.all(c => RegexSort.all((re1, re2) =>  // re.diff
+      re_derivative_help(c, re_diff(re1, re2)) ~~>
+        re_diff(re_derivative_help(c, re1), re_derivative_help(c, re2)))) &
+    CharSort.all(c => RegexSort.all(re =>          // re.*
+      re_derivative_help(c, re_*(re)) ~~>
+        re_++(re_derivative_help(c, re), re_*(re)))) &
+    CharSort.all(c => RegexSort.all(re =>          // re.+
+      re_derivative_help(c, re_+(re)) ~~>
+        re_++(re_derivative_help(c, re), re_*(re)))) &
+    CharSort.all(c => RegexSort.all(re =>          // re.opt
+      re_derivative_help(c, re_opt(re)) ~~>
+        re_opt(re_derivative_help(c, re)))) &
+    CharSort.all(c => RegexSort.all(re =>          // re.comp
+      re_derivative_help(c, re_comp(re)) ~~>
+        re_comp(re_derivative_help(c, re))))
+  }
+
   val allAxioms =
 //    strConcatAxioms &
     strAtAxioms &
     strSubstrAxioms &
     strToIntAxioms &
     strIndexofAxioms &
-    strReplaceAxioms
+    strReplaceAxioms &
+    reMatchingAxioms &
+    reNullableAxioms &
+    reDerivativeAxioms
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val functions = predefFunctions ++ List(str_to_int_help, str_indexof_help)
+  val functions =
+    predefFunctions ++ List(str_to_int_help, str_indexof_help,
+                            re_matches_str_help,
+                            re_nullable_help, re_derivative_help)
   
-  val (funPredicates, axioms, _, funPredMap) =
+  val (funPredicates, axioms1, order, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
                      theoryAxioms    = allAxioms,
                      otherTheories   = List(seqADT))
   val predicates = predefPredicates ++ funPredicates
-
   val functionPredicateMapping = functions zip funPredicates
+
+//  private val funPredMap = functionPredicateMapping.toMap
+
+  val reDerivativeAxioms2 : Formula = {
+    import TerForConvenience._
+    implicit val o : TermOrder = order
+
+    forall(forall(                                     // re.none
+      (Atom(funPredMap(re_nullable_help), List(l(v(0)), l(v(1))), o) &
+       Atom(funPredMap(re_none), List(l(v(0))), o)) ==>
+        (v(0) === v(1)))) &
+    forall(forall(                                     // re.eps
+      (Atom(funPredMap(re_nullable_help), List(l(v(0)), l(v(1))), o) &
+       Atom(funPredMap(re_eps), List(l(v(0))), o)) ==>
+        (v(0) === v(1)))) &
+    forall(forall(forall(                              // str.to_re ""
+      (Atom(funPredMap(re_nullable_help), List(l(v(0)), l(v(1))), o) &
+       Atom(funPredMap(str_to_re), List(l(v(2)), l(v(0))), o) &
+       Atom(funPredMap(str_empty), List(l(v(2))), o)) ==>
+        (v(0) === v(1))))) &
+    forall(forall(                                     // re.all
+      (Atom(funPredMap(re_nullable_help), List(l(v(0)), l(v(1))), o) &
+       Atom(funPredMap(re_all), List(l(v(0))), o)) ==>
+        Atom(funPredMap(re_eps), List(l(v(1))), o))) &
+    forall(forall(                                     // re.allchar
+      (Atom(funPredMap(re_nullable_help), List(l(v(0)), l(v(1))), o) &
+       Atom(funPredMap(re_allchar), List(l(v(0))), o)) ==>
+        Atom(funPredMap(re_none), List(l(v(1))), o)))
+  }
+
+  val axioms = Conjunction.conj(List(axioms1, reDerivativeAxioms2), order)
+
   val functionalPredicates = funPredicates.toSet
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val totalityAxioms = Conjunction.TRUE
@@ -424,6 +595,10 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                              subres(1).asInstanceOf[ITerm],
                              start,
                              0))
+      }
+      case IAtom(`str_in_re`, _) => {
+        eqZero(re_matches_str_help(subres(1).asInstanceOf[ITerm],
+                                   subres(0).asInstanceOf[ITerm]))
       }
       case t =>
         t update subres
@@ -504,6 +679,10 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                     _adtSize(List(shiftedA(1), l(v(1)))) &
                     _adtSize(List(shiftedA(2), l(v(2)))) &
                     _adtSize(List(shiftedA(3), l(v(3)))))
+        }
+        case StringPred(`re_matches_str_help`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 1, order)(a)
+          exists(1, shiftedA & _adtSize(List(shiftedA(1), l(v(0)))))
         }
         case _ =>
           a
@@ -826,7 +1005,10 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   // Set of the predicates that are fully supported at this point
   private val supportedPreds : Set[Predicate] =
     (for (f <- Set(str_++, str_len, str_at, str_substr,
-                   str_to_int_help, str_indexof_help, str_replace))
+                   str_to_int_help, str_indexof_help, str_replace,
+                   re_matches_str_help, re_nullable_help, re_derivative_help,
+                   str_to_re, re_charrange, re_++, re_union, re_inter,
+                   re_diff, re_*, re_+, re_opt, re_comp))
      yield funPredMap(f)) ++ seqADT.predicates
 
   private val unsupportedPreds = predicates.toSet -- supportedPreds

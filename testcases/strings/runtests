@@ -37,7 +37,8 @@ TESTS="simple-cycle.smt2 \
        str-indexof5.smt2 \
        str-contains.smt2 \
        str-replace.smt2 \
-       str-replace2.smt2"
+       str-replace2.smt2 \
+       str-in-re.smt2"
 
 $PRI "$@" $TESTS
 

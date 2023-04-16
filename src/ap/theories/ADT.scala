@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -265,6 +265,22 @@ object ADT {
      * Term representing the Boolean value false.
      */
     val False = IFunApp(falseFun, List())
+
+    /**
+     * Disjunction of two Boolean-valued terms.
+     */
+    def Or(s : ITerm, t : ITerm) : ITerm = {
+      import IExpression._
+      val shiftedS = shiftVars(s, 0, 3)
+      val shiftedT = shiftVars(t, 0, 3)
+      boolSort.eps(boolSort.ex(boolSort.ex(
+                                 (v(0, boolSort) === shiftedS) &
+                                 (v(1, boolSort) === shiftedT) &
+                                 (v(2, boolSort) <= v(0, boolSort)) &
+                                 (v(2, boolSort) <= v(1, boolSort)) &
+                                 (v(0, boolSort) + v(1, boolSort) <=
+                                    v(2, boolSort) + 1))))
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
