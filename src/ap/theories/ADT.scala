@@ -267,6 +267,22 @@ object ADT {
     val False = IFunApp(falseFun, List())
 
     /**
+     * Conjunction of two Boolean-valued terms.
+     */
+    def And(s : ITerm, t : ITerm) : ITerm = {
+      import IExpression._
+      val shiftedS = shiftVars(s, 0, 3)
+      val shiftedT = shiftVars(t, 0, 3)
+      boolSort.eps(boolSort.ex(boolSort.ex(
+                                 (v(0, boolSort) === shiftedS) &
+                                 (v(1, boolSort) === shiftedT) &
+                                 (v(0, boolSort) <= v(2, boolSort)) &
+                                 (v(1, boolSort) <= v(2, boolSort)) &
+                                 (v(0, boolSort) + v(1, boolSort) >=
+                                    v(2, boolSort)))))
+    }
+
+    /**
      * Disjunction of two Boolean-valued terms.
      */
     def Or(s : ITerm, t : ITerm) : ITerm = {
@@ -280,6 +296,14 @@ object ADT {
                                  (v(2, boolSort) <= v(1, boolSort)) &
                                  (v(0, boolSort) + v(1, boolSort) <=
                                     v(2, boolSort) + 1))))
+    }
+
+    /**
+     * Negation of a Boolean-valued term.
+     */
+    def Not(s : ITerm) : ITerm = {
+      import IExpression._
+      1 - s
     }
   }
 
