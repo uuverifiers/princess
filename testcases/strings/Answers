@@ -138,10 +138,9 @@ sat
 Loading regex.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
-Warning: string predicates not supported: re_none/1
 Constructing countermodel ...
 
-unknown
+sat
 (model
   (define-fun R () RegLan RegLan!4)
 )
