@@ -219,15 +219,9 @@ object GlobalSettings {
         case ValueOpt("randomSeed", IntVal(value)) =>
           Param.RANDOM_SEED.set(settings, Some(value))
         case Opt("multiStrategy", value) =>
-          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.CASC)
-        case ValueOpt("portfolio", "none") =>
-          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.None)
-        case ValueOpt("portfolio", "casc") =>
-          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.CASC)
-        case ValueOpt("portfolio", "qf_lia") =>
-          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.QF_LIA)
-        case ValueOpt("portfolio", "bv") =>
-          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.BV)
+          Param.PORTFOLIO.set(settings, "casc")
+        case ValueOpt("portfolio", portfolio) =>
+          Param.PORTFOLIO.set(settings, portfolio)
         case ValueOpt("threads", IntVal(num)) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, num)
         case ValueOpt("formulaSign", "positive") =>

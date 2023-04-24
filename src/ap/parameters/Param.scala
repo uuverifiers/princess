@@ -250,13 +250,9 @@ object Param {
   }
 
   /** Portfolios optimised for particular domains */
-  object PortfolioOptions extends Enumeration {
-    val None, CASC, QF_LIA, BV = Value
-  }
-
   case object PORTFOLIO extends Param {
-    type Value = PortfolioOptions.Value
-    val defau : PortfolioOptions.Value = PortfolioOptions.None
+    type Value = String
+    val defau : String = "none"
   }
 
   case object PORTFOLIO_THREAD_NUM extends Param {

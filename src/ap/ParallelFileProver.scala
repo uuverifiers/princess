@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,12 +42,119 @@ import ap.terfor.preds.Predicate
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.concurrent.SyncVar
-import scala.collection.mutable.{PriorityQueue, ArrayBuffer}
+import scala.collection.mutable.{PriorityQueue, ArrayBuffer,
+                                 HashMap => MHashMap}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 
 object ParallelFileProver {
 
   private val AC = Debug.AC_MAIN
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Portfolio database
+
+  case class ProverArguments(createReader        : () => java.io.Reader,
+                             baseSettings        : GlobalSettings,
+                             timeout             : Int,
+                             userDefStoppingCond : () => Boolean,
+                             runUntilProof       : Boolean,
+                             prelResultPrinter   : Prover => Unit,
+                             threadNum           : Int)
+
+  // Map from portfolio identifiers to the provers to be spawned
+  private val portfolios =
+    new MHashMap[String, ProverArguments => ParallelFileProver]
+
+  def addPortfolio(id     : String,
+                   prover : ProverArguments => ParallelFileProver) : Unit =
+    synchronized {
+      portfolios.put(id, prover)
+    }
+
+  def apply(id : String, arguments : ProverArguments) : ParallelFileProver = {
+    val ctor = synchronized {
+      (portfolios get id) match {
+        case Some(ctor) =>
+          ctor
+        case None =>
+          throw new Exception("Portfolio " + id + " is not defined")
+      }
+    }
+    ctor(arguments)
+  }
+
+  addPortfolio("casc", arguments => {
+                 import arguments._
+                 ParallelFileProver(createReader,
+                                    timeout,
+                                    true,
+                                    userDefStoppingCond(),
+                                    baseSettings,
+                                    cascStrategies2016,
+                                    1,
+                                    3 max threadNum,
+                                    runUntilProof,
+                                    prelResultPrinter,
+                                    threadNum)
+               })
+
+  addPortfolio("qf_lia", arguments => {
+                 import arguments._
+                 val strategies =
+                   List(ParallelFileProver.Configuration(
+                          Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                  baseSettings,
+                                  Param.ProofConstructionOptions.Never),
+                          "-constructProofs=never",
+                          1000000000,
+                          2000),
+                        ParallelFileProver.Configuration(
+                          Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                  baseSettings,
+                                  Param.ProofConstructionOptions.Always),
+                          "-constructProofs=always",
+                          1000000000,
+                          2000))
+                 ParallelFileProver(createReader,
+                                    timeout,
+                                    true,
+                                    userDefStoppingCond(),
+                                    strategies,
+                                    1,
+                                    2,
+                                    runUntilProof,
+                                    prelResultPrinter,
+                                    threadNum)
+               })
+
+  addPortfolio("bv", arguments => {
+                 import arguments._
+                 val strategies =
+                   List(ParallelFileProver.Configuration(
+                          Param.NEG_SOLVING.set(
+                                  baseSettings,
+                                  Param.NegSolvingOptions.Positive),
+                          "-formulaSign=positive",
+                          1000000000,
+                          1000),
+                        ParallelFileProver.Configuration(
+                          Param.NEG_SOLVING.set(
+                                  baseSettings,
+                                  Param.NegSolvingOptions.Negative),
+                          "-formulaSign=negative",
+                          1000000000,
+                          1000))
+                 ParallelFileProver(createReader,
+                                    timeout,
+                                    true,
+                                    userDefStoppingCond(),
+                                    strategies,
+                                    1,
+                                    2,
+                                    runUntilProof,
+                                    prelResultPrinter,
+                                    threadNum)
+               })
 
   //////////////////////////////////////////////////////////////////////////////
   // Strategies used for CASC
