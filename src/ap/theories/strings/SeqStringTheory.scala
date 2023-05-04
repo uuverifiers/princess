@@ -360,6 +360,15 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         re_matches_str_help(re_derivative_help(c, re), str)
     ))) &
 //
+    StringSort.all(str =>
+      re_matches_str_help(re_none(), str) ~~>
+        1
+    ) &
+    StringSort.all(str =>
+      re_matches_str_help(re_all(), str) ~~>
+        0
+    ) &
+//
     StringSort.all(str =>                               // str.to_re
       re_matches_str_help(str_to_re(str), str_empty()) ~~>
         ite(isEmptyString(str), 0, 1)
@@ -404,6 +413,55 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     RegexSort.all(re =>                                 // re.comp
       re_matches_str_help(re_comp(re), str_empty()) ~~>
         ADT.BoolADT.Not(re_matches_str_help(re, str_empty()))
+    )
+  }
+
+  val reSimpAxioms = {
+    import IExpression._
+
+    RegexSort.all(re =>
+      re_++(re_none(), re) ~~> re_none()
+    ) &
+    RegexSort.all(re =>
+      re_++(re, re_none()) ~~> re_none()
+    ) &
+    RegexSort.all(re =>
+      re_union(re_none(), re) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_union(re, re_none()) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_inter(re_none(), re) ~~> re_none()
+    ) &
+    RegexSort.all(re =>
+      re_inter(re, re_none()) ~~> re_none()
+    ) &
+//
+    RegexSort.all(re =>
+      re_union(re_all(), re) ~~> re_all()
+    ) &
+    RegexSort.all(re =>
+      re_union(re, re_all()) ~~> re_all()
+    ) &
+    RegexSort.all(re =>
+      re_inter(re_all(), re) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_inter(re, re_all()) ~~> re
+    ) &
+//
+    RegexSort.all(re =>
+      re_++(re_eps(), re) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_++(re, re_eps()) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_++(str_to_re(str_empty()), re) ~~> re
+    ) &
+    RegexSort.all(re =>
+      re_++(re, str_to_re(str_empty())) ~~> re
     )
   }
 
@@ -501,6 +559,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     strIndexofAxioms &
     strReplaceAxioms &
     reMatchingAxioms &
+    reSimpAxioms &
     reNullableAxioms &
     reDerivativeAxioms
 
@@ -1089,7 +1148,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     (for (f <- Set(str_++, str_len, str_at, str_substr,
                    str_to_int_help, str_indexof_help, str_replace,
                    re_matches_str_help, re_nullable_help, re_derivative_help,
-                   re_none, re_eps, re_allchar, str_to_re,
+                   re_none, re_eps, re_all, re_allchar, str_to_re,
                    re_charrange, re_++, re_union, re_inter,
                    re_diff, re_*, re_+, re_opt, re_comp))
      yield funPredMap(f)) ++ seqADT.predicates
