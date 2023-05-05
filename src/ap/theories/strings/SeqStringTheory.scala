@@ -113,6 +113,10 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     new MonoSortedIFunction("str_to_int_help", List(Integer, SSo),
                             Integer, true, false)
 
+  val int_to_str_help =
+    new MonoSortedIFunction("int_to_str_help", List(Integer, SSo),
+                            SSo, true, false)
+
   // str_indexof_help(s, t, i, k)
   //    = str_indexof(s, t, i) + k if str_indexof(...) >= 0
   //    = -1                       otherwise
@@ -194,6 +198,25 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
       ITrigger(List(str_to_int_help(n, str)),
                (str_to_int_help(n, str) === -1) |
                (str_to_int_help(n, str) >= n))))
+  }
+
+  val intToStrAxioms = {
+    import IExpression._
+
+    all(n => StringSort.all(tail =>
+      trig(ite(n <= -1,
+               int_to_str_help(n, tail) === "",
+               ite(n <= 9,
+                   int_to_str_help(n, tail) === str_cons(n + 48, tail),
+                   ex((n1, n2) => (n === 10*n1 + n2) &
+                                  (n2 >= 0) & (n2 <= 9) &
+                                  (int_to_str_help(n, tail) === 
+                                   int_to_str_help(n1, str_cons(n2 + 48, tail)))
+                   ))),
+           int_to_str_help(n, tail)))) &
+    all(n => StringSort.all(tail =>
+      trig(adtSize(int_to_str_help(n, tail)) >= adtSize(tail),
+           int_to_str_help(n, tail))))
   }
 
   val strIndexofAxioms = {
@@ -556,6 +579,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     strAtAxioms &
     strSubstrAxioms &
     strToIntAxioms &
+    intToStrAxioms &
     strIndexofAxioms &
     strReplaceAxioms &
     reMatchingAxioms &
@@ -566,7 +590,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   //////////////////////////////////////////////////////////////////////////////
 
   val functions =
-    predefFunctions ++ List(str_to_int_help, str_indexof_help,
+    predefFunctions ++ List(str_to_int_help, int_to_str_help, str_indexof_help,
                             re_matches_str_help,
                             re_nullable_help, re_derivative_help)
   
@@ -708,6 +732,9 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
       case IFunApp(`str_to_int`, _) => {
         val fst = subres(0).asInstanceOf[ITerm]
         ite(isEmptyString(fst), -1, str_to_int_help(0, fst))
+      }
+      case IFunApp(`int_to_str`, _) => {
+        int_to_str_help(subres(0).asInstanceOf[ITerm], str_empty())
       }
       case IFunApp(`str_indexof`, _) => {
         val start = subres(2).asInstanceOf[ITerm]
@@ -1145,7 +1172,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
 
   // Set of the predicates that are fully supported at this point
   private val supportedPreds : Set[Predicate] =
-    (for (f <- Set(str_++, str_len, str_at, str_substr,
+    (for (f <- Set(str_++, str_len, str_at, str_substr, int_to_str_help,
                    str_to_int_help, str_indexof_help, str_replace,
                    re_matches_str_help, re_nullable_help, re_derivative_help,
                    re_none, re_eps, re_all, re_allchar, str_to_re,
