@@ -816,6 +816,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     ////////////////////////////////////////////////////////////////////////////
     
+    if (threadNum > 1)
+      Console.err.println("Running up to " + threadNum + " provers in parallel.")
+
     for (_ <- 0 until threadNum)
       spawnNewProverIfPossible
     

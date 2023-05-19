@@ -119,6 +119,7 @@ object CmdlMain {
     println("                             qf_lia: Optimised for quantifier-free LIA")
     println("                             bv:     Optimised for quantified BV")
     println(" -threads=num              Number of threads to use for portfolio   (default: 1)")
+    println(" [+-]threads               Automatically choose number of threads   (default: -)")
     println(" -formulaSign=val          Optionally negate input formula       (default: auto)")
     println("                             positive: do not negate")
     println("                             negative: negate")

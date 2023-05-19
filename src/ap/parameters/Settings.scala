@@ -222,6 +222,11 @@ object GlobalSettings {
           Param.PORTFOLIO.set(settings, "casc")
         case ValueOpt("portfolio", portfolio) =>
           Param.PORTFOLIO.set(settings, portfolio)
+        case Opt("threads", false) =>
+          Param.PORTFOLIO_THREAD_NUM.set(settings, 1)
+        case Opt("threads", true) =>
+          Param.PORTFOLIO_THREAD_NUM.set(settings, 
+            2 max (Runtime.getRuntime().availableProcessors - 1) min 16)
         case ValueOpt("threads", IntVal(num)) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, num)
         case ValueOpt("formulaSign", "positive") =>
