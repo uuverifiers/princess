@@ -712,10 +712,12 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
           // Need to make sure that the PresburgerModelfinder is
           // applied last!
           val newSettings =
-            Param.THEORY_PLUGIN.set(
-              Param.MODEL_GENERATION.set(settings, true),
-              PluginSequence(Param.THEORY_PLUGIN(settings).toList ++
-                               List(new PresburgerModelFinder)))
+            Param.PROOF_CONSTRUCTION.set(
+              Param.THEORY_PLUGIN.set(
+                Param.MODEL_GENERATION.set(settings, true),
+                PluginSequence(Param.THEORY_PLUGIN(settings).toList ++
+                                 List(new PresburgerModelFinder))),
+              false)
           val newGoal = Goal(goal.facts,
                              goal.compoundFormulas,
                              TaskManager.EMPTY(newSettings),

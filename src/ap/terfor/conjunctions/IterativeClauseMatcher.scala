@@ -738,16 +738,27 @@ object IterativeClauseMatcher {
 
     if (!((c.quans take lastUniQuantifier) contains (Quantifier(!negated))) &&
         lastUniQuantifier > 0 &&
-        !c.isQuantifiedDivisibility && !c.isQuantifiedNonDivisibility &&
-        ((c.size == 1 && c.predConj.isLiteral) || !negated)) {
-      val (matchLits, _) =
-        determineMatchedLits(if (negated) c.predConj.negate else c.predConj)
-      subPreds ++ (for (a <- matchLits.iterator) yield a.pred)
+        !c.isQuantifiedDivisibility && !c.isQuantifiedNonDivisibility) {
+      subPreds ++ extractMatchedLits(c, negated)
     } else {
       subPreds
     }
   }
   
+  private def extractMatchedLits(c : Conjunction, negated : Boolean)
+                                (implicit config : PredicateMatchConfig)
+                                 : Set[Predicate] = {
+    if (c.size == 1 && c.negatedConjs.size == 1) {
+      extractMatchedLits(c.negatedConjs.head, !negated)
+    } else if (negated && !(c.size == 1 && c.predConj.isLiteral)) {
+      Set()
+    } else {
+      val (matchLits, _) =
+        determineMatchedLits(if (negated) c.predConj.negate else c.predConj)
+      (for (a <- matchLits.iterator) yield a.pred).toSet
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   private def constructAxiomMatcher(pred : Predicate,

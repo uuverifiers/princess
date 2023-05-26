@@ -271,21 +271,21 @@ abstract class AbstractFileProver(reader : java.io.Reader,
         val Seq(axiomF, inputF) =
           for (fors <- Seq(axioms, inputs)) yield {
             (for (INamedPart(n, f) <- fors.iterator)
-             yield (n -> Conjunction.conj(InputAbsy2Internal(f, order),
-                                          order))).toMap
+             yield (n -> reducer(Conjunction.conj(InputAbsy2Internal(f, order),
+                                                  order)))).toMap
           }
 
         val matchedTotal = checkMatchedTotalFunctions(inputF map (_._2))
 
         val axiomF2 =
           axiomF mapValues { c => {
-            Theory.preprocess(reducer(c), transSignature.theories, order)
+            Theory.preprocess(c, transSignature.theories, order)
           }}
 
         val inputF2 =
           inputF mapValues { c => {
             val (redC, incomp) = Incompleteness.track {
-              Theory.preprocess(reducer(c), transSignature.theories, order)
+              Theory.preprocess(c, transSignature.theories, order)
             }
   
             if (incomp)
@@ -316,19 +316,22 @@ abstract class AbstractFileProver(reader : java.io.Reader,
 
         val Seq(axiomF, inputF) =
           for (fors <- Seq(axioms, inputs)) yield {
-            InputAbsy2Internal(
-              IExpression.or(for (f <- fors.iterator)
-                             yield (IExpression removePartName f)), order)
+            reducer(
+              Conjunction.conj(
+                InputAbsy2Internal(
+                  IExpression.or(for (f <- fors.iterator)
+                                 yield (IExpression removePartName f)), order),
+                order))
           }
 
         val matchedTotal =
-          checkMatchedTotalFunctions(List(Conjunction.conj(inputF, order)))
+          checkMatchedTotalFunctions(List(inputF))
 
         val allInputs =
           Conjunction.disjFor(List(axiomF, inputF), order)
 
         val (inputRed, incomp) = Incompleteness.track {
-          convertQuantifiers(Theory.preprocess(reducer(allInputs),
+          convertQuantifiers(Theory.preprocess(allInputs,
                                                transSignature.theories, order))
         }
   
