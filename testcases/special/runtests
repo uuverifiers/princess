@@ -29,3 +29,5 @@ $PRI "$@" -timeout=10000 conjunctElimBug.smt2
 # this will time out
 $PRI "$@" +incremental -timeout=3000 sort-unsoundness.smt2
 
+# this should result in GaveUp, not a countermodel
+$PRI "$@" -assert +genTotalityAxioms -constructProofs=always -generateTriggers=all SYN455+1.p

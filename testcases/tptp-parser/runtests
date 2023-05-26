@@ -25,3 +25,6 @@ $PRI "$@" -realRatSaturationRounds=1 -assert ARI495\=1.p
 # not provable
 $PRI "$@" -timeout=3000 finite-domains-1.p
 
+# check that -genTotalityAxioms is handled correctly
+$PRI "$@" -genTotalityAxioms SYN455+1-simp.p
+
