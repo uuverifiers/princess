@@ -13,7 +13,9 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
 
 $PRI "$@" $TESTS
 
-$PRI "$@" -clausifier=simple +boolFunsAsPreds PUZ001+1.p
+TESTS="PUZ001+1.p PHI009+1.p"
+
+$PRI "$@" -clausifier=simple +boolFunsAsPreds $TESTS
 
 $PRI "$@" +unsatCore unsat-core.p
 $PRI "$@" +printProof unsat-core.p

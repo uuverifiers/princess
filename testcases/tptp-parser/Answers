@@ -119,11 +119,17 @@ Proving ...
 
 % SZS status Theorem for PUZ001+1.p
 
+Loading PHI009+1.p ...
+Preprocessing ...
+Constructing countermodel ...
+
+% SZS status Theorem for PHI009+1.p
+
 Loading unsat-core.p ...
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
-Found proof (size 290)
+Found proof (size 289)
 
 % SZS status Theorem for unsat-core.p
 
@@ -134,7 +140,7 @@ Loading unsat-core.p ...
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
-Found proof (size 290)
+Found proof (size 289)
 
 % SZS status Theorem for unsat-core.p
 
@@ -1532,24 +1538,24 @@ Warning: type clash during inference: int vs $i
 | | | | | | | | | | |            vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
 | | | | | | | | | | |            $i(v0))
 | | | | | | | | | | | 
-| | | | | | | | | | | DELTA: instantiating (230) with fresh symbols all_964_0,
-| | | | | | | | | | |        all_964_1, all_964_2, all_964_3 gives:
-| | | | | | | | | | |   (231)   ~ (all_964_0 = 0) &  ~ (all_964_2 = vtempty) &
-| | | | | | | | | | |          vrawDifference(all_964_2, all_427_0) = all_964_3 &
-| | | | | | | | | | |          vrowIn(all_964_1, all_427_0) = all_964_0 &
-| | | | | | | | | | |          vtcons(all_964_1, all_964_2) = all_755_1 &
-| | | | | | | | | | |          vtcons(all_964_1, all_964_3) = all_442_0 &
-| | | | | | | | | | |          $i(all_964_1) & $i(all_964_2) & $i(all_964_3)
+| | | | | | | | | | | DELTA: instantiating (230) with fresh symbols all_973_0,
+| | | | | | | | | | |        all_973_1, all_973_2, all_973_3 gives:
+| | | | | | | | | | |   (231)   ~ (all_973_0 = 0) &  ~ (all_973_2 = vtempty) &
+| | | | | | | | | | |          vrawDifference(all_973_2, all_427_0) = all_973_3 &
+| | | | | | | | | | |          vrowIn(all_973_1, all_427_0) = all_973_0 &
+| | | | | | | | | | |          vtcons(all_973_1, all_973_2) = all_755_1 &
+| | | | | | | | | | |          vtcons(all_973_1, all_973_3) = all_442_0 &
+| | | | | | | | | | |          $i(all_973_1) & $i(all_973_2) & $i(all_973_3)
 | | | | | | | | | | | 
 | | | | | | | | | | | ALPHA: (231) implies:
-| | | | | | | | | | |   (232)  $i(all_964_3)
-| | | | | | | | | | |   (233)  $i(all_964_1)
-| | | | | | | | | | |   (234)  vtcons(all_964_1, all_964_3) = all_442_0
+| | | | | | | | | | |   (232)  $i(all_973_3)
+| | | | | | | | | | |   (233)  $i(all_973_1)
+| | | | | | | | | | |   (234)  vtcons(all_973_1, all_973_3) = all_442_0
 | | | | | | | | | | | 
 | | | | | | | | | | | REDUCE: (222), (234) imply:
-| | | | | | | | | | |   (235)  vtcons(all_964_1, all_964_3) = vtempty
+| | | | | | | | | | |   (235)  vtcons(all_973_1, all_973_3) = vtempty
 | | | | | | | | | | | 
-| | | | | | | | | | | GROUND_INST: instantiating (1) with all_964_1, all_964_3,
+| | | | | | | | | | | GROUND_INST: instantiating (1) with all_973_1, all_973_3,
 | | | | | | | | | | |              simplifying with (232), (233), (235) gives:
 | | | | | | | | | | |   (236)  $false
 | | | | | | | | | | | 
@@ -1573,12 +1579,12 @@ Warning: type clash during inference: int vs $i
 | | | | | | | | | | | |            all_442_0 &  ~ (v1 = 0) & vrowIn(v0, all_427_0)
 | | | | | | | | | | | |            = v1 & vtcons(v0, vtempty) = all_442_0 & $i(v0))
 | | | | | | | | | | | | 
-| | | | | | | | | | | | DELTA: instantiating (238) with fresh symbols all_964_0,
-| | | | | | | | | | | |        all_964_1 gives:
-| | | | | | | | | | | |   (239)  all_755_1 = all_442_0 &  ~ (all_964_0 = 0) &
-| | | | | | | | | | | |          vrowIn(all_964_1, all_427_0) = all_964_0 &
-| | | | | | | | | | | |          vtcons(all_964_1, vtempty) = all_442_0 &
-| | | | | | | | | | | |          $i(all_964_1)
+| | | | | | | | | | | | DELTA: instantiating (238) with fresh symbols all_973_0,
+| | | | | | | | | | | |        all_973_1 gives:
+| | | | | | | | | | | |   (239)  all_755_1 = all_442_0 &  ~ (all_973_0 = 0) &
+| | | | | | | | | | | |          vrowIn(all_973_1, all_427_0) = all_973_0 &
+| | | | | | | | | | | |          vtcons(all_973_1, vtempty) = all_442_0 &
+| | | | | | | | | | | |          $i(all_973_1)
 | | | | | | | | | | | | 
 | | | | | | | | | | | | ALPHA: (239) implies:
 | | | | | | | | | | | |   (240)  all_755_1 = all_442_0
@@ -1586,56 +1592,53 @@ Warning: type clash during inference: int vs $i
 | | | | | | | | | | | | COMBINE_EQS: (199), (240) imply:
 | | | | | | | | | | | |   (241)  all_442_0 = all_427_3
 | | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (241) implies:
-| | | | | | | | | | | |   (242)  all_442_0 = all_427_3
+| | | | | | | | | | | | COMBINE_EQS: (222), (241) imply:
+| | | | | | | | | | | |   (242)  all_427_3 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (222), (242) imply:
+| | | | | | | | | | | | SIMP: (242) implies:
 | | | | | | | | | | | |   (243)  all_427_3 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (243) implies:
-| | | | | | | | | | | |   (244)  all_427_3 = vtempty
+| | | | | | | | | | | | REDUCE: (161), (243) imply:
+| | | | | | | | | | | |   (244)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (244) imply:
-| | | | | | | | | | | |   (245)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (245) is inconsistent.
+| | | | | | | | | | | | CLOSE: (244) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (246)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
+| | | | | | | | | | | |   (245)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
 | | | | | | | | | | | |            vrawDifference(v0, all_427_0) = all_442_0 &
 | | | | | | | | | | | |            vrowIn(v1, all_427_0) = 0 & vtcons(v1, v0) =
 | | | | | | | | | | | |            all_755_1 & $i(v1) & $i(v0))
 | | | | | | | | | | | | 
-| | | | | | | | | | | | DELTA: instantiating (246) with fresh symbols all_964_0,
-| | | | | | | | | | | |        all_964_1 gives:
-| | | | | | | | | | | |   (247)   ~ (all_964_1 = vtempty) &
-| | | | | | | | | | | |          vrawDifference(all_964_1, all_427_0) = all_442_0 &
-| | | | | | | | | | | |          vrowIn(all_964_0, all_427_0) = 0 &
-| | | | | | | | | | | |          vtcons(all_964_0, all_964_1) = all_755_1 &
-| | | | | | | | | | | |          $i(all_964_0) & $i(all_964_1)
+| | | | | | | | | | | | DELTA: instantiating (245) with fresh symbols all_973_0,
+| | | | | | | | | | | |        all_973_1 gives:
+| | | | | | | | | | | |   (246)   ~ (all_973_1 = vtempty) &
+| | | | | | | | | | | |          vrawDifference(all_973_1, all_427_0) = all_442_0 &
+| | | | | | | | | | | |          vrowIn(all_973_0, all_427_0) = 0 &
+| | | | | | | | | | | |          vtcons(all_973_0, all_973_1) = all_755_1 &
+| | | | | | | | | | | |          $i(all_973_0) & $i(all_973_1)
 | | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (247) implies:
-| | | | | | | | | | | |   (248)   ~ (all_964_1 = vtempty)
-| | | | | | | | | | | |   (249)  $i(all_964_1)
-| | | | | | | | | | | |   (250)  $i(all_964_0)
-| | | | | | | | | | | |   (251)  vtcons(all_964_0, all_964_1) = all_755_1
+| | | | | | | | | | | | ALPHA: (246) implies:
+| | | | | | | | | | | |   (247)   ~ (all_973_1 = vtempty)
+| | | | | | | | | | | |   (248)  $i(all_973_1)
+| | | | | | | | | | | |   (249)  $i(all_973_0)
+| | | | | | | | | | | |   (250)  vtcons(all_973_0, all_973_1) = all_755_1
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (199), (251) imply:
-| | | | | | | | | | | |   (252)  vtcons(all_964_0, all_964_1) = all_427_3
+| | | | | | | | | | | | REDUCE: (199), (250) imply:
+| | | | | | | | | | | |   (251)  vtcons(all_973_0, all_973_1) = all_427_3
 | | | | | | | | | | | | 
-| | | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_964_0,
-| | | | | | | | | | | |              vtempty, all_964_1, all_427_3, simplifying with
-| | | | | | | | | | | |              (21), (22), (39), (249), (250), (252) gives:
-| | | | | | | | | | | |   (253)  all_964_0 = vrow2 & all_964_1 = vtempty
+| | | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_973_0,
+| | | | | | | | | | | |              vtempty, all_973_1, all_427_3, simplifying with
+| | | | | | | | | | | |              (21), (22), (39), (248), (249), (251) gives:
+| | | | | | | | | | | |   (252)  all_973_0 = vrow2 & all_973_1 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (253) implies:
-| | | | | | | | | | | |   (254)  all_964_1 = vtempty
+| | | | | | | | | | | | ALPHA: (252) implies:
+| | | | | | | | | | | |   (253)  all_973_1 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (248), (254) imply:
-| | | | | | | | | | | |   (255)  $false
+| | | | | | | | | | | | REDUCE: (247), (253) imply:
+| | | | | | | | | | | |   (254)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (255) is inconsistent.
+| | | | | | | | | | | | CLOSE: (254) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | End of split
 | | | | | | | | | | | 
@@ -1643,111 +1646,111 @@ Warning: type clash during inference: int vs $i
 | | | | | | | | | | 
 | | | | | | | | | Case 2:
 | | | | | | | | | | 
-| | | | | | | | | |   (256)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
+| | | | | | | | | |   (255)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
 | | | | | | | | | |              all_427_0) = 0 & vtcons(v0, vtempty) =
 | | | | | | | | | |            all_755_1 & $i(v0)) | (all_755_1 = all_442_0 &
 | | | | | | | | | |            all_427_0 = vtempty) | (all_755_1 = vtempty &
 | | | | | | | | | |            all_442_0 = vtempty)
 | | | | | | | | | | 
-| | | | | | | | | | BETA: splitting (256) gives:
+| | | | | | | | | | BETA: splitting (255) gives:
 | | | | | | | | | | 
 | | | | | | | | | | Case 1:
 | | | | | | | | | | | 
-| | | | | | | | | | |   (257)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
+| | | | | | | | | | |   (256)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
 | | | | | | | | | | |              all_427_0) = 0 & vtcons(v0, vtempty) =
 | | | | | | | | | | |            all_755_1 & $i(v0))
 | | | | | | | | | | | 
-| | | | | | | | | | | DELTA: instantiating (257) with fresh symbol all_964_0
+| | | | | | | | | | | DELTA: instantiating (256) with fresh symbol all_973_0
 | | | | | | | | | | |        gives:
-| | | | | | | | | | |   (258)  all_442_0 = vtempty & vrowIn(all_964_0, all_427_0)
-| | | | | | | | | | |          = 0 & vtcons(all_964_0, vtempty) = all_755_1 &
-| | | | | | | | | | |          $i(all_964_0)
+| | | | | | | | | | |   (257)  all_442_0 = vtempty & vrowIn(all_973_0, all_427_0)
+| | | | | | | | | | |          = 0 & vtcons(all_973_0, vtempty) = all_755_1 &
+| | | | | | | | | | |          $i(all_973_0)
 | | | | | | | | | | | 
-| | | | | | | | | | | ALPHA: (258) implies:
-| | | | | | | | | | |   (259)  $i(all_964_0)
-| | | | | | | | | | |   (260)  vtcons(all_964_0, vtempty) = all_755_1
+| | | | | | | | | | | ALPHA: (257) implies:
+| | | | | | | | | | |   (258)  $i(all_973_0)
+| | | | | | | | | | |   (259)  vtcons(all_973_0, vtempty) = all_755_1
 | | | | | | | | | | | 
-| | | | | | | | | | | REDUCE: (199), (260) imply:
-| | | | | | | | | | |   (261)  vtcons(all_964_0, vtempty) = all_427_3
+| | | | | | | | | | | REDUCE: (199), (259) imply:
+| | | | | | | | | | |   (260)  vtcons(all_973_0, vtempty) = all_427_3
 | | | | | | | | | | | 
-| | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_964_0,
+| | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_973_0,
 | | | | | | | | | | |              vtempty, vtempty, all_427_3, simplifying with
-| | | | | | | | | | |              (21), (22), (39), (259), (261) gives:
-| | | | | | | | | | |   (262)  all_964_0 = vrow2
+| | | | | | | | | | |              (21), (22), (39), (258), (260) gives:
+| | | | | | | | | | |   (261)  all_973_0 = vrow2
 | | | | | | | | | | | 
 | | | | | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow1, vtempty,
 | | | | | | | | | | |              all_427_1, simplifying with (21), (22), (23),
 | | | | | | | | | | |              (40), (228) gives:
-| | | | | | | | | | |   (263)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | | |   (262)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
 | | | | | | | | | | | 
-| | | | | | | | | | | BETA: splitting (263) gives:
+| | | | | | | | | | | BETA: splitting (262) gives:
 | | | | | | | | | | | 
 | | | | | | | | | | | Case 1:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (264)  vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | | | |   (263)  vrowIn(vrow2, vtempty) = 0
 | | | | | | | | | | | | 
 | | | | | | | | | | | | GROUND_INST: instantiating (2) with vrow2, simplifying with
-| | | | | | | | | | | |              (22), (264) gives:
-| | | | | | | | | | | |   (265)  $false
+| | | | | | | | | | | |              (22), (263) gives:
+| | | | | | | | | | | |   (264)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (265) is inconsistent.
+| | | | | | | | | | | | CLOSE: (264) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (266)  vrow1 = vrow2
+| | | | | | | | | | | |   (265)  vrow1 = vrow2
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (18), (266) imply:
-| | | | | | | | | | | |   (267)  $false
+| | | | | | | | | | | | REDUCE: (18), (265) imply:
+| | | | | | | | | | | |   (266)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (267) is inconsistent.
+| | | | | | | | | | | | CLOSE: (266) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | End of split
 | | | | | | | | | | | 
 | | | | | | | | | | Case 2:
 | | | | | | | | | | | 
-| | | | | | | | | | |   (268)  (all_755_1 = all_442_0 & all_427_0 = vtempty) |
+| | | | | | | | | | |   (267)  (all_755_1 = all_442_0 & all_427_0 = vtempty) |
 | | | | | | | | | | |          (all_755_1 = vtempty & all_442_0 = vtempty)
 | | | | | | | | | | | 
-| | | | | | | | | | | BETA: splitting (268) gives:
+| | | | | | | | | | | BETA: splitting (267) gives:
 | | | | | | | | | | | 
 | | | | | | | | | | | Case 1:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (269)  all_755_1 = all_442_0 & all_427_0 = vtempty
+| | | | | | | | | | | |   (268)  all_755_1 = all_442_0 & all_427_0 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (269) implies:
-| | | | | | | | | | | |   (270)  all_755_1 = all_442_0
+| | | | | | | | | | | | ALPHA: (268) implies:
+| | | | | | | | | | | |   (269)  all_755_1 = all_442_0
 | | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (199), (270) imply:
+| | | | | | | | | | | | COMBINE_EQS: (199), (269) imply:
+| | | | | | | | | | | |   (270)  all_442_0 = all_427_3
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (270) implies:
 | | | | | | | | | | | |   (271)  all_442_0 = all_427_3
 | | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (271) implies:
-| | | | | | | | | | | |   (272)  all_442_0 = all_427_3
+| | | | | | | | | | | | COMBINE_EQS: (222), (271) imply:
+| | | | | | | | | | | |   (272)  all_427_3 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (222), (272) imply:
+| | | | | | | | | | | | SIMP: (272) implies:
 | | | | | | | | | | | |   (273)  all_427_3 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (273) implies:
-| | | | | | | | | | | |   (274)  all_427_3 = vtempty
+| | | | | | | | | | | | REDUCE: (161), (273) imply:
+| | | | | | | | | | | |   (274)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (274) imply:
-| | | | | | | | | | | |   (275)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (275) is inconsistent.
+| | | | | | | | | | | | CLOSE: (274) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | Case 2:
 | | | | | | | | | | | | 
-| | | | | | | | | | | |   (276)  all_755_1 = vtempty & all_442_0 = vtempty
+| | | | | | | | | | | |   (275)  all_755_1 = vtempty & all_442_0 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (276) implies:
-| | | | | | | | | | | |   (277)  all_755_1 = vtempty
+| | | | | | | | | | | | ALPHA: (275) implies:
+| | | | | | | | | | | |   (276)  all_755_1 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (199), (277) imply:
-| | | | | | | | | | | |   (278)  all_427_3 = vtempty
+| | | | | | | | | | | | COMBINE_EQS: (199), (276) imply:
+| | | | | | | | | | | |   (277)  all_427_3 = vtempty
 | | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (278) imply:
-| | | | | | | | | | | |   (279)  $false
+| | | | | | | | | | | | REDUCE: (161), (277) imply:
+| | | | | | | | | | | |   (278)  $false
 | | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (279) is inconsistent.
+| | | | | | | | | | | | CLOSE: (278) is inconsistent.
 | | | | | | | | | | | | 
 | | | | | | | | | | | End of split
 | | | | | | | | | | | 
@@ -1757,64 +1760,64 @@ Warning: type clash during inference: int vs $i
 | | | | | | | | | 
 | | | | | | | | Case 2:
 | | | | | | | | | 
-| | | | | | | | |   (280)  vrow3 = vrow2
+| | | | | | | | |   (279)  vrow3 = vrow2
 | | | | | | | | | 
-| | | | | | | | | REDUCE: (20), (280) imply:
-| | | | | | | | |   (281)  $false
+| | | | | | | | | REDUCE: (20), (279) imply:
+| | | | | | | | |   (280)  $false
 | | | | | | | | | 
-| | | | | | | | | CLOSE: (281) is inconsistent.
+| | | | | | | | | CLOSE: (280) is inconsistent.
 | | | | | | | | | 
 | | | | | | | | End of split
 | | | | | | | | 
 | | | | | | | Case 2:
 | | | | | | | | 
-| | | | | | | |   (282)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2, all_427_0)
+| | | | | | | |   (281)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2, all_427_0)
 | | | | | | | |            = v0)
 | | | | | | | | 
-| | | | | | | | DELTA: instantiating (282) with fresh symbol all_867_0 gives:
-| | | | | | | |   (283)   ~ (all_867_0 = 0) & vrowIn(vrow2, all_427_0) =
+| | | | | | | | DELTA: instantiating (281) with fresh symbol all_867_0 gives:
+| | | | | | | |   (282)   ~ (all_867_0 = 0) & vrowIn(vrow2, all_427_0) =
 | | | | | | | |          all_867_0
 | | | | | | | | 
-| | | | | | | | ALPHA: (283) implies:
-| | | | | | | |   (284)   ~ (all_867_0 = 0)
-| | | | | | | |   (285)  vrowIn(vrow2, all_427_0) = all_867_0
+| | | | | | | | ALPHA: (282) implies:
+| | | | | | | |   (283)   ~ (all_867_0 = 0)
+| | | | | | | |   (284)  vrowIn(vrow2, all_427_0) = all_867_0
 | | | | | | | | 
 | | | | | | | | GROUND_INST: instantiating (31) with 0, all_867_0, all_427_0,
-| | | | | | | |              vrow2, simplifying with (221), (285) gives:
-| | | | | | | |   (286)  all_867_0 = 0
+| | | | | | | |              vrow2, simplifying with (221), (284) gives:
+| | | | | | | |   (285)  all_867_0 = 0
 | | | | | | | | 
-| | | | | | | | REDUCE: (284), (286) imply:
-| | | | | | | |   (287)  $false
+| | | | | | | | REDUCE: (283), (285) imply:
+| | | | | | | |   (286)  $false
 | | | | | | | | 
-| | | | | | | | CLOSE: (287) is inconsistent.
+| | | | | | | | CLOSE: (286) is inconsistent.
 | | | | | | | | 
 | | | | | | | End of split
 | | | | | | | 
 | | | | | | Case 2:
 | | | | | | | 
-| | | | | | |   (288)  all_442_0 = all_427_3
+| | | | | | |   (287)  all_442_0 = all_427_3
 | | | | | | | 
-| | | | | | | REDUCE: (48), (288) imply:
-| | | | | | |   (289)  $false
+| | | | | | | REDUCE: (48), (287) imply:
+| | | | | | |   (288)  $false
 | | | | | | | 
-| | | | | | | CLOSE: (289) is inconsistent.
+| | | | | | | CLOSE: (288) is inconsistent.
 | | | | | | | 
 | | | | | | End of split
 | | | | | | 
 | | | | | Case 2:
 | | | | | | 
-| | | | | |   (290)  all_755_0 = vrow3
+| | | | | |   (289)  all_755_0 = vrow3
 | | | | | | 
-| | | | | | COMBINE_EQS: (200), (290) imply:
+| | | | | | COMBINE_EQS: (200), (289) imply:
+| | | | | |   (290)  vrow3 = vrow1
+| | | | | | 
+| | | | | | SIMP: (290) implies:
 | | | | | |   (291)  vrow3 = vrow1
 | | | | | | 
-| | | | | | SIMP: (291) implies:
-| | | | | |   (292)  vrow3 = vrow1
+| | | | | | REDUCE: (19), (291) imply:
+| | | | | |   (292)  $false
 | | | | | | 
-| | | | | | REDUCE: (19), (292) imply:
-| | | | | |   (293)  $false
-| | | | | | 
-| | | | | | CLOSE: (293) is inconsistent.
+| | | | | | CLOSE: (292) is inconsistent.
 | | | | | | 
 | | | | | End of split
 | | | | | 
@@ -1824,81 +1827,81 @@ Warning: type clash during inference: int vs $i
 | | | 
 | | Case 2:
 | | | 
-| | |   (294)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0 &
+| | |   (293)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0 &
 | | |            vtcons(v0, vtempty) = all_427_2 & $i(v0)) | (all_442_0 =
 | | |            all_427_2 & all_427_0 = vtempty) | (all_442_0 = vtempty &
 | | |            all_427_2 = vtempty)
 | | | 
-| | | BETA: splitting (294) gives:
+| | | BETA: splitting (293) gives:
 | | | 
 | | | Case 1:
 | | | | 
-| | | |   (295)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0
+| | | |   (294)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0
 | | | |            & vtcons(v0, vtempty) = all_427_2 & $i(v0))
 | | | | 
-| | | | DELTA: instantiating (295) with fresh symbol all_755_0 gives:
-| | | |   (296)  all_442_0 = vtempty & vrowIn(all_755_0, all_427_0) = 0 &
+| | | | DELTA: instantiating (294) with fresh symbol all_755_0 gives:
+| | | |   (295)  all_442_0 = vtempty & vrowIn(all_755_0, all_427_0) = 0 &
 | | | |          vtcons(all_755_0, vtempty) = all_427_2 & $i(all_755_0)
 | | | | 
-| | | | ALPHA: (296) implies:
-| | | |   (297)  all_442_0 = vtempty
-| | | |   (298)  $i(all_755_0)
-| | | |   (299)  vtcons(all_755_0, vtempty) = all_427_2
+| | | | ALPHA: (295) implies:
+| | | |   (296)  all_442_0 = vtempty
+| | | |   (297)  $i(all_755_0)
+| | | |   (298)  vtcons(all_755_0, vtempty) = all_427_2
 | | | | 
-| | | | REDUCE: (48), (297) imply:
-| | | |   (300)   ~ (all_427_3 = vtempty)
+| | | | REDUCE: (48), (296) imply:
+| | | |   (299)   ~ (all_427_3 = vtempty)
 | | | | 
 | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_755_0, all_427_3,
 | | | |              vtempty, all_427_2, simplifying with (21), (23), (35),
-| | | |              (41), (298), (299) gives:
-| | | |   (301)  all_755_0 = vrow1 & all_427_3 = vtempty
+| | | |              (41), (297), (298) gives:
+| | | |   (300)  all_755_0 = vrow1 & all_427_3 = vtempty
 | | | | 
-| | | | ALPHA: (301) implies:
-| | | |   (302)  all_427_3 = vtempty
+| | | | ALPHA: (300) implies:
+| | | |   (301)  all_427_3 = vtempty
 | | | | 
-| | | | REDUCE: (161), (302) imply:
-| | | |   (303)  $false
+| | | | REDUCE: (161), (301) imply:
+| | | |   (302)  $false
 | | | | 
-| | | | CLOSE: (303) is inconsistent.
+| | | | CLOSE: (302) is inconsistent.
 | | | | 
 | | | Case 2:
 | | | | 
-| | | |   (304)  (all_442_0 = all_427_2 & all_427_0 = vtempty) | (all_442_0 =
+| | | |   (303)  (all_442_0 = all_427_2 & all_427_0 = vtempty) | (all_442_0 =
 | | | |            vtempty & all_427_2 = vtempty)
 | | | | 
-| | | | BETA: splitting (304) gives:
+| | | | BETA: splitting (303) gives:
 | | | | 
 | | | | Case 1:
 | | | | | 
-| | | | |   (305)  all_442_0 = all_427_2 & all_427_0 = vtempty
+| | | | |   (304)  all_442_0 = all_427_2 & all_427_0 = vtempty
 | | | | | 
-| | | | | ALPHA: (305) implies:
-| | | | |   (306)  all_427_0 = vtempty
+| | | | | ALPHA: (304) implies:
+| | | | |   (305)  all_427_0 = vtempty
 | | | | | 
-| | | | | REDUCE: (42), (306) imply:
-| | | | |   (307)  vtcons(vrow3, all_427_1) = vtempty
+| | | | | REDUCE: (42), (305) imply:
+| | | | |   (306)  vtcons(vrow3, all_427_1) = vtempty
 | | | | | 
 | | | | | GROUND_INST: instantiating (1) with vrow3, all_427_1, simplifying with
-| | | | |              (24), (37), (307) gives:
-| | | | |   (308)  $false
+| | | | |              (24), (37), (306) gives:
+| | | | |   (307)  $false
 | | | | | 
-| | | | | CLOSE: (308) is inconsistent.
+| | | | | CLOSE: (307) is inconsistent.
 | | | | | 
 | | | | Case 2:
 | | | | | 
-| | | | |   (309)  all_442_0 = vtempty & all_427_2 = vtempty
+| | | | |   (308)  all_442_0 = vtempty & all_427_2 = vtempty
 | | | | | 
-| | | | | ALPHA: (309) implies:
-| | | | |   (310)  all_427_2 = vtempty
+| | | | | ALPHA: (308) implies:
+| | | | |   (309)  all_427_2 = vtempty
 | | | | | 
-| | | | | REDUCE: (41), (310) imply:
-| | | | |   (311)  vtcons(vrow1, all_427_3) = vtempty
+| | | | | REDUCE: (41), (309) imply:
+| | | | |   (310)  vtcons(vrow1, all_427_3) = vtempty
 | | | | | 
 | | | | | GROUND_INST: instantiating (1) with vrow1, all_427_3, simplifying with
-| | | | |              (23), (35), (311) gives:
-| | | | |   (312)  $false
+| | | | |              (23), (35), (310) gives:
+| | | | |   (311)  $false
 | | | | | 
-| | | | | CLOSE: (312) is inconsistent.
+| | | | | CLOSE: (311) is inconsistent.
 | | | | | 
 | | | | End of split
 | | | | 
