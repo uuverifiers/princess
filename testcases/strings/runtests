@@ -39,7 +39,10 @@ TESTS="simple-cycle.smt2 \
        str-replace.smt2 \
        str-replace2.smt2 \
        str-in-re.smt2 \
-       str-in-re-2.smt2"
+       str-in-re-2.smt2 \
+       str-in-re-3.smt2 \
+       str-from-int.smt2 \
+       str-from-int-2.smt2"
 
 $PRI "$@" $TESTS
 

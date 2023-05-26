@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -971,7 +971,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                 oldFacts,
                                                 new LazyIndexedSeqSlice(
                                                   addedFacts.positiveLits,
-                                                  n + 1, posSize),
+                                                  n, posSize),
                                                 Vector(),
                                                 mayAlias,
                                                 contextReducer,
@@ -990,7 +990,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                 addedFacts.positiveLits,
                                                 new LazyIndexedSeqSlice(
                                                   addedFacts.negativeLits,
-                                                  n + 1, negSize),
+                                                  n, negSize),
                                                 mayAlias,
                                                 contextReducer,
                                                 newFacts,

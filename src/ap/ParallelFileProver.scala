@@ -180,9 +180,9 @@ object ParallelFileProver {
       ("1010111122",4000,4000),
       ("1001005000",13000,4000),
       ("1101001110",11000,11000),
-      ("1001001121",3000,2400)//,
-      //("1200113100",1000000,1000),  // again try strategy 2, for a long time
-      //("1011110101",1000000,1000)  // again try strategy 5, for a long time
+      ("1001001121",3000,2400),
+      ("1200113100",1000000,1000),  // again try strategy 2, for a long time
+      ("1011110101",1000000,1000)  // again try strategy 5, for a long time
     )
 
   /**
@@ -816,6 +816,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     ////////////////////////////////////////////////////////////////////////////
     
+    if (threadNum > 1)
+      Console.err.println("Running up to " + threadNum + " provers in parallel.")
+
     for (_ <- 0 until threadNum)
       spawnNewProverIfPossible
     
