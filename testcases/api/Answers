@@ -229,6 +229,12 @@ SimpleAPITest12
 \exists int v0; x * v0 >= 1
 \exists int v0; x - v0 * _0 >= 1
 
+SimpleAPITest13
+Running
+Unknown
+Running
+Unsat
+
 TestRat
 Rat_int(0)
 Rat_int(1)

@@ -255,7 +255,12 @@ object SimpleAPI {
   //////////////////////////////////////////////////////////////////////////////
 
   private object ProofThreadStatus extends Enumeration {
-    val Init, AtPartialModel, AtFullModel = Value
+    val
+      ToBeRestarted,      // initial status
+      Initialized,        // proof thread has already been running,
+                          //   but not to termination
+      AtPartialModel,     // proof thread has stopped at a partial model
+      AtFullModel = Value // proof thread has stopped at a full model
   }
 
   private val badStringChar = """[^a-zA-Z_\d']""".r
@@ -459,7 +464,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     currentConstraint      = null
     currentCertificate     = null
     currentSimpCertificate = null
-    proofThreadStatus      = ProofThreadStatus.Init
+    proofThreadStatus      = ProofThreadStatus.ToBeRestarted
     decoderDataCache.clear
   }
 
@@ -1915,7 +1920,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                            allowShortCut : Boolean) : ProverStatus.Value=
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
-         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(SimpleAPI.AC, proverRes.isEmpty)
         //-END-ASSERTION-///////////////////////////////////////////////////////
     
@@ -1925,17 +1930,25 @@ class SimpleAPI private (enableAssert        : Boolean,
         proofThreadStatus match {
 
           case ProofThreadStatus.AtPartialModel |
-               ProofThreadStatus.AtFullModel => {
+               ProofThreadStatus.AtFullModel    |
+               ProofThreadStatus.Initialized     if constructProofs => {
             restartProofThread // mark that we are running again
             lastStatus = ProverStatus.Running
 
-            if (constructProofs)
-              // Restart, but keep lemmas that have been derived previously
-              proverCmd put CheckSatCommand(currentProver, needLemmaBase = true, reuseLemmaBase = true)
-            else
-              // We can just add new formulas to the running proof thread,
-              // without a complete restart
-              proverCmd put RecheckCommand
+            // Restart, but keep lemmas that have been derived previously
+            proverCmd put CheckSatCommand(currentProver,
+                                          needLemmaBase = true,
+                                          reuseLemmaBase = true)
+          }
+
+          case ProofThreadStatus.AtPartialModel |
+               ProofThreadStatus.AtFullModel   => {
+            restartProofThread // mark that we are running again
+            lastStatus = ProverStatus.Running
+
+            // We can just add new formulas to the running proof thread,
+            // without a complete restart
+            proverCmd put RecheckCommand
           }
 
           case _ =>
@@ -1943,9 +1956,9 @@ class SimpleAPI private (enableAssert        : Boolean,
               if (constructProofs) {
                 lastStatus = ProverStatus.Error
                 throw new SimpleAPIException(
-                            "Complicated quantifier scheme preventing interpolation. " +
-                            "It might be necessary to manually add triggers, or to switch " +
-                            "off proof construction and interpolation.")
+                  "Complicated quantifier scheme preventing interpolation. " +
+                    "It might be necessary to manually add triggers, or to " +
+                    "switch off proof construction and interpolation.")
               }
 
               startExhaustiveProver
@@ -1962,7 +1975,8 @@ class SimpleAPI private (enableAssert        : Boolean,
             } else {
               // use a ModelCheckProver
               lastStatus = ProverStatus.Running
-              proverCmd put CheckSatCommand(currentProver, constructProofs,
+              proverCmd put CheckSatCommand(currentProver,
+                                            constructProofs,
                                             reuseLemmaBase = false)
             }
             
@@ -1972,7 +1986,8 @@ class SimpleAPI private (enableAssert        : Boolean,
       }
       
       case ProverStatus.Running =>
-        throw new IllegalStateException
+        throw new IllegalStateException(
+          "checkSat not allowed, prover might already be running")
         
       case s => s
     }
@@ -2120,8 +2135,10 @@ class SimpleAPI private (enableAssert        : Boolean,
         case InvalidResult =>
           // no model is available in this case
           lastStatus = getSatStatus
-        case StoppedResult =>
+        case StoppedResult => {
           lastStatus = ProverStatus.Unknown
+          proofThreadStatus = ProofThreadStatus.Initialized
+        }
         case OutOfMemoryResult =>
           lastStatus = ProverStatus.OutOfMemory
         case ExceptionResult(t) => {
@@ -2204,6 +2221,29 @@ class SimpleAPI private (enableAssert        : Boolean,
       }
       case res =>
         res
+    }
+  }
+
+  /**
+   * For a stopped prover, make sure that all assumptions of the
+   * depth-first search are undone.
+   */
+  def backtrackToL0 : Unit = {
+    doDumpScala {
+      println("// backtrackToL0")
+    }
+    getStatusHelp(false) match {
+      case ProverStatus.Running =>
+        throw new IllegalStateException(
+          "backtrackToL0 can only be called after stopping prover")
+      case ProverStatus.Unknown =>
+        // nothing, have already backtracked
+      case ProverStatus.Sat     | ProverStatus.Unsat |
+           ProverStatus.Invalid | ProverStatus.Valid |
+           ProverStatus.Inconclusive =>
+        proofThreadStatus = ProofThreadStatus.Initialized
+      case _ =>
+        proofThreadStatus = ProofThreadStatus.ToBeRestarted
     }
   }
 
@@ -2976,7 +3016,7 @@ class SimpleAPI private (enableAssert        : Boolean,
 
       // let's get a complete model
       lastStatus = ProverStatus.Running
-      proofThreadStatus = ProofThreadStatus.Init
+      proofThreadStatus = ProofThreadStatus.ToBeRestarted
       proverCmd put DeriveFullModelCommand
       getStatusWithDeadline(true) match {
         case ProverStatus.Error =>
@@ -3161,8 +3201,8 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   /**
    * Produce a model, i.e., an interpretation of constants, functions,
-   * and predicates. This method can be called in two situations after
-   * receiving the result <code>ProverStatus.Sat</code> or
+   * and predicates. This method can be called after receiving the
+   * result <code>ProverStatus.Sat</code> or
    * <code>ProverStates.Invalid</code> or
    * <code>ProverStatus.Inconclusive</code>. This method will
    * automatically shut down the evaluator after executing the
@@ -3937,7 +3977,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     apiStack.popAPIFrame
     formulaeTodo           = false
     rawFormulaeTodo        = LazyConjunction.FALSE
-    proofThreadStatus      = ProofThreadStatus.Init
+    proofThreadStatus      = ProofThreadStatus.ToBeRestarted
     currentModel           = null
     lastPartialModel       = null
     currentConstraint      = null
@@ -4027,7 +4067,7 @@ class SimpleAPI private (enableAssert        : Boolean,
       return
 
     proofThreadStatus match {
-      case ProofThreadStatus.Init =>
+      case ProofThreadStatus.ToBeRestarted | ProofThreadStatus.Initialized =>
         // nothing
       case ProofThreadStatus.AtPartialModel | ProofThreadStatus.AtFullModel =>
         if (kind == FormulaKind.Input && (currentOrder eq currentProver.order)){
@@ -4309,7 +4349,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                           .conclude(formulaeInProver.unzip._1, currentOrder)
   
   private def restartProofThread =
-    (proofThreadStatus = ProofThreadStatus.Init)
+    (proofThreadStatus = ProofThreadStatus.ToBeRestarted)
   
   //////////////////////////////////////////////////////////////////////////////
   //
