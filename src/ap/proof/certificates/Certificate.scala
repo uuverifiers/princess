@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -517,33 +517,40 @@ class PartialCombCertificate protected[certificates]
       val sub : Certificate =
         (lemmaBase assumeFormulas providedFors.iterator) match {
           case Some(cert) => {
-            certBuilder.skipNext
-            lemmaBase.pop
+            try {
+              certBuilder.skipNext
+            } finally {
+              lemmaBase.pop
+            }
             cert
           }
-          case None => certBuilder.next match {
-            case null => {
-              lemmaBase.pop
-              return null
+          case None => {
+            var popCert : Option[Certificate] = None
+            val subCert =
+              try {
+                val sub = certBuilder.next
+                if (sub != null) {
+                  for (cert <- LemmaBase prepareCert sub)
+                    lemmaBase addCertificate cert
+                }
+                sub
+            } finally {
+              popCert = lemmaBase.pop
             }
-            case sub => {
-              for (cert <- LemmaBase prepareCert sub)
-                lemmaBase addCertificate cert
 
-              lemmaBase.pop match {
-                case Some(cert) => {
-                  // then we can directly backtrack one level
-                  return cert
-                }
-                case None => {
-                  if (providedForsIt.hasNext &&
-                      (lemmaBase allKnown sub.assumedFormulas))
-                    // then we can directly backtrack one level as well
-                    return sub
-                  else
-                    sub
-                }
-              }
+            if (subCert == null)
+              return null
+
+            if (popCert.isDefined) {
+              // then we can directly backtrack one level
+              return popCert.get
+            } else {
+              if (providedForsIt.hasNext &&
+                    (lemmaBase allKnown subCert.assumedFormulas))
+                // then we can directly backtrack one level as well
+                return subCert
+              else
+                subCert
             }
           }
         }

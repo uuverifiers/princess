@@ -12,6 +12,7 @@ export JAVA_OPTS="-Xss20000k -Xmx1500m"
 TESTS="SimpleAPITest SimpleAPITest2 SimpleAPITest3 SimpleAPITest4 \
        SimpleAPITest5 SimpleAPITest6 SimpleAPITest7 SimpleAPITest8 \
        SimpleAPITest9 SimpleAPITest10 SimpleAPITest11 SimpleAPITest12 \
+       SimpleAPITest13 \
        TestRat TestExtArray SimpleAPIModelTest SimpleAPICompleteModelTest"
 
 for testname in $TESTS; do

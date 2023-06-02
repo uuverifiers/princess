@@ -79,10 +79,10 @@ object ProofThreadRunnable {
 }
 
 class ProofThreadRunnable(
-                           proverCmd : LinkedBlockingQueue[ProofThreadRunnable.ProverCommand],
-                           proverRes : LinkedBlockingQueue[ProofThreadRunnable.ProverResult],
-                           enableAssert : Boolean,
-                           logging      : Set[Param.LOG_FLAG]) extends Runnable {
+         proverCmd : LinkedBlockingQueue[ProofThreadRunnable.ProverCommand],
+         proverRes : LinkedBlockingQueue[ProofThreadRunnable.ProverResult],
+         enableAssert : Boolean,
+         logging      : Set[Param.LOG_FLAG]) extends Runnable {
   import ProofThreadRunnable._
 
   private var stopProofTaskVar = false
