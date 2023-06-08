@@ -826,7 +826,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         case StringPred(`str_to_int_help`) if negated => {
           val shiftedA = VariableShiftSubst(0, 1, order)(a)
           exists(1, shiftedA &
-                    (v(1) >= 1) & _adtSize(List(shiftedA(0), l(v(0)))))
+                    (v(0) >= 1) & _adtSize(List(shiftedA(1), l(v(0)))))
         }
         case StringPred(`str_indexof_help`) if negated => {
           val shiftedA = VariableShiftSubst(0, 3, order)(a)
