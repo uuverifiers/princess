@@ -30,6 +30,7 @@ TESTS="simple-cycle.smt2 \
        str-to-int2.smt2 \
        str-to-int3.smt2 \
        str-to-int4.smt2 \
+       str-to-int5.smt2 \
        str-indexof.smt2 \
        str-indexof2.smt2 \
        str-indexof3.smt2 \
