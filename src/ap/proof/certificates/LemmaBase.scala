@@ -367,10 +367,12 @@ class LemmaBase(printLemmas : Boolean = false) {
         if (Seqs.disjoint(a.constants, constsSet)) {
           true
         } else {
-          if (printLemmas)
+          if (printLemmas) {
+            val lemmasSorted = lemmas.toSeq.sortBy(_.id)
             Console.err.println(
               "Dropping " + (if (lemmas.size > 1) "lemmas " else "lemma ") +
-                (for (l <- lemmas) yield ("#" + l.id)).mkString(", "))
+                (for (l <- lemmasSorted) yield ("#" + l.id)).mkString(", "))
+          }
           false
         }
       }

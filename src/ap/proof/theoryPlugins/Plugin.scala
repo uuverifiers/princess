@@ -301,6 +301,9 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
       case _                           => false
     }
 
+  override def toString : String =
+    "PluginSequence[" + (plugins mkString ", ") + "]"
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

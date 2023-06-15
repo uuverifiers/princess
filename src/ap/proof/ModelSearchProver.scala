@@ -545,12 +545,14 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
         val newConstsToIgnore = constsToIgnore ++ quanConsts
 
         val res =
-          findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore,
-                    depth, settings, searchDirector,
-                    lemmaBase, lemmaBaseAssumedInferences)
-
-        if (lemmaBase != null)
-          lemmaBase addObsoleteConstants quanConsts
+          try {
+            findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore,
+                      depth, settings, searchDirector,
+                      lemmaBase, lemmaBaseAssumedInferences)
+          } finally {
+            if (lemmaBase != null)
+              lemmaBase addObsoleteConstants quanConsts
+          }
 
         res
       }
@@ -1202,6 +1204,8 @@ private class PresburgerModelFinder extends Plugin {
 
   import Plugin.{AddFormula, SplitGoal}
   import Conjunction.conj
+
+  override def toString : String = "PresburgerModelFinder"
 
   private val AC = Debug.AC_PROVER
 
