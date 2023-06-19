@@ -37,7 +37,9 @@
 # tables to get line numbers in the stack traces.
 # You can comment this out if you're not interested in stack traces.
 
-#-printmapping out.map
+#-printmapping mapping.txt
+#-printusage unused.txt
+
 #-renamesourcefileattribute SourceFile
 #-keepattributes SourceFile,LineNumberTable
 
