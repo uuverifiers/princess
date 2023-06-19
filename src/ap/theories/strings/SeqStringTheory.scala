@@ -371,9 +371,11 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   }
  */
 
-  private implicit def toRichTerm(t : ITerm) = new AnyRef {
+  private class RichTerm(t : ITerm) {
     def ~~>(s : ITerm) = IExpression.trig(t === s, t)
   }
+
+  private implicit def toRichTerm(t : ITerm) = new RichTerm(t)
 
   val reMatchingAxioms = {
     import IExpression._
