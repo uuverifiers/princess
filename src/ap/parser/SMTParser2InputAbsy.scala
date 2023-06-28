@@ -403,6 +403,7 @@ object SMTParser2InputAbsy {
 
   def asString(id : IndexC) : String = id match {
     case id : NumIndex => id.numeral_
+    case id : HexIndex => id.hexadecimal_
     case id : SymIndex => asString(id.symbol_)
   }
   
@@ -460,7 +461,7 @@ object SMTParser2InputAbsy {
 
   object NumIndexedSymbol1 {
     def unapply(s : SymbolRef) : scala.Option[(String, IdealInt)] = s match {
-      case IndexedSymbol(s1, DecLiteral(s2)) => Some((s1, IdealInt(s2)))
+      case IndexedSymbol(s1, NatLiteral(s2)) => Some((s1, s2))
       case _ => None
     }
   }
@@ -468,8 +469,7 @@ object SMTParser2InputAbsy {
   object NumIndexedSymbol2 {
     def unapply(s : SymbolRef)
               : scala.Option[(String, IdealInt, IdealInt)] = s match {
-      case IndexedSymbol(s1, DecLiteral(s2), DecLiteral(s3)) =>
-        Some((s1, IdealInt(s2), IdealInt(s3)))
+      case IndexedSymbol(s1, NatLiteral(s2), NatLiteral(s3)) => Some((s1, s2, s3))
       case _ => None
     }
   }
@@ -499,7 +499,16 @@ object SMTParser2InputAbsy {
   }  
 
   val DecLiteral = """([0-9]+)""".r
+  val HexLiteral = """#x([0-9a-fA-F]+)""".r
   val BVDecLiteral = """bv([0-9]+)""".r
+
+  object NatLiteral {
+    def unapply(s : String) : scala.Option[IdealInt] = s match {
+      case DecLiteral(v) => Some(IdealInt(v))
+      case HexLiteral(v) => Some(IdealInt(v, 16))
+      case _             => None
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -2825,7 +2834,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // String operations
 
     case NumIndexedSymbol1("char", value) =>
-      (stringTheory int2Char value, charType)
+      (stringTheory int2String value, stringType)
 
     case PlainSymbol("str.empty") =>
       (translateStringFun(stringTheory.str_empty, args, List()), stringType)

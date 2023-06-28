@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@ package ap.theories.strings
 
 import ap.basetypes.IdealInt
 import ap.algebra.Monoid
-import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
+import ap.parser.{IFunction, ITerm, IFunApp, IIntLit, IExpression}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
 import ap.types.Sort
@@ -152,6 +152,14 @@ trait StringTheory extends Theory {
    * Convert an integer term to a character term
    */
   def int2Char(t : ITerm) : ITerm
+
+  /**
+   * Convert an integer term to a singleton string
+   */
+  def int2String(t : ITerm) : ITerm = {
+    import IExpression._
+    str_cons(int2Char(t), str_empty())
+  }
 
   /**
    * Convert a character term to an integer term
