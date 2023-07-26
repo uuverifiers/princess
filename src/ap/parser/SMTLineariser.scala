@@ -444,7 +444,8 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
-                              SMTBitVec, SMTString, SMTSeq, SMTFunctionType,
+                              SMTBitVec, SMTFF, SMTString, SMTSeq,
+                              SMTFunctionType,
                               SMTUnint, SMTADT, SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
@@ -500,6 +501,7 @@ object SMTLineariser {
         print(quoteIdentifier(str))
     }
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
+    case SMTFF(card)         => print("(_ FiniteField " + card + ")")
     case SMTString(_)        => print("String")
     case SMTSeq(_, elType)   => {
       print("(Seq ")
@@ -544,6 +546,8 @@ object SMTLineariser {
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
       (SMTBitVec(width), None)
+    case ModuloArithmetic.ModSort(IdealInt.ZERO, card) =>
+      (SMTFF(card + 1), None)
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
@@ -1532,6 +1536,15 @@ class SMTLineariser(benchmarkName : String,
           if prettyBitvectors && (upper & (upper + 1)).isZero => {
         print("(_ bv" + (value % (upper + 1)) + " " +
               (upper.getHighestSetBit + 1) + ")")
+        shortCut(ctxt)
+      }
+
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(IdealInt.ZERO), IIntLit(card),
+                       IIntLit(value)))
+          if prettyBitvectors => {
+        print("(as ff" + (value % (card + 1)) + " " +
+              "(_ FiniteField " + (card + 1) + "))")
         shortCut(ctxt)
       }
 
