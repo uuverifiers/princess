@@ -90,6 +90,9 @@ object SMTParser2InputAbsy {
     def toSort = ModuloArithmetic.UnsignedBVSort(width)
     val modulus = IdealInt(2) pow width
   }
+  case class SMTFF(card : IdealInt)                extends SMTType {
+    def toSort = ModuloArithmetic.ModSort(IdealInt.ZERO, card - 1)
+  }
   object SMTADT {
     val POLY_PREFIX = "$poly:"
   }
@@ -501,6 +504,7 @@ object SMTParser2InputAbsy {
   val DecLiteral = """([0-9]+)""".r
   val HexLiteral = """#x([0-9a-fA-F]+)""".r
   val BVDecLiteral = """bv([0-9]+)""".r
+  val FFDecLiteral = """ff([0-9]+)""".r
 
   object NatLiteral {
     def unapply(s : String) : scala.Option[IdealInt] = s match {
@@ -2036,6 +2040,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         realType
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
+      case IndexedIdentifier("FiniteField", card) =>
+        SMTFF(IdealInt(card))
       case PlainIdentifier("String") =>
         stringType
       case PlainIdentifier("RegLan") =>
@@ -2804,6 +2810,61 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     // Not supported yet: repeat, rotate_left, rotate_right
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Finite field operations
+
+    case CastSymbol(FFDecLiteral(value), sort) =>
+      translateSort(sort) match {
+        case s : SMTFF =>
+          (ModuloArithmetic.cast2Sort(s.toSort, IdealInt(value)), s)
+        case s =>
+          throw new Parser2InputAbsy.TranslationException(
+            "finite field element cannot be cast to " + s)
+      }
+
+    case PlainSymbol("ff.add") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      if (transArgs.map(_._2).toSet.size != 1)
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.add can only be applied to arguments of the same sort")
+      val sort = transArgs(0)._2 match {
+        case sort : SMTFF =>
+          sort
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+            "ff.add can only be applied to finite field arguments, not " + sort)
+      }
+      (ModuloArithmetic.cast2Sort(sort.toSort, sum(transArgs map asTerm)),
+       sort)
+    }
+
+    case PlainSymbol("ff.mul") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      if (transArgs.map(_._2).toSet.size != 1)
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.mul can only be applied to arguments of the same sort")
+      val sort = transArgs(0)._2 match {
+        case sort : SMTFF =>
+          sort
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+            "ff.mul can only be applied to finite field arguments, not " + sort)
+      }
+      (ModuloArithmetic.cast2Sort(sort.toSort,
+                                  transArgs.map(asTerm).reduceLeft(mult _)),
+       sort)
+    }
+
+    case PlainSymbol("ff.neg") => {
+      checkArgNum("ff.neg", 1, args)
+      val p@(_, transSort) = translateTerm(args.head, 0)
+      if (!transSort.isInstanceOf[SMTFF])
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.neg can only be applied to finite field arguments")
+      val sort = transSort.asInstanceOf[SMTFF]
+      (ModuloArithmetic.cast2Sort(sort.toSort, -asTerm(p)), sort)
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // ADT operations

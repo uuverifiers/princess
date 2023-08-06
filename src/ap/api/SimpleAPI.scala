@@ -1822,7 +1822,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     doDumpScala {
       println("// addAssertion(" + assertion + ")")
     }
-    checkQuantifierOccurrences(assertion)
+    checkQuantifierOccurrences(assertion, true)
     addFormula(!LazyConjunction(assertion)(currentOrder))
   }
     
@@ -1862,7 +1862,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     doDumpScala {
       println("// addConclusion(" + conc + ")")
     }
-    checkQuantifierOccurrences(conc)
+    checkQuantifierOccurrences(conc, false)
     addFormula(LazyConjunction(conc)(currentOrder))
   }
   
@@ -3996,7 +3996,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
     formulaeTodo = false
 
-    checkQuantifierOccurrences(transTodo)
+    checkQuantifierOccurrences(transTodo, false)
 
     if (!transTodo.isFalse || !rawFormulaeTodo.isFalse) {
       implicit val o = currentOrder
@@ -4014,11 +4014,18 @@ class SimpleAPI private (enableAssert        : Boolean,
       addToProver(axioms, FormulaKind.FunctionAxiom)
   }
 
-  private def checkQuantifierOccurrences(c : Formula) : Unit =
-    if (!matchedTotalFunctions &&
-//        (Conjunction.collectQuantifiers(c) contains Quantifier.EX)
-        (IterativeClauseMatcher.matchedPredicatesRec(Conjunction.conj(c, order),
-             Param.PREDICATE_MATCH_CONFIG(goalSettings)) exists {
+  private def checkQuantifierOccurrences(c : Formula, negate : Boolean) : Unit =
+    if (!matchedTotalFunctions) {
+      //        (Conjunction.collectQuantifiers(c) contains Quantifier.EX)
+
+      val formula =
+        if (negate)
+          Conjunction.negate(c, order)
+        else
+          Conjunction.conj(c, order)
+
+      if (IterativeClauseMatcher.matchedPredicatesRec(
+            formula, Param.PREDICATE_MATCH_CONFIG(goalSettings)) exists {
            p => (functionEnc.predTranslation get p) match {
              case Some(f) =>
                // as a convention, all theory functions are considered
@@ -4027,8 +4034,9 @@ class SimpleAPI private (enableAssert        : Boolean,
              case None =>
                false
            }
-         }))
+         })
       matchedTotalFunctions = true
+    }
 
   private def addToProver(formula : Conjunction,
                           kind : FormulaKind.Value) : Unit = {
