@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ import ap._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.goal._
-import ap.util.{Logic, Debug, Seqs, Timeout}
+import ap.util.{Logic, Debug, Seqs, Timeout, OpCounters}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 
@@ -281,6 +281,8 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
       }
       
       case tree : AndTree => {
+        OpCounters.inc(OpCounters.Splits2)
+
         val (newLeft, leftSWP) =
           Timeout.unfinished {
             expandDepthFirstUntilSat(tree.left, underConstraintWeakener, signature, false)
@@ -309,6 +311,7 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
     } else {
       // otherwise, the tree is already satisfiable (or at least the constraint
       // is not false .. TODO) or no more steps are possible
+      OpCounters.inc(OpCounters.Backtrackings2)
       (tree, swpBefore)
     }
   }
@@ -354,6 +357,7 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
       }
       
     } else {
+      OpCounters.inc(OpCounters.Backtrackings2)
       (tree, false)
     }
    

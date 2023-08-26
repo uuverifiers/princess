@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,10 +54,9 @@ object IntelliFileProver {
  * A prover that decides, depending on the kind of the problem, whether it
  * should try to construct a proof tree or just search for counterexamples
  */
-class IntelliFileProver(reader : java.io.Reader,
-                        // a timeout in milliseconds
-                        timeout : Int,
-                        output : Boolean,
+class IntelliFileProver(reader   : java.io.Reader,
+                        timeout  : AbstractFileProver.TimeoutCondition,
+                        output   : Boolean,
                         userDefStoppingCond : => Boolean,
                         settings : GlobalSettings)
       extends AbstractFileProver(reader, output, timeout,

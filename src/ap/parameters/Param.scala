@@ -70,6 +70,7 @@ object Param {
   case object LOG_BACKTRACKING extends LOG_FLAG
   case object LOG_STATS        extends LOG_FLAG
   case object LOG_LEMMAS       extends LOG_FLAG
+  case object LOG_COUNTERS     extends LOG_FLAG
 
   case object QUIET extends Param {
     type Value = Boolean
@@ -166,6 +167,11 @@ object Param {
   case object TIMEOUT_PER extends Param {
     type Value = Int
     val defau : Int = Int.MaxValue
+  }
+
+  case object COUNTER_TIMEOUT extends Param {
+    type Value = Long
+    val defau : Long = Long.MaxValue
   }
 
   /** Resolve negative predicate literals in clauses with positive facts */

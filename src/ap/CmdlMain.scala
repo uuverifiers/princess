@@ -426,6 +426,10 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  private def needsCounters(settings : GlobalSettings) : Boolean =
+    (Param.LOG_LEVEL(settings) contains Param.LOG_COUNTERS) ||
+    (Param.COUNTER_TIMEOUT(settings) != Long.MaxValue)
+
   def proveProblem(settings : GlobalSettings,
                    name : String,
                    reader : () => java.io.Reader,
@@ -436,7 +440,12 @@ object CmdlMain {
     try {
             val timeBefore = System.currentTimeMillis
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
-            
+
+            if (needsCounters(settings))
+              ap.util.OpCounters.init
+            else
+              ap.util.OpCounters.disable
+
             val prover = if (Param.PORTFOLIO(settings) != "none") {
               import ParallelFileProver._
 
@@ -465,7 +474,8 @@ object CmdlMain {
 
             } else {
               new IntelliFileProver(reader(),
-                                    Param.TIMEOUT(settings),
+                                    AbstractFileProver
+                                      .timeoutFromSettings(settings),
                                     true,
                                     userDefStoppingCond,
                                     baseSettings)
@@ -501,6 +511,13 @@ object CmdlMain {
                 ap.util.Timer.reset
               }
             
+            if (Param.LOG_LEVEL(settings) contains Param.LOG_COUNTERS)
+              Console.withOut(Console.err) {
+                println
+                println("Counters:")
+                ap.util.OpCounters.printCounters
+              }
+
             Some(prover.result)
           } catch {
       case _ : StackOverflowError => {

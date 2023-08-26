@@ -51,7 +51,7 @@ import ap.theories.{GroebnerMultiplication, Theory}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
+import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout, OpCounters}
 
 import scala.collection.mutable.ArrayBuilder
 
@@ -440,6 +440,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             if (Param.LOG_LEVEL(settings) contains Param.LOG_BACKTRACKING)
               Console.err.println("Backtracking from level " + depth)
 
+            OpCounters.inc(OpCounters.Backtrackings1)
+
             if (Param.PROOF_CONSTRUCTION(settings)) {
               val cert = goal.getCertificate
               //-BEGIN-ASSERTION-/////////////////////////////////////////////
@@ -561,6 +563,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
         if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
           Console.err.println("Splitting on level " + depth)
 
+        OpCounters.inc(OpCounters.Splits1)
+
         var nonCertResult : FindModelResult = null
 
         val subCertBuilder = new PartialCertificate.CertBuilder {
@@ -611,6 +615,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       case tree@AndTree(left, right, _) => {
         if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
           Console.err.println("Splitting on level " + depth)
+
+        OpCounters.inc(OpCounters.Splits1)
 
         findModel(left, extraFormulae, witnesses, constsToIgnore, depth + 1,
                   settings, searchDirector, null, 0) match {

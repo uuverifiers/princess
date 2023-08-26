@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,7 +48,7 @@ import ap.proof.tree.{ProofTree, SeededRandomDataSource}
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.{Certificate, CertFormula}
 import ap.proof.theoryPlugins.PluginSequence
-import ap.util.{Debug, Timeout, Seqs}
+import ap.util.{Debug, Timeout, Seqs, OpCounters}
 
 object AbstractFileProver {
   
@@ -74,11 +74,80 @@ object AbstractFileProver {
   }
 
   private val AxiomParts = Set(PartName.FUNCTION_AXIOMS, PartName.THEORY_AXIOMS)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def timeoutFromSettings(settings : GlobalSettings) : TimeoutCondition = {
+    var res : TimeoutCondition = NoTimeoutCondition
+
+    Param.TIMEOUT(settings) match {
+      case Int.MaxValue => // nothing
+      case timeout      => res = res | MsTimeoutCondition(timeout)
+    }
+
+    Param.COUNTER_TIMEOUT(settings) match {
+      case Long.MaxValue => // nothing
+      case timeout       => res = res | CounterTimeoutCondition(timeout)
+    }
+
+    res
+  }
+
+  /**
+   * A simple representation of different timeout conditions.
+   */
+  abstract sealed class TimeoutCondition {
+    def |(that : TimeoutCondition) : TimeoutCondition =
+      if (this == NoTimeoutCondition)
+        that
+      else if (that == NoTimeoutCondition)
+        this
+      else
+        OrTimeoutCondition(this, that)
+  }
+
+  case object NoTimeoutCondition                        extends TimeoutCondition
+
+  /**
+   * Wall-clock timeouts in milliseconds.
+   */
+  case class  MsTimeoutCondition     (limit : Long)     extends TimeoutCondition
+
+  /**
+   * Timeouts in terms of counter values, as defined by
+   * <code>AbstractFileProver.counterTimeApproximation</code>
+   */
+  case class  CounterTimeoutCondition(limit : Long)     extends TimeoutCondition
+
+  /**
+   * Disjunction of two timeout conditions.
+   */
+  case class  OrTimeoutCondition(a : TimeoutCondition,
+                                 b : TimeoutCondition)  extends TimeoutCondition
+
+  /**
+   * Check whether a timeout occurred. The second argument provides the
+   * wall-clock start time.
+   */
+  def evalTimeoutCondition(cond : TimeoutCondition,
+                           startTime : Long) : Boolean = cond match {
+    case NoTimeoutCondition =>
+      false
+    case MsTimeoutCondition(limit) =>
+      System.currentTimeMillis - startTime > limit
+    case CounterTimeoutCondition(limit) =>
+      counterTimeApproximation > limit
+    case OrTimeoutCondition(a, b) =>
+      evalTimeoutCondition(a, startTime) || evalTimeoutCondition(b, startTime)
+  }
+
+  def counterTimeApproximation : Long = OpCounters(OpCounters.TaskApplications)
+
 }
 
-abstract class AbstractFileProver(reader : java.io.Reader,
-                                  output : Boolean,
-                                  timeout : Int,
+abstract class AbstractFileProver(reader  : java.io.Reader,
+                                  output  : Boolean,
+                                  timeout : AbstractFileProver.TimeoutCondition,
                                   userDefStoppingCond : => Boolean,
                                   settings : GlobalSettings) extends Prover {
 
@@ -87,7 +156,7 @@ abstract class AbstractFileProver(reader : java.io.Reader,
   private val startTime = System.currentTimeMillis
 
   private val stoppingCond = () => {
-    if ((System.currentTimeMillis - startTime > timeout) || userDefStoppingCond)
+    if (evalTimeoutCondition(timeout, startTime) || userDefStoppingCond)
       Timeout.raise
   }
 

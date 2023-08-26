@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,6 +69,18 @@ object CmdlParser {
     def unapply(arg : String) : Option[Int] =
       try {
         Some(arg.toInt) 
+      } catch {
+        case _ : NumberFormatException => None
+      }
+  }
+
+  /**
+   * A value that represents an integer, like in "-var13=4"
+   */  
+  object LongVal {
+    def unapply(arg : String) : Option[Long] =
+      try {
+        Some(arg.toLong)
       } catch {
         case _ : NumberFormatException => None
       }
