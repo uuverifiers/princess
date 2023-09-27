@@ -118,6 +118,8 @@ object GlobalSettings {
           Param.TIMEOUT.set(settings, value * 1000)
         case ValueOpt("timeoutPer", IntVal(value)) =>
           Param.TIMEOUT_PER.set(settings, value)
+        case ValueOpt("counterTimeout", LongVal(value)) =>
+          Param.COUNTER_TIMEOUT.set(settings, value)
         case Opt("posUnitResolution", value) =>
           Param.POS_UNIT_RESOLUTION.set(settings, value)
         case ValueOpt("clausifier", "none") =>
@@ -227,6 +229,8 @@ object GlobalSettings {
         case Opt("threads", true) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, 
             2 max (Runtime.getRuntime().availableProcessors - 1) min 16)
+        case Opt("warmup", value) =>
+          Param.WARM_UP.set(settings, value)
         case ValueOpt("threads", IntVal(num)) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, num)
         case ValueOpt("formulaSign", "positive") =>
@@ -249,6 +253,8 @@ object GlobalSettings {
     case "backtracking" => Param.LOG_BACKTRACKING
     case "stats"        => Param.LOG_STATS
     case "lemmas"       => Param.LOG_LEMMAS
+    case "counters"     => Param.LOG_COUNTERS
+    case "countersCont" => Param.LOG_COUNTERS_CONT
     case str            => throw new UnknownArgumentException(str)
   }
 
@@ -261,7 +267,7 @@ object GlobalSettings {
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
-         Param.TIMEOUT, Param.TIMEOUT_PER,
+         Param.TIMEOUT, Param.TIMEOUT_PER, Param.COUNTER_TIMEOUT,
          Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER, Param.EQUIV_INLINING,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.COMPUTE_UNSAT_CORE,
          Param.COMPUTE_MODEL, Param.PROOF_SIMPLIFICATION,
@@ -276,7 +282,8 @@ object GlobalSettings {
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED,
-         Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT)
+         Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT,
+         Param.WARM_UP)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

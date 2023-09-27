@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.{PredConj, Atom}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
-import ap.util.{Debug, FilterIt, Logic, Seqs}
+import ap.util.{Debug, FilterIt, Logic, Seqs, OpCounters}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, CloseCertificate,
@@ -408,6 +408,8 @@ class Goal private (val facts : Conjunction,
       }
     }
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    OpCounters.inc(OpCounters.TaskApplications)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     if (logging contains Param.LOG_STATS) {

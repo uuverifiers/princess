@@ -776,7 +776,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def error(str : String) : Unit = {
     if (incremental)
-      println("(error \"" + str + "\")")
+      println("(error \"" + (SMTLineariser escapeString str) + "\")")
     else
       warn(str)
   }
@@ -1710,14 +1710,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : SimplifyCommand => {
         checkIncremental("simplify")
         checkNotExtracting("simplify")
-        val f = asFormula(translateTerm(cmd.term_, -1))
         try {
+          val f = asFormula(translateTerm(cmd.term_, -1))
           val simpF = prover.withTimeout(timeoutPer) { prover simplify f }
           smtLinearise(simpF)
           println
         } catch {
           case SimpleAPI.TimeoutException =>
             error("timeout while simplifying expression")
+          case e : TranslationException =>
+            error(e.getMessage)
         }
       }
 

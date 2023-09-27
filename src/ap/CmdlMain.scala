@@ -426,6 +426,20 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  private def counterPrintingEnabled(settings : GlobalSettings) : Boolean =
+    !Seqs.disjoint(Param.LOG_LEVEL(settings),
+                   Set[Param.LOG_FLAG](Param.LOG_COUNTERS,
+                                       Param.LOG_COUNTERS_CONT))
+
+  private def needsCounters(settings : GlobalSettings) : Boolean =
+    counterPrintingEnabled(settings) ||
+    (Param.COUNTER_TIMEOUT(settings) != Long.MaxValue)
+
+  private def warmup(settings : GlobalSettings) : Unit =
+    if (Param.WARM_UP(settings)) {
+      ap.util.Warmup()
+    }
+
   def proveProblem(settings : GlobalSettings,
                    name : String,
                    reader : () => java.io.Reader,
@@ -436,7 +450,12 @@ object CmdlMain {
     try {
             val timeBefore = System.currentTimeMillis
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
-            
+
+            if (needsCounters(settings))
+              ap.util.OpCounters.init
+            else
+              ap.util.OpCounters.disable
+
             val prover = if (Param.PORTFOLIO(settings) != "none") {
               import ParallelFileProver._
 
@@ -465,7 +484,8 @@ object CmdlMain {
 
             } else {
               new IntelliFileProver(reader(),
-                                    Param.TIMEOUT(settings),
+                                    AbstractFileProver
+                                      .timeoutFromSettings(settings),
                                     true,
                                     userDefStoppingCond,
                                     baseSettings)
@@ -501,6 +521,13 @@ object CmdlMain {
                 ap.util.Timer.reset
               }
             
+            if (counterPrintingEnabled(settings))
+              Console.withOut(Console.err) {
+                println
+                println("Counters:")
+                ap.util.OpCounters.printCounters
+              }
+
             Some(prover.result)
           } catch {
       case _ : StackOverflowError => {
@@ -545,6 +572,7 @@ object CmdlMain {
                     userDefStoppingCond : => Boolean) = try {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
+
     SimpleAPI.withProver(enableAssert = assertions,
                          sanitiseNames = false,
                          genTotalityAxioms = 
@@ -949,11 +977,34 @@ object CmdlMain {
       println
       return
     }
-   
-    Console.withErr(if (Param.QUIET(settings)) NullStream else Console.err) {
-      if (Param.LOGO(settings)) Console.withOut(Console.err) {
-        printGreeting
-        println
+          
+    if (Param.QUIET(settings))
+      Console setErr NullStream
+          
+    if (Param.LOGO(settings)) Console.withOut(Console.err) {
+      printGreeting
+      println
+    }
+
+    if (inputs.isEmpty && !Param.STDIN(settings)) {
+      Console.err.println("No inputs given, exiting")
+      return
+    }
+
+    warmup(settings)
+
+    for (filename <- inputs) try {
+      implicit val format = determineInputFormat(filename, settings)
+      proveProblems(settings,
+                    filename,
+                    () => new java.io.BufferedReader (
+                            new java.io.FileReader(new java.io.File (filename))),
+                    userDefStoppingCond)
+    } catch {
+      case e : Throwable => {
+        println("ERROR: " + e.getMessage)
+        if (stackTraces)
+          e.printStackTrace
       }
 
       if (inputs.isEmpty && !Param.STDIN(settings)) {

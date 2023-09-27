@@ -567,7 +567,7 @@ object ParallelFileProver {
                 val prover =
                   Timeout.withChecker({case x => ()}) {
                     new IntelliFileProver(createReader(),
-                                          Int.MaxValue,
+                                          AbstractFileProver.NoTimeoutCondition,
                                           true, localStoppingCond,
                                           config.settings)
                   }
