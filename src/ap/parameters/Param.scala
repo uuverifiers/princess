@@ -65,12 +65,22 @@ object Param {
   }
 
   abstract class LOG_FLAG
-  case object LOG_TASKS        extends LOG_FLAG
-  case object LOG_SPLITS       extends LOG_FLAG
-  case object LOG_BACKTRACKING extends LOG_FLAG
-  case object LOG_STATS        extends LOG_FLAG
-  case object LOG_LEMMAS       extends LOG_FLAG
-  case object LOG_COUNTERS     extends LOG_FLAG
+  case object LOG_TASKS         extends LOG_FLAG
+  case object LOG_SPLITS        extends LOG_FLAG
+  case object LOG_BACKTRACKING  extends LOG_FLAG
+  case object LOG_STATS         extends LOG_FLAG
+  case object LOG_LEMMAS        extends LOG_FLAG
+  case object LOG_COUNTERS      extends LOG_FLAG
+  case object LOG_COUNTERS_CONT extends LOG_FLAG
+
+  /**
+   * Before solving any actual tasks, run some other problems for
+   * warmup purposes. This will reduce the effect of a JVM cold-start.
+   */
+  case object WARM_UP extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
 
   case object QUIET extends Param {
     type Value = Boolean

@@ -52,6 +52,11 @@ object OpCounters {
   abstract class Counter
 
   /**
+   * Milliseconds since the last reset.
+   */
+  case object Milliseconds     extends Counter
+
+  /**
    * Total number of task applications.
    */
   case object TaskApplications extends Counter
@@ -80,6 +85,8 @@ object OpCounters {
 
     private val counters = new ConcurrentHashMap[Counter, LongAdder]
 
+    private val startTime = System.currentTimeMillis
+
     private val createAdder =
       new java.util.function.Function[Counter, LongAdder] {
         def apply(c : Counter) : LongAdder = new LongAdder
@@ -88,10 +95,13 @@ object OpCounters {
     def inc(c : Counter) : Unit =
       counters.computeIfAbsent(c, createAdder).increment()
 
-    def apply(c : Counter) : Long =
-      counters.computeIfAbsent(c, createAdder).sum()
+    def apply(c : Counter) : Long = c match {
+      case Milliseconds => System.currentTimeMillis - startTime
+      case c => counters.computeIfAbsent(c, createAdder).sum()
+    }
 
-    def counterIterator : Iterator[Counter] = counters.keys.asScala
+    def counterIterator : Iterator[Counter] =
+      Iterator(Milliseconds) ++ counters.keys.asScala
 
   }
 
@@ -132,8 +142,11 @@ object OpCounters {
    */
   def printCounters : Unit = {
     val counterState = getCounterState
-    for (c <- counterState.counterIterator)
-      println("" + c + ": \t" + counterState(c))
+    print("{ ")
+    print(
+      counterState.counterIterator.map(c => "\"" + c + "\": " + counterState(c))
+                                  .mkString(", "))
+    println(" }")
   }
 
   /**

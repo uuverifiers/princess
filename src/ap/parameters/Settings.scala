@@ -229,6 +229,8 @@ object GlobalSettings {
         case Opt("threads", true) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, 
             2 max (Runtime.getRuntime().availableProcessors - 1) min 16)
+        case Opt("warmup", value) =>
+          Param.WARM_UP.set(settings, value)
         case ValueOpt("threads", IntVal(num)) =>
           Param.PORTFOLIO_THREAD_NUM.set(settings, num)
         case ValueOpt("formulaSign", "positive") =>
@@ -252,6 +254,7 @@ object GlobalSettings {
     case "stats"        => Param.LOG_STATS
     case "lemmas"       => Param.LOG_LEMMAS
     case "counters"     => Param.LOG_COUNTERS
+    case "countersCont" => Param.LOG_COUNTERS_CONT
     case str            => throw new UnknownArgumentException(str)
   }
 
@@ -279,7 +282,8 @@ object GlobalSettings {
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED,
-         Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT)
+         Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT,
+         Param.WARM_UP)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

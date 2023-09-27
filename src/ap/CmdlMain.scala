@@ -426,9 +426,19 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  private def counterPrintingEnabled(settings : GlobalSettings) : Boolean =
+    !Seqs.disjoint(Param.LOG_LEVEL(settings),
+                   Set[Param.LOG_FLAG](Param.LOG_COUNTERS,
+                                       Param.LOG_COUNTERS_CONT))
+
   private def needsCounters(settings : GlobalSettings) : Boolean =
-    (Param.LOG_LEVEL(settings) contains Param.LOG_COUNTERS) ||
+    counterPrintingEnabled(settings) ||
     (Param.COUNTER_TIMEOUT(settings) != Long.MaxValue)
+
+  private def warmup(settings : GlobalSettings) : Unit =
+    if (Param.WARM_UP(settings)) {
+      ap.util.Warmup()
+    }
 
   def proveProblem(settings : GlobalSettings,
                    name : String,
@@ -511,7 +521,7 @@ object CmdlMain {
                 ap.util.Timer.reset
               }
             
-            if (Param.LOG_LEVEL(settings) contains Param.LOG_COUNTERS)
+            if (counterPrintingEnabled(settings))
               Console.withOut(Console.err) {
                 println
                 println("Counters:")
@@ -562,6 +572,7 @@ object CmdlMain {
                     userDefStoppingCond : => Boolean) = try {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
+
     SimpleAPI.withProver(enableAssert = assertions,
                          sanitiseNames = false,
                          genTotalityAxioms = 
@@ -979,6 +990,8 @@ object CmdlMain {
       Console.err.println("No inputs given, exiting")
       return
     }
+
+    warmup(settings)
 
     for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)

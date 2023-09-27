@@ -155,9 +155,24 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
 
   private val startTime = System.currentTimeMillis
 
+  private var counterPrintNum : Int =
+    if (Param.LOG_LEVEL(settings) contains Param.LOG_COUNTERS_CONT)
+      0
+    else
+      -1
+
   private val stoppingCond = () => {
     if (evalTimeoutCondition(timeout, startTime) || userDefStoppingCond)
       Timeout.raise
+    if (counterPrintNum >= 0) {
+      val time = System.currentTimeMillis
+      if (time - startTime >= 500*(counterPrintNum + 1)) {
+        Console.withOut(Console.err) {
+          ap.util.OpCounters.printCounters
+        }
+        counterPrintNum = counterPrintNum + 1
+      }
+    }
   }
 
   protected def println(obj : Any) : Unit =
