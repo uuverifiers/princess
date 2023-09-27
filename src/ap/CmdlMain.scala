@@ -978,34 +978,18 @@ object CmdlMain {
       return
     }
           
-    if (Param.QUIET(settings))
-      Console setErr NullStream
-          
-    if (Param.LOGO(settings)) Console.withOut(Console.err) {
-      printGreeting
-      println
-    }
-
-    if (inputs.isEmpty && !Param.STDIN(settings)) {
-      Console.err.println("No inputs given, exiting")
-      return
-    }
-
-    warmup(settings)
-
-    for (filename <- inputs) try {
-      implicit val format = determineInputFormat(filename, settings)
-      proveProblems(settings,
-                    filename,
-                    () => new java.io.BufferedReader (
-                            new java.io.FileReader(new java.io.File (filename))),
-                    userDefStoppingCond)
-    } catch {
-      case e : Throwable => {
-        println("ERROR: " + e.getMessage)
-        if (stackTraces)
-          e.printStackTrace
+    Console.withErr(if (Param.QUIET(settings)) NullStream else Console.err) {
+      if (Param.LOGO(settings)) Console.withOut(Console.err) {
+        printGreeting
+        println
       }
+
+      if (inputs.isEmpty && !Param.STDIN(settings)) {
+        Console.err.println("No inputs given, exiting")
+        return
+      }
+
+      warmup(settings)
 
       if (inputs.isEmpty && !Param.STDIN(settings)) {
         Console.err.println("No inputs given, exiting")
