@@ -228,14 +228,26 @@ class IntelliFileProver(reader   : java.io.Reader,
         val (tree, _) =
           constructProofTree("Eliminating quantifiers")
        val mgConstraint = tree.closingConstraint.negate
-       if (mgConstraint.isFalse)
+       if (mgConstraint.isFalse) {
          NoModel
-       else
-         AllModels(processConstraint(mgConstraint),
+       } else {
+         val constraint =
+           Param.MGC_FORMAT(settings) match {
+             case Param.MGCFormatOptions.Any =>
+               mgConstraint
+             case Param.MGCFormatOptions.DNF =>
+               Conjunction.disj(
+                 PresburgerTools.nonDNFEnumDisjuncts(mgConstraint), order)
+             case Param.MGCFormatOptions.CNF =>
+               !Conjunction.disj(
+                 PresburgerTools.nonDNFEnumDisjuncts(!mgConstraint), order)
+           }
+         AllModels(processConstraint(constraint),
                    if (Param.COMPUTE_MODEL(settings))
                      Some(processModel(findModel(mgConstraint)))
                    else
                      None)
+       }
       } else {
         val model = findModelTimeout.left.get
         if (model.isFalse)
