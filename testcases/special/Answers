@@ -192,3 +192,27 @@ Constructing countermodel ...
 
 % SZS status GaveUp for SYN455+1.p
 
+Loading dnf-constraint.pri ...
+Preprocessing ...
+Eliminating quantifiers ...
+
+VALID
+
+Equivalent constraint:
+(x1 - x0 = 1 & 2 >= x0 & x0 >= 1) | (x1 = 0 & x0 = 0)
+
+Concrete witness:
+x1 = 3 & x0 = 2
+
+Loading dnf-constraint.pri ...
+Preprocessing ...
+Eliminating quantifiers ...
+
+VALID
+
+Equivalent constraint:
+(x1 - x0 != 1 | x0 = -1 | x0 >= 1) & (x1 - x0 != 1 | 2 >= x0) & (x1 != 0 | x0 = 0) & (x1 - x0 = 1 | x1 = 0)
+
+Concrete witness:
+x1 = 3 & x0 = 2
+

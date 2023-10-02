@@ -162,6 +162,15 @@ object Param {
     type Value = Boolean
     val defau : Boolean = false
   }
+
+  object MGCFormatOptions extends Enumeration {
+    val Any, DNF, CNF = Value
+  }
+
+  case object MGC_FORMAT extends Param {
+    type Value = MGCFormatOptions.Value
+    val defau : MGCFormatOptions.Value = MGCFormatOptions.Any
+  }
   
   /** Turn ground constraints into disjunctive normal form */
   case object DNF_CONSTRAINTS extends Param {

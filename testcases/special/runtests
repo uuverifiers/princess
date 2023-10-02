@@ -31,3 +31,6 @@ $PRI "$@" +incremental -timeout=3000 sort-unsoundness.smt2
 
 # this should result in GaveUp, not a countermodel
 $PRI "$@" -assert -model +genTotalityAxioms -constructProofs=always -generateTriggers=all SYN455+1.p
+
+$PRI "$@" -timeout=5000 +mostGeneralConstraint -mgcFormat=dnf dnf-constraint.pri
+$PRI "$@" -timeout=5000 +mostGeneralConstraint -mgcFormat=cnf dnf-constraint.pri

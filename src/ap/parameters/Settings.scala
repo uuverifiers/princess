@@ -110,6 +110,12 @@ object GlobalSettings {
           Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS.set(settings, value)
         case Opt("mostGeneralConstraint", value) =>
           Param.MOST_GENERAL_CONSTRAINT.set(settings, value)
+        case ValueOpt("mgcFormat", "any") =>
+          Param.MGC_FORMAT.set(settings, Param.MGCFormatOptions.Any)
+        case ValueOpt("mgcFormat", "dnf") =>
+          Param.MGC_FORMAT.set(settings, Param.MGCFormatOptions.DNF)
+        case ValueOpt("mgcFormat", "cnf") =>
+          Param.MGC_FORMAT.set(settings, Param.MGCFormatOptions.CNF)
         case Opt("dnfConstraints", value) =>
           Param.DNF_CONSTRAINTS.set(settings, value)
         case ValueOpt("timeout", IntVal(value)) =>
@@ -266,7 +272,7 @@ object GlobalSettings {
          Param.PRINT_DOT_CERTIFICATE_FILE, Param.PRINT_CERTIFICATE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS,
-         Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
+         Param.MOST_GENERAL_CONSTRAINT, Param.MGC_FORMAT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.TIMEOUT_PER, Param.COUNTER_TIMEOUT,
          Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER, Param.EQUIV_INLINING,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.COMPUTE_UNSAT_CORE,
