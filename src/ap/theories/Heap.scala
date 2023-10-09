@@ -737,172 +737,132 @@ class Heap(heapSortName : String, addressSortName : String,
   val triggeredAxioms : IFormula = {
     import IExpression._
     (
-      //row - same (row-upward unit test fails, tested program immediately returns unsat / enters a loop)
-      /*HeapSort.all(h => AddressSort.all(p => ObjectSort.all(
+      //row1
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(
         o => trig(_isAlloc(h, p) ==> (read(write(h, p, o), p) === o),
-        read(write(h, p, o), p))))) &*/
+          read(write(h, p, o), p))))) &
 
-      // same as above but simpler trigger, unit tests pass, test program ends with "cannot handle general quantifiers..." error)
+      // row2 - downward
+      HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o =>
+        AddressSort.all(p2 => trig(
+          (p1 =/= p2) ==> (read(write(h, p1, o), p2) === read(h, p2)),
+          read(write(h, p1, o), p2)))))) &
+
+      // row2 - upward
+      HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
+        p2 => trig(p1 =/= p2 ==> (read(write(h, p1, o), p2) === read(h, p2)),
+          write(h, p1, o), read(h, p2)))))) &
+
+      // invalid write - 1
       HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-        _isAlloc(h, p) ==> (read(write(h, p, o), p) === o),
-          write(h, p, o))))) &
+        (counter(h) < p) ==> (write(h, p, o) === h), write(h, p, o))))) &
 
-        // row - same (alternative - HeapTests2 - 1.5 does not terminate, row-upward fails)
-        //HeapSort.all(h1 => HeapSort.all(h2 => AddressSort.all(p => ObjectSort.all(
-        //  o => trig(_isAlloc(h1, p) & write(h1, p, o) === h2 ==> (read(h2, p) === o),
-        //    write(h1, p, o), read(h2, p)))))) &
+      // invalid write - 2
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
+        (p <= 0) ==> (write(h, p, o) === h), write(h, p, o))))) &
 
-        // row - same (alternative 2 - unit tests pass, messy interpolants)
-        //HeapSort.all(h1 => AddressSort.all(p => ObjectSort.all(
-        //  o => trig(_isAlloc(h1, p) ==>
-        //    HeapSort.ex(h2 => write(h1, p, o) === h2 & (read(h2, p) === o)),
-        //    write(h1, p, o))))) &
+      // invalid bwrite - written heap is unallocated at this address range's start
+      HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
+        (counter(h) < addrRangeStart(r)) ==>
+          (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
 
-        // row - different - downward
-        //HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
-        //  p2 => trig(p1 =/= p2 ==> (read(write(h, p1, o), p2) === read(h, p2)),
-        //    read(write(h, p1, o), p2)))))) &
+      // invalid bwrite 2 - address range starts at nullAddr
+      HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
+        (addrRangeStart(r) <= 0) ==>
+          (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
 
-        // row - different - downward & upward (some tests fail, including ROW-upward)
-        //HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
-        //  p2 => trig(p1 =/= p2 ==> (read(write(h, p1, o), p2) === read(h, p2)),
-        //    read(write(h, p1, o), p2), read(h, p2)))))) &
+      // invalid bwrite 3 - address range's end is greater than the size of written heap
+      HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
+        ((addrRangeStart(r) + addrRangeSize(r) - 1) > counter(h)) ==>
+          (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
 
-        //
-        //HeapSort.all(h => HeapSort.all(h2 => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
-        //  p2 => trig(p1 =/= p2 & write(h, p1, o) === h2 ==> (read(h2, p2) === read(h, p2)),
-        //    write(h, p1, o), read(h2, p2))))))) &
+      // counter is same after write
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
+        counter(write(h, p, o)) === counter(h), write(h, p, o))))) &
 
-        // row - downward
-        HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o =>
-          AddressSort.all(p2 => trig(
-            (p1 =/= p2) ==> (read(write(h, p1, o), p2) === read(h, p2)),
-            write(h, p1, o), read(write(h, p1, o), p2)))))) &
+      // counter is same after bwrite
+      HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
+        counter(batchWrite(h, r, o)) === counter(h), batchWrite(h, r, o))))) &
 
-        // row - upward
-        HeapSort.all(h => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
-          p2 => trig(p1 =/= p2 ==> (read(write(h, p1, o), p2) === read(h, p2)),
-            write(h, p1, o), read(h, p2)))))) &
+      // invalid read - 1
+      HeapSort.all(h => AddressSort.all(p => trig(
+        (counter(h) < p) ==> containFunctionApplications(read(h, p) === _defObj),
+        read(h, p)))) &
 
-        // same as above, but adding it this way messes everything up, some tests return "inconclusive".
-        //HeapSort.all(h => HeapSort.all(h2 => AddressSort.all(p1 => ObjectSort.all(o => AddressSort.all(
-        //  p2 => trig(p1 =/= p2 & write(h, p1, o) === h2 ==> (read(h2, p2) === read(h, p2)),
-        //    write(h, p1, o), read(h, p2))))))) &
+      // invalid read - 2
+      HeapSort.all(h => AddressSort.all(p => trig(
+        (p <= 0) ==> containFunctionApplications(read(h, p) === _defObj),
+        read(h, p)))) &
 
-        // invalid write - 1
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (counter(h) < p) ==> (write(h, p, o) === h), write(h, p, o))))) &
-        // invalid write - 2
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (p <= 0) ==> (write(h, p, o) === h), write(h, p, o))))) &
+      // read over allocheap
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
+        (p === counter(h)+1) ==>
+          (read(allocHeap(h, o), p) === o),
+        read(allocHeap(h, o), p))))) &
 
-        // invalid bwrite - written heap is unallocated at this address range's start
-        HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
-          (counter(h) < addrRangeStart(r)) ==>
-            (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
-        // invalid bwrite 2 - address range starts at nullAddr
-        HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
-          (addrRangeStart(r) <= 0) ==>
-            (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
-        // invalid bwrite 3 - address range's end is greater than the size of written heap
-        HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
-          ((addrRangeStart(r) + addrRangeSize(r) - 1) > counter(h)) ==>
-            (batchWrite(h, r, o) === h), batchWrite(h, r, o))))) &
-
-        // counter is same after write
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          counter(write(h, p, o)) === counter(h), write(h, p, o))))) &
-
-        // counter is same after bwrite
-        HeapSort.all(h => addressRangeSort.all(r => ObjectSort.all(o => trig(
-          counter(batchWrite(h, r, o)) === counter(h), batchWrite(h, r, o))))) &
-
-        // invalid read - 1
-        HeapSort.all(h => AddressSort.all(p => trig(
-          (counter(h) < p) ==> containFunctionApplications(read(h, p) === _defObj),
-          read(h, p)))) &
-        // invalid read - 2
-        HeapSort.all(h => AddressSort.all(p => trig(
-          (p <= 0) ==> containFunctionApplications(read(h, p) === _defObj),
-          read(h, p)))) &
-
-        /*HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (p === counter(h)+1) ==>
-          (read(allocHeap(h, o), p) === o ),
-            read(allocHeap(h, o), p))))) &
-
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (p =/= counter(h)+1) ==>
+      // read over allocHeap - downward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
+        (p =/= counter(h)+1) ==>
           (read(allocHeap(h, o), p) === read(h, p)),
-            read(allocHeap(h, o), p))))))*/
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (p === counter(h)+1) ==>
-            (read(allocHeap(h, o), p) === o ),
-          read(allocHeap(h, o), p), allocHeap(h, o))))) &
+        read(allocHeap(h, o), p))))) &
 
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
-          (p =/= counter(h)+1) ==>
-            (read(allocHeap(h, o), p) === read(h, p)),
-          read(allocHeap(h, o), p), allocHeap(h, o))))) &
+      // read over allocHeap - upward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
+        (p =/= counter(h)+1) ==>
+          (read(allocHeap(h, o), p) === read(h, p)),
+        allocHeap(h, o), read(h, p))))) &
 
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
-          (p > counter(h) & p <= counter(h) + n) ==>
-            (read(batchAllocHeap(h, o, n), p) === o) ,
-          read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n)))))) &
+      // read over batchwrite
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        (p > counter(h) & p <= counter(h) + n) ==>
+          (read(batchAllocHeap(h, o, n), p) === o) ,
+        read(batchAllocHeap(h, o, n), p)))))) &
 
-        // !_within(r, p) split into two axioms
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
-          (p <= counter(h)) ==>
-            (read(batchAllocHeap(h, o, n), p) === read(h, p)) ,
-            read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n)))))) &
-        /*HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
-          p > counter(h) + n ==>
-            containFunctionApplications(read(batchAllocHeap(h, o, n), p) === _defObj) ,
-          read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n))))))*/
+      // read over batchAlloc - downward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        (p <= counter(h)) ==>
+          (read(batchAllocHeap(h, o, n), p) === read(h, p)),
+          read(batchAllocHeap(h, o, n), p)))))) &
 
-        // read over valid batchWrite - 1
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
-          (p >= addrRangeStart(r) & p < addrRangeStart(r) + addrRangeSize(r) &
-            ((addrRangeStart(r) + addrRangeSize(r) - 1) <= counter(h))) ==>
-            (read(batchWrite(h, r, o), p) === o) ,
-          read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) &
+      // read over batchAlloc - upward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        (p <= counter(h)) ==>
+          (read(batchAllocHeap(h, o, n), p) === read(h, p)),
+        batchAllocHeap(h, o, n), read(h, p)))))) &
 
-        // read over batchwrite - unmodified locations - 1
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
-          (p < addrRangeStart(r)) ==>
-            (read(batchWrite(h, r, o), p) === read(h, p)) ,
-          read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) &
-        // read over batchwrite - unmodified locations - 2
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
-          (p >= addrRangeStart(r) + addrRangeSize(r)) ==>
-            (read(batchWrite(h, r, o), p) === read(h, p)) ,
-          read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) //&
-      )
-    // roa - downward
-    //HeapSort.all(h => HeapSort.all(h2 => AddressSort.all(p => ObjectSort.all(o => trig(
-    //    (p === counter(h)+1 & allocHeap(h, o) === h2) ==>
-    //      (read(h2, p) === o),
-    //      allocHeap(h, o), read(h2, p)))))) &
+      // read over batchWrite
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        (p >= addrRangeStart(r) & p < addrRangeStart(r) + addrRangeSize(r) &
+          ((addrRangeStart(r) + addrRangeSize(r) - 1) <= counter(h))) ==>
+          (read(batchWrite(h, r, o), p) === o) ,
+        read(batchWrite(h, r, o), p)))))) &
 
-    // roa - upward
-    //HeapSort.all(h => HeapSort.all(h2 => AddressSort.all(p => ObjectSort.all(o => trig(
-    //    (p =/= counter(h)+1 & allocHeap(h, o) === h2) ==>
-    //      (read(h2, p) === read(h, p)),
-    //    allocHeap(h, o), read(h2, p), read(h, p)))))))
+      // read over batchwrite - unmodified locations - downward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        (p < addrRangeStart(r) ||| p >= addrRangeStart(r) + addrRangeSize(r)) ==>
+          (read(batchWrite(h, r, o), p) === read(h, p)) ,
+        read(batchWrite(h, r, o), p)))))) &
+
+        // read over batchwrite - unmodified locations - upward
+      HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        (p < addrRangeStart(r) ||| p >= addrRangeStart(r) + addrRangeSize(r)) ==>
+          (read(batchWrite(h, r, o), p) === read(h, p)) ,
+        batchWrite(h, r, o), read(h, p))))))
+    )
   }
 
   val inductionAxioms : IFormula = {
     import IExpression._
     (
-    HeapSort.all(h => trig(counter(h) >= 0, counter(h))) & // todo: why removing this fails some test cases? counter resType is Nat.
+      HeapSort.all(h => trig(counter(h) >= 0, counter(h))) & // todo: why removing this fails some test cases? counter resType is Nat.
 
-    HeapSort.all(h => ObjectSort.all(o => trig(
-      counter(allocHeap(h, o)) === counter(h) + 1,
-      allocHeap(h, o)))) &
+      HeapSort.all(h => ObjectSort.all(o => trig(
+        counter(allocHeap(h, o)) === counter(h) + 1,
+        allocHeap(h, o)))) &
 
-    HeapSort.all(h => ObjectSort.all(o => Sort.Nat.all(n => trig(
-      counter(batchAllocHeap(h, o, n)) === counter(h) + n,
-      batchAllocHeap(h, o, n)))))
+      HeapSort.all(h => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        counter(batchAllocHeap(h, o, n)) === counter(h) + n,
+        batchAllocHeap(h, o, n)))))
     )
   }
 
@@ -963,7 +923,6 @@ class Heap(heapSortName : String, addressSortName : String,
         import goal.facts.predConj.positiveLitsWithPred
         val counterLits = positiveLitsWithPred(heapFunPredMap(counter))
 
-        //println(goal.facts + "\n")
         import ap.terfor.TerForConvenience._
         import ap.terfor.linearcombination.{LinearCombination => LC}
         import ap.terfor.Term
@@ -977,17 +936,13 @@ class Heap(heapSortName : String, addressSortName : String,
              counterLits.indexWhere(a => a.head.head._2 == rhs))
 
           if(lhsCounterInd >= 0 && rhsCounterInd >= 0){
-            //println(Console.GREEN_B + "Both counter literals found for " + lhs + " and " + rhs  + Console.RESET)
             val lhsCounterTerm : LC = counterLits(lhsCounterInd).last
             val rhsCounterTerm : LC = counterLits(rhsCounterInd).last
             neqTermArr += ((neq, (lhs, rhs, lhsCounterTerm, rhsCounterTerm)))
           }
-          /*else if (lhsCounterInd + rhsCounterInd > -2) /* at least one found*/
-          {
-            println(Console.YELLOW_B + "Only one counter literal found for " + lhs + " and " + rhs + Console.RESET)
-          } else println(Console.RED_B + "No counter literals found for " + lhs + " nor " + rhs  + Console.RESET)*/
         }
 
+        // Encode extensionality
         implicit val to = goal.order
         val (neqsToRemove, neqsToAdd) =
           (for ((neq, (h1, h2, c1, c2)) <- neqTermArr) yield {
@@ -1039,40 +994,30 @@ class Heap(heapSortName : String, addressSortName : String,
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
       case IAtom(`isAlloc`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to false")
         IBoolLit(false)
       case IAtom(`isAlloc`, _) =>
-        //println("Simplified " + t + " to " + _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm]))
         _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm])
       case IFunApp(`nullAddr`, _) =>  i(0)
       case IFunApp(`nthAddr`, _) => subres.head
       case IFunApp(`write`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to " + subres(0))
         subres(0)
       case IFunApp(`write`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + emptyHeap())
         emptyHeap()
       case IFunApp(`read`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to " + _defObj)
         _defObj
       case IFunApp(`read`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + _defObj)
         _defObj
       case IFunApp(`counter`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + 0)
         i(0)
       case IFunApp(`newHeap`, _) if isFunAndMatches(subres(0), alloc) =>
         val Seq(h, o) = subres(0).asInstanceOf[IFunApp].args
-        //println("Simplified " + t + " to " + allocHeap(h, o))
         allocHeap(h, o)
       case IFunApp(`newAddr`, _) if isFunAndMatches(subres(0), alloc) =>
         val Seq(h, _) = subres(0).asInstanceOf[IFunApp].args
-        //println("Simplified " + t + " to " + counter(h) + 1)
         counter(h) + 1
       case IFunApp(`alloc`, _) =>
         val h = subres(0).asInstanceOf[ITerm]
         val o = subres(1).asInstanceOf[ITerm]
-        //println("Simplified " + t + " to " + AllocResADT.constructors.head(allocHeap(h, o), counter(h)+1))
         allocResCtor(allocHeap(h, o), counter(h)+1)
       /*case IFunApp(`allocHeap`, _) =>
         val h = subres(0).asInstanceOf[ITerm]
@@ -1081,9 +1026,6 @@ class Heap(heapSortName : String, addressSortName : String,
                            counter(h2) === shiftVars(counter(h) + 1, 1))*/
       case IFunApp(`batchAlloc`, _) =>
         val Seq(h, o, n) = subres.take(3).map(_.asInstanceOf[ITerm])
-        //        println("Simplified " + t + " to " + BatchAllocResADT.constructors.head(batchAllocHeap(h, o, n),
-//          BatchAllocResADT.constructors.head(batchAllocHeap(h, o, n),
-//            AddressRangeADT.constructors.head(ite(n > 0, counter(h)+1, counter(h)), n))))
         val addrRangeStartTerm = n match {
           case IIntLit(IdealInt(i)) if i > 0 => counter(h) + 1
           case _ => ite(n > 0, counter(h)+1, counter(h))
@@ -1093,12 +1035,9 @@ class Heap(heapSortName : String, addressSortName : String,
 
       case IFunApp(`newBatchHeap`, _) if isFunAndMatches(subres(0), batchAlloc) =>
         val Seq(h, o, n) = subres(0).asInstanceOf[IFunApp].args
-//        println("Simplified " + t + " to " + batchAllocHeap(h, o, n))
         batchAllocHeap(h, o, n)
       case IFunApp(`newAddrRange`, _) if isFunAndMatches(subres(0), batchAlloc) =>
         val Seq(h, _, n) = subres(0).asInstanceOf[IFunApp].args
-//        println("Simplified " + t + " to " + batchAllocAddrRange(ite(n > 0, counter(h)+1, counter(h)), n))
-        //batchAllocAddrRange(ite(n > 0, counter(h)+1, counter(h)), n)
         val addrRangeStartTerm = n match {
           case IIntLit(IdealInt(i)) if i > 0 => counter(h) + 1
           case _ => ite(n > 0, counter(h)+1, counter(h))
@@ -1111,7 +1050,6 @@ class Heap(heapSortName : String, addressSortName : String,
 
       case IAtom(`within`, _) =>
         val Seq(r, a) = subres.take(2).map(_.asInstanceOf[ITerm])
-//        println("Simplified " + t + " to " + _within(r, a))
         a >= addrRangeStart(r) &
           a < addrRangeStart(r) + addrRangeSize(r)
 
@@ -1125,7 +1063,6 @@ class Heap(heapSortName : String, addressSortName : String,
           case _ =>
             ite(n >= 0 & n < addrRangeSize(r), addrRangeStart(r) + n, 0)
         }
-        //addrRangeStart(r) + n
 
       case IFunApp(`allocAddr`, _) => //allocAddr(h,_) -> counter(h) + 1
         counter(subres(0).asInstanceOf[ITerm]) + 1
@@ -1133,33 +1070,14 @@ class Heap(heapSortName : String, addressSortName : String,
         val h1 = subres(0).asInstanceOf[ITerm]
         val newt = HeapSort.eps(h2 => ObjectSort.ex(o =>
           shiftVars(h1, 2) === allocHeap(h2, shiftVars(o,2))))
-        //println("Simplified " + t + " to " + newt)
         newt
-      case t =>
-        /*println(Console.YELLOW_B + t + Console.GREEN_B + " " +
-                t.getClass + Console.RESET)
-        println(Console.BLUE_B + subres + Console.RESET)*/
-        t update subres
+      case t => t update subres
     }
   }
   /**
    * Optionally, a pre-processor that is applied to formulas over this
    * theory, prior to sending the formula to a prover.
    */
-
-  /*override def preprocess(f : Conjunction,
-                          order : TermOrder) : Conjunction = {
-    println
-    println("Preprocessing:")
-    println(f) //println(Console.YELLOW_B + f.quans + Console.RESET)
-    val reducerSettings = Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,
-      functionalPredicates)
-    val after = ReduceWithConjunction(Conjunction.TRUE, order, reducerSettings)(
-      f)
-    println(" -> " + after)
-    println
-    after
-  }*/
 
   /* def preprocess(f : Conjunction, order : TermOrder) : Conjunction = f // todo
   */
@@ -1208,7 +1126,6 @@ class Heap(heapSortName : String, addressSortName : String,
   override def toString = "HeapTheory"
 
   import IBinJunctor._
-  import IIntRelation._
   import IExpression._
   import Quantifier._
 
@@ -1226,16 +1143,10 @@ class Heap(heapSortName : String, addressSortName : String,
                 h1 === deAlloc(h2) &
                 counter(h2) === counter(h1) + 1 &
                 read(h2, counter(h2)) === o)
-            //println("Simplified: " + f + " to " + simpf)
             simpf
-          case _ => expr //println(expr); expr
+          case _ => expr
         }
-      }
-      else  expr //{println(expr); expr}
-    //println("ex:" + expr.asInstanceOf[IQuantified].sort + " " + f); expr
-    // simplifies both  forall h: H, !(read(h, _) = o)  and
-    //                  forall h: H, read(h, _) = o to false
-
+      } else  expr
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
         case INot(Eq(IFunApp(`read`, Seq(IVariable(0), _*)), obj))
@@ -1247,7 +1158,7 @@ class Heap(heapSortName : String, addressSortName : String,
         case Eq(obj, IFunApp(`read`, Seq(IVariable(0), _*)))
           if !obj.isInstanceOf[IFunApp] => true
         case _  => false
-      }) => //println("simplified: " + f + " to " + "false")
+      }) =>
       IBoolLit(false)
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
@@ -1255,7 +1166,7 @@ class Heap(heapSortName : String, addressSortName : String,
           true
         case _ =>
           false
-      }) => //println("simplified: " + f + " as " + "true")
+      }) =>
       IBoolLit(true)
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
@@ -1264,7 +1175,7 @@ class Heap(heapSortName : String, addressSortName : String,
         case Eq(obj, IFunApp(`read`, Seq(IVariable(0), _*)))
           if !obj.isInstanceOf[IFunApp] => true
         case _  => false
-      }) => //println("Rewrote: " + f + " as " + "false")
+      }) =>
       IBoolLit(false)
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
@@ -1273,140 +1184,7 @@ class Heap(heapSortName : String, addressSortName : String,
         case INot(Eq(obj, IFunApp(`read`, Seq(IVariable(0), _*))))
           if !obj.isInstanceOf[IFunApp] => true
         case _  => false
-      }) => //println("Rewrote: " + f + " as " + "true")
-      IBoolLit(true)
-/*
-    // todo: probably unnecessary, remove?
-    case f@IEquation(left, right) if left == right => // a == a => true
-      //println("Rewrote: " + f + " as " + "true")
-      IBoolLit(true)
-
-    //todo: probabably unnecessary, remove?
-    case f@IEquation(f1, IPlus(IIntLit(IdealInt(-1)), // a == -1 + a + 1 => true
-                 IPlus(f2, IIntLit(IdealInt(1))))) if f1 == f2 =>
-      //println("Rewrote: " + f + " as " + "true")
-      IBoolLit(true)
-/*
-    // todo: this one is probably unnecessary: rewrites "!ex o. read(_) = o & is-T(o)" as "!is-T(read(_))"
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       Eq(IFunApp(`read`, readArgs), IVariable(0)),
-                       Eq(IFunApp(f, Seq(IVariable(0))), objId)))) if
-        ObjectADT.ctorIds.contains(f) =>
-      println("Rewrote: " + eq + " as " + (IFunApp(f, Seq(IFunApp(read, readArgs))) =/= objId))
-      shiftVars(IFunApp(f, Seq(IFunApp(read, readArgs))) =/= objId, 1, -1)
-
-    // todo: this one is probably unnecessary: rewrites "!ex o. read(_) = o & !is-T(o)" as "is-T(read(_))"
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       Eq(IFunApp(`read`, readArgs), IVariable(0)),
-                       INot(Eq(IFunApp(f, Seq(IVariable(0))), objId))))) if
-        ObjectADT.ctorIds.contains(f) =>
-      println("Rewrote: " + eq + " as " + (IFunApp(f, Seq(IFunApp(read, readArgs))) === objId))
-      shiftVars(IFunApp(f, Seq(IFunApp(read, readArgs))) === objId, 1, -1))*/
-
-    // ALL HeapObject. !(!(_0[HeapObject] = o1) & (o2 = _0[HeapObject]))
-    /*case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       INot(Eq(IVariable(0), o1)),
-                       Eq(o2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(o1 === o2, 1, -1))
-      shiftVars(o1 === o2, 1, -1)*/
-
-    case eq@IQuantified(ALL,
-      INot(IBinFormula(And,
-                       Eq(IVariable(0), v1),
-                       Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-      INot(IBinFormula(And,
-                       Eq(v1, IVariable(0)),
-                       Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    Eq(IVariable(0), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IVariable(0), v1),
-    Eq(IVariable(0), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-
-    // ALL x. ! ((v1 = x) & !(f(x) = v2)) --> f(v1) = v2
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    INot(Eq(IFunApp(f, Seq(IVariable(0))), v2))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) === v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) === v2, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    Eq(IFunApp(f, Seq(IVariable(0))), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IFunApp(`read`, Seq(h, IVariable(0))), v1),
-    Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(read, Seq(h, v2)) =/= v1, 1, -1))
-      shiftVars(IFunApp(read, Seq(h, v2)) =/= v1, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IFunApp(f, Seq(IVariable(0))), v2),
-    Eq(v1, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1)
-
-    // ALL HeapObject. !ALL HeapObject. !(!(_0[HeapObject] = _1[HeapObject]) & (defObj = _0[HeapObject]))
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(ISortedQuantified(ALL, ObjectSort,
-        INot(IBinFormula(And, INot(IEquation(IVariable(0), IVariable(1))), IEquation(o, IVariable(0))))))) =>
-      println("Rewrote: " + eq + " as false")
-      false
-
-    // ALL !(((_0 + -1) >= 0) & (next(_1[node]) = _0))
-    case eq@IQuantified(ALL, INot(IBinFormula(And, GeqZ(IPlus(IVariable(0), plusVal)), Eq(v, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(INot(GeqZ(IPlus(v, plusVal))), 1, -1))
-      shiftVars(INot(GeqZ(IPlus(v, plusVal))), 1, -1)
-
-    /*
-      ALL HeapObject.!((v1 = _0[HeapObject]) & !ALL node. !((next(_0[node]) = v2) &(getnode(_1[HeapObject]) = _0[node])))
-        to
-      next(getnode(v1)) =/= v2
-   */
-    case eq@IQuantified(ALL, INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    INot(IQuantified(ALL, INot(IBinFormula(And, Eq(IFunApp(f1, Seq(IVariable(0))), v2), Eq(IFunApp(f2, Seq(IVariable(1))), IVariable(0))))))
-    ))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f1,Seq(IFunApp(f2, Seq(v1)))) =/= v2, 2, -2))
-      shiftVars(IFunApp(f1,Seq(IFunApp(f2, Seq(v1)))) =/= v2, 2, -2)
-
-    case eq@IQuantified(_, subf) =>
-      println("unhandled: " + eq)
-      eq
-*/
-    /*case IQuantified(ALL, f) =>
-      println(expr); expr*/
-    /*case Eq(IFunApp(`counter`, Seq(h)), IIntLit(IdealInt(0))) =>
-      println("Simplified: " + expr + " to " + (h === emptyHeap()))
-      h === emptyHeap()*/
-    /*case IFunApp(`read`, Seq(_, IIntLit(IdealInt(0)))) =>
-      println("Rewrote: " + expr + " to " + _defObj)
-      _defObj*/
-    /*case Eq(`_defObj`, IFunApp(`read`, Seq(h, p))) =>
-      println("Simplified: " + expr + " to " + !_isAlloc(h, p))
-      !_isAlloc(h, p) */
+      }) => IBoolLit(true)
     case _ => expr
   }
-
 }

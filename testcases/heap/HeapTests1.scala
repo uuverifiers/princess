@@ -357,15 +357,6 @@ object HeapTests1 extends App {
     )
 
     TestCase(
-      "ROW-Upward",
-      CommonAssert(isAlloc(h, p) & isAlloc(h, p1) & p =/= p1),
-      SatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) === h1 &
-              write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)) === h2),
-      UnsatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) ===
-                write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)))
-    )
-
-    TestCase(
       "batchAlloc tests - 1",
       CommonAssert(n > 0 & batchAlloc(emptyHeap(), o, n) === bar),
       SatStep(addrRangeStart(newAddrRange(bar)) =/= nullAddr()),

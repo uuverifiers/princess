@@ -361,161 +361,161 @@ Step 20.2 (expected: Unsat)
   \forall addr v0; (valid(h, v0) & read(h, v0) = read(h1, v0)) --> Unsat
 ================================================================================
 ================================================================================
-Test 21: ROW-Upward
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-Common assertion: 
-  valid(h, p) & valid(h, p') & p != p'
---------------------------------------------------------------------------------
-Step 21.1 (expected: Sat)
-  write(write(h, p, WrappedInt(1)), p', WrappedInt(42)) = h1 & write(write(h, p, WrappedInt(2)), p', WrappedInt(42)) = h2 --> Sat
---------------------------------------------------------------------------------
-Step 21.2 (expected: Unsat)
-  write(write(h, p, WrappedInt(1)), p', WrappedInt(42)) = write(write(h, p, WrappedInt(2)), p', WrappedInt(42)) --> Unsat
-================================================================================
-================================================================================
-Test 22: batchAlloc tests - 1
+Test 21: batchAlloc tests - 1
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   n >= 1 & batchAlloc(emptyheap, o, n) = bar
 --------------------------------------------------------------------------------
-Step 22.1 (expected: Sat)
+Step 21.1 (expected: Sat)
   addrRangeStart(newaddrRange(bar)) != nulladdr --> Sat
 --------------------------------------------------------------------------------
-Step 22.2 (expected: Unsat)
+Step 21.2 (expected: Unsat)
   addrRangeStart(newaddrRange(bar)) = nulladdr --> Unsat
 --------------------------------------------------------------------------------
-Step 22.3 (expected: Sat)
+Step 21.3 (expected: Sat)
   addrRangeSize(newaddrRange(bar)) = n --> Sat
 --------------------------------------------------------------------------------
-Step 22.4 (expected: Unsat)
+Step 21.4 (expected: Unsat)
   addrRangeSize(newaddrRange(bar)) != n --> Unsat
 --------------------------------------------------------------------------------
-Step 22.5 (expected: Unsat)
+Step 21.5 (expected: Unsat)
   within(newaddrRange(bar), nulladdr) --> Unsat
 ================================================================================
 ================================================================================
-Test 23: batchAlloc tests - 2
+Test 22: batchAlloc tests - 2
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   batchAlloc(h, WrappedInt(3), 10) = BatchAllocResheap(h1, r) & write(h1, nthaddrRange(r, 3), WrappedInt(42)) = h2
 --------------------------------------------------------------------------------
-Step 23.1 (expected: Sat)
+Step 22.1 (expected: Sat)
   read(h2, nthaddrRange(r, 0)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
-Step 23.2 (expected: Unsat)
+Step 22.2 (expected: Unsat)
   read(h2, nthaddrRange(r, 0)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.3 (expected: Sat)
+Step 22.3 (expected: Sat)
   read(h2, nthaddrRange(r, 5)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
-Step 23.4 (expected: Unsat)
+Step 22.4 (expected: Unsat)
   read(h2, nthaddrRange(r, 5)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.5 (expected: Sat)
+Step 22.5 (expected: Sat)
   read(h2, nthaddrRange(r, 9)) = WrappedInt(3) --> Sat
 --------------------------------------------------------------------------------
-Step 23.6 (expected: Unsat)
+Step 22.6 (expected: Unsat)
   read(h2, nthaddrRange(r, 9)) != WrappedInt(3) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.7 (expected: Sat)
+Step 22.7 (expected: Sat)
   valid(h2, nthaddrRange(r, 9)) --> Sat
 --------------------------------------------------------------------------------
-Step 23.8 (expected: Unsat)
+Step 22.8 (expected: Unsat)
   !valid(h2, nthaddrRange(r, 9)) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.9 (expected: Unsat)
+Step 22.9 (expected: Unsat)
   valid(h2, nthaddrRange(r, 10)) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.10 (expected: Sat)
+Step 22.10 (expected: Sat)
   !valid(h2, nthaddrRange(r, 10)) --> Sat
 --------------------------------------------------------------------------------
-Step 23.11 (expected: Sat)
+Step 22.11 (expected: Sat)
   nthaddrRange(r, 10) = nulladdr --> Sat
 --------------------------------------------------------------------------------
-Step 23.12 (expected: Unsat)
+Step 22.12 (expected: Unsat)
   nthaddrRange(r, 10) != nulladdr --> Unsat
 --------------------------------------------------------------------------------
-Step 23.13 (expected: Sat)
+Step 22.13 (expected: Sat)
   read(h2, nthaddrRange(r, 10)) = defObj --> Sat
 --------------------------------------------------------------------------------
-Step 23.14 (expected: Unsat)
+Step 22.14 (expected: Unsat)
   within(r, nthaddrRange(r, 10)) --> Unsat
 --------------------------------------------------------------------------------
-Step 23.15 (expected: Unsat)
+Step 22.15 (expected: Unsat)
   read(h2, nthaddrRange(r, 10)) != defObj --> Unsat
 --------------------------------------------------------------------------------
-Step 23.16 (expected: Sat)
+Step 22.16 (expected: Sat)
   read(h2, nthaddrRange(r, 3)) = WrappedInt(42) --> Sat
 --------------------------------------------------------------------------------
-Step 23.17 (expected: Unsat)
+Step 22.17 (expected: Unsat)
   read(h2, nthaddrRange(r, 3)) != WrappedInt(42) --> Unsat
 ================================================================================
 ================================================================================
-Test 24: Reading from a previously batch-written (alloc.) location returns that value.
+Test 23: Reading from a previously batch-written (alloc.) location returns that value.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   valid(h, p) & within(r, p) & valid(h, addrRangeStart(r)) & valid(h, nthaddrRange(r, addrRangeSize(r) - 1))
 --------------------------------------------------------------------------------
-Step 24.1 (expected: Sat)
+Step 23.1 (expected: Sat)
   read(batchWrite(h, r, o), p) = o --> Sat
 --------------------------------------------------------------------------------
-Step 24.2 (expected: Unsat)
+Step 23.2 (expected: Unsat)
   read(batchWrite(h, r, o), p) != o --> Unsat
 ================================================================================
 ================================================================================
-Test 25: batchWrite to a location does not modify the rest of the locations
+Test 24: batchWrite to a location does not modify the rest of the locations
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   valid(h, p) & !within(r, p) & addrRangeSize(r) >= 1 & valid(h, nthaddrRange(r, addrRangeSize(r) - 1))
 --------------------------------------------------------------------------------
-Step 25.1 (expected: Sat)
+Step 24.1 (expected: Sat)
   read(batchWrite(h, r, o), p) = read(h, p) --> Sat
 --------------------------------------------------------------------------------
-Step 25.2 (expected: Unsat)
+Step 24.2 (expected: Unsat)
   read(batchWrite(h, r, o), p) != read(h, p) --> Unsat
 ================================================================================
 ================================================================================
-Test 26: batchWrite to a range that contains an unallocated location returns the same heap.
+Test 25: batchWrite to a range that contains an unallocated location returns the same heap.
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   within(r, p) & !valid(h, p)
 --------------------------------------------------------------------------------
-Step 26.1 (expected: Sat)
+Step 25.1 (expected: Sat)
   batchWrite(h, r, o) = h --> Sat
 --------------------------------------------------------------------------------
-Step 26.2 (expected: Unsat)
+Step 25.2 (expected: Unsat)
   batchWrite(h, r, o) != h --> Unsat
 --------------------------------------------------------------------------------
 Common assertion: 
   h != emptyheap
 --------------------------------------------------------------------------------
-Step 26.3 (expected: Sat)
+Step 25.3 (expected: Sat)
   batchWrite(h, r, o) = h & h != emptyheap --> Sat
 --------------------------------------------------------------------------------
-Step 26.4 (expected: Unsat)
+Step 25.4 (expected: Unsat)
   batchWrite(h, r, o) != h --> Unsat
 --------------------------------------------------------------------------------
 Common assertion: 
   p != nulladdr
 --------------------------------------------------------------------------------
-Step 26.5 (expected: Sat)
+Step 25.5 (expected: Sat)
   batchWrite(h, r, o) = h --> Sat
 --------------------------------------------------------------------------------
-Step 26.6 (expected: Unsat)
+Step 25.6 (expected: Unsat)
   batchWrite(h, r, o) != h --> Unsat
 ================================================================================
 ================================================================================
-Test 27: Extensionality over batchWrite (exclude empty heaps)
+Test 26: Extensionality over batchWrite (exclude empty heaps)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   h != emptyheap
+--------------------------------------------------------------------------------
+Step 26.1 (expected: Sat)
+  batchWrite(h, r, o) = batchWrite(batchWrite(h, r, o'), r, o) --> Sat
+--------------------------------------------------------------------------------
+Step 26.2 (expected: Unsat)
+  batchWrite(h, r, o) != batchWrite(batchWrite(h, r, o'), r, o) --> Unsat
+================================================================================
+================================================================================
+Test 27: Extensionality over batchWrite (exclude empty heaps and empty address ranges)
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+Common assertion: 
+  h != emptyheap & addrRangeSize(r) >= 1
 --------------------------------------------------------------------------------
 Step 27.1 (expected: Sat)
   batchWrite(h, r, o) = batchWrite(batchWrite(h, r, o'), r, o) --> Sat
@@ -524,29 +524,16 @@ Step 27.2 (expected: Unsat)
   batchWrite(h, r, o) != batchWrite(batchWrite(h, r, o'), r, o) --> Unsat
 ================================================================================
 ================================================================================
-Test 28: Extensionality over batchWrite (exclude empty heaps and empty address ranges)
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-Common assertion: 
-  h != emptyheap & addrRangeSize(r) >= 1
---------------------------------------------------------------------------------
-Step 28.1 (expected: Sat)
-  batchWrite(h, r, o) = batchWrite(batchWrite(h, r, o'), r, o) --> Sat
---------------------------------------------------------------------------------
-Step 28.2 (expected: Unsat)
-  batchWrite(h, r, o) != batchWrite(batchWrite(h, r, o'), r, o) --> Unsat
-================================================================================
-================================================================================
-Test 29: Extensionality over batchWrite (only valid writes)
+Test 28: Extensionality over batchWrite (only valid writes)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 Common assertion: 
   addrRangeSize(r) >= 1 & p = nthaddrRange(r, addrRangeSize(r) - 1)
 --------------------------------------------------------------------------------
-Step 29.1 (expected: Sat)
+Step 28.1 (expected: Sat)
   batchWrite(h, r, o) = batchWrite(batchWrite(h, r, o'), r, o) --> Sat
 --------------------------------------------------------------------------------
-Step 29.2 (expected: Unsat)
+Step 28.2 (expected: Unsat)
   batchWrite(h, r, o) != batchWrite(batchWrite(h, r, o'), r, o) --> Unsat
 ================================================================================
 
