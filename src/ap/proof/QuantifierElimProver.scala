@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.proof.goal._
 import ap.proof.tree._
-import ap.util.{Debug, Seqs, Timeout}
+import ap.util.{Debug, Seqs, Timeout, OpCounters}
 import ap.parameters.{GoalSettings, Param}
 
 /**
@@ -115,6 +115,7 @@ object QuantifierElimProver {
     
     if (!tree.stepPossible) {
 //      println("backtracking (depth " + depth + ")")
+      OpCounters.inc(OpCounters.Backtrackings3)
       tree.closingConstraint
     } else tree match { 
       case goal : Goal =>
@@ -153,6 +154,8 @@ object QuantifierElimProver {
       }
 
       case tree : AndTree => {
+        OpCounters.inc(OpCounters.Splits3)
+
         val leftRes =
           expandProof(tree.left, pruningFor, depth + 1)
         val resAndPruningFor =
