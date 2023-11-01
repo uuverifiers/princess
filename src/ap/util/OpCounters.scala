@@ -91,6 +91,11 @@ object OpCounters {
    */
   case object Backtrackings3   extends Counter
 
+  /**
+   * Number of reduction operations in ReduceWithConjunction.
+   */
+  case object Reductions       extends Counter
+
   class CounterState {
 
     private val counters = new ConcurrentHashMap[Counter, LongAdder]
