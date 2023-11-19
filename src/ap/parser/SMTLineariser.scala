@@ -1005,7 +1005,8 @@ class SMTLineariser(benchmarkName : String,
                           // it is not the case that there exists a heap theory
                           // that already declared this adt
                           !heaps.exists(h => h.heapADTs == adt)
-                      case _ : Heap => false // handled before
+                      case _ : Heap     => false // handled before
+                      case _ : ExtArray => false // no need to declare
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
                                             "declare " + theory)
