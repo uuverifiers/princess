@@ -130,7 +130,8 @@ object CmdlMain {
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")
     println(" -logging=flags            Comma-separated list of log flags       (default: \"\")")
-    println("                             Flags: tasks, splits, backtracking, stats, lemmas")
+    println("                             Flags: tasks, splits, backtracking, stats, lemmas,")
+    println("                                    counters, countersCont")
     println
     println("Proof/interpolation options")
     println("---------------------------")

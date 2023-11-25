@@ -72,6 +72,11 @@ object OpCounters {
   case object Splits2          extends Counter
 
   /**
+   * Number of times a splitting rule was applied in QuantifierElimProver.
+   */
+  case object Splits3          extends Counter
+
+  /**
    * Number of backtrackings in the ModelSearchProver.
    */
   case object Backtrackings1   extends Counter
@@ -80,6 +85,16 @@ object OpCounters {
    * Number of backtrackings in the ExhaustiveProver.
    */
   case object Backtrackings2   extends Counter
+
+  /**
+   * Number of backtrackings in the QuantifierElimProver.
+   */
+  case object Backtrackings3   extends Counter
+
+  /**
+   * Number of reduction operations in ReduceWithConjunction.
+   */
+  case object Reductions       extends Counter
 
   class CounterState {
 

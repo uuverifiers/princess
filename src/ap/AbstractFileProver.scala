@@ -141,7 +141,18 @@ object AbstractFileProver {
       evalTimeoutCondition(a, startTime) || evalTimeoutCondition(b, startTime)
   }
 
-  def counterTimeApproximation : Long = OpCounters(OpCounters.TaskApplications)
+  def counterTimeApproximation : Long =
+    (0.019 * OpCounters(OpCounters.TaskApplications) +
+     1.120 * OpCounters(OpCounters.Backtrackings1) +
+     0.007 * OpCounters(OpCounters.Reductions) +
+     -0.124 * OpCounters(OpCounters.Backtrackings3) +
+     0.167 * OpCounters(OpCounters.Splits3) +
+     1.449 * OpCounters(OpCounters.Splits1) +
+     0.038 * OpCounters(OpCounters.Backtrackings2) +
+     4.515 * OpCounters(OpCounters.Splits2)).toLong
+
+  def simpleCounterTimeApproximation : Long =
+    OpCounters(OpCounters.TaskApplications)
 
 }
 
