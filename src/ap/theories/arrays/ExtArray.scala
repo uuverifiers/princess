@@ -110,6 +110,11 @@ object ExtArray {
       }
   }
 
+  /**
+   * Constructor of lambda expressions.
+   * 
+   * TODO: also add an extractor.
+   */
   object Lambda {
     def apply(argumentSorts : Seq[Sort],
               resultSort    : Sort,
