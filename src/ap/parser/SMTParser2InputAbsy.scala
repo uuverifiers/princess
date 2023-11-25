@@ -92,226 +92,11 @@ object SMTParser2InputAbsy {
   def apply(settings : ParserSettings, prover : SimpleAPI) =
     new SMTParser2InputAbsy (new Env, settings, prover)
   
-  /**
-   * Parse starting at an arbitrarily specified entry point
-   */
-  private def parseWithEntry[T](input : java.io.Reader,
-                                env : Env,
-                                entry : (parser) => T) : T = {
-    val l = new Yylex(new CRRemover2 (input))
-    val p = new parser(l)
-    
-    try { entry(p) } catch {
-      case e : Exception =>
-        try {
-          val msg = {
-            "At line " + String.valueOf(l.line_num()) +
-            ", near \"" + l.buff() + "\" :" +
-            "     " + e.getMessage()
-          }
-          throw new ParseException(msg)
-        } catch {
-          case _ : java.lang.StringIndexOutOfBoundsException =>
-            throw new ParseException(
-              "Runaway block, probably due to mismatched parentheses")
-        }
-    }
-  }
-
   //////////////////////////////////////////////////////////////////////////////
 
   private case class IncrementalException(t : Throwable) extends Exception
   
   private object ExitException extends Exception("SMT-LIB interpreter terminated")
-  
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Class for adding parentheses <code>()</code> after each SMT-LIB command;
-   * this is necessary in the interactive/incremental mode, because otherwise
-   * the parser always waits for the next token to arrive before forwarding
-   * a command.
-   * This also removes all CR-characters in a stream (necessary because the
-   * lexer seems to dislike CRs in comments), and adds an LF in the end,
-   * because the lexer does not allow inputs that end with a //-comment line
-   * either.
-   */
-  class SMTCommandTerminator(input : java.io.Reader) extends java.io.Reader {
-  
-    private val CR : Int         = '\r'
-    private val LF : Int         = '\n'
-    private val LParen : Int     = '('
-    private val RParen : Int     = ')'
-    private val Quote : Int      = '"'
-    private val SQuote : Int     = '\''
-    private val Pipe : Int       = '|'
-    private val Semicolon : Int  = ';'
-    private val Backslash : Int  = '\\'
-
-    private var parenDepth : Int = 0
-    private var state : Int = 0
-    
-    def read(cbuf : Array[Char], off : Int, len : Int) : Int = {
-      var read = 0
-      var cont = true
-
-      while (read < len && cont) {
-        state match {
-          case 0 => input.read match {
-            case CR => // nothing, read next character
-            case LParen => {
-              parenDepth = parenDepth + 1
-              cbuf(off + read) = LParen.toChar
-              read = read + 1
-            }
-            case RParen if (parenDepth > 1) => {
-              parenDepth = parenDepth - 1
-              cbuf(off + read) = RParen.toChar
-              read = read + 1
-            }
-            case RParen if (parenDepth == 1) => {
-              parenDepth = 0
-              cbuf(off + read) = RParen.toChar
-              read = read + 1
-              state = 5
-            }
-            case Quote => {
-              cbuf(off + read) = Quote.toChar
-              read = read + 1
-              state = 1
-            }
-            case SQuote => {
-              cbuf(off + read) = SQuote.toChar
-              read = read + 1
-              state = 2
-            }
-            case Pipe => {
-              cbuf(off + read) = Pipe.toChar
-              read = read + 1
-              state = 3
-            }
-            case Semicolon => {
-              cbuf(off + read) = Semicolon.toChar
-              read = read + 1
-              state = 4
-            }
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // process a double-quoted string "..."
-          case 1 => input.read match {
-            case Quote => {
-              cbuf(off + read) = Quote.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // process a single-quoted string '...'
-          case 2 => input.read match {
-            case SQuote => {
-              cbuf(off + read) = SQuote.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // parse a quoted identified |...|
-          case 3 => input.read match {
-            case Pipe => {
-              cbuf(off + read) = Pipe.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // parse a comment ;...
-          case 4 => input.read match {
-            case LF => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // output (
-          case 5 => {
-            cbuf(off + read) = LParen.toChar
-            read = read + 1
-            state = 6
-          }
-
-          // output )
-          case 6 => {
-            cbuf(off + read) = RParen.toChar
-            read = read + 1
-            state = 0
-          }
-
-          case 7 => {
-            return if (read == 0) -1 else read
-          }
-        }
-
-        cont = state >= 5 || input.ready
-      }
-
-      read
-    }
-   
-    def close : Unit = input.close
-
-    override def ready : Boolean = (state >= 5 || input.ready)
-  
-  }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -322,127 +107,6 @@ object SMTParser2InputAbsy {
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
  */
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  /** Implicit conversion so that we can get a Scala-like iterator from a
-   * a Java list */
-  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
-
-  def asString(s : SymbolRef) : String = s match {
-    case s : IdentifierRef     => asString(s.identifier_)
-    case s : CastIdentifierRef => asString(s.identifier_)
-  }
-
-  def asString(id : IndexC) : String = id match {
-    case id : NumIndex => id.numeral_
-    case id : HexIndex => id.hexadecimal_
-    case id : SymIndex => asString(id.symbol_)
-  }
-  
-  def asString(id : Identifier) : String = id match {
-    case id : SymbolIdent =>
-      asString(id.symbol_)
-    case id : IndexIdent =>
-      asString(id.symbol_) + "_" + ((id.listindexc_ map asString) mkString "_")
-  }
-  
-  def asString(s : Symbol) : String = s match {
-    case s : NormalSymbol =>
-//      sanitise(s.normalsymbolt_)
-      s.normalsymbolt_
-    case s : QuotedSymbol =>
-//      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
-      s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1)
-  }
-
-  def asString(s : Sort) : String = s match {
-    case s : IdentSort =>
-      asString(s.identifier_)
-    case s : CompositeSort =>
-      asString(s.identifier_) + "_" +
-      (s.listsort_ map (asString(_))).mkString("_")
-  }
-  
-  object PlainSymbol {
-    def unapply(s : SymbolRef) : scala.Option[String] = s match {
-      case s : IdentifierRef => PlainIdentifier unapply s.identifier_
-      case _ => None
-    }
-  }
-
-  object PlainIdentifier {
-    def unapply(id : Identifier) : scala.Option[String] = id match {
-      case id : SymbolIdent => id.symbol_ match {
-        case s : NormalSymbol =>
-          Some(s.normalsymbolt_)
-        case s : QuotedSymbol =>
-          Some(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
-        case _ =>
-          None
-      }
-      case _ => None
-    }
-  }
-  
-  object IndexedSymbol {
-    def unapplySeq(s : SymbolRef) : scala.Option[Seq[String]] = s match {
-      case s : IdentifierRef => IndexedIdentifier unapplySeq s.identifier_
-      case _ => None
-    }
-  }
-
-  object NumIndexedSymbol1 {
-    def unapply(s : SymbolRef) : scala.Option[(String, IdealInt)] = s match {
-      case IndexedSymbol(s1, NatLiteral(s2)) => Some((s1, s2))
-      case _ => None
-    }
-  }
-
-  object NumIndexedSymbol2 {
-    def unapply(s : SymbolRef)
-              : scala.Option[(String, IdealInt, IdealInt)] = s match {
-      case IndexedSymbol(s1, NatLiteral(s2), NatLiteral(s3)) => Some((s1, s2, s3))
-      case _ => None
-    }
-  }
-
-  object IndexedIdentifier {
-    def unapplySeq(id : Identifier) : scala.Option[Seq[String]] = id match {
-      case id : IndexIdent => id.symbol_ match {
-        case s : NormalSymbol =>
-          Some(List(s.normalsymbolt_) ++ (id.listindexc_ map asString))
-        case _ => None
-      }
-      case _ => None
-    }
-  }
-
-  object CastSymbol {
-    def unapply(s : SymbolRef) : scala.Option[(String, Sort)] = s match {
-      case s : CastIdentifierRef => s.identifier_ match {
-        case id : SymbolIdent => id.symbol_ match {
-          case ns : NormalSymbol => Some((ns.normalsymbolt_, s.sort_))
-          case _ => None
-        }
-        case _ => None
-      }
-      case _ => None
-    }
-  }  
-
-  val DecLiteral = """([0-9]+)""".r
-  val HexLiteral = """#x([0-9a-fA-F]+)""".r
-  val BVDecLiteral = """bv([0-9]+)""".r
-  val FFDecLiteral = """ff([0-9]+)""".r
-
-  object NatLiteral {
-    def unapply(s : String) : scala.Option[IdealInt] = s match {
-      case DecLiteral(v) => Some(IdealInt(v))
-      case HexLiteral(v) => Some(IdealInt(v, 16))
-      case _             => None
-    }
-  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -506,6 +170,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   import Parser2InputAbsy._
   import SMTParser2InputAbsy._
   import SMTTypes._
+  import SMTParsingUtils._
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
@@ -525,7 +190,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       }
     }
     
-    apply(parseWithEntry(input, env, entry _))
+    apply(parseWithEntry(input, entry _))
     
     val (assumptionFormula, interpolantSpecs) =
       if (genInterpolants) {
@@ -636,7 +301,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                     "Input is not of the form (ignore expression)")
       }
     }
-    val expr = parseWithEntry(input, env, entry _)
+    val expr = parseWithEntry(input, entry _)
     translateTerm(expr, -1) match {
       case p@(_, SMTBool) => asFormula(p)
       case p => asTerm(p)
