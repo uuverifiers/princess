@@ -229,6 +229,12 @@ SimpleAPITest12
 \exists int v0; x * v0 >= 1
 \exists int v0; x - v0 * _0 >= 1
 
+SimpleAPITest13
+Running
+Unknown
+Running
+Unsat
+
 TestRat
 Rat_int(0)
 Rat_int(1)
@@ -682,6 +688,14 @@ Test 3
 Sat
 tuple(store(const(13), 1, 11))
 tuple(const(0))
+
+ADTTest6.scala
+ALL (! (_0 + -1 != 0 & x(c, _0)))
+Invalid
+Store(3, 4)
+EX (_0 + -1 != 0 & x(c, _0))
+Sat
+Store(3, 4)
 
 pred-simplify.scala
 starting

@@ -18,6 +18,7 @@ TESTS="simple-cycle.smt2 \
        head.smt2 \
        regex.smt2 \
        chars.smt2 \
+       chars2.smt2 \
        single-quoted.smt2 \
        single-quoted2.smt2 \
        completeness.smt2 \
@@ -30,6 +31,7 @@ TESTS="simple-cycle.smt2 \
        str-to-int2.smt2 \
        str-to-int3.smt2 \
        str-to-int4.smt2 \
+       str-to-int5.smt2 \
        str-indexof.smt2 \
        str-indexof2.smt2 \
        str-indexof3.smt2 \
@@ -37,7 +39,12 @@ TESTS="simple-cycle.smt2 \
        str-indexof5.smt2 \
        str-contains.smt2 \
        str-replace.smt2 \
-       str-replace2.smt2"
+       str-replace2.smt2 \
+       str-in-re.smt2 \
+       str-in-re-2.smt2 \
+       str-in-re-3.smt2 \
+       str-from-int.smt2 \
+       str-from-int-2.smt2"
 
 $PRI "$@" $TESTS
 

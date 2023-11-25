@@ -65,11 +65,22 @@ object Param {
   }
 
   abstract class LOG_FLAG
-  case object LOG_TASKS        extends LOG_FLAG
-  case object LOG_SPLITS       extends LOG_FLAG
-  case object LOG_BACKTRACKING extends LOG_FLAG
-  case object LOG_STATS        extends LOG_FLAG
-  case object LOG_LEMMAS       extends LOG_FLAG
+  case object LOG_TASKS         extends LOG_FLAG
+  case object LOG_SPLITS        extends LOG_FLAG
+  case object LOG_BACKTRACKING  extends LOG_FLAG
+  case object LOG_STATS         extends LOG_FLAG
+  case object LOG_LEMMAS        extends LOG_FLAG
+  case object LOG_COUNTERS      extends LOG_FLAG
+  case object LOG_COUNTERS_CONT extends LOG_FLAG
+
+  /**
+   * Before solving any actual tasks, run some other problems for
+   * warmup purposes. This will reduce the effect of a JVM cold-start.
+   */
+  case object WARM_UP extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
 
   case object QUIET extends Param {
     type Value = Boolean
@@ -151,6 +162,15 @@ object Param {
     type Value = Boolean
     val defau : Boolean = false
   }
+
+  object MGCFormatOptions extends Enumeration {
+    val Any, DNF, CNF = Value
+  }
+
+  case object MGC_FORMAT extends Param {
+    type Value = MGCFormatOptions.Value
+    val defau : MGCFormatOptions.Value = MGCFormatOptions.Any
+  }
   
   /** Turn ground constraints into disjunctive normal form */
   case object DNF_CONSTRAINTS extends Param {
@@ -166,6 +186,11 @@ object Param {
   case object TIMEOUT_PER extends Param {
     type Value = Int
     val defau : Int = Int.MaxValue
+  }
+
+  case object COUNTER_TIMEOUT extends Param {
+    type Value = Long
+    val defau : Long = Long.MaxValue
   }
 
   /** Resolve negative predicate literals in clauses with positive facts */
@@ -236,19 +261,23 @@ object Param {
     val defau : Boolean = true
   }
 
+  /**
+   * Maximum size of function bodies to inline.
+   */
+  case object INLINE_SIZE_LIMIT extends Param {
+    type Value = Int
+    val defau : Int = 100
+  }
+
   case object REAL_RAT_SATURATION_ROUNDS extends Param {
     type Value = Int
     val defau : Int = 0
   }
 
   /** Portfolios optimised for particular domains */
-  object PortfolioOptions extends Enumeration {
-    val None, CASC, QF_LIA, BV = Value
-  }
-
   case object PORTFOLIO extends Param {
-    type Value = PortfolioOptions.Value
-    val defau : PortfolioOptions.Value = PortfolioOptions.None
+    type Value = String
+    val defau : String = "none"
   }
 
   case object PORTFOLIO_THREAD_NUM extends Param {

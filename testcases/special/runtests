@@ -17,7 +17,7 @@ $PRI "$@" -timeout=30000 -generateTriggers=all +mostGeneralConstraint soldiers.p
 $PRI "$@" -timeout=30000 +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +boolFunsAsPreds -triggerStrategy=allMaximal +ignoreQuantifiers -generateTriggers=all GEO212+3-complete.p
 $PRI "$@" -timeout=10000 -constructProofs=always diamonds.16.3.i.a.u.smt2
 $PRI "$@" -timeout=30000 +incremental -assert abbrev-interpolation.smt2
-$PRI "$@" -timeout=30000 -generateTriggers=all adt-size3b.pri
+$PRI "$@" -timeout=45000 -generateTriggers=all adt-size3b.pri
 $PRI "$@" -timeout=15000 adt-large.pri
 $PRI "$@" -timeout=30000 bv-interpolation-7.pri
 $PRI "$@" +ignoreQuantifiers boolean-triggers.smt2
@@ -29,3 +29,8 @@ $PRI "$@" -timeout=10000 conjunctElimBug.smt2
 # this will time out
 $PRI "$@" +incremental -timeout=3000 sort-unsoundness.smt2
 
+# this should result in GaveUp, not a countermodel
+$PRI "$@" -assert -model +genTotalityAxioms -constructProofs=always -generateTriggers=all SYN455+1.p
+
+$PRI "$@" -timeout=5000 +mostGeneralConstraint -mgcFormat=dnf dnf-constraint.pri
+$PRI "$@" -timeout=5000 +mostGeneralConstraint -mgcFormat=cnf dnf-constraint.pri

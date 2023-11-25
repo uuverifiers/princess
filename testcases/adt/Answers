@@ -30,6 +30,19 @@ sat
   (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 nil) true (ite (= x!0 (cons (int 43) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 42) nil)) true true)))))
 )
 
+Loading datatype4c.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x4 () Term (list (cons (int 53) nil)))
+  (define-fun x3 () Term (list (cons (int 55) nil)))
+  (define-fun x2 () Term (int 53))
+  (define-fun x1 () Term (list (cons (int 53) (cons (int 55) nil))))
+)
+
 Loading datatype6.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -191,6 +204,14 @@ sat
   (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 43) (cons (int 17) (cons (int 42) nil))))) true true))
   (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 nil) true (ite (= x!0 (cons (int 43) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 42) nil)) true true)))))
   (define-fun f0 ((x!0 Term)) Bool (ite (= x!0 (int 43)) true (ite (= x!0 (int 17)) true (ite (= x!0 (int 42)) true true))))
+)
+Loading datatype4c.smt2 ...
+sat
+(model
+  (define-fun x4 () Term (list (cons (int 53) nil)))
+  (define-fun x3 () Term (list (cons (int 55) nil)))
+  (define-fun x2 () Term (int 53))
+  (define-fun x1 () Term (list (cons (int 53) (cons (int 55) nil))))
 )
 Loading datatype5.smt2 ...
 sat

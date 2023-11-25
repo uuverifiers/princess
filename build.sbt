@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name                 := "Princess",
     organization         := "uuverifiers",
-    version              := "2022-11-03",
+    version              := "2023-06-19",
     homepage             := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses             := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
     scmInfo              := Some(ScmInfo(
@@ -38,6 +38,12 @@ lazy val commonSettings = Seq(
                                 name  = "Peter Baumgartner",
                                 email = "Peter.Baumgartner@data61.csiro.au",
                                 url   = url("http://users.cecs.anu.edu.au/~baumgart/")
+                              ),
+                              Developer(
+                                id    = "amanda.stjerna",
+                                name  = "Amanda Stjerna",
+                                email = "mail@amandastjerna.se",
+                                url   = url("https://amandastjerna.se/")
                               )
                             ),
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",

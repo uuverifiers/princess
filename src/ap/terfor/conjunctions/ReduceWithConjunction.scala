@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{PredConj, ReduceWithPredLits, Predicate}
 import ap.terfor.substitutions.Substitution
 import ap.parameters.{ReducerSettings, Param}
-import ap.util.{Debug, Logic, PlainRange, Timeout}
+import ap.util.{Debug, Logic, PlainRange, Timeout, OpCounters}
 
 
 object ReduceWithConjunction {
@@ -80,6 +80,7 @@ object ReduceWithConjunction {
       conj
     } else try {
       Timeout.check
+      OpCounters.inc(OpCounters.Reductions)
 
       implicit val order = initialReducer.order
       var currentArithConj = conj.arithConj

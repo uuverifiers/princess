@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2022-11-03"
+  val version = "2023-06-19"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -69,9 +69,9 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2023")
-    println("Contributors: Angelo Brillout, Peter Backeman, Peter Baumgartner, Zafer Esen.")
+    println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
+    println("              Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
-    println("Bug reports to ph_r@gmx.net")
     println
     println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
   }
@@ -99,7 +99,7 @@ object CmdlMain {
     println(" [+-]model                 Compute models or countermodels          (default: -)")
     println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
     println(" [+-]printProof            Output the constructed proof             (default: -)")
-    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
+    println(" [+-]mostGeneralConstraint Derive a most general constraint         (default: -)")
     println("                           (quantifier elimination for PA formulae) (default: -)")
     println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
     println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
@@ -119,16 +119,19 @@ object CmdlMain {
     println("                             qf_lia: Optimised for quantifier-free LIA")
     println("                             bv:     Optimised for quantified BV")
     println(" -threads=num              Number of threads to use for portfolio   (default: 1)")
+    println(" [+-]threads               Automatically choose number of threads   (default: -)")
     println(" -formulaSign=val          Optionally negate input formula       (default: auto)")
     println("                             positive: do not negate")
     println("                             negative: negate")
     println("                             auto:     choose automatically")
     println(" [+-]equivInlining         Inline simple equivalences p <-> f       (default: +)")
+    println(" -inlineSizeLimit=val      Maximum size of functions to inline    (default: 100)")
     println(" -randomSeed=val           Seed for randomisation")
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")
     println(" -logging=flags            Comma-separated list of log flags       (default: \"\")")
-    println("                             Flags: tasks, splits, backtracking, stats, lemmas")
+    println("                             Flags: tasks, splits, backtracking, stats, lemmas,")
+    println("                                    counters, countersCont")
     println
     println("Proof/interpolation options")
     println("---------------------------")
@@ -150,8 +153,12 @@ object CmdlMain {
     println("                             none:   not at all")
     println("                             fair:   fair construction of a proof")
     println("                             lemmas: proof construction with lemmas (default)")
+    println(" -mgcFormat=val            Most general constraints in specific format:")
+    println("                             any: Unspecified                       (default)")
+    println("                             dnf: disjunctive normal form")
+    println("                             cnf: conjunctive normal form")
     println(" [+-]traceConstraintSimplifier  Show constraint simplifications     (default: -)")
-    println(" [+-]dnfConstraints        Turn ground constraints into DNF         (default: +)")
+    println(" [+-]dnfConstraints        Continuously rewrite constraints to DNF  (default: +)")
     println
     println("Function options")
     println("----------------")
@@ -424,6 +431,20 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  private def counterPrintingEnabled(settings : GlobalSettings) : Boolean =
+    !Seqs.disjoint(Param.LOG_LEVEL(settings),
+                   Set[Param.LOG_FLAG](Param.LOG_COUNTERS,
+                                       Param.LOG_COUNTERS_CONT))
+
+  private def needsCounters(settings : GlobalSettings) : Boolean =
+    counterPrintingEnabled(settings) ||
+    (Param.COUNTER_TIMEOUT(settings) != Long.MaxValue)
+
+  private def warmup(settings : GlobalSettings) : Unit =
+    if (Param.WARM_UP(settings)) {
+      ap.util.Warmup()
+    }
+
   def proveProblem(settings : GlobalSettings,
                    name : String,
                    reader : () => java.io.Reader,
@@ -434,9 +455,13 @@ object CmdlMain {
     try {
             val timeBefore = System.currentTimeMillis
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
-            
-            val prover = if (Param.PORTFOLIO(settings) !=
-                             Param.PortfolioOptions.None) {
+
+            if (needsCounters(settings))
+              ap.util.OpCounters.init
+            else
+              ap.util.OpCounters.disable
+
+            val prover = if (Param.PORTFOLIO(settings) != "none") {
               import ParallelFileProver._
 
               def prelPrinter(p : Prover) : Unit = {
@@ -450,81 +475,22 @@ object CmdlMain {
                 Param.PRINT_CERTIFICATE(settings) ||
                 Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
 
-              Param.PORTFOLIO(settings) match {
+              val args =
+                ParallelFileProver.ProverArguments(
+                  reader,
+                  baseSettings,
+                  Param.TIMEOUT(settings),
+                  () => userDefStoppingCond,
+                  needProof,
+                  prelPrinter _,
+                  Param.PORTFOLIO_THREAD_NUM(settings))
 
-                case Param.PortfolioOptions.CASC =>
-                  ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     baseSettings,
-                                     cascStrategies2016,
-                                     1,
-                                     3 max Param.PORTFOLIO_THREAD_NUM(settings),
-                                     needProof,
-                                     prelPrinter _,
-                                     Param.PORTFOLIO_THREAD_NUM(settings))
-
-                case Param.PortfolioOptions.QF_LIA => {
-                  val strategies =
-                    List(ParallelFileProver.Configuration(
-                           Param.PROOF_CONSTRUCTION_GLOBAL.set(
-                                  baseSettings,
-                                  Param.ProofConstructionOptions.Never),
-                           "-constructProofs=never",
-                           1000000000,
-                           2000),
-                         ParallelFileProver.Configuration(
-                           Param.PROOF_CONSTRUCTION_GLOBAL.set(
-                                  baseSettings,
-                                  Param.ProofConstructionOptions.Always),
-                           "-constructProofs=always",
-                           1000000000,
-                           2000))
-                  ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     1,
-                                     2,
-                                     needProof,
-                                     prelPrinter _,
-                                     Param.PORTFOLIO_THREAD_NUM(settings))
-                }
-
-                case Param.PortfolioOptions.BV => {
-                  val strategies =
-                    List(ParallelFileProver.Configuration(
-                           Param.NEG_SOLVING.set(
-                                  baseSettings,
-                                  Param.NegSolvingOptions.Positive),
-                           "-formulaSign=positive",
-                           1000000000,
-                           1000),
-                         ParallelFileProver.Configuration(
-                           Param.NEG_SOLVING.set(
-                                  baseSettings,
-                                  Param.NegSolvingOptions.Negative),
-                           "-formulaSign=negative",
-                           1000000000,
-                           1000))
-                  ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     1,
-                                     2,
-                                     needProof,
-                                     prelPrinter _,
-                                     Param.PORTFOLIO_THREAD_NUM(settings))
-                }
-              }
+              ParallelFileProver(Param.PORTFOLIO(settings), args)
 
             } else {
               new IntelliFileProver(reader(),
-                                    Param.TIMEOUT(settings),
+                                    AbstractFileProver
+                                      .timeoutFromSettings(settings),
                                     true,
                                     userDefStoppingCond,
                                     baseSettings)
@@ -560,6 +526,13 @@ object CmdlMain {
                 ap.util.Timer.reset
               }
             
+            if (counterPrintingEnabled(settings))
+              Console.withOut(Console.err) {
+                println
+                println("Counters:")
+                ap.util.OpCounters.printCounters
+              }
+
             Some(prover.result)
           } catch {
       case _ : StackOverflowError => {
@@ -604,6 +577,7 @@ object CmdlMain {
                     userDefStoppingCond : => Boolean) = try {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
+
     SimpleAPI.withProver(enableAssert = assertions,
                          sanitiseNames = false,
                          genTotalityAxioms = 
@@ -1021,6 +995,8 @@ object CmdlMain {
       Console.err.println("No inputs given, exiting")
       return
     }
+
+    warmup(settings)
 
     for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)

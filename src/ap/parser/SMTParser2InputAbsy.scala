@@ -89,6 +89,9 @@ object SMTParser2InputAbsy {
     def toSort = ModuloArithmetic.UnsignedBVSort(width)
     val modulus = IdealInt(2) pow width
   }
+  case class SMTFF(card : IdealInt)                extends SMTType {
+    def toSort = ModuloArithmetic.ModSort(IdealInt.ZERO, card - 1)
+  }
   object SMTADT {
     val POLY_PREFIX = "$poly:"
   }
@@ -393,13 +396,18 @@ object SMTParser2InputAbsy {
     case s : IdentifierRef     => asString(s.identifier_)
     case s : CastIdentifierRef => asString(s.identifier_)
   }
+
+  def asString(id : IndexC) : String = id match {
+    case id : NumIndex => id.numeral_
+    case id : HexIndex => id.hexadecimal_
+    case id : SymIndex => asString(id.symbol_)
+  }
   
   def asString(id : Identifier) : String = id match {
     case id : SymbolIdent =>
       asString(id.symbol_)
     case id : IndexIdent =>
-      asString(id.symbol_) + "_" +
-      ((id.listindexc_ map (_.asInstanceOf[Index].numeral_)) mkString "_")
+      asString(id.symbol_) + "_" + ((id.listindexc_ map asString) mkString "_")
   }
   
   def asString(s : Symbol) : String = s match {
@@ -447,12 +455,26 @@ object SMTParser2InputAbsy {
     }
   }
 
+  object NumIndexedSymbol1 {
+    def unapply(s : SymbolRef) : scala.Option[(String, IdealInt)] = s match {
+      case IndexedSymbol(s1, NatLiteral(s2)) => Some((s1, s2))
+      case _ => None
+    }
+  }
+
+  object NumIndexedSymbol2 {
+    def unapply(s : SymbolRef)
+              : scala.Option[(String, IdealInt, IdealInt)] = s match {
+      case IndexedSymbol(s1, NatLiteral(s2), NatLiteral(s3)) => Some((s1, s2, s3))
+      case _ => None
+    }
+  }
+
   object IndexedIdentifier {
     def unapplySeq(id : Identifier) : scala.Option[Seq[String]] = id match {
       case id : IndexIdent => id.symbol_ match {
         case s : NormalSymbol =>
-          Some(List(s.normalsymbolt_) ++
-               (id.listindexc_ map (_.asInstanceOf[Index].numeral_)))
+          Some(List(s.normalsymbolt_) ++ (id.listindexc_ map asString))
         case _ => None
       }
       case _ => None
@@ -472,7 +494,18 @@ object SMTParser2InputAbsy {
     }
   }  
 
+  val DecLiteral = """([0-9]+)""".r
+  val HexLiteral = """#x([0-9a-fA-F]+)""".r
   val BVDecLiteral = """bv([0-9]+)""".r
+  val FFDecLiteral = """ff([0-9]+)""".r
+
+  object NatLiteral {
+    def unapply(s : String) : scala.Option[IdealInt] = s match {
+      case DecLiteral(v) => Some(IdealInt(v))
+      case HexLiteral(v) => Some(IdealInt(v, 16))
+      case _             => None
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -736,7 +769,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def error(str : String) : Unit = {
     if (incremental)
-      println("(error \"" + str + "\")")
+      println("(error \"" + (SMTLineariser escapeString str) + "\")")
     else
       warn(str)
   }
@@ -844,7 +877,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   /**
    * Limit beyond which let-expressions or functions are never inlined
    */
-  private var inlineSizeLimit = 100
+  private var inlineSizeLimit = Param.INLINE_SIZE_LIMIT(settings)
   /**
    * Totality axioms?
    */
@@ -1017,7 +1050,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
     inlineLetExpressions = true
     inlineDefinedFuns    = true
-    inlineSizeLimit      = 100
+    inlineSizeLimit      =
+      Param.INLINE_SIZE_LIMIT(settings)
     totalityAxiom        = true
     functionalityAxiom   = true
     genProofs            = false
@@ -1669,14 +1703,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : SimplifyCommand => {
         checkIncremental("simplify")
         checkNotExtracting("simplify")
-        val f = asFormula(translateTerm(cmd.term_, -1))
         try {
+          val f = asFormula(translateTerm(cmd.term_, -1))
           val simpF = prover.withTimeout(timeoutPer) { prover simplify f }
           smtLinearise(simpF)
           println
         } catch {
           case SimpleAPI.TimeoutException =>
             error("timeout while simplifying expression")
+          case e : TranslationException =>
+            error(e.getMessage)
         }
       }
 
@@ -1999,6 +2035,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         realType
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
+      case IndexedIdentifier("FiniteField", card) =>
+        SMTFF(IdealInt(card))
       case PlainIdentifier("String") =>
         stringType
       case PlainIdentifier("RegLan") =>
@@ -2495,9 +2533,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateChainableRealIntPred(">",  args, _ > _,  realAlgebra.gt _),
        SMTBool)
     
-    case IndexedSymbol("divisible", denomStr) => {
+    case NumIndexedSymbol1("divisible", denomVal) => {
       checkArgNum("divisible", 1, args)
-      val denom = i(IdealInt(denomStr))
+      val denom = i(denomVal)
       val num = VariableShiftVisitor(asTerm(translateTerm(args.head, 0)), 0, 1)
       (ex(num === v(0) * denom), SMTBool)
     }
@@ -2632,8 +2670,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Bit-vector operations
 
-    case IndexedSymbol(BVDecLiteral(value), width) => {
-      val t = SMTBitVec(width.toInt)
+    case NumIndexedSymbol1(BVDecLiteral(value), width) => {
+      val t = SMTBitVec(width.intValueSafe)
       (ModuloArithmetic.cast2Sort(t.toSort, IdealInt(value)), t)
     }
 
@@ -2647,10 +2685,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        SMTBitVec(width0 + width1))
     }
 
-    case IndexedSymbol("extract", beginStr, endStr) => {
+    case NumIndexedSymbol2("extract", IdealInt(begin), IdealInt(end)) => {
       checkArgNum("extract", 1, args)
-      val begin = beginStr.toInt
-      val end = endStr.toInt
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
       val width0 = extractBVWidth("extract", type0, args(0))
       val resType = SMTBitVec(begin - end + 1)
@@ -2731,17 +2767,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("bvsge") =>
       translateBVBinPredInv("bvsge", ModuloArithmetic.bv_sle, args)
 
-    case IndexedSymbol("zero_extend", digitsStr) => {
+    case NumIndexedSymbol1("zero_extend", IdealInt(digits)) => {
       checkArgNum("zero_extend", 1, args)
-      val digits = digitsStr.toInt
       val (transArg0, type0) = translateTerm(args(0), 0)
       val width = extractBVWidth("zero_extend", type0, args(0))
       (transArg0, SMTBitVec(width + digits))
     }
 
-    case IndexedSymbol("sign_extend", digitsStr) => {
+    case NumIndexedSymbol1("sign_extend", IdealInt(digits)) => {
       checkArgNum("sign_extend", 1, args)
-      val digits = digitsStr.toInt
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
       val width = extractBVWidth("sign_extend", type0, args(0))
       (ModuloArithmetic.cast2UnsignedBV(width + digits,
@@ -2763,15 +2797,69 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (ModuloArithmetic.cast2SignedBV(width0, asTerm(a0)), SMTInteger)
     }
 
-    case IndexedSymbol(op@("nat2bv" | "int2bv"), digitsStr) => {
+    case NumIndexedSymbol1(op@("nat2bv" | "int2bv"), IdealInt(digits)) => {
       checkArgNum(op, 1, args)
-      val digits = digitsStr.toInt
       (ModuloArithmetic.cast2UnsignedBV(digits,
                                         asTerm(translateTerm(args(0), 0))),
        SMTBitVec(digits))
     }
 
     // Not supported yet: repeat, rotate_left, rotate_right
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Finite field operations
+
+    case CastSymbol(FFDecLiteral(value), sort) =>
+      translateSort(sort) match {
+        case s : SMTFF =>
+          (ModuloArithmetic.cast2Sort(s.toSort, IdealInt(value)), s)
+        case s =>
+          throw new Parser2InputAbsy.TranslationException(
+            "finite field element cannot be cast to " + s)
+      }
+
+    case PlainSymbol("ff.add") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      if (transArgs.map(_._2).toSet.size != 1)
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.add can only be applied to arguments of the same sort")
+      val sort = transArgs(0)._2 match {
+        case sort : SMTFF =>
+          sort
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+            "ff.add can only be applied to finite field arguments, not " + sort)
+      }
+      (ModuloArithmetic.cast2Sort(sort.toSort, sum(transArgs map asTerm)),
+       sort)
+    }
+
+    case PlainSymbol("ff.mul") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      if (transArgs.map(_._2).toSet.size != 1)
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.mul can only be applied to arguments of the same sort")
+      val sort = transArgs(0)._2 match {
+        case sort : SMTFF =>
+          sort
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+            "ff.mul can only be applied to finite field arguments, not " + sort)
+      }
+      (ModuloArithmetic.cast2Sort(sort.toSort,
+                                  transArgs.map(asTerm).reduceLeft(mult _)),
+       sort)
+    }
+
+    case PlainSymbol("ff.neg") => {
+      checkArgNum("ff.neg", 1, args)
+      val p@(_, transSort) = translateTerm(args.head, 0)
+      if (!transSort.isInstanceOf[SMTFF])
+        throw new Parser2InputAbsy.TranslationException(
+          "ff.neg can only be applied to finite field arguments")
+      val sort = transSort.asInstanceOf[SMTFF]
+      (ModuloArithmetic.cast2Sort(sort.toSort, -asTerm(p)), sort)
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // ADT operations
@@ -2794,11 +2882,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
+    case IndexedSymbol("is", ctorName) =>
+      // TODO: does this work correctly for quoted identifiers?
+      unintFunApp("is-" + ctorName, sym, args, polarity)
+
     ////////////////////////////////////////////////////////////////////////////
     // String operations
 
-    case IndexedSymbol("char", valStr) =>
-      (stringTheory int2Char IdealInt(valStr), charType)
+    case NumIndexedSymbol1("char", value) =>
+      (stringTheory int2String value, stringType)
 
     case PlainSymbol("str.empty") =>
       (translateStringFun(stringTheory.str_empty, args, List()), stringType)
@@ -2891,6 +2983,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.<=") =>
       translateStringPred(stringTheory.str_<=, args,
                           List(stringType, stringType))
+    case PlainSymbol("str.<") =>
+      translateStringPred(stringTheory.str_<, args,
+                          List(stringType, stringType))
     case PlainSymbol("str.at") =>
       (translateStringFun(stringTheory.str_at, args,
                           List(stringType, SMTInteger)), stringType)
@@ -2944,14 +3039,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.re_comp, args,
                           List(regexType)), regexType)
 
-    case IndexedSymbol("re.^", n) => {
+    case NumIndexedSymbol1("re.^", IdealInt(num)) => {
       val Seq(arg) = translateStringArgs("re.^", args, List(regexType))
-      val num = n.toInt
       (stringTheory.re_loop(num, num, arg), regexType)
     }
-    case IndexedSymbol("re.loop", n1, n2) => {
+    case NumIndexedSymbol2("re.loop", n1, n2) => {
       val Seq(arg) = translateStringArgs("re.loop", args, List(regexType))
-      (stringTheory.re_loop(n1.toInt, n2.toInt, arg), regexType)
+      (stringTheory.re_loop(n1, n2, arg), regexType)
     }
 
     case PlainSymbol("char.code") =>

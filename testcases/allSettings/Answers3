@@ -365,10 +365,10 @@ Proving ...
 VALID
 
 Under the constraint:
-x1 >= 31 & ((45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 + x1 = -1) | (44 >= x1 & x0 >= 60))
+(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; x1 = -4*v0 & \exists int v0; x0 = -4*v0) | (45 >= x1 & x1 >= 33 & x0 >= 60 & \exists int v0; x1 = -3*v0 & \exists int v0; x0 = -3*v0)
 
 Concrete witness:
-x1 = 35 & x0 = 60
+x1 = 40 & x0 = 80
 
 Loading liaStar1.pri ...
 Preprocessing ...
@@ -398,9 +398,9 @@ Loading relationalFun.pri ...
 Preprocessing ...
 Constructing countermodel ...
 
-INVALID
+UNKNOWN
 
-Countermodel:
+Possible countermodel:
 true
 
 Loading relationalFun3.pri ...

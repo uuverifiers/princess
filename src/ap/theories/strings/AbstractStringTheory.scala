@@ -91,6 +91,8 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_<= =
     new MonoSortedPredicate("char_<=", List(SSo, SSo))
+  val str_< =
+    new MonoSortedPredicate("char_<", List(SSo, SSo))
   val str_at =
     new MonoSortedIFunction("str_at", List(SSo, Nat), SSo, true, false)
   val str_char =
@@ -175,7 +177,7 @@ abstract class AbstractStringTheory extends StringTheory {
          re_union, re_inter, re_diff, re_*, re_+, re_opt, re_comp, re_loop)
 
   protected def predefPredicates =
-    List(char_is_digit, str_<=, str_prefixof,
+    List(char_is_digit, str_<=, str_<, str_prefixof,
          str_suffixof, str_contains, str_in_re)
 
   private lazy val predFunMap =

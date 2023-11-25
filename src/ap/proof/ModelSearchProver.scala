@@ -51,7 +51,7 @@ import ap.theories.{GroebnerMultiplication, Theory}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
+import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout, OpCounters}
 
 import scala.collection.mutable.ArrayBuilder
 
@@ -440,6 +440,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             if (Param.LOG_LEVEL(settings) contains Param.LOG_BACKTRACKING)
               Console.err.println("Backtracking from level " + depth)
 
+            OpCounters.inc(OpCounters.Backtrackings1)
+
             if (Param.PROOF_CONSTRUCTION(settings)) {
               val cert = goal.getCertificate
               //-BEGIN-ASSERTION-/////////////////////////////////////////////
@@ -545,12 +547,14 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
         val newConstsToIgnore = constsToIgnore ++ quanConsts
 
         val res =
-          findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore,
-                    depth, settings, searchDirector,
-                    lemmaBase, lemmaBaseAssumedInferences)
-
-        if (lemmaBase != null)
-          lemmaBase addObsoleteConstants quanConsts
+          try {
+            findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore,
+                      depth, settings, searchDirector,
+                      lemmaBase, lemmaBaseAssumedInferences)
+          } finally {
+            if (lemmaBase != null)
+              lemmaBase addObsoleteConstants quanConsts
+          }
 
         res
       }
@@ -558,6 +562,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       case tree@AndTree(left, right, partialCert) if (partialCert != null) => {
         if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
           Console.err.println("Splitting on level " + depth)
+
+        OpCounters.inc(OpCounters.Splits1)
 
         var nonCertResult : FindModelResult = null
 
@@ -609,6 +615,8 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       case tree@AndTree(left, right, _) => {
         if (Param.LOG_LEVEL(settings) contains Param.LOG_SPLITS)
           Console.err.println("Splitting on level " + depth)
+
+        OpCounters.inc(OpCounters.Splits1)
 
         findModel(left, extraFormulae, witnesses, constsToIgnore, depth + 1,
                   settings, searchDirector, null, 0) match {
@@ -712,10 +720,12 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
           // Need to make sure that the PresburgerModelfinder is
           // applied last!
           val newSettings =
-            Param.THEORY_PLUGIN.set(
-              Param.MODEL_GENERATION.set(settings, true),
-              PluginSequence(Param.THEORY_PLUGIN(settings).toList ++
-                               List(new PresburgerModelFinder)))
+            Param.PROOF_CONSTRUCTION.set(
+              Param.THEORY_PLUGIN.set(
+                Param.MODEL_GENERATION.set(settings, true),
+                PluginSequence(Param.THEORY_PLUGIN(settings).toList ++
+                                 List(new PresburgerModelFinder))),
+              false)
           val newGoal = Goal(goal.facts,
                              goal.compoundFormulas,
                              TaskManager.EMPTY(newSettings),
@@ -1200,6 +1210,8 @@ private class PresburgerModelFinder extends Plugin {
 
   import Plugin.{AddFormula, SplitGoal}
   import Conjunction.conj
+
+  override def toString : String = "PresburgerModelFinder"
 
   private val AC = Debug.AC_PROVER
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -296,10 +296,14 @@ class Fractions(name : String,
           case Seq(num : ITerm, den : ITerm) => {
             usedDenom = true
             dom.eps(dom.ex(
-                      (denom() ===ringMul(v(0, dom), shiftVars(den, 2))) &
+                      (denom() === ringMul(v(0, dom), shiftVars(den, 2))) &
                         (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
           }
         }
+      case IFunApp(`denom`, _) => {
+        usedDenom = true
+        t
+      }
       case _ =>
         (t update subres) match {
           case ITimes(coeff, IFunApp(`int`, Seq(s))) =>

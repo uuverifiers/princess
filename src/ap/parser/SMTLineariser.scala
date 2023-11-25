@@ -444,7 +444,8 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
-                              SMTBitVec, SMTString, SMTSeq, SMTFunctionType,
+                              SMTBitVec, SMTFF, SMTString, SMTSeq,
+                              SMTFunctionType,
                               SMTUnint, SMTADT, SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
@@ -500,6 +501,7 @@ object SMTLineariser {
         print(quoteIdentifier(str))
     }
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
+    case SMTFF(card)         => print("(_ FiniteField " + card + ")")
     case SMTString(_)        => print("String")
     case SMTSeq(_, elType)   => {
       print("(Seq ")
@@ -544,6 +546,8 @@ object SMTLineariser {
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
       (SMTBitVec(width), None)
+    case ModuloArithmetic.ModSort(IdealInt.ZERO, card) =>
+      (SMTFF(card + 1), None)
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
@@ -1001,7 +1005,8 @@ class SMTLineariser(benchmarkName : String,
                           // it is not the case that there exists a heap theory
                           // that already declared this adt
                           !heaps.exists(h => h.heapADTs == adt)
-                      case _ : Heap => false // handled before
+                      case _ : Heap     => false // handled before
+                      case _ : ExtArray => false // no need to declare
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
                                             "declare " + theory)
@@ -1535,6 +1540,15 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
 
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(IdealInt.ZERO), IIntLit(card),
+                       IIntLit(value)))
+          if prettyBitvectors => {
+        print("(as ff" + (value % (card + 1)) + " " +
+              "(_ FiniteField " + (card + 1) + "))")
+        shortCut(ctxt)
+      }
+
       case IFunApp(ModuloArithmetic.bv_extract,
                    Seq(IIntLit(upper), IIntLit(lower), arg)) => {
         print("((_ extract " + upper + " " + lower + ") ")
@@ -1722,7 +1736,7 @@ class SMTLineariser(benchmarkName : String,
                IIntLit(IdealInt.ONE))
            ))
          if (num1 == num2 && denom1 == denom2 && denom2.abs == denom3 &&
-             ContainsSymbol.freeFrom(num1, Set(IVariable(0)))) => {
+             ContainsSymbol.freeFromVariableIndex(num1, Set(0))) => {
         print("(div ")
         visit(VariableShiftVisitor(num1, 1, -1), ctxt)
         print(" " + toSMTExpr(denom1) + ")")
@@ -1737,7 +1751,7 @@ class SMTLineariser(benchmarkName : String,
            IQuantified(Quantifier.EX,
                        IExpression.Eq(num, IPlus(
                               ITimes(denom2, IVariable(0)), IVariable(1))))))
-         if (ContainsSymbol.freeFrom(num, Set(IVariable(0), IVariable(1))) &&
+         if (ContainsSymbol.freeFromVariableIndex(num, Set(0, 1)) &&
              denom1 == denom2.abs) => {
         print("(mod ")
         visit(VariableShiftVisitor(num, 2, -2), ctxt)

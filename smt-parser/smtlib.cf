@@ -211,7 +211,9 @@ StringMetaConstant.MetaConstant	::= "STRING";
 SymbolIdent.	Identifier	::= Symbol;
 IndexIdent.	Identifier	::= "(" "_" Symbol [IndexC] ")";
 
-Index.		IndexC		::= Numeral;
+NumIndex.	IndexC		::= Numeral;
+HexIndex.	IndexC		::= Hexadecimal;
+SymIndex.	IndexC		::= Symbol;
 
 separator nonempty IndexC "";
 
