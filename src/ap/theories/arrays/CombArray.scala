@@ -270,14 +270,14 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val combinatorsPerArray =
+  protected[arrays] val combinatorsPerArray =
     for (n <- 0 until subTheories.size) yield {
       for ((m, CombinatorSpec(_, _, `n`, _))
            <- _combinators zip combinatorSpecs)
       yield m
     }
 
-  private val combinators2PerArray =
+  protected[arrays] val combinators2PerArray =
     for (n <- 0 until subTheories.size) yield {
       for ((m, CombinatorSpec(_, _, `n`, _))
            <- _combinators2 zip combinatorSpecs)
@@ -300,8 +300,20 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
                   combinatorsPerArray(n) ++ combinators2PerArray(n))) yield act)
   }
 
-  private def comb2comb2Lazy(goal : Goal,
+  private def comb2comb2Lazy(goal         : Goal,
                              subTheoryInd : Int) : Seq[Plugin.Action] = {
+    val subTheory = subTheories(subTheoryInd)
+    comb2comb2Lazy(goal, subTheoryInd,
+                   List(subTheory._store, subTheory._store2, subTheory._const),
+                   true)
+  }
+
+  protected[arrays]
+  def comb2comb2Lazy(goal         : Goal,
+                     subTheoryInd : Int,
+                     checkedPreds : Seq[IExpression.Predicate],
+                     checkComb    : Boolean)
+                   : Seq[Plugin.Action] = {
     val facts      = goal.facts.predConj
     val mapAtoms   = for (m <- combinatorsPerArray(subTheoryInd);
                           a <- facts.positiveLitsWithPred(m))
@@ -310,31 +322,18 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     if (mapAtoms.isEmpty)
       return List()
 
-    implicit val order = goal.order
-    import TerForConvenience._
-
-    val subTheory  = subTheories(subTheoryInd)
-
-    import subTheory.{_store, _store2, _const}
-
-    val allAtoms   = mapAtoms ++
-                     facts.positiveLitsWithPred(_store) ++
-                     facts.positiveLitsWithPred(_store2) ++
-                     facts.positiveLitsWithPred(_const)
-    val needBi     = ExtArray.bidirChecker(allAtoms, goal)
+    val allAtoms = (if (checkComb) mapAtoms else List()) ++
+                   (for (p <- checkedPreds;
+                         a <- facts.positiveLitsWithPred(p)) yield a)
+    val needBi   = ExtArray.bidirChecker(allAtoms, goal)
     
-    val actions =
-      for (a1 <- mapAtoms;
-           if needBi(a1);
-           action <- combConversionActions(a1, goal))
-      yield action
-
-//    println(actions)
-
-    actions
+    for (a1 <- mapAtoms;
+         if needBi(a1);
+         action <- combConversionActions(a1, goal))
+    yield action
   }
 
-  private def combConversionActions(a : Atom,
+  private def combConversionActions(a    : Atom,
                                     goal : Goal) : Seq[Plugin.Action] = {
     implicit val order = goal.order
     import TerForConvenience._
@@ -379,9 +378,6 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
 
     if (comb2Arrays.isEmpty)
       return List()
-
-    implicit val order = goal.order
-    import TerForConvenience._
 
     val couldAlias = ExtArray.aliasChecker(goal)
 

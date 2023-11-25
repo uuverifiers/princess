@@ -1264,7 +1264,7 @@ class ExtArray (val indexSorts : Seq[Sort],
    * graph?
    */
   protected[arrays]
-  def store2store2Lazy(goal : Goal,
+  def store2store2Lazy(goal         : Goal,
                        checkedPreds : Seq[IExpression.Predicate] =
                          List(_store, _store2, _const)) : Seq[Plugin.Action] = {
     val facts      = goal.facts.predConj
@@ -1272,9 +1272,6 @@ class ExtArray (val indexSorts : Seq[Sort],
 
     if (storeAtoms.isEmpty)
       return List()
-
-    import TerForConvenience._
-    implicit val order = goal.order
 
     val allAtoms   = for (p <- checkedPreds;
                           a <- facts.positiveLitsWithPred(p)) yield a
@@ -1289,27 +1286,19 @@ class ExtArray (val indexSorts : Seq[Sort],
   private def store2store2Eager(goal : Goal) : Seq[Plugin.Action] = {
     val facts = goal.facts.predConj
 
-    if (facts.predicates contains _store2) {
-      val store2Arrays =
-        (for (a <- facts.positiveLitsWithPred(_store2).iterator)
-         yield a.head).toSet
+    if (!(facts.predicates contains _store2))
+      return List()
 
-      import TerForConvenience._
-      implicit val order = goal.order
-      val couldAlias = aliasChecker(goal)
+    val store2Arrays =
+      (for (a <- facts.positiveLitsWithPred(_store2).iterator)
+       yield a.head).toSet
 
-      val actions =
-        for (a <- facts.positiveLitsWithPred(_store);
-             if store2Arrays exists { t => couldAlias(t, a.last) };
-             action <- storeConversionActions(a, goal))
-        yield action
+    val couldAlias = aliasChecker(goal)
 
-//      println(actions)
-
-      actions
-    } else {
-      List()
-    }
+    for (a <- facts.positiveLitsWithPred(_store);
+         if store2Arrays exists { t => couldAlias(t, a.last) };
+         action <- storeConversionActions(a, goal))
+    yield action
   }
 
   //////////////////////////////////////////////////////////////////////////////
