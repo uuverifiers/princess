@@ -40,8 +40,6 @@ import ap.interpolants.{InterpolationContext, Interpolator, ProofSimplifier}
 import ap.parameters._
 import ap.parser.IExpression.Sort
 import ap.parser._
-import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
-                    SimpleArray, MulTheory, Incompleteness, ADT}
 import ap.proof.certificates.{CertFormula, Certificate}
 import ap.proof.goal.SymbolWeights
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
