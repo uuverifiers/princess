@@ -285,6 +285,37 @@ object ExtArray {
         }
       }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected[arrays]
+  def aliasChecker(goal : Goal) = {
+    val mayAlias = goal.mayAlias
+    import TerForConvenience._
+
+    (a : LinearCombination, b : LinearCombination) => {
+      mayAlias(a, b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+    }
+  }
+
+  protected[arrays]
+  def bidirChecker(atoms : Iterable[Atom], goal : Goal) = {
+    val mayAlias = goal.mayAlias
+
+    def couldAlias(a : LinearCombination, b : LinearCombination) =
+      mayAlias(a, b, true) match {
+        case AliasStatus.May | AliasStatus.Must => true
+        case _ => false
+      }
+
+    (a1 : Atom) => {
+      atoms exists { a2 => a1 != a2 && couldAlias(a1.last, a2.last) }
+    }
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -294,7 +325,7 @@ object ExtArray {
  */
 class ExtArray (val indexSorts : Seq[Sort],
                 val objSort    : Sort) extends Theory {
-  import ExtArray.{AC, AbstractArray}
+  import ExtArray.{AC, AbstractArray, aliasChecker, bidirChecker}
 
   private val infiniteIndex = indexSorts exists (_.cardinality.isEmpty)
 
@@ -1049,14 +1080,7 @@ class ExtArray (val indexSorts : Seq[Sort],
 
     if (considerAliases) {
       implicit val order = goal.order
-      val mayAlias = goal.mayAlias
-
-      def couldAlias(a : LinearCombination, b : LinearCombination) =
-        mayAlias(a , b, true) match {
-          case AliasStatus.May | AliasStatus.Must => true
-          case _ => false
-        }
-
+      val couldAlias = aliasChecker(goal)
       val arrayTerms = (order sort arrayPartitions.elements).toIndexedSeq
 
       // check whether further terms might alias; those terms have to be
@@ -1239,46 +1263,27 @@ class ExtArray (val indexSorts : Seq[Sort],
    * TODO: do we have to do something special about cycles in the
    * graph?
    */
-  private def store2store2Lazy(goal : Goal) : Seq[Plugin.Action] = {
-    implicit val order = goal.order
-    import TerForConvenience._
-
-    val facts      = goal.facts.predConj
-    val mayAlias   = goal.mayAlias
-
-    val storeAtoms = facts.positiveLitsWithPred(_store)
-    val allAtoms   = storeAtoms ++
-                     facts.positiveLitsWithPred(_store2) ++
-                     facts.positiveLitsWithPred(_const)
-
-    def couldAlias(a : LinearCombination, b : LinearCombination) =
-      mayAlias(a, b, true) match {
-        case AliasStatus.May | AliasStatus.Must => true
-        case _ => false
-      }
-
-    def needBi(a1 : Atom) : Boolean =
-      allAtoms exists { a2 => a1 != a2 && couldAlias(a1.last, a2.last) }
-
-    val actions =
-      for (a1 <- storeAtoms;
-           if needBi(a1);
-           action <- storeConversionActions(a1, goal))
-      yield action
-
-//    println(actions)
-
-    actions
-  }
-
   protected[arrays]
-  def storeConversionActions(a : Atom,
-                             goal : Goal) : Seq[Plugin.Action] = {
-    implicit val order = goal.order
-    import TerForConvenience._
+  def store2store2Lazy(goal : Goal,
+                       checkedPreds : Seq[IExpression.Predicate] =
+                         List(_store, _store2, _const)) : Seq[Plugin.Action] = {
+    val facts      = goal.facts.predConj
+    val storeAtoms = facts.positiveLitsWithPred(_store)
 
-    val newA = _store2(a.toSeq)
-    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, ExtArray.this))
+    if (storeAtoms.isEmpty)
+      return List()
+
+    import TerForConvenience._
+    implicit val order = goal.order
+
+    val allAtoms   = for (p <- checkedPreds;
+                          a <- facts.positiveLitsWithPred(p)) yield a
+    val needBi     = bidirChecker(allAtoms, goal)
+
+    for (a1 <- storeAtoms;
+         if needBi(a1);
+         action <- storeConversionActions(a1, goal))
+    yield action
   }
 
   private def store2store2Eager(goal : Goal) : Seq[Plugin.Action] = {
@@ -1289,15 +1294,9 @@ class ExtArray (val indexSorts : Seq[Sort],
         (for (a <- facts.positiveLitsWithPred(_store2).iterator)
          yield a.head).toSet
 
-      val mayAlias = goal.mayAlias
-      implicit val order = goal.order
       import TerForConvenience._
-
-      def couldAlias(a : LinearCombination, b : LinearCombination) =
-        mayAlias(a, b, true) match {
-          case AliasStatus.May | AliasStatus.Must => true
-          case _ => false
-        }
+      implicit val order = goal.order
+      val couldAlias = aliasChecker(goal)
 
       val actions =
         for (a <- facts.positiveLitsWithPred(_store);
@@ -1311,6 +1310,18 @@ class ExtArray (val indexSorts : Seq[Sort],
     } else {
       List()
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected[arrays]
+  def storeConversionActions(a : Atom,
+                             goal : Goal) : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val newA = _store2(a.toSeq)
+    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), newA, ExtArray.this))
   }
 
   //////////////////////////////////////////////////////////////////////////////

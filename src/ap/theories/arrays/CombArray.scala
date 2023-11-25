@@ -277,6 +277,13 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
       yield m
     }
 
+  private val combinators2PerArray =
+    for (n <- 0 until subTheories.size) yield {
+      for ((m, CombinatorSpec(_, _, `n`, _))
+           <- _combinators2 zip combinatorSpecs)
+      yield m
+    }
+
   /**
    * When the array-valued functions form a graph that is not
    * tree-shaped, start replacing "map" with "map2" to initiate
@@ -285,9 +292,13 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
    * TODO: do we have to do something special about cycles in the
    * graph?
    */
-  private def comb2comb2Lazy(goal : Goal) : Seq[Plugin.Action] =
-    for (n <- 0 until subTheories.size; act <- comb2comb2Lazy(goal, n))
-    yield act
+  private def comb2comb2Lazy(goal : Goal) : Seq[Plugin.Action] = {
+    (for (n <- 0 until subTheories.size;
+          act <- comb2comb2Lazy(goal, n)) yield act) ++
+    (for ((subTheory, n) <- subTheories.zipWithIndex;
+          act <- subTheory.store2store2Lazy(goal,
+                  combinatorsPerArray(n) ++ combinators2PerArray(n))) yield act)
+  }
 
   private def comb2comb2Lazy(goal : Goal,
                              subTheoryInd : Int) : Seq[Plugin.Action] = {
@@ -302,7 +313,6 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     implicit val order = goal.order
     import TerForConvenience._
 
-    val mayAlias   = goal.mayAlias
     val subTheory  = subTheories(subTheoryInd)
 
     import subTheory.{_store, _store2, _const}
@@ -311,16 +321,8 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
                      facts.positiveLitsWithPred(_store) ++
                      facts.positiveLitsWithPred(_store2) ++
                      facts.positiveLitsWithPred(_const)
-
-    def couldAlias(a : LinearCombination, b : LinearCombination) =
-      mayAlias(a, b, true) match {
-        case AliasStatus.May | AliasStatus.Must => true
-        case _ => false
-      }
-
-    def needBi(a1 : Atom) : Boolean =
-      allAtoms exists { a2 => a1 != a2 && couldAlias(a1.last, a2.last) }
-
+    val needBi     = ExtArray.bidirChecker(allAtoms, goal)
+    
     val actions =
       for (a1 <- mapAtoms;
            if needBi(a1);
@@ -381,13 +383,7 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
     implicit val order = goal.order
     import TerForConvenience._
 
-    val mayAlias = goal.mayAlias
-
-    def couldAlias(a : LinearCombination, b : LinearCombination) =
-      mayAlias(a, b, true) match {
-        case AliasStatus.May | AliasStatus.Must => true
-        case _ => false
-      }
+    val couldAlias = ExtArray.aliasChecker(goal)
 
     val storeActions =
       for (a <- facts.positiveLitsWithPred(_store);
