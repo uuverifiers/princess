@@ -55,7 +55,7 @@ import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
-import ap.util.{Debug, Logic, PlainRange}
+import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
@@ -579,6 +579,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       addTheory(t)
       t
     })
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val extraTheories = Param.SMTParserExtraTheories(settings)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1648,10 +1652,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         charType
       case PlainIdentifier(id) =>
         env lookupSort id
-      case id => {
-        warn("treating sort " + (printer print s) + " as Int")
-        SMTInteger
-      }
+      case _ =>
+        translateExtraTheorySort(s).getOrElse({
+          warn("treating sort " + (printer print s) + " as Int")
+          SMTInteger
+        })
     }
 
     case s : CompositeSort => asString(s.identifier_) match {
@@ -1706,12 +1711,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         }
       }
 
-      case id => {
-        warn("treating sort " + (printer print s) + " as Int")
-        SMTInteger
-      }
+      case _ =>
+        translateExtraTheorySort(s).getOrElse({
+          warn("treating sort " + (printer print s) + " as Int")
+          SMTInteger
+        })
     }
   }
+
+  protected def translateExtraTheorySort(s : Sort) : scala.Option[SMTType] =
+    Seqs.some(for (t <- extraTheories.iterator) yield t.translateSMTSortAST(s))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2889,13 +2898,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Declared symbols from the environment
+    // Declared symbols from the environment, and symbols from extra theories
 
-    case CastSymbol(id, s) =>
-      unintFunApp(id, sym, args, polarity, Some(translateSort(s)))
+    case sym =>
+      translateExtraTheoryOp(sym, args, polarity).getOrElse({
+        sym match {
+          case CastSymbol(id, s) =>
+            unintFunApp(id, sym, args, polarity, Some(translateSort(s)))
+          case id =>
+            unintFunApp(asString(id), sym, args, polarity)
+        }
+      })
 
-    case id =>
-      unintFunApp(asString(id), sym, args, polarity)
   }
 
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
@@ -3025,7 +3039,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       case r =>
         throw new TranslationException("did not expect " + r)
     }
-  
+
+  private def translateExtraTheoryOp(sym      : SymbolRef,
+                                     args     : Seq[Term],
+                                     polarity : Int)
+                                      : scala.Option[(IExpression, SMTType)] = {
+    val transArgs = for (a <- args) yield ((pol:Int) => translateTerm(a, pol))
+    Seqs.some(for (t <- extraTheories.iterator)
+              yield t.translateSMTOperatorAST(sym, transArgs, polarity))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def asRealTerm(op : String, t : Term) : ITerm =
@@ -3991,28 +4014,4 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                    "Expected a formula, not " + expr)
   }
 
-  protected def asTerm(expr : (IExpression, SMTType)) : ITerm = expr match {
-    case (expr : ITerm, _) =>
-      expr
-    case (IBoolLit(true), _) =>
-      i(0)
-    case (IBoolLit(false), _) =>
-      i(1)
-    case (expr : IFormula, SMTBool) =>
-      ITermITE(expr, i(0), i(1))
-    case (expr, _) =>
-      throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term, not " + expr)
-  }
-
-  private def asTerm(expr : (IExpression, SMTType),
-                     expectedSort : SMTType) : ITerm = expr match {
-    case (expr : ITerm, `expectedSort`) =>
-      expr
-    case (expr, _) =>
-      throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term of type " +
-                   (SMTLineariser smtTypeAsString expectedSort) + ", not " +
-                   expr)
-  }
 }

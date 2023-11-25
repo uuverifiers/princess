@@ -38,6 +38,7 @@ import ap.theories.strings.StringTheoryBuilder
 import ap.Signature.PredicateMatchConfig
 import ap.proof.tree.{RandomDataSource, NonRandomDataSource}
 import ap.terfor.conjunctions.{ReducerPluginFactory, IdentityReducerPlugin}
+import ap.parser.SMTParseableTheory
 
 object Param {
   
@@ -356,6 +357,11 @@ object Param {
   case object STRING_ESCAPES extends Param {
     type Value = Boolean
     val defau : Boolean = false
+  }
+
+  case object SMTParserExtraTheories extends Param {
+    type Value = Seq[SMTParseableTheory]
+    val defau : Seq[SMTParseableTheory] = List()
   }
 
   case object SINGLE_INSTANTIATION_PREDICATES extends Param {

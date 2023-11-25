@@ -370,4 +370,32 @@ object SMTParsingUtils {
     }
   }
 
+  import SMTTypes._
+  import IExpression._
+
+  def asTerm(expr : (IExpression, SMTType)) : ITerm = expr match {
+    case (expr : ITerm, _) =>
+      expr
+    case (IBoolLit(true), _) =>
+      i(0)
+    case (IBoolLit(false), _) =>
+      i(1)
+    case (expr : IFormula, SMTBool) =>
+      ITermITE(expr, i(0), i(1))
+    case (expr, _) =>
+      throw new Parser2InputAbsy.TranslationException(
+                   "Expected a term, not " + expr)
+  }
+
+  def asTerm(expr : (IExpression, SMTType),
+                     expectedSort : SMTType) : ITerm = expr match {
+    case (expr : ITerm, `expectedSort`) =>
+      expr
+    case (expr, _) =>
+      throw new Parser2InputAbsy.TranslationException(
+                   "Expected a term of type " +
+                   (SMTLineariser smtTypeAsString expectedSort) + ", not " +
+                   expr)
+  }
+
 }

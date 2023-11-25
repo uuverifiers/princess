@@ -500,103 +500,42 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printADTDeclarations(adts : Seq[ADT]) : Unit = {
-    // we need to sort the ADTs, because they might depend on each other
-    val allADTs, declaredADTs = new MHashSet[ADT]
-    allADTs ++= adts
+  /**
+   * Topologically sort theories to be declared: dependencies of a
+   * theory preceed the theory in the resulting list.
+   */
+  def sortTheoryDeps(theories : Seq[Theory]) : Seq[Theory] = {
+    val undeclaredTheories = new MHashSet[Theory]
+    undeclaredTheories ++= theories
 
-    while (declaredADTs.size < adts.size) {
-      val oldSize = declaredADTs.size
+    val res = new ArrayBuffer[Theory]
+    var remainingTheories : Seq[Theory] = theories
 
-      for (adt <- adts; if !(declaredADTs contains adt)) {
-        val allSorts = for (sels <- adt.selectors; f <- sels) yield f.resSort
-        if (allSorts forall {
-              case s : ADT.ADTProxySort =>
-                adt == s.adtTheory ||
-                (declaredADTs contains s.adtTheory) ||
-                !(allADTs contains s.adtTheory)
-              case _ =>
-                true
-            }) {
-          printADTDeclaration(adt)
-          declaredADTs += adt
-        }
+    while (!remainingTheories.isEmpty) {
+      val (decl, rem) = remainingTheories.partition {
+        t => Seqs.disjointSeq(undeclaredTheories, t.transitiveDependencies)
       }
 
-      if (oldSize == declaredADTs.size)
+      if (rem.size == remainingTheories.size)
         throw new IllegalArgumentException(
-          "Could not sort ADTs due to cyclic dependencies")
+          "cyclic dependencies during theory declaration")
+
+      remainingTheories = rem
+      res ++= decl
+
+      undeclaredTheories --= decl
     }
-  }
-  
-  def printADTDeclaration(adt : ADT) : Unit =
-    if (adt.sorts.size == 1) {
-      val sortName = adt.sorts.head.name
-      println("(declare-datatype " + quoteIdentifier(sortName) + " (")
-      for ((f, sels) <- adt.constructors zip adt.selectors)
-        printADTCtor(f, sels)
-      println("))")
-    } else {
-      println("(declare-datatypes (")
-      print((for (s <- adt.sorts)
-             yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
-      println(") (")
-      for (num <- 0 until adt.sorts.size) {
-        println("  (")
-        for ((f, sels) <- adt.constructors zip adt.selectors;
-             if (f.resSort match {
-               case s : ADT.ADTProxySort =>
-                 s.sortNum == num && s.adtTheory == adt
-               case _ =>
-                 false
-             }))
-          printADTCtor(f, sels)
-        println("  )")
+
+    val subsumedTheories = new MHashSet[Theory]
+    for ((t, n) <- res.toList.zipWithIndex.reverseIterator)
+      if (subsumedTheories contains t) {
+        res.remove(n)
+      } else if (t.isInstanceOf[SMTLinearisableTheory]) {
+        subsumedTheories ++=
+          t.asInstanceOf[SMTLinearisableTheory].SMTDeclarationSideEffects
       }
-      println("))")
-    }
 
-  private def printADTCtor(ctor : MonoSortedIFunction,
-                           selectors : Seq[MonoSortedIFunction]) : Unit = {
-    print("  (" + quoteIdentifier(ctor.name))
-    for ((s, g) <- ctor.argSorts zip selectors) {
-      print(" (" + quoteIdentifier(g.name) + " ")
-      printSMTType(sort2SMTType(s)._1)
-      print(")")
-    }
-    println(")")
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def printHeapDeclarations(heaps : Seq[Heap]) : Unit = {
-      for (heap <- heaps) printHeapDeclaration(heap)
-  }
-
-  def printHeapDeclaration(heap : Heap) : Unit = {
-    print("(declare-heap ")
-    println(heap.HeapSort.name + " " + heap.AddressSort.name + " " +
-          heap.ObjectSort.name)
-    println(" " ++ asString(heap._defObj))
-    print(" (")
-    print((for(s <- heap.userADTSorts)
-      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
-    println(") (")
-    for (num <- heap.userADTSorts.indices) {
-      println("  (")
-      for ((f, sels) <- heap.userADTCtors zip heap.userADTSels; // todo: should probably be just the object ADT ctors
-           if (f.resSort match {
-             case s: ADT.ADTProxySort =>
-               s.sortNum == num && s.adtTheory == heap.heapADTs
-             case _ =>
-               false
-           })) {
-        print(" ")
-        printADTCtor(f, sels)
-      }
-      println("  )")
-    }
-    println("))")
+    res.toSeq
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -664,32 +603,25 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   private def findTheorys(formulas : Iterable[IFormula],
-                          consts : Iterable[ConstantTerm],
-                          preds : Iterable[Predicate]) : Seq[Theory] = {
+                          consts   : Iterable[ConstantTerm],
+                          preds    : Iterable[Predicate]) : Seq[Theory] = {
     val theoryCollector = new TheoryCollector
     for (f <- formulas)
       theoryCollector(f)
 
-    def checkSort(s : Sort) : Unit = s match {
-      case s : ADT.ADTProxySort =>
-        theoryCollector addTheory s.adtTheory
-      case _ =>
-        // nothing
-    }
-
-    // also collect ADT types
     for (c <- consts)
-      checkSort(SortedConstantTerm sortOf c)
+      theoryCollector(SortedConstantTerm sortOf c)
 
     for (p <- preds) p match {
       case p : MonoSortedPredicate =>
         for (s <- p.argSorts)
-          checkSort(s)
+          theoryCollector(s)
       case _ =>
         // nothing
     }
 
-    theoryCollector.theories
+    (for (t <- theoryCollector.theories;
+          s <- t.transitiveDependencies) yield s).distinct
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -821,6 +753,16 @@ object SMTLineariser {
         case _ =>
           Some((fun.name.replace("seq_", "seq."), ""))
       }
+      case Some(t : SMTLinearisableTheory) =>
+        for (str <- t.fun2SMTString(fun)) yield (str, "")
+      case _ =>
+        None
+    }
+
+  private def theoryPred2Identifier(pred : Predicate) : Option[String] =
+    (TheoryRegistry lookupSymbol pred) match {
+      case Some(t : SMTLinearisableTheory) =>
+        t.pred2SMTString(pred)
       case _ =>
         None
     }
@@ -863,37 +805,41 @@ object SMTLineariser {
 /**
  * Class for printing <code>IFormula</code>s in the SMT-Lib format
  */
-class SMTLineariser(benchmarkName : String,
-                    logic : String,
-                    status : String,
-                    constsToDeclare : Seq[ConstantTerm],
-                    predsToDeclare : Seq[Predicate],
+class SMTLineariser(benchmarkName     : String,
+                    logic             : String,
+                    status            : String,
+                    constsToDeclare   : Seq[ConstantTerm],
+                    predsToDeclare    : Seq[Predicate],
                     theoriesToDeclare : Seq[Theory],
-                    funPrefix : String, predPrefix : String, constPrefix : String,
+                    funPrefix         : String,
+                    predPrefix        : String,
+                    constPrefix       : String,
                     constantType :
-                           ConstantTerm => Option[SMTTypes.SMTType],
+                       ConstantTerm => Option[SMTTypes.SMTType],
                     functionType :
-                           IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
                     predType :
-                           Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
   import SMTTypes._
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType,
-                        printADTDeclarations, printHeapDeclarations,
+                        printSMTType, sortTheoryDeps,
                         sort2SMTString, sort2SMTType, theoryFun2Identifier,
+                        theoryPred2Identifier,
                         bvSimpleUnFunction, bvSimpleBinFunction,
                         bvSimpleBinPred, invisible1, invisible2}
 
   //////////////////////////////////////////////////////////////////////////////
 
   private def pred2Identifier(pred : Predicate) =
-    if (pred == eqPredicate)
+    if (pred == eqPredicate) {
        "="
-    else
-       quoteIdentifier(predPrefix + pred.name)
+    } else {
+      theoryPred2Identifier(pred) getOrElse
+      quoteIdentifier(predPrefix + pred.name)
+    }
 
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
@@ -912,33 +858,11 @@ class SMTLineariser(benchmarkName : String,
     if(status.nonEmpty)
       println("(set-info :status " + status + ")")
 
-    // declare the required theories
-    val heaps = for (theory <- theoriesToDeclare;
-                     if (theory match {
-                       case _ : ADT  => false // will be handled later
-                       case _ : Heap => true
-                       case _ => false
-                     }))
-      yield theory.asInstanceOf[Heap]
-    printHeapDeclarations(heaps)
-
-    val adts = for (theory <- theoriesToDeclare;
-                    if (theory match {
-                      case adt : ADT if adt != ADT.BoolADT => // declare this theory if
-                        heaps.isEmpty || // there are no heap theories OR
-                          // it is not the case that there exists a heap theory
-                          // that already declared this adt
-                          !heaps.exists(h => h.heapADTs == adt)
-                      case _ : Heap     => false // handled before
-                      case _ : ExtArray => false // no need to declare
-                      case _ => {
-                        Console.err.println("Warning: do not know how to " +
-                                            "declare " + theory)
-                        false
-                      }
-                    }))
-               yield theory.asInstanceOf[ADT]
-    printADTDeclarations(adts)
+    for (t <- sortTheoryDeps(theoriesToDeclare))
+      t match {
+        case t : SMTLinearisableTheory => t.printSMTDeclaration
+        case _                         => // nothing
+      }
 
     // declare the required predicates
     for (pred <- predsToDeclare) {

@@ -429,7 +429,7 @@ class Heap(heapSortName : String, addressSortName : String,
 // initialised), and it passes back the theory ADTs for adding to environment
 // (e.g. as done in SMTParser2InputAbsy), and also the actual constructors
 // for the ctorSignatures, so the defObj term can be built using those.
-    extends Theory {
+    extends SMTLinearisableTheory {
   import Heap._
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AC,
@@ -508,12 +508,23 @@ class Heap(heapSortName : String, addressSortName : String,
 
   val userSortNames : Seq[String] = sortNames
   val userCtorSignatures : Seq[(String, Heap.CtorSignature)] = ctorSignatures
+  val adtCtorSignatures = HeapSortToADTSort(userCtorSignatures)
+
+  // We must avoid circular dependencies, therefore the ADT is
+  // declared to depend on theories needed for the ADT sorts, but not
+  // on the heap theory itself.
+  val adtDependencies =
+    (for ((_, sig) <- adtCtorSignatures;
+          t <- sig.sortDependencies;
+          if t != this)
+     yield t).distinct
 
   val heapADTs : ADT = new ADT(
     userSortNames ++ //Object ADT and other input ADTs are defined first
       heapADTDefinitions.values.map(_._1), // names from theory declared ADTs
-    HeapSortToADTSort(userCtorSignatures) ++ // Object and other input ADT signatures
-      heapADTDefinitions.values.toSeq // signatures of theory declared ADTs
+    adtCtorSignatures ++ // Object and other input ADT signatures
+      heapADTDefinitions.values.toSeq, // signatures of theory declared ADTs
+    overrideDeps = Some(adtDependencies)
   )
 
   val ObjectSort : Sort = heapADTs.sorts(objectSortId)
@@ -1209,6 +1220,40 @@ class Heap(heapSortName : String, addressSortName : String,
     }
 
   override val postSimplifiers : Seq[IExpression => IExpression] = Vector(rewriter)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def printSMTDeclaration : Unit = {
+    import SMTLineariser.{asString, quoteIdentifier}
+
+    print("(declare-heap ")
+    println(HeapSort.name + " " + AddressSort.name + " " +
+          ObjectSort.name)
+    println(" " ++ asString(_defObj))
+    print(" (")
+    print((for(s <- userADTSorts)
+      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+    println(") (")
+    for (num <- userADTSorts.indices) {
+      println("  (")
+      for ((f, sels) <- userADTCtors zip userADTSels; // todo: should probably be just the object ADT ctors
+           if (f.resSort match {
+             case s: ADT.ADTProxySort =>
+               s.sortNum == num && s.adtTheory == heapADTs
+             case _ =>
+               false
+           })) {
+        print(" ")
+        ADT.printSMTCtorDeclaration(f, sels)
+      }
+      println("  )")
+    }
+    println("))")
+  }
+
+  override def SMTDeclarationSideEffects : Seq[Theory] = List(heapADTs)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
   override def toString = "HeapTheory"

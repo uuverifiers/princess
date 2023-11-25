@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -75,13 +75,20 @@ object Theory {
 
     val knownTheories = new LinkedHashSet[Theory]
 
-    def addTheory(t : Theory) : Unit =
+    def addTheory(t : Theory) : Unit = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, t != this,
+                      "When processing theory axioms, the theory itself must " +
+                        "not be assumed as a known theory. This error might " +
+                        "indicate cyclic dependencies among theories")
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       if (knownTheories add t) {
         for (s <- t.dependencies)
           addTheory(s)
         currentOrder = t extend currentOrder
         functionEnc addTheory t
       }
+    }
 
     for (t <- otherTheories)
       addTheory(t)
@@ -420,6 +427,14 @@ trait Theory {
    * of the dependencies will be called after the preprocessor of this theory.
    */
   val dependencies : Iterable[Theory] = List()
+
+  /**
+   * Dependencies closed under transitivity, i.e., also including the
+   * dependencies of dependencies.
+   */
+  lazy val transitiveDependencies : Iterable[Theory] =
+    (for (t <- dependencies.toSeq;
+          s <- List(t) ++ t.transitiveDependencies) yield s).distinct
 
   /**
    * Optionally, a set of predicates used by the theory to tell the

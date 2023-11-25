@@ -600,10 +600,9 @@ class ExtArray (val indexSorts : Seq[Sort],
   
   //////////////////////////////////////////////////////////////////////////////
 
-  // TODO: we need a more generic way to discover theories a sort belongs to
   override val dependencies =
-    for (s <- indexSorts ++ List(objSort);
-         t <- (TheoryRegistry lookupSort s).toSeq) yield t
+    (for (s <- indexSorts ++ List(objSort);
+          t <- (TheoryRegistry lookupSort s).toSeq) yield t).distinct
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,

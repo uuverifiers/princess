@@ -36,7 +36,7 @@ package ap.parser;
 import ap.basetypes.IdealInt
 import ap.DialogUtil
 import ap.types.Sort
-import ap.theories.{ADT, Heap, ModuloArithmetic}
+import ap.theories.{ADT, Heap, ModuloArithmetic, TheoryRegistry}
 import ap.theories.sequences.SeqTheory
 import ap.theories.arrays.{ExtArray, SimpleArray}
 import ap.theories.strings.StringTheory
@@ -204,9 +204,21 @@ object SMTTypes {
       (SMTHeapAddress(sort.heapTheory), None)
     case Sort.AnySort =>
       (SMTInteger, None)
-    case s =>
-      throw new Exception (
-        "do not know how to translate " + s + " to an SMT-LIB type")
+
+    case s => {
+      // check whether the theory can resolve this sort
+      val typ =
+        (TheoryRegistry lookupSort s) match {
+          case t : SMTLinearisableTheory => t.sort2SMTType(s)
+          case _                         => None
+        }
+      typ match {
+        case Some(t) => (t, None)
+        case None =>
+          throw new Exception (
+            "do not know how to translate " + s + " to an SMT-LIB type")
+      }
+    }
   }
 
 }
