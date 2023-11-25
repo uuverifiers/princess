@@ -344,7 +344,7 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val combinators2PerArrayArgs =
+  protected[arrays] val combinators2PerArrayArgs =
     for (n <- 0 until subTheories.size) yield {
       for ((m, CombinatorSpec(_, aI, _, _))
              <- _combinators2 zip combinatorSpecs;
@@ -359,38 +359,50 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
    * bidirectional propagation.
    */
   private def comb2comb2Eager(goal : Goal) : Seq[Plugin.Action] =
-    for (n <- 0 until subTheories.size; act <- comb2comb2Eager(goal, n))
+    for (n <- 0 until subTheories.size;
+         act <- comb2comb2Eager(goal, n, consumedArrayTerms(goal, n)))
     yield act
 
-  private def comb2comb2Eager(goal : Goal,
-                              subTheoryInd : Int) : Seq[Plugin.Action] = {
+  protected[arrays]
+  def consumedArrayTerms(goal : Goal,
+                         subTheoryInd : Int) : Set[LinearCombination] = {
     val facts     = goal.facts.predConj
     val subTheory = subTheories(subTheoryInd)
 
-    import subTheory.{_store, _store2}
+    import subTheory._store2
 
-    val comb2Arrays = (
-      (for (a <- facts.positiveLitsWithPred(_store2).iterator) yield a.head) ++(
+    ((for (a <- facts.positiveLitsWithPred(_store2).iterator) yield a.head) ++(
        for ((m, inds) <- combinators2PerArrayArgs(subTheoryInd).iterator;
             a <- facts.positiveLitsWithPred(m).iterator;
             ind <- inds.iterator)
        yield a(ind))).toSet
+  }
 
-    if (comb2Arrays.isEmpty)
+  protected[arrays]
+  def comb2comb2Eager(goal         : Goal,
+                      subTheoryInd : Int,
+                      arrayTerms   : Set[LinearCombination])
+                                   : Seq[Plugin.Action] = {
+    if (arrayTerms.isEmpty)
       return List()
+
+    val facts     = goal.facts.predConj
+    val subTheory = subTheories(subTheoryInd)
+
+    import subTheory._store
 
     val couldAlias = ExtArray.aliasChecker(goal)
 
     val storeActions =
       for (a <- facts.positiveLitsWithPred(_store);
-           if comb2Arrays exists { t => couldAlias(t, a.last) };
+           if arrayTerms exists { t => couldAlias(t, a.last) };
            action <- subTheory.storeConversionActions(a, goal))
       yield action
 
     val combActions =
       for (m <- combinatorsPerArray(subTheoryInd);
            a <- facts.positiveLitsWithPred(m);
-           if comb2Arrays exists { t => couldAlias(t, a.last) };
+           if arrayTerms exists { t => couldAlias(t, a.last) };
            action <- combConversionActions(a, goal))
       yield action
 
