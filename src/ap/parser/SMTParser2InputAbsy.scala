@@ -2983,6 +2983,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.<=") =>
       translateStringPred(stringTheory.str_<=, args,
                           List(stringType, stringType))
+    case PlainSymbol("str.<") =>
+      translateStringPred(stringTheory.str_<, args,
+                          List(stringType, stringType))
     case PlainSymbol("str.at") =>
       (translateStringFun(stringTheory.str_at, args,
                           List(stringType, SMTInteger)), stringType)
