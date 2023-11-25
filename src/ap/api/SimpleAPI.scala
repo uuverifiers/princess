@@ -957,11 +957,11 @@ class SimpleAPI private (enableAssert        : Boolean,
     doDumpSMT {
       p match {
         case p : MonoSortedPredicate =>
-          dumpSMTFunDecl(p.name, p.argSorts, SMTParser2InputAbsy.SMTBool)
+          dumpSMTFunDecl(p.name, p.argSorts, SMTTypes.SMTBool)
         case _ =>
           dumpSMTFunDecl(p.name,
                          for (_ <- 0 until p.arity) yield Sort.Integer,
-                         SMTParser2InputAbsy.SMTBool)
+                         SMTTypes.SMTBool)
       }
     }
     doDumpScala {
@@ -1185,7 +1185,7 @@ class SimpleAPI private (enableAssert        : Boolean,
 
   private def dumpSMTFunDecl(name : String,
                              argSorts : Seq[Sort],
-                             resType : SMTParser2InputAbsy.SMTType) = {
+                             resType : SMTTypes.SMTType) = {
     print("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
         (for (s <- argSorts)
          yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
@@ -1727,7 +1727,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                                      fullyInline : Boolean = false)
              : (Seq[IFormula],
                 Map[IFunction,                SMTParser2InputAbsy.SMTFunctionType],
-                Map[IExpression.ConstantTerm, SMTParser2InputAbsy.SMTType],
+                Map[IExpression.ConstantTerm, SMTTypes.SMTType],
                 Map[IExpression.Predicate,    SMTParser2InputAbsy.SMTFunctionType]) = {
     val parser = SMTParser2InputAbsy(parserSettings, this)
     if (fullyInline) {

@@ -66,72 +66,9 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
   import IExpression.{Sort => TSort}
+  import SMTTypes._
 
-  abstract class SMTType {
-    def toSort : TSort
-  }
-  case object SMTBool                              extends SMTType {
-    def toSort = TSort.MultipleValueBool
-  }
-  case object SMTInteger                           extends SMTType {
-    def toSort = TSort.Integer
-  }
-  case class  SMTReal(sort : TSort)                extends SMTType {
-    def toSort = sort
-  }
-  case class  SMTArray(arguments : List[SMTType],
-                       result : SMTType)           extends SMTType {
-    val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
-                          toNormalBool(result.toSort))
-    def toSort = theory.sort
-  }
-  case class SMTBitVec(width : Int)                extends SMTType {
-    def toSort = ModuloArithmetic.UnsignedBVSort(width)
-    val modulus = IdealInt(2) pow width
-  }
-  case class SMTFF(card : IdealInt)                extends SMTType {
-    def toSort = ModuloArithmetic.ModSort(IdealInt.ZERO, card - 1)
-  }
-  object SMTADT {
-    val POLY_PREFIX = "$poly:"
-  }
-  case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
-    def toSort = adt sorts sortNum
-    override def toString = (adt sorts sortNum).name
-  }
-  case class SMTHeap(heap : Heap) extends SMTType {
-    def toSort = heap.HeapSort
-    override def toString = heap.HeapSort.name
-  }
-  case class SMTHeapAddress(heap : Heap) extends SMTType {
-    def toSort = heap.AddressSort
-    override def toString = heap.AddressSort.name
-  }
-  case class SMTUnint(sort : TSort)                extends SMTType {
-    def toSort = sort
-    override def toString = sort.name
-  }
-
-  case class SMTString(sort : TSort)               extends SMTType {
-    def toSort = sort
-    override def toString = "String"
-  }
-  case class SMTChar(sort : TSort)                 extends SMTType {
-    def toSort = sort
-    override def toString = "Char"
-  }
-  case class SMTRegLan(sort : TSort)               extends SMTType {
-    def toSort = sort
-    override def toString = "RegLan"
-  }
-
-  case class SMTSeq(theory : SeqTheory,
-                    elementType : SMTType)         extends SMTType {
-    def toSort = theory.sort
-    override def toString = theory.toString
-  }
-
-  private def toNormalBool(s : TSort) : TSort = s match {
+  protected[parser] def toNormalBool(s : TSort) : TSort = s match {
     case TSort.MultipleValueBool => TSort.Bool
     case s => s
   }
@@ -546,28 +483,29 @@ object SMTParser2InputAbsy {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
+class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               SMTParser2InputAbsy.SMTFunctionType,
                                               SMTParser2InputAbsy.SMTFunctionType,
-                                              SMTParser2InputAbsy.SMTType],
+                                              SMTTypes.SMTType],
                            settings : ParserSettings,
                            _prover : SimpleAPI)
       extends Parser2InputAbsy
-          [SMTParser2InputAbsy.SMTType,
+          [SMTTypes.SMTType,
            SMTParser2InputAbsy.VariableType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTFunctionType,
-           SMTParser2InputAbsy.SMTType,
-           (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
-            AnyRef,                                                     // polyADTs
-            Int,                                                        // nextPartitionNumber
-            Map[PartName, Int]                                          // partNameIndexes
+           SMTTypes.SMTType,
+           (Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
+            AnyRef,                                          // polyADTs
+            Int,                                             // nextPartitionNumber
+            Map[PartName, Int]                               // partNameIndexes
             )](_env, settings) {
   
   import IExpression.{Sort => TSort, _}
   import Parser2InputAbsy._
   import SMTParser2InputAbsy._
+  import SMTTypes._
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */

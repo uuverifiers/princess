@@ -60,6 +60,9 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
+  import SMTTypes._
+  import SMTParser2InputAbsy.SMTFunctionType
+
   private val AC = Debug.AC_PARSER
 
   private val SaneId =
@@ -443,11 +446,6 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
-                              SMTBitVec, SMTFF, SMTString, SMTSeq,
-                              SMTFunctionType,
-                              SMTUnint, SMTADT, SMTHeap, SMTHeapAddress}
-
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
 
@@ -488,89 +486,14 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printSMTType(t : SMTType) : Unit = t match {
-    case SMTInteger          => print("Int")
-    case SMTBool             => print("Bool")
-    case SMTReal(_)          => print("Real")
-    case t : SMTADT          => {
-      val str = t.toString
-      if (str startsWith SMTADT.POLY_PREFIX)
-        // TODO: this won't correctly add quotes
-        print(str substring SMTADT.POLY_PREFIX.size)
-      else
-        print(quoteIdentifier(str))
-    }
-    case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
-    case SMTFF(card)         => print("(_ FiniteField " + card + ")")
-    case SMTString(_)        => print("String")
-    case SMTSeq(_, elType)   => {
-      print("(Seq ")
-      printSMTType(elType)
-      print(")")
-    }
-    case SMTArray(args, res) => {
-      print("(Array")
-      for (s <- args) {
-        print(" ")
-        printSMTType(s)
-      }
-      print(" ")
-      printSMTType(res)
-      print(")")
-    }
-    case SMTHeap(s)        => print(s.HeapSort.name)
-    case SMTHeapAddress(s) => print(s.AddressSort.name)
-    case SMTUnint(sort)    => print(sort)
-  }
+  def printSMTType(t : SMTType) : Unit =
+    print(t.toSMTLIBString)
 
   def smtTypeAsString(t : SMTType) : String =
-    DialogUtil asString { printSMTType(t) }
+    t.toSMTLIBString
 
-  def sort2SMTType(sort : Sort) : (SMTType,
-                                   Option[ITerm => IFormula]) = sort match {
-    case Sort.Integer =>
-      (SMTInteger, None)
-    case Sort.Nat =>
-      (SMTInteger, Some(_ >= 0))
-    case sort : Sort.Interval =>
-      (SMTInteger, Some(sort.membershipConstraint _))
-    case Sort.Bool | Sort.MultipleValueBool =>
-      (SMTBool, None)
-    case sort if (StringTheory lookupStringSort sort).isDefined =>
-      (SMTString(sort), None)
-    case sort if (SeqTheory lookupSeqSort sort).isDefined => {
-      val Some(theory) = SeqTheory lookupSeqSort sort
-      (SMTSeq(theory, sort2SMTType(theory.ElementSort)._1), None)
-    }
-    case sort : ADT.ADTProxySort =>
-      (SMTADT(sort.adtTheory, sort.sortNum), None)
-    case ModuloArithmetic.UnsignedBVSort(width) =>
-      (SMTBitVec(width), None)
-    case ModuloArithmetic.ModSort(IdealInt.ZERO, card) =>
-      (SMTFF(card + 1), None)
-    case SimpleArray.ArraySort(arity) =>
-      (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
-       None)
-    case ExtArray.ArraySort(theory) =>
-      (SMTArray((for (s <- theory.indexSorts) yield sort2SMTType(s)._1).toList,
-                sort2SMTType(theory.objSort)._1),
-       None)
-    case Rationals.FractionSort =>
-      (SMTReal(sort), None)
-    case sort : UninterpretedSortTheory.UninterpretedSort =>
-      (SMTUnint(sort), None)
-    case sort : UninterpretedSortTheory.InfUninterpretedSort =>
-      (SMTUnint(sort), None)
-    case sort : Heap.HeapSort =>
-      (SMTHeap(sort.heapTheory), None)
-    case sort : Heap.AddressSort =>
-      (SMTHeapAddress(sort.heapTheory), None)
-    case Sort.AnySort =>
-      (SMTInteger, None)
-    case s =>
-      throw new Exception (
-        "do not know how to translate " + s + " to an SMT-LIB type")
-  }
+  def sort2SMTType(sort : Sort) : (SMTType, Option[ITerm => IFormula]) =
+    SMTTypes.sort2SMTType(sort)
 
   def sort2SMTString(sort : Sort) : String =
     smtTypeAsString(sort2SMTType(sort)._1)
@@ -692,7 +615,7 @@ object SMTLineariser {
 
   def apply(formula : IFormula,
             constantType :
-              ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+              ConstantTerm => Option[SMTTypes.SMTType],
             functionType :
               IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
             predType :
@@ -948,13 +871,14 @@ class SMTLineariser(benchmarkName : String,
                     theoriesToDeclare : Seq[Theory],
                     funPrefix : String, predPrefix : String, constPrefix : String,
                     constantType :
-                           ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+                           ConstantTerm => Option[SMTTypes.SMTType],
                     functionType :
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
                     predType :
                            Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
+  import SMTTypes._
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType,
@@ -1034,7 +958,7 @@ class SMTLineariser(benchmarkName : String,
     // declare universal constants
     for (const <- constsToDeclare) {
       print("(declare-fun " + const2Identifier(const) + " () ")
-      printSMTType(constantType(const) getOrElse SMTParser2InputAbsy.SMTInteger)
+      printSMTType(constantType(const) getOrElse SMTTypes.SMTInteger)
       println(")")
     }
   }
@@ -1075,8 +999,7 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger,
-                              SMTFunctionType}
+  import SMTParser2InputAbsy.SMTFunctionType
 
   private def getTermType(t : ITerm)
                          (implicit variableType : Int => Option[SMTType])
