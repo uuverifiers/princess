@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@ package ap.theories
 
 import ap.parser._
 import ap.terfor.TermOrder
+import ap.types.Sort
 
 import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
 
@@ -94,21 +95,21 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
 
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[Unit]) : Unit = t match {
-    case IFunApp(f, _) => apply(f)
-    case IAtom(p, _)   => apply(p)
+    case IFunApp(f, _)              => apply(f)
+    case IAtom(p, _)                => apply(p)
+    case ISortedQuantified(_, s, _) => apply(s)
+    case ISortedEpsilon(s, _)       => apply(s)
     case _ => // nothing
   }
   
   def apply(f : IFunction) : Unit =
-    if (!(symbolsSeen contains f)) {
-      symbolsSeen += f
+    if (symbolsSeen add f) {
       for (t <- TheoryRegistry lookupSymbol f)
         addTheory(t)
     }
     
   def apply(p : IExpression.Predicate) : Unit =
-    if (!(symbolsSeen contains p)) {
-      symbolsSeen += p
+    if (symbolsSeen add p) {
       for (t <- TheoryRegistry lookupSymbol p)
         addTheory(t)
     }
@@ -116,5 +117,11 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
   def apply(order : TermOrder) : Unit =
     for (p <- order sortPreds order.orderedPredicates)
       apply(p)
+
+  def apply(s : Sort) : Unit =
+    if (symbolsSeen add s) {
+      for (t <- TheoryRegistry lookupSort s)
+        addTheory(t)
+    }
 
 }

@@ -67,7 +67,11 @@ object ADT {
   case class OtherSort(sort : Sort) extends CtorArgSort
 
   case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
-                           result : ADTSort)
+                           result : ADTSort) {
+    def sortDependencies : Seq[Theory] =
+      for ((_, OtherSort(s)) <- this.arguments;
+           t <- (TheoryRegistry lookupSort s).toSeq) yield t
+  }
 
   class ADTException(m : String) extends Exception(m)
 
@@ -167,7 +171,10 @@ object ADT {
    */
   class ADTProxySort(val sortNum : Int,
                      underlying : Sort,
-                     val adtTheory : ADT) extends ProxySort(underlying) {
+                     val adtTheory : ADT) extends ProxySort(underlying)
+                                          with Theory.TheorySort {
+
+    val theory = adtTheory
 
     override lazy val individuals : Stream[ITerm] =
       depthSortedInterl(
@@ -511,6 +518,22 @@ object ADT {
 
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected[theories]
+    def printSMTCtorDeclaration(ctor : MonoSortedIFunction,
+                                selectors : Seq[MonoSortedIFunction]) : Unit = {
+      import SMTLineariser.{quoteIdentifier, printSMTType, sort2SMTType}
+
+      print("  (" + quoteIdentifier(ctor.name))
+      for ((s, g) <- ctor.argSorts zip selectors) {
+        print(" (" + quoteIdentifier(g.name) + " ")
+        printSMTType(sort2SMTType(s)._1)
+        print(")")
+      }
+      println(")")
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -518,10 +541,11 @@ object ADT {
 /**
  * Theory solver for algebraic data-types.
  */
-class ADT (sortNames : Seq[String],
+class ADT (sortNames      : Seq[String],
            ctorSignatures : Seq[(String, ADT.CtorSignature)],
-           measure : ADT.TermMeasure.Value =
-             ADT.TermMeasure.RelDepth) extends Theory {
+           measure        : ADT.TermMeasure.Value = ADT.TermMeasure.RelDepth,
+           overrideDeps   : Option[Seq[Theory]] = None)
+      extends SMTLinearisableTheory {
 
   import ADT._
   import IExpression.Predicate
@@ -536,6 +560,11 @@ class ADT (sortNames : Seq[String],
                        }
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  override val dependencies : Iterable[Theory] =
+    overrideDeps getOrElse
+    (for ((_, sig) <- ctorSignatures;
+          t <- sig.sortDependencies) yield t).distinct
 
   private val globalCtorIdsPerSort : IndexedSeq[Seq[Int]] = {
     val map =
@@ -1611,6 +1640,38 @@ class ADT (sortNames : Seq[String],
       }
     }) else {
     None
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def printSMTDeclaration : Unit = {
+    import SMTLineariser.quoteIdentifier
+
+    if (sorts.size == 1) {
+      val sortName = sorts.head.name
+      println("(declare-datatype " + quoteIdentifier(sortName) + " (")
+      for ((f, sels) <- constructors zip selectors)
+        printSMTCtorDeclaration(f, sels)
+      println("))")
+    } else {
+      println("(declare-datatypes (")
+      print((for (s <- sorts)
+             yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+      println(") (")
+      for (num <- 0 until sorts.size) {
+        println("  (")
+        for ((f, sels) <- constructors zip selectors;
+             if (f.resSort match {
+               case s : ADTProxySort =>
+                 s.sortNum == num && s.adtTheory == this
+               case _ =>
+                 false
+             }))
+          printSMTCtorDeclaration(f, sels)
+        println("  )")
+      }
+      println("))")
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

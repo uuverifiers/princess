@@ -55,7 +55,7 @@ import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
-import ap.util.{Debug, Logic, PlainRange}
+import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{ArrayBuffer,
@@ -67,72 +67,9 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
   import IExpression.{Sort => TSort}
+  import SMTTypes._
 
-  abstract class SMTType {
-    def toSort : TSort
-  }
-  case object SMTBool                              extends SMTType {
-    def toSort = TSort.MultipleValueBool
-  }
-  case object SMTInteger                           extends SMTType {
-    def toSort = TSort.Integer
-  }
-  case class  SMTReal(sort : TSort)                extends SMTType {
-    def toSort = sort
-  }
-  case class  SMTArray(arguments : List[SMTType],
-                       result : SMTType)           extends SMTType {
-    val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
-                          toNormalBool(result.toSort))
-    def toSort = theory.sort
-  }
-  case class SMTBitVec(width : Int)                extends SMTType {
-    def toSort = ModuloArithmetic.UnsignedBVSort(width)
-    val modulus = IdealInt(2) pow width
-  }
-  case class SMTFF(card : IdealInt)                extends SMTType {
-    def toSort = ModuloArithmetic.ModSort(IdealInt.ZERO, card - 1)
-  }
-  object SMTADT {
-    val POLY_PREFIX = "$poly:"
-  }
-  case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
-    def toSort = adt sorts sortNum
-    override def toString = (adt sorts sortNum).name
-  }
-  case class SMTHeap(heap : Heap) extends SMTType {
-    def toSort = heap.HeapSort
-    override def toString = heap.HeapSort.name
-  }
-  case class SMTHeapAddress(heap : Heap) extends SMTType {
-    def toSort = heap.AddressSort
-    override def toString = heap.AddressSort.name
-  }
-  case class SMTUnint(sort : TSort)                extends SMTType {
-    def toSort = sort
-    override def toString = sort.name
-  }
-
-  case class SMTString(sort : TSort)               extends SMTType {
-    def toSort = sort
-    override def toString = "String"
-  }
-  case class SMTChar(sort : TSort)                 extends SMTType {
-    def toSort = sort
-    override def toString = "Char"
-  }
-  case class SMTRegLan(sort : TSort)               extends SMTType {
-    def toSort = sort
-    override def toString = "RegLan"
-  }
-
-  case class SMTSeq(theory : SeqTheory,
-                    elementType : SMTType)         extends SMTType {
-    def toSort = theory.sort
-    override def toString = theory.toString
-  }
-
-  private def toNormalBool(s : TSort) : TSort = s match {
+  protected[parser] def toNormalBool(s : TSort) : TSort = s match {
     case TSort.MultipleValueBool => TSort.Bool
     case s => s
   }
@@ -156,226 +93,11 @@ object SMTParser2InputAbsy {
   def apply(settings : ParserSettings, prover : SimpleAPI) =
     new SMTParser2InputAbsy (new Env, settings, prover)
   
-  /**
-   * Parse starting at an arbitrarily specified entry point
-   */
-  private def parseWithEntry[T](input : java.io.Reader,
-                                env : Env,
-                                entry : (parser) => T) : T = {
-    val l = new Yylex(new CRRemover2 (input))
-    val p = new parser(l)
-    
-    try { entry(p) } catch {
-      case e : Exception =>
-        try {
-          val msg = {
-            "At line " + String.valueOf(l.line_num()) +
-            ", near \"" + l.buff() + "\" :" +
-            "     " + e.getMessage()
-          }
-          throw new ParseException(msg)
-        } catch {
-          case _ : java.lang.StringIndexOutOfBoundsException =>
-            throw new ParseException(
-              "Runaway block, probably due to mismatched parentheses")
-        }
-    }
-  }
-
   //////////////////////////////////////////////////////////////////////////////
 
   private case class IncrementalException(t : Throwable) extends Exception
   
   private object ExitException extends Exception("SMT-LIB interpreter terminated")
-  
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Class for adding parentheses <code>()</code> after each SMT-LIB command;
-   * this is necessary in the interactive/incremental mode, because otherwise
-   * the parser always waits for the next token to arrive before forwarding
-   * a command.
-   * This also removes all CR-characters in a stream (necessary because the
-   * lexer seems to dislike CRs in comments), and adds an LF in the end,
-   * because the lexer does not allow inputs that end with a //-comment line
-   * either.
-   */
-  class SMTCommandTerminator(input : java.io.Reader) extends java.io.Reader {
-  
-    private val CR : Int         = '\r'
-    private val LF : Int         = '\n'
-    private val LParen : Int     = '('
-    private val RParen : Int     = ')'
-    private val Quote : Int      = '"'
-    private val SQuote : Int     = '\''
-    private val Pipe : Int       = '|'
-    private val Semicolon : Int  = ';'
-    private val Backslash : Int  = '\\'
-
-    private var parenDepth : Int = 0
-    private var state : Int = 0
-    
-    def read(cbuf : Array[Char], off : Int, len : Int) : Int = {
-      var read = 0
-      var cont = true
-
-      while (read < len && cont) {
-        state match {
-          case 0 => input.read match {
-            case CR => // nothing, read next character
-            case LParen => {
-              parenDepth = parenDepth + 1
-              cbuf(off + read) = LParen.toChar
-              read = read + 1
-            }
-            case RParen if (parenDepth > 1) => {
-              parenDepth = parenDepth - 1
-              cbuf(off + read) = RParen.toChar
-              read = read + 1
-            }
-            case RParen if (parenDepth == 1) => {
-              parenDepth = 0
-              cbuf(off + read) = RParen.toChar
-              read = read + 1
-              state = 5
-            }
-            case Quote => {
-              cbuf(off + read) = Quote.toChar
-              read = read + 1
-              state = 1
-            }
-            case SQuote => {
-              cbuf(off + read) = SQuote.toChar
-              read = read + 1
-              state = 2
-            }
-            case Pipe => {
-              cbuf(off + read) = Pipe.toChar
-              read = read + 1
-              state = 3
-            }
-            case Semicolon => {
-              cbuf(off + read) = Semicolon.toChar
-              read = read + 1
-              state = 4
-            }
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // process a double-quoted string "..."
-          case 1 => input.read match {
-            case Quote => {
-              cbuf(off + read) = Quote.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // process a single-quoted string '...'
-          case 2 => input.read match {
-            case SQuote => {
-              cbuf(off + read) = SQuote.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // parse a quoted identified |...|
-          case 3 => input.read match {
-            case Pipe => {
-              cbuf(off + read) = Pipe.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // parse a comment ;...
-          case 4 => input.read match {
-            case LF => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 0
-            }
-            case CR => // nothing, read next character
-            case -1 => {
-              cbuf(off + read) = LF.toChar
-              read = read + 1
-              state = 7
-            }
-            case next => {
-              cbuf(off + read) = next.toChar
-              read = read + 1
-            }
-          }
-
-          // output (
-          case 5 => {
-            cbuf(off + read) = LParen.toChar
-            read = read + 1
-            state = 6
-          }
-
-          // output )
-          case 6 => {
-            cbuf(off + read) = RParen.toChar
-            read = read + 1
-            state = 0
-          }
-
-          case 7 => {
-            return if (read == 0) -1 else read
-          }
-        }
-
-        cont = state >= 5 || input.ready
-      }
-
-      read
-    }
-   
-    def close : Unit = input.close
-
-    override def ready : Boolean = (state >= 5 || input.ready)
-  
-  }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -386,133 +108,6 @@ object SMTParser2InputAbsy {
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
  */
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  /** Implicit conversion so that we can get a Scala-like iterator from a
-    * a Java list */
-  import scala.collection.JavaConverters.asScala
-
-  implicit def impToScalaList[A](l : java.util.List[A]) : Seq[A] =
-    asScala(l).toSeq
-
-  implicit def impToScalaIterator[A](l : java.util.Iterator[A]) : Iterator[A] =
-    asScala(l)
-
-  def asString(s : SymbolRef) : String = s match {
-    case s : IdentifierRef     => asString(s.identifier_)
-    case s : CastIdentifierRef => asString(s.identifier_)
-  }
-
-  def asString(id : IndexC) : String = id match {
-    case id : NumIndex => id.numeral_
-    case id : HexIndex => id.hexadecimal_
-    case id : SymIndex => asString(id.symbol_)
-  }
-  
-  def asString(id : Identifier) : String = id match {
-    case id : SymbolIdent =>
-      asString(id.symbol_)
-    case id : IndexIdent =>
-      asString(id.symbol_) + "_" + ((id.listindexc_ map asString) mkString "_")
-  }
-  
-  def asString(s : Symbol) : String = s match {
-    case s : NormalSymbol =>
-//      sanitise(s.normalsymbolt_)
-      s.normalsymbolt_
-    case s : QuotedSymbol =>
-//      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
-      s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1)
-  }
-
-  def asString(s : Sort) : String = s match {
-    case s : IdentSort =>
-      asString(s.identifier_)
-    case s : CompositeSort =>
-      asString(s.identifier_) + "_" +
-      (s.listsort_ map (asString(_))).mkString("_")
-  }
-  
-  object PlainSymbol {
-    def unapply(s : SymbolRef) : scala.Option[String] = s match {
-      case s : IdentifierRef => PlainIdentifier unapply s.identifier_
-      case _ => None
-    }
-  }
-
-  object PlainIdentifier {
-    def unapply(id : Identifier) : scala.Option[String] = id match {
-      case id : SymbolIdent => id.symbol_ match {
-        case s : NormalSymbol =>
-          Some(s.normalsymbolt_)
-        case s : QuotedSymbol =>
-          Some(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
-        case _ =>
-          None
-      }
-      case _ => None
-    }
-  }
-  
-  object IndexedSymbol {
-    def unapplySeq(s : SymbolRef) : scala.Option[Seq[String]] = s match {
-      case s : IdentifierRef => IndexedIdentifier unapplySeq s.identifier_
-      case _ => None
-    }
-  }
-
-  object NumIndexedSymbol1 {
-    def unapply(s : SymbolRef) : scala.Option[(String, IdealInt)] = s match {
-      case IndexedSymbol(s1, NatLiteral(s2)) => Some((s1, s2))
-      case _ => None
-    }
-  }
-
-  object NumIndexedSymbol2 {
-    def unapply(s : SymbolRef)
-              : scala.Option[(String, IdealInt, IdealInt)] = s match {
-      case IndexedSymbol(s1, NatLiteral(s2), NatLiteral(s3)) => Some((s1, s2, s3))
-      case _ => None
-    }
-  }
-
-  object IndexedIdentifier {
-    def unapplySeq(id : Identifier) : scala.Option[Seq[String]] = id match {
-      case id : IndexIdent => id.symbol_ match {
-        case s : NormalSymbol =>
-          Some(List(s.normalsymbolt_) ++ (id.listindexc_ map asString))
-        case _ => None
-      }
-      case _ => None
-    }
-  }
-
-  object CastSymbol {
-    def unapply(s : SymbolRef) : scala.Option[(String, Sort)] = s match {
-      case s : CastIdentifierRef => s.identifier_ match {
-        case id : SymbolIdent => id.symbol_ match {
-          case ns : NormalSymbol => Some((ns.normalsymbolt_, s.sort_))
-          case _ => None
-        }
-        case _ => None
-      }
-      case _ => None
-    }
-  }  
-
-  val DecLiteral = """([0-9]+)""".r
-  val HexLiteral = """#x([0-9a-fA-F]+)""".r
-  val BVDecLiteral = """bv([0-9]+)""".r
-  val FFDecLiteral = """ff([0-9]+)""".r
-
-  object NatLiteral {
-    def unapply(s : String) : scala.Option[IdealInt] = s match {
-      case DecLiteral(v) => Some(IdealInt(v))
-      case HexLiteral(v) => Some(IdealInt(v, 16))
-      case _             => None
-    }
-  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -553,28 +148,30 @@ object SMTParser2InputAbsy {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
+class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               SMTParser2InputAbsy.SMTFunctionType,
                                               SMTParser2InputAbsy.SMTFunctionType,
-                                              SMTParser2InputAbsy.SMTType],
+                                              SMTTypes.SMTType],
                            settings : ParserSettings,
                            _prover : SimpleAPI)
       extends Parser2InputAbsy
-          [SMTParser2InputAbsy.SMTType,
+          [SMTTypes.SMTType,
            SMTParser2InputAbsy.VariableType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTFunctionType,
-           SMTParser2InputAbsy.SMTType,
-           (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
-            AnyRef,                                                     // polyADTs
-            Int,                                                        // nextPartitionNumber
-            Map[PartName, Int]                                          // partNameIndexes
+           SMTTypes.SMTType,
+           (Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
+            AnyRef,                                          // polyADTs
+            Int,                                             // nextPartitionNumber
+            Map[PartName, Int]                               // partNameIndexes
             )](_env, settings) {
   
   import IExpression.{Sort => TSort, _}
   import Parser2InputAbsy._
   import SMTParser2InputAbsy._
+  import SMTTypes._
+  import SMTParsingUtils._
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
@@ -594,7 +191,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
     
-    apply(parseWithEntry(input, env, entry _))
+    apply(parseWithEntry(input, entry _))
     
     val (assumptionFormula, interpolantSpecs) =
       if (genInterpolants) {
@@ -705,7 +302,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                     "Input is not of the form (ignore expression)")
       }
     }
-    val expr = parseWithEntry(input, env, entry _)
+    val expr = parseWithEntry(input, entry _)
     translateTerm(expr, -1) match {
       case p@(_, SMTBool) => asFormula(p)
       case p => asTerm(p)
@@ -983,6 +580,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       addTheory(t)
       t
     })
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val extraTheories = Param.SMTParserExtraTheories(settings)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2052,10 +1653,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         charType
       case PlainIdentifier(id) =>
         env lookupSort id
-      case id => {
-        warn("treating sort " + (printer print s) + " as Int")
-        SMTInteger
-      }
+      case _ =>
+        translateExtraTheorySort(s).getOrElse({
+          warn("treating sort " + (printer print s) + " as Int")
+          SMTInteger
+        })
     }
 
     case s : CompositeSort => asString(s.identifier_) match {
@@ -2110,12 +1712,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
       }
 
-      case id => {
-        warn("treating sort " + (printer print s) + " as Int")
-        SMTInteger
-      }
+      case _ =>
+        translateExtraTheorySort(s).getOrElse({
+          warn("treating sort " + (printer print s) + " as Int")
+          SMTInteger
+        })
     }
   }
+
+  protected def translateExtraTheorySort(s : Sort) : scala.Option[SMTType] =
+    Seqs.some(for (t <- extraTheories.iterator) yield t.translateSMTSortAST(s))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2990,6 +2596,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.<=") =>
       translateStringPred(stringTheory.str_<=, args,
                           List(stringType, stringType))
+    case PlainSymbol("str.<") =>
+      translateStringPred(stringTheory.str_<, args,
+                          List(stringType, stringType))
     case PlainSymbol("str.at") =>
       (translateStringFun(stringTheory.str_at, args,
                           List(stringType, SMTInteger)), stringType)
@@ -3290,13 +2899,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Declared symbols from the environment
+    // Declared symbols from the environment, and symbols from extra theories
 
-    case CastSymbol(id, s) =>
-      unintFunApp(id, sym, args, polarity, Some(translateSort(s)))
+    case sym =>
+      translateExtraTheoryOp(sym, args, polarity).getOrElse({
+        sym match {
+          case CastSymbol(id, s) =>
+            unintFunApp(id, sym, args, polarity, Some(translateSort(s)))
+          case id =>
+            unintFunApp(asString(id), sym, args, polarity)
+        }
+      })
 
-    case id =>
-      unintFunApp(asString(id), sym, args, polarity)
   }
 
   private def translateEq(a : ITerm, b : ITerm, t : SMTType,
@@ -3426,7 +3040,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case r =>
         throw new TranslationException("did not expect " + r)
     }
-  
+
+  private def translateExtraTheoryOp(sym      : SymbolRef,
+                                     args     : Seq[Term],
+                                     polarity : Int)
+                                      : scala.Option[(IExpression, SMTType)] = {
+    val transArgs = for (a <- args) yield ((pol:Int) => translateTerm(a, pol))
+    Seqs.some(for (t <- extraTheories.iterator)
+              yield t.translateSMTOperatorAST(sym, transArgs, polarity))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def asRealTerm(op : String, t : Term) : ITerm =
@@ -4392,28 +4015,4 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                    "Expected a formula, not " + expr)
   }
 
-  protected def asTerm(expr : (IExpression, SMTType)) : ITerm = expr match {
-    case (expr : ITerm, _) =>
-      expr
-    case (IBoolLit(true), _) =>
-      i(0)
-    case (IBoolLit(false), _) =>
-      i(1)
-    case (expr : IFormula, SMTBool) =>
-      ITermITE(expr, i(0), i(1))
-    case (expr, _) =>
-      throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term, not " + expr)
-  }
-
-  private def asTerm(expr : (IExpression, SMTType),
-                     expectedSort : SMTType) : ITerm = expr match {
-    case (expr : ITerm, `expectedSort`) =>
-      expr
-    case (expr, _) =>
-      throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term of type " +
-                   (SMTLineariser smtTypeAsString expectedSort) + ", not " +
-                   expr)
-  }
 }

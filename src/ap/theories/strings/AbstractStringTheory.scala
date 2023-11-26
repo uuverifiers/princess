@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,6 +92,8 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_<= =
     new MonoSortedPredicate("char_<=", List(SSo, SSo))
+  val str_< =
+    new MonoSortedPredicate("char_<", List(SSo, SSo))
   val str_at =
     new MonoSortedIFunction("str_at", List(SSo, Nat), SSo, true, false)
   val str_char =
@@ -176,7 +178,7 @@ abstract class AbstractStringTheory extends StringTheory {
          re_union, re_inter, re_diff, re_*, re_+, re_opt, re_comp, re_loop)
 
   protected def predefPredicates =
-    List(char_is_digit, str_<=, str_prefixof,
+    List(char_is_digit, str_<=, str_<, str_prefixof,
          str_suffixof, str_contains, str_in_re)
 
   private lazy val predFunMap =
@@ -482,14 +484,17 @@ object AbstractStringTheoryWithSort {
    * Sort for strings that will reconstruct terms with the help of the
    * <code>str_empty</code> and <code>str_cons</code> functions.
    */
-  class AbstractStringSort extends ProxySort(Sort.Integer) {
+  class AbstractStringSort extends ProxySort(Sort.Integer)
+                           with    Theory.TheorySort {
     override val name = "String"
 
-    private var theory : AbstractStringTheoryWithSort = null
+    private var theoryVar : AbstractStringTheoryWithSort = null
 
     protected[strings] def setTheory(
                              _theory : AbstractStringTheoryWithSort) : Unit =
-      theory = _theory
+      theoryVar = _theory
+
+    def theory = theoryVar
 
     override lazy val individuals : Stream[ITerm] =
       IFunApp(theory.str_empty, List()) #::

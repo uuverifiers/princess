@@ -194,8 +194,8 @@ trait StringTheory extends Theory {
   val str_to_int     : IFunction    // StringSort -> Int
   val int_to_str     : IFunction    // Int -> StringSort
 
-  // missing: val str_< : Predicate   // StringSort x StringSort -> Boolean
   val str_<=         : Predicate    // StringSort x StringSort -> Boolean
+  val str_<          : Predicate    // StringSort x StringSort -> Boolean
   val str_at         : IFunction    // StringSort x Nat -> StringSort
   val str_char       : IFunction    // StringSort x Nat -> CharSort
 

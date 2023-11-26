@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2019-2022 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,5 +47,25 @@ package object theories {
    * Bit-vectors and modular arithmetic
    */
   val ModuloArithmetic = ap.theories.bitvectors.ModuloArithmetic
+
+  /**
+   * Untyped arrays
+   */
+  val SimpleArray = ap.theories.arrays.SimpleArray
+
+  /**
+   * Untyped arrays
+   */
+  type SimpleArray = ap.theories.arrays.SimpleArray
+
+  /**
+   * Extensional arrays
+   */
+  val ExtArray = ap.theories.arrays.ExtArray
+
+  /**
+   * Extensional arrays
+   */
+  type ExtArray = ap.theories.arrays.ExtArray
 
 }

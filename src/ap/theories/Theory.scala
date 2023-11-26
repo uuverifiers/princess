@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,9 +44,11 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
+import ap.types.Sort
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 LinkedHashSet}
 
 object Theory {
 
@@ -56,25 +58,40 @@ object Theory {
    * Preprocess a set of axioms and convert them to internal representation.
    */
   def genAxioms(theoryFunctions : Seq[IFunction] = List(),
-                theoryAxioms : IFormula = IExpression.i(true),
+                theoryAxioms : IFormula          = IExpression.i(true),
                 extraPredicates : Seq[Predicate] = List(),
-                genTotalityAxioms : Boolean = false,
-                preOrder : TermOrder = TermOrder.EMPTY,
-                functionEnc : FunctionEncoder =
-                  new FunctionEncoder(true, false),
-                otherTheories : Seq[Theory] = List())
-              : (Seq[Predicate],
-                 Formula,
-                 TermOrder,
-                 Map[IFunction, IExpression.Predicate]) = {
+                genTotalityAxioms : Boolean      = false,
+                preOrder : TermOrder             = TermOrder.EMPTY,
+                functionEnc : FunctionEncoder    = new FunctionEncoder(true,
+                                                                       false),
+                otherTheories : Seq[Theory]      = List())
+             : (Seq[Predicate],
+                Formula,
+                TermOrder,
+                Map[IFunction, IExpression.Predicate]) = {
     import IExpression._
 
     var currentOrder = preOrder extendPred extraPredicates
 
-    for (t <- otherTheories) {
-      currentOrder = t extend currentOrder
-      functionEnc addTheory t
+    val knownTheories = new LinkedHashSet[Theory]
+
+    def addTheory(t : Theory) : Unit = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, t != this,
+                      "When processing theory axioms, the theory itself must " +
+                        "not be assumed as a known theory. This error might " +
+                        "indicate cyclic dependencies among theories")
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      if (knownTheories add t) {
+        for (s <- t.dependencies)
+          addTheory(s)
+        currentOrder = t extend currentOrder
+        functionEnc addTheory t
+      }
     }
+
+    for (t <- otherTheories)
+      addTheory(t)
 
     for (f <- theoryFunctions) {
       val (_, o) =
@@ -84,7 +101,7 @@ object Theory {
     }
 
     val sig = Signature(Set(), Set(), currentOrder.orderedConstants,
-                        Map(), currentOrder, otherTheories)
+                        Map(), currentOrder, knownTheories.toSeq)
     val preprocSettings = PreprocessingSettings.DEFAULT
     val (fors, _, newSig) =
       Preprocessing(INamedPart(PartName.NO_NAME, ~theoryAxioms),
@@ -312,6 +329,20 @@ object Theory {
     val General = Value
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Trait for sorts that belong to a specific theory.
+   */
+  trait TheorySort extends Sort {
+
+    /**
+     * Query the theory that the sort belongs to.
+     */
+    def theory : Theory
+
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -396,6 +427,14 @@ trait Theory {
    * of the dependencies will be called after the preprocessor of this theory.
    */
   val dependencies : Iterable[Theory] = List()
+
+  /**
+   * Dependencies closed under transitivity, i.e., also including the
+   * dependencies of dependencies.
+   */
+  lazy val transitiveDependencies : Iterable[Theory] =
+    (for (t <- dependencies.toSeq;
+          s <- List(t) ++ t.transitiveDependencies) yield s).distinct
 
   /**
    * Optionally, a set of predicates used by the theory to tell the

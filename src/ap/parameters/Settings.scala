@@ -327,7 +327,7 @@ object ParserSettings {
                        Param.REAL_RAT_SATURATION_ROUNDS,
                        Param.STRING_THEORY_DESC, Param.STRING_ESCAPES,
                        Param.SEQ_THEORY_DESC, Param.LOG_LEVEL,
-                       Param.INLINE_SIZE_LIMIT)
+                       Param.INLINE_SIZE_LIMIT, Param.SMTParserExtraTheories)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

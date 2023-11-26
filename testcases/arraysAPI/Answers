@@ -1,0 +1,70 @@
+
+TestExtArray
+
+-- Test 1
+Some term: store(ar, x, 42)
+Sat
+Unsat
+
+-- Test 2
+Sat
+ar = store(const(2), 1, 1)
+ar2 = const(2)
+m.evalToTerm(ar): Some(store(const(2), 1, 1))
+m.evalToTerm(select(ar, 0)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
+
+SetTest
+Sat
+Valid
+Unsat
+Valid
+Valid
+Valid
+Valid
+Valid
+Invalid
+Valid
+Sat
+Valid
+Unsat
+
+VectorTest
+Sat
+Sat
+v = store(const(12), 2, 1)
+w = store(const(22), 2, 11)
+Unsat
+Valid
+Valid
+Sat
+Unsat
+Unsat
+Sat
+v = const(0)
+w = const(1)
+Unsat
+Unsat
+
+PairTest
+Valid
+Invalid
+a = store(const(43), 42, 1)
+b = const(false)
+c = const(0)
+Sat
+a = store(store(const(43), 41, 44), 42, 1)
+b = store(const(true), 42, false)
+c = store(store(const(43), 41, 44), 42, 0)
+Valid
+Sat
+
+ArrayQuantifiers.scala
+Sat
+Inconclusive
+Unsat
+
+ExtArrayCrash.scala
+Warning: arrays over finite domains are not fully supported yet
+Unsat

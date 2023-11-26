@@ -61,6 +61,9 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
+  import SMTTypes._
+  import SMTParser2InputAbsy.SMTFunctionType
+
   private val AC = Debug.AC_PARSER
 
   private val SaneId =
@@ -444,11 +447,6 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
-                              SMTBitVec, SMTFF, SMTString, SMTSeq,
-                              SMTFunctionType,
-                              SMTUnint, SMTADT, SMTHeap, SMTHeapAddress}
-
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
 
@@ -489,192 +487,56 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printSMTType(t : SMTType) : Unit = t match {
-    case SMTInteger          => print("Int")
-    case SMTBool             => print("Bool")
-    case SMTReal(_)          => print("Real")
-    case t : SMTADT          => {
-      val str = t.toString
-      if (str startsWith SMTADT.POLY_PREFIX)
-        // TODO: this won't correctly add quotes
-        print(str substring SMTADT.POLY_PREFIX.size)
-      else
-        print(quoteIdentifier(str))
-    }
-    case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
-    case SMTFF(card)         => print("(_ FiniteField " + card + ")")
-    case SMTString(_)        => print("String")
-    case SMTSeq(_, elType)   => {
-      print("(Seq ")
-      printSMTType(elType)
-      print(")")
-    }
-    case SMTArray(args, res) => {
-      print("(Array")
-      for (s <- args) {
-        print(" ")
-        printSMTType(s)
-      }
-      print(" ")
-      printSMTType(res)
-      print(")")
-    }
-    case SMTHeap(s)        => print(s.HeapSort.name)
-    case SMTHeapAddress(s) => print(s.AddressSort.name)
-    case SMTUnint(sort)    => print(sort)
-  }
+  def printSMTType(t : SMTType) : Unit =
+    print(t.toSMTLIBString)
 
   def smtTypeAsString(t : SMTType) : String =
-    DialogUtil asString { printSMTType(t) }
+    t.toSMTLIBString
 
-  def sort2SMTType(sort : Sort) : (SMTType,
-                                   Option[ITerm => IFormula]) = sort match {
-    case Sort.Integer =>
-      (SMTInteger, None)
-    case Sort.Nat =>
-      (SMTInteger, Some(_ >= 0))
-    case sort : Sort.Interval =>
-      (SMTInteger, Some(sort.membershipConstraint _))
-    case Sort.Bool | Sort.MultipleValueBool =>
-      (SMTBool, None)
-    case sort if (StringTheory lookupStringSort sort).isDefined =>
-      (SMTString(sort), None)
-    case sort if (SeqTheory lookupSeqSort sort).isDefined => {
-      val Some(theory) = SeqTheory lookupSeqSort sort
-      (SMTSeq(theory, sort2SMTType(theory.ElementSort)._1), None)
-    }
-    case sort : ADT.ADTProxySort =>
-      (SMTADT(sort.adtTheory, sort.sortNum), None)
-    case ModuloArithmetic.UnsignedBVSort(width) =>
-      (SMTBitVec(width), None)
-    case ModuloArithmetic.ModSort(IdealInt.ZERO, card) =>
-      (SMTFF(card + 1), None)
-    case SimpleArray.ArraySort(arity) =>
-      (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
-       None)
-    case ExtArray.ArraySort(theory) =>
-      (SMTArray((for (s <- theory.indexSorts) yield sort2SMTType(s)._1).toList,
-                sort2SMTType(theory.objSort)._1),
-       None)
-    case Rationals.FractionSort =>
-      (SMTReal(sort), None)
-    case sort : UninterpretedSortTheory.UninterpretedSort =>
-      (SMTUnint(sort), None)
-    case sort : UninterpretedSortTheory.InfUninterpretedSort =>
-      (SMTUnint(sort), None)
-    case sort : Heap.HeapSort =>
-      (SMTHeap(sort.heapTheory), None)
-    case sort : Heap.AddressSort =>
-      (SMTHeapAddress(sort.heapTheory), None)
-    case Sort.AnySort =>
-      (SMTInteger, None)
-    case s =>
-      throw new Exception (
-        "do not know how to translate " + s + " to an SMT-LIB type")
-  }
+  def sort2SMTType(sort : Sort) : (SMTType, Option[ITerm => IFormula]) =
+    SMTTypes.sort2SMTType(sort)
 
   def sort2SMTString(sort : Sort) : String =
     smtTypeAsString(sort2SMTType(sort)._1)
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def printADTDeclarations(adts : Seq[ADT]) : Unit = {
-    // we need to sort the ADTs, because they might depend on each other
-    val allADTs, declaredADTs = new MHashSet[ADT]
-    allADTs ++= adts
+  /**
+   * Topologically sort theories to be declared: dependencies of a
+   * theory preceed the theory in the resulting list.
+   */
+  def sortTheoryDeps(theories : Seq[Theory]) : Seq[Theory] = {
+    val undeclaredTheories = new MHashSet[Theory]
+    undeclaredTheories ++= theories
 
-    while (declaredADTs.size < adts.size) {
-      val oldSize = declaredADTs.size
+    val res = new ArrayBuffer[Theory]
+    var remainingTheories : Seq[Theory] = theories
 
-      for (adt <- adts; if !(declaredADTs contains adt)) {
-        val allSorts = for (sels <- adt.selectors; f <- sels) yield f.resSort
-        if (allSorts forall {
-              case s : ADT.ADTProxySort =>
-                adt == s.adtTheory ||
-                (declaredADTs contains s.adtTheory) ||
-                !(allADTs contains s.adtTheory)
-              case _ =>
-                true
-            }) {
-          printADTDeclaration(adt)
-          declaredADTs += adt
-        }
+    while (!remainingTheories.isEmpty) {
+      val (decl, rem) = remainingTheories.partition {
+        t => Seqs.disjointSeq(undeclaredTheories, t.transitiveDependencies)
       }
 
-      if (oldSize == declaredADTs.size)
+      if (rem.size == remainingTheories.size)
         throw new IllegalArgumentException(
-          "Could not sort ADTs due to cyclic dependencies")
+          "cyclic dependencies during theory declaration")
+
+      remainingTheories = rem
+      res ++= decl
+
+      undeclaredTheories --= decl
     }
-  }
-  
-  def printADTDeclaration(adt : ADT) : Unit =
-    if (adt.sorts.size == 1) {
-      val sortName = adt.sorts.head.name
-      println("(declare-datatype " + quoteIdentifier(sortName) + " (")
-      for ((f, sels) <- adt.constructors zip adt.selectors)
-        printADTCtor(f, sels)
-      println("))")
-    } else {
-      println("(declare-datatypes (")
-      print((for (s <- adt.sorts)
-             yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
-      println(") (")
-      for (num <- 0 until adt.sorts.size) {
-        println("  (")
-        for ((f, sels) <- adt.constructors zip adt.selectors;
-             if (f.resSort match {
-               case s : ADT.ADTProxySort =>
-                 s.sortNum == num && s.adtTheory == adt
-               case _ =>
-                 false
-             }))
-          printADTCtor(f, sels)
-        println("  )")
+
+    val subsumedTheories = new MHashSet[Theory]
+    for ((t, n) <- res.toList.zipWithIndex.reverseIterator)
+      if (subsumedTheories contains t) {
+        res.remove(n)
+      } else if (t.isInstanceOf[SMTLinearisableTheory]) {
+        subsumedTheories ++=
+          t.asInstanceOf[SMTLinearisableTheory].SMTDeclarationSideEffects
       }
-      println("))")
-    }
 
-  private def printADTCtor(ctor : MonoSortedIFunction,
-                           selectors : Seq[MonoSortedIFunction]) : Unit = {
-    print("  (" + quoteIdentifier(ctor.name))
-    for ((s, g) <- ctor.argSorts zip selectors) {
-      print(" (" + quoteIdentifier(g.name) + " ")
-      printSMTType(sort2SMTType(s)._1)
-      print(")")
-    }
-    println(")")
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  def printHeapDeclarations(heaps : Seq[Heap]) : Unit = {
-      for (heap <- heaps) printHeapDeclaration(heap)
-  }
-
-  def printHeapDeclaration(heap : Heap) : Unit = {
-    print("(declare-heap ")
-    println(heap.HeapSort.name + " " + heap.AddressSort.name + " " +
-          heap.ObjectSort.name)
-    println(" " ++ asString(heap._defObj))
-    print(" (")
-    print((for(s <- heap.userADTSorts)
-      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
-    println(") (")
-    for (num <- heap.userADTSorts.indices) {
-      println("  (")
-      for ((f, sels) <- heap.userADTCtors zip heap.userADTSels; // todo: should probably be just the object ADT ctors
-           if (f.resSort match {
-             case s: ADT.ADTProxySort =>
-               s.sortNum == num && s.adtTheory == heap.heapADTs
-             case _ =>
-               false
-           })) {
-        print(" ")
-        printADTCtor(f, sels)
-      }
-      println("  )")
-    }
-    println("))")
+    res.toSeq
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -693,7 +555,7 @@ object SMTLineariser {
 
   def apply(formula : IFormula,
             constantType :
-              ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+              ConstantTerm => Option[SMTTypes.SMTType],
             functionType :
               IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
             predType :
@@ -742,32 +604,25 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   private def findTheorys(formulas : Iterable[IFormula],
-                          consts : Iterable[ConstantTerm],
-                          preds : Iterable[Predicate]) : Seq[Theory] = {
+                          consts   : Iterable[ConstantTerm],
+                          preds    : Iterable[Predicate]) : Seq[Theory] = {
     val theoryCollector = new TheoryCollector
     for (f <- formulas)
       theoryCollector(f)
 
-    def checkSort(s : Sort) : Unit = s match {
-      case s : ADT.ADTProxySort =>
-        theoryCollector addTheory s.adtTheory
-      case _ =>
-        // nothing
-    }
-
-    // also collect ADT types
     for (c <- consts)
-      checkSort(SortedConstantTerm sortOf c)
+      theoryCollector(SortedConstantTerm sortOf c)
 
     for (p <- preds) p match {
       case p : MonoSortedPredicate =>
         for (s <- p.argSorts)
-          checkSort(s)
+          theoryCollector(s)
       case _ =>
         // nothing
     }
 
-    theoryCollector.theories
+    (for (t <- theoryCollector.theories;
+          s <- t.transitiveDependencies) yield s).distinct
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -899,6 +754,16 @@ object SMTLineariser {
         case _ =>
           Some((fun.name.replace("seq_", "seq."), ""))
       }
+      case Some(t : SMTLinearisableTheory) =>
+        for (str <- t.fun2SMTString(fun)) yield (str, "")
+      case _ =>
+        None
+    }
+
+  private def theoryPred2Identifier(pred : Predicate) : Option[String] =
+    (TheoryRegistry lookupSymbol pred) match {
+      case Some(t : SMTLinearisableTheory) =>
+        t.pred2SMTString(pred)
       case _ =>
         None
     }
@@ -941,36 +806,41 @@ object SMTLineariser {
 /**
  * Class for printing <code>IFormula</code>s in the SMT-Lib format
  */
-class SMTLineariser(benchmarkName : String,
-                    logic : String,
-                    status : String,
-                    constsToDeclare : Seq[ConstantTerm],
-                    predsToDeclare : Seq[Predicate],
+class SMTLineariser(benchmarkName     : String,
+                    logic             : String,
+                    status            : String,
+                    constsToDeclare   : Seq[ConstantTerm],
+                    predsToDeclare    : Seq[Predicate],
                     theoriesToDeclare : Seq[Theory],
-                    funPrefix : String, predPrefix : String, constPrefix : String,
+                    funPrefix         : String,
+                    predPrefix        : String,
+                    constPrefix       : String,
                     constantType :
-                           ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+                       ConstantTerm => Option[SMTTypes.SMTType],
                     functionType :
-                           IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
                     predType :
-                           Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
+  import SMTTypes._
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType,
-                        printADTDeclarations, printHeapDeclarations,
+                        printSMTType, sortTheoryDeps,
                         sort2SMTString, sort2SMTType, theoryFun2Identifier,
+                        theoryPred2Identifier,
                         bvSimpleUnFunction, bvSimpleBinFunction,
                         bvSimpleBinPred, invisible1, invisible2}
 
   //////////////////////////////////////////////////////////////////////////////
 
   private def pred2Identifier(pred : Predicate) =
-    if (pred == eqPredicate)
+    if (pred == eqPredicate) {
        "="
-    else
-       quoteIdentifier(predPrefix + pred.name)
+    } else {
+      theoryPred2Identifier(pred) getOrElse
+      quoteIdentifier(predPrefix + pred.name)
+    }
 
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
@@ -989,33 +859,11 @@ class SMTLineariser(benchmarkName : String,
     if(status.nonEmpty)
       println("(set-info :status " + status + ")")
 
-    // declare the required theories
-    val heaps = for (theory <- theoriesToDeclare;
-                     if (theory match {
-                       case _ : ADT  => false // will be handled later
-                       case _ : Heap => true
-                       case _ => false
-                     }))
-      yield theory.asInstanceOf[Heap]
-    printHeapDeclarations(heaps)
-
-    val adts = for (theory <- theoriesToDeclare;
-                    if (theory match {
-                      case adt : ADT if adt != ADT.BoolADT => // declare this theory if
-                        heaps.isEmpty || // there are no heap theories OR
-                          // it is not the case that there exists a heap theory
-                          // that already declared this adt
-                          !heaps.exists(h => h.heapADTs == adt)
-                      case _ : Heap     => false // handled before
-                      case _ : ExtArray => false // no need to declare
-                      case _ => {
-                        Console.err.println("Warning: do not know how to " +
-                                            "declare " + theory)
-                        false
-                      }
-                    }))
-               yield theory.asInstanceOf[ADT]
-    printADTDeclarations(adts)
+    for (t <- sortTheoryDeps(theoriesToDeclare))
+      t match {
+        case t : SMTLinearisableTheory => t.printSMTDeclaration
+        case _                         => // nothing
+      }
 
     // declare the required predicates
     for (pred <- predsToDeclare) {
@@ -1035,7 +883,7 @@ class SMTLineariser(benchmarkName : String,
     // declare universal constants
     for (const <- constsToDeclare) {
       print("(declare-fun " + const2Identifier(const) + " () ")
-      printSMTType(constantType(const) getOrElse SMTParser2InputAbsy.SMTInteger)
+      printSMTType(constantType(const) getOrElse SMTTypes.SMTInteger)
       println(")")
     }
   }
@@ -1076,8 +924,7 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger,
-                              SMTFunctionType}
+  import SMTParser2InputAbsy.SMTFunctionType
 
   private def getTermType(t : ITerm)
                          (implicit variableType : Int => Option[SMTType])
@@ -1132,311 +979,6 @@ class SMTLineariser(benchmarkName : String,
         None
     }
   }
-  
-  //////////////////////////////////////////////////////////////////////////////
-
-  // TODO: remove the next classes, they are not needed anymore
-/*
-  private val type2Predicate = new MHashMap[SMTType, Predicate]
-  private val predicate2Type = new MHashMap[Predicate, SMTType]
-
-  private def getTypePredicate(t : SMTType) : Predicate =
-    type2Predicate.getOrElseUpdate(t, {
-      val p = new Predicate("type_" + t, 1)
-      predicate2Type.put(p, t)
-      p
-    })
-
-  object TypePredicate {
-    def unapply(t : IExpression) : Option[(ITerm, SMTType)] = t match {
-      case IAtom(p, Seq(v)) => for (s <- predicate2Type get p) yield (v, s)
-      case _                => None
-    }
-  }
-
-  object TypedTerm {
-    def unapply(t : ITerm)
-               (implicit variableType : Int => Option[SMTType])
-              : Option[(ITerm, Option[SMTType])] =
-      Some((t, getTermType(t)))
-  }
-
-  object TypedTermSeq {
-    def unapplySeq(ts : Seq[ITerm])
-                  (implicit variableType : Int => Option[SMTType])
-                 : Option[Seq[(ITerm, Option[SMTType])]] =
-      Some(for (t <- ts) yield (t, getTermType(t)))
-  }
-
-  private object VariableTypeInferenceVisitor
-                 extends CollectingVisitor[Unit, IExpression] {
-
-    private val variableTypes = new ArrayBuffer[SMTType]
-
-    private def setVariableType(variableIndex : Int, t : SMTType) : Unit = {
-      val pos = variableTypes.size - variableIndex - 1
-      val oldType = variableTypes(pos)
-      if (oldType != null && oldType != t)
-        Console.err.println("Warning: type clash during inference: " +
-                            oldType + " vs " + t)
-      variableTypes(pos) = t
-    }
-
-    private def equalTypes(t1 : ITerm, t2 : ITerm) : Unit = (t1, t2) match {
-      case (IVariable(ind1), IVariable(ind2)) =>
-        (getVariableType(ind1), getVariableType(ind2)) match {
-          case (Some(t), None) => setVariableType(ind2, t)
-          case (None, Some(t)) => setVariableType(ind1, t)
-          case _ => // nothing
-        }
-      case (IVariable(ind), t) =>
-        for (s <- getTermType(t)) setVariableType(ind, s)
-      case (t, IVariable(ind)) =>
-        for (s <- getTermType(t)) setVariableType(ind, s)
-      case _ =>
-        // nothing
-    }
-
-    implicit val getVariableType : Int => Option[SMTType] = (ind:Int) => {
-      val pos = variableTypes.size - ind - 1
-      variableTypes(pos) match {
-        case null => None
-        case t => Some(t)
-      }
-    }
-
-    override def preVisit(t : IExpression,
-                          arg : Unit) : PreVisitResult = {
-      t match {
-        case _ : IQuantified | _ : IEpsilon =>
-          variableTypes += null
-        case TypePredicate(IVariable(ind), s) =>
-          setVariableType(ind, s)
-        case IExpression.Eq(IFunApp(SimpleArray.Select(),
-                            TypedTermSeq((IVariable(ind), None), indexes @ _*)),
-                            TypedTerm((_, Some(resT))))
-          if (indexes forall { case (_, s) => s.isDefined }) =>
-            setVariableType(ind,
-              SMTArray(indexes.toList map {
-                         case (_, Some(t)) => t
-                         case _ => null // cannot happen
-                       }, resT))
-        case IExpression.Eq(TypedTerm((_, Some(resT))),
-                            IFunApp(SimpleArray.Select(),
-                            TypedTermSeq((IVariable(ind), None), indexes @ _*)))
-          if (indexes forall { case (_, s) => s.isDefined }) =>
-            setVariableType(ind,
-              SMTArray(indexes.toList map {
-                         case (_, Some(t)) => t
-                         case _ => null // cannot happen
-                       }, resT))
-        case IExpression.Eq(s, t) =>
-          equalTypes(s, t)
-        case ITermITE(_, s, t) =>
-          equalTypes(s, t)
-        case t@IFunApp(_, args) =>
-          for (argTypes <- getArgTypes(t)) {
-            for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)
-              setVariableType(ind, s)
-          }
-        case t@IAtom(_, args) =>
-          for (argTypes <- getArgTypes(t)) {
-            for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)
-              setVariableType(ind, s)
-          }
-        case _ =>
-          // nothing
-      }
-
-      KeepArg
-    }
-
-    def postVisit(t : IExpression,
-                  arg : Unit, subres : Seq[IExpression]) : IExpression = t match {
-      case IQuantified(Quantifier.ALL,
-                       IBinFormula(IBinJunctor.Or,
-                                   INot(TypePredicate(IVariable(0), _)),
-                                   _)) |
-           IQuantified(Quantifier.EX,
-                       IBinFormula(IBinJunctor.And,
-                                   TypePredicate(IVariable(0), _),
-                                   _)) |
-           IEpsilon(IBinFormula(IBinJunctor.And,
-                                TypePredicate(IVariable(0), _),
-                                _)) => {
-        Seqs removeLast variableTypes
-        t update subres
-      }
-      case _ : IQuantified => {
-        val f@IQuantified(q, subF) = t update subres
-        import IExpression._
-        val res = getVariableType(0) match {
-          case Some(t) => q match {
-            case Quantifier.ALL =>
-              all(getTypePredicate(t)(v(0)) ==> subF)
-            case Quantifier.EX =>
-              ex(getTypePredicate(t)(v(0)) & subF)
-          }
-          case None => f
-        }
-        Seqs removeLast variableTypes
-        res
-      }
-      case _ : IEpsilon => {
-        val f@IEpsilon(subF) = t update subres
-        import IExpression._
-        val res = getVariableType(0) match {
-          case Some(t) => eps(getTypePredicate(t)(v(0)) & subF)
-          case None => f
-        }
-        Seqs removeLast variableTypes
-        res
-      }
-      case _ => t update subres
-    }
-  }
-*/
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Translate arithmetic constraints back to bit-vectors.
-   */
-
-/*
-  private class BitVectorTranslator
-                extends CollectingVisitor[Unit, IExpression] {
-
-    import SMTParser2InputAbsy.SMTBitVec
-    import IExpression._
-
-    private val variableTypes = new ArrayBuffer[SMTType]
-
-    private def setVariableType(variableIndex : Int, t : SMTType) : Unit =
-      variableTypes(variableTypes.size - variableIndex - 1) = t
-
-    implicit val getVariableType : Int => Option[SMTType] = (ind:Int) =>
-      variableTypes(variableTypes.size - ind - 1) match {
-        case null => None
-        case t => Some(t)
-      }
-
-    private object BitWidthInferrer
-                   extends CollectingVisitor[Unit, Option[Int]] {
-      override def preVisit(t : IExpression,
-                            arg : Unit) : PreVisitResult = t match {
-        case _ : IVariable | _ : IConstant | _ : IFunApp =>
-          ShortCutResult(
-            for (SMTBitVec(width) <- getTermType(t.asInstanceOf[ITerm]))
-            yield (width + 1))
-        case IIntLit(value) =>
-          ShortCutResult(Some(value.abs.getHighestSetBit + 1))
-        case _ =>
-          KeepArg
-      }
-      def postVisit(t : IExpression,
-                    arg : Unit,
-                    subres : Seq[Option[Int]]) : Option[Int] = t match {
-        case t : IPlus =>
-          for (left <- subres(0); right <- subres(1))
-          yield ((left max right) + 1)
-        case ITimes(coeff, _) =>
-          for (bits <- subres(0))
-          yield (bits + coeff.abs.getHighestSetBit)
-        case _ =>
-          None
-      }
-    }
-
-    private object BitVectorPadder
-                   extends CollectingVisitor[Int, ITerm] {
-      override def preVisit(t : IExpression,
-                            newWidth : Int) : PreVisitResult = t match {
-        case _ : IVariable | _ : IConstant | _ : IFunApp => {
-          val Some(SMTBitVec(oldWidth)) = getTermType(t.asInstanceOf[ITerm])
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(SMTLineariser.AC, oldWidth < newWidth)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          ShortCutResult(getZeroExtend(newWidth - oldWidth)
-                                      (t.asInstanceOf[ITerm]))
-        }
-        case t : IIntLit =>
-          ShortCutResult(
-            ModuloArithmetic.cast2UnsignedBV(newWidth, t))
-        case _ =>
-          KeepArg
-      }
-      def postVisit(t : IExpression,
-                    newWidth : Int,
-                    subres : Seq[ITerm]) : ITerm = t match {
-        case _ : IPlus =>
-          bvadd(subres(0), subres(1))
-        case ITimes(IdealInt.MINUS_ONE, _) =>
-          bvneg(subres(0))
-        case ITimes(coeff, _) =>
-          bvmul(ModuloArithmetic.cast2UnsignedBV(newWidth, coeff),
-                subres(0))
-      }
-    }
-
-    override def preVisit(t : IExpression,
-                          arg : Unit) : PreVisitResult = {
-      t match {
-        case _ : IQuantified | _ : IEpsilon =>
-          variableTypes += null
-        case TypePredicate(IVariable(ind), s) =>
-          setVariableType(ind, s)
-        case _ =>
-          // nothing
-      }
-      KeepArg
-    }
-
-    def postVisit(t : IExpression,
-                  arg : Unit,
-                  subres : Seq[IExpression]) : IExpression = t match {
-      case _ : IQuantified | _ : IEpsilon => {
-        Seqs removeLast variableTypes
-        t update subres
-      }
-        
-      case IIntFormula(rel, _) => subres(0) match {
-        case Difference(TypedTerm(s, Some(SMTBitVec(sWidth))),
-                        TypedTerm(t, Some(SMTBitVec(tWidth))))
-          if (sWidth == tWidth) => rel match {
-            case IIntRelation.GeqZero => bvuge(s, t)
-            case IIntRelation.EqZero  => eqPredicate(s, t)
-          }
-        case IPlus(IIntLit(value),
-                   TypedTerm(t, Some(SMTBitVec(width))))
-          if (value.signum <= 0 && value > -(IdealInt(2) pow width)) =>
-          rel match {
-            case IIntRelation.GeqZero =>
-              bvuge(t, ModuloArithmetic.cast2UnsignedBV(width, -value))
-            case IIntRelation.EqZero =>
-              eqPredicate(t, ModuloArithmetic.cast2UnsignedBV(width, -value))
-          }
-        case _ if prettyBitvectors =>
-          BitWidthInferrer.visit(subres(0), ()) match {
-            case Some(newWidth) => {
-              val pred = rel match {
-                case IIntRelation.GeqZero => bvsge
-                case IIntRelation.EqZero => eqPredicate
-              }
-              pred(BitVectorPadder.visit(subres(0), newWidth),
-                   ModuloArithmetic.cast2UnsignedBV(newWidth, 0))
-            }
-            case None =>
-              t update subres
-          }
-        case _ =>
-          t update subres
-        }
-      case _ =>
-        t update subres
-    }
-  }
- */
 
   //////////////////////////////////////////////////////////////////////////////
 
