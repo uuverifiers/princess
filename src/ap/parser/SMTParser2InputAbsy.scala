@@ -175,7 +175,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
-  import SMTParser2InputAbsy.{impToScalaList, impToScalaIterator}
+  import SMTParsingUtils.{impToScalaList, impToScalaIterator}
 
   type GrammarExpression = Term
 
