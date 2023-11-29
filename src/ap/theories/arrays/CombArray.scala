@@ -199,7 +199,7 @@ class CombArray(val subTheories       : IndexedSeq[ExtArray],
   //////////////////////////////////////////////////////////////////////////////
 
   override val dependencies =
-    subTheories ++ extraDependencies
+    (subTheories ++ extraDependencies).toSeq
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,

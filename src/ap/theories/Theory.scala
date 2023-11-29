@@ -75,20 +75,13 @@ object Theory {
 
     val knownTheories = new LinkedHashSet[Theory]
 
-    def addTheory(t : Theory) : Unit = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC, t != this,
-                      "When processing theory axioms, the theory itself must " +
-                        "not be assumed as a known theory. This error might " +
-                        "indicate cyclic dependencies among theories")
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    def addTheory(t : Theory) : Unit =
       if (knownTheories add t) {
         for (s <- t.dependencies)
           addTheory(s)
         currentOrder = t extend currentOrder
         functionEnc addTheory t
       }
-    }
 
     for (t <- otherTheories)
       addTheory(t)
