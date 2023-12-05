@@ -1264,25 +1264,32 @@ class Heap(heapSortName : String, addressSortName : String,
   import Quantifier._
 
   def rewriter(expr : IExpression) : IExpression = expr match {
-    // add other cases
-    case f@IQuantified(EX, subf) =>
-      if (f.asInstanceOf[IQuantified].sort == HeapSort) {
-        val h1 = ISortedVariable(0, HeapSort)
-        subf match {
-          case IBinFormula(`And`,
-          IEquation(IFunApp(`counter`, Seq(IVariable(0))), n),
-          IEquation(IFunApp(`allocHeap`, Seq(IVariable(0), o)), h2)) =>
-            val simpf =
-              IQuantified(EX, HeapSort, counter(h1) === n &
-                h1 === deAlloc(h2) &
-                counter(h2) === counter(h1) + 1 &
-                read(h2, counter(h2)) === o)
-            //println("Simplified: " + f + " to " + simpf)
-            simpf
-          case _ => expr //println(expr); expr
-        }
+    case f@IQuantified(EX, subf) if f.sort == HeapSort =>
+      val h1 = ISortedVariable(0, HeapSort)
+      subf match {
+        case IBinFormula(`And`,
+                         IEquation(IFunApp(`counter`, Seq(IVariable(0))), n),
+                         IEquation(IFunApp(`allocHeap`, Seq(IVariable(0), o)), h2)) =>
+          val simpf =
+            IQuantified(EX, HeapSort, counter(h1) === n &
+                                      h1 === deAlloc(h2) &
+                                      counter(h2) === counter(h1) + 1 &
+                                      read(h2, counter(h2)) === o)
+          //println("Simplified: " + f + " to " + simpf)
+          simpf
+
+        // if h1 only appears as counter(h1) in subf, those can be replaced with
+        // some new term t : Integer, and the conjunct t1 >= 0 added to subf.
+        // e.g., (exists h1. counter(h1) = t) --> (exists t1. t1 = t & t1 >= 0)
+        // Here a simpler version is used:
+        // (exists h1. counter(h1) = t) --> (t >= 0),
+        // but is much more restrictive.
+        case IEquation(IFunApp(`counter`, Seq(IVariable(0))), rhs)
+          if !SymbolCollector.variables(rhs).contains(h1) &&
+             QuantifierCountVisitor(subf) == 0 =>
+          rhs >= 0
+        case _ => expr //println(expr); expr
       }
-      else  expr //{println(expr); expr}
     //println("ex:" + expr.asInstanceOf[IQuantified].sort + " " + f); expr
     // simplifies both  forall h: H, !(read(h, _) = o)  and
     //                  forall h: H, read(h, _) = o to false
