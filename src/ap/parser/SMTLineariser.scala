@@ -602,9 +602,9 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def findTheorys(formulas : Iterable[IFormula],
-                          consts   : Iterable[ConstantTerm],
-                          preds    : Iterable[Predicate]) : Seq[Theory] = {
+  private def findTheories(formulas : Iterable[IFormula],
+                           consts   : Iterable[ConstantTerm],
+                           preds    : Iterable[Predicate]) : Seq[Theory] = {
     val theoryCollector = new TheoryCollector
     for (f <- formulas)
       theoryCollector(f)
@@ -620,8 +620,9 @@ object SMTLineariser {
         // nothing
     }
 
-    (for (t <- theoryCollector.theories;
-          s <- t.transitiveDependencies) yield s).distinct
+    (theoryCollector.theories ++
+       (for (t <- theoryCollector.theories;
+             s <- t.transitiveDependencies) yield s)).distinct
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -668,7 +669,7 @@ object SMTLineariser {
                                        logic, status,
                                        constsToDeclare.toList,
                                        predsToDeclare,
-                                       findTheorys(finalFormulas,
+                                       findTheories(finalFormulas,
                                                    constsToDeclare,
                                                    predsToDeclare),
                                        "", "", "",
@@ -692,9 +693,9 @@ object SMTLineariser {
                                        logic, status,
                                        constsToDeclare,
                                        predsToDeclare,
-                                       findTheorys(formulas,
-                                                   constsToDeclare,
-                                                   predsToDeclare),
+                                       findTheories(formulas,
+                                                    constsToDeclare,
+                                                    predsToDeclare),
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort,
