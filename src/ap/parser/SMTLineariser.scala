@@ -849,6 +849,14 @@ class SMTLineariser(benchmarkName     : String,
     theoryFun2Identifier(fun) getOrElse
     (quoteIdentifier(funPrefix + fun.name), "")
 
+  private def adtTester(t : ITerm, adt : ADT,
+                        sortNum : Int, ctorPerSortNum : Int) : IFormula = {
+    // insert a dummy predicate to represent the tester
+    val testPred =
+      new Predicate("is-" + adt.getCtorPerSort(sortNum, ctorPerSortNum).name, 1)
+    new IAtom (testPred, List(t))
+  }
+
   def open {
     println("(set-logic " + logic + ")")
     println("(set-info :source |")
@@ -911,6 +919,9 @@ class SMTLineariser(benchmarkName     : String,
                                     .asInstanceOf[IFormula]
     }
  */
+
+    // Make sure that ADT testers have the right form
+    typedFormula = ADT.CtorIdRewriter(typedFormula)
 
     AbsyPrinter(typedFormula)
   }
@@ -1210,14 +1221,8 @@ class SMTLineariser(benchmarkName     : String,
       }
 
       // ADT expression
-      case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
-                             num) => {
-        // insert a dummy predicate to represent the tester
-        val testPred =
-          new Predicate("is-" + adt.getCtorPerSort(sortNum,
-                                                   num.intValueSafe).name, 1)
-        TryAgain(new IAtom (testPred, List(arg)), ctxt)
-      }
+      case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)), num)=>
+        TryAgain(adtTester(arg, adt, sortNum, num.intValueSafe), ctxt)
 
       // General equations
       case x@IExpression.Eq(s, t) =>

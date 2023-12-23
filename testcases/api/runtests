@@ -13,7 +13,7 @@ TESTS="SimpleAPITest SimpleAPITest2 SimpleAPITest3 SimpleAPITest4 \
        SimpleAPITest5 SimpleAPITest6 SimpleAPITest7 SimpleAPITest8 \
        SimpleAPITest9 SimpleAPITest10 SimpleAPITest11 SimpleAPITest12 \
        SimpleAPITest13 \
-       TestRat SimpleAPIModelTest SimpleAPICompleteModelTest"
+       TestRat SimpleAPIModelTest SimpleAPICompleteModelTest NegTester"
 
 for testname in $TESTS; do
   echo
