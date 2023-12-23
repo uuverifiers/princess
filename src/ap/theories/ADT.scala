@@ -448,6 +448,9 @@ object ADT {
   object CtorIdRewriter extends CollectingVisitor[Unit, IExpression] {
     import IExpression._
 
+    def apply(f : IFormula) : IFormula =
+      this.visit(f, ()).asInstanceOf[IFormula]
+
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
         case LeafFormula(t) => {
@@ -463,10 +466,12 @@ object ADT {
               val const = collector.faConst
               val sort  = ap.types.Sort sortOf funapp
               TryAgain(
-                or(for (n <- sort.individuals.iterator) yield {
-                     (funapp === n) &&&
-                     SimplifyingConstantSubstVisitor(newT, Map(const -> n))
-                   }),
+                connectSimplify(
+                  for (n <- sort.individuals.iterator) yield {
+                    (funapp === n) &&&
+                    SimplifyingConstantSubstVisitor(newT, Map(const -> n))
+                  },
+                  IBinJunctor.Or),
                 arg)
             }
           }

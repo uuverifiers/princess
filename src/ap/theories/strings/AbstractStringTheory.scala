@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,9 +91,9 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("int_to_str", List(Integer), SSo, true, false)
 
   val str_<= =
-    new MonoSortedPredicate("char_<=", List(SSo, SSo))
+    new MonoSortedPredicate("str_<=", List(SSo, SSo))
   val str_< =
-    new MonoSortedPredicate("char_<", List(SSo, SSo))
+    new MonoSortedPredicate("str_<", List(SSo, SSo))
   val str_at =
     new MonoSortedIFunction("str_at", List(SSo, Nat), SSo, true, false)
   val str_char =
