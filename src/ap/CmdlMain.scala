@@ -42,7 +42,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
-                  IFormula, IExpression,
+                  IFormula, IExpression, IIntLit, IConstant,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction,
                   LineariseVisitor, TPTPTParser}
@@ -781,7 +781,7 @@ object CmdlMain {
         model match {
           case _ if (
             LineariseVisitor(constraint, IBinJunctor.And) forall {
-              case IExpression.Eq(_, _) => true
+              case IExpression.Eq(IConstant(_), IIntLit(_)) => true
               case _ => false
             }) => // nothing
           case _ => {
