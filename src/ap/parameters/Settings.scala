@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,8 @@ object GlobalSettings {
          Param.VERSION.set(settings, value)
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
+        case Opt("runtime", value) =>
+          Param.PRINT_RUNTIME.set(settings, value)
         case Opt("fullHelp", value) =>
           Param.FULL_HELP.set(settings, value)
         case Opt("quiet", value) =>
@@ -265,7 +267,7 @@ object GlobalSettings {
   }
 
   val allParams =
-    List(Param.VERSION, Param.LOGO, Param.FULL_HELP,
+    List(Param.VERSION, Param.LOGO, Param.PRINT_RUNTIME, Param.FULL_HELP,
          Param.QUIET, Param.LOG_LEVEL, Param.INPUT_FORMAT, Param.STDIN,
          Param.INCREMENTAL, Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,

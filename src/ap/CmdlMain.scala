@@ -84,7 +84,8 @@ object CmdlMain {
   
   def printOptions = {
     println("Standard options:")
-    println(" [+-]logo                  Print logo and elapsed time              (default: +)")
+    println(" [+-]logo                  Print logo                               (default: +)")
+    println(" [+-]runtime               Print elapsed runtime                    (default: +)")
     println(" [+-]fullHelp              Print detailed help and exit             (default: -)")
     println(" [+-]version               Print version and exit                   (default: -)")
     println(" [+-]quiet                 Suppress all output to stderr            (default: -)")
@@ -383,7 +384,9 @@ object CmdlMain {
         else if (filename endsWith ".p")
           Param.InputFormat.TPTP
         else
-          throw new Exception ("could not figure out the input format (recognised types: .pri, .smt2, .p)")
+          throw new Exception (
+            "could not figure out the input format " +
+              "(recognised types: .pri, .smt2, .p)")
       case f => f
   }
   
@@ -405,17 +408,6 @@ object CmdlMain {
     format match {
       case Param.InputFormat.SMTLIB =>
         SMTLineariser printModel model
-/*      case Param.InputFormat.Princess => {
-        val modelStr = PrincessLineariser asString model
-        val modelParts = (modelStr split " & ") sortWith {
-          (str1, str2) => (!(str1 contains '(') && (str2 contains '(')) ||
-                          str1 < str2
-        }
-        if (modelStr.size > 60)
-          println(modelParts.mkString(" &" + System.lineSeparator()))
-        else
-          println(modelParts.mkString(" & "))
-      } */
       case _ =>
         printFormula(model)
     }
@@ -445,96 +437,109 @@ object CmdlMain {
       ap.util.Warmup()
     }
 
-  def proveProblem(settings : GlobalSettings,
-                   name : String,
-                   reader : () => java.io.Reader,
-                   userDefStoppingCond : => Boolean)
-                  (implicit format : Param.InputFormat.Value) : Option[Prover.Result] = {
+  private def withStatistics[A](settings : GlobalSettings)
+                               (comp : => A) : A = {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
+    val timeBefore = System.currentTimeMillis
+
+    if (needsCounters(settings))
+      ap.util.OpCounters.init
+    else
+      ap.util.OpCounters.disable
+
     try {
-            val timeBefore = System.currentTimeMillis
-            val baseSettings = Param.INPUT_FORMAT.set(settings, format)
+      comp
+    } finally {
+      val timeAfter = System.currentTimeMillis
+            
+      Console.withOut(Console.err) {
+        if (Param.PRINT_RUNTIME(settings)) {
+          println
+          println("" + (timeAfter - timeBefore) + "ms")
+        }
+            
+        if (Param.LOG_LEVEL(settings) contains Param.LOG_STATS) {
+          println
+          println("Statistics:")
+          println(ap.util.Timer)
+          ap.util.Timer.reset
+        }
+            
+        if (counterPrintingEnabled(settings)) {
+          println
+          println("Counters:")
+          ap.util.OpCounters.printCounters
+        }
+      }
+    }
+  }
 
-            if (needsCounters(settings))
-              ap.util.OpCounters.init
-            else
-              ap.util.OpCounters.disable
+  /**
+   * Prove or solve problems in the non-incremental mode.
+   */
+  def proveProblemNonInc(settings : GlobalSettings,
+                         name : String,
+                         reader : () => java.io.Reader,
+                         userDefStoppingCond : => Boolean)
+                        (implicit format : Param.InputFormat.Value)
+                       : Option[Prover.Result] = {
+    try {
+      val baseSettings = Param.INPUT_FORMAT.set(settings, format)
 
-            val prover = if (Param.PORTFOLIO(settings) != "none") {
-              import ParallelFileProver._
+      withStatistics(settings) {
+        val prover = if (Param.PORTFOLIO(settings) != "none") {
+          import ParallelFileProver._
 
-              def prelPrinter(p : Prover) : Unit = {
-                Console.err.println
-                printResult(p, baseSettings, name)
-                Console.err.println
-              }
+          def prelPrinter(p : Prover) : Unit = {
+            Console.err.println
+            printResult(p, baseSettings, name)
+            Console.err.println
+          }
               
-              val needProof =
-                Param.COMPUTE_UNSAT_CORE(settings) ||
-                Param.PRINT_CERTIFICATE(settings) ||
-                Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
+          val needProof =
+            Param.COMPUTE_UNSAT_CORE(settings) ||
+            Param.PRINT_CERTIFICATE(settings) ||
+            Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
 
-              val args =
-                ParallelFileProver.ProverArguments(
-                  reader,
-                  baseSettings,
-                  Param.TIMEOUT(settings),
-                  () => userDefStoppingCond,
-                  needProof,
-                  prelPrinter _,
-                  Param.PORTFOLIO_THREAD_NUM(settings))
+          val args =
+            ParallelFileProver.ProverArguments(
+              reader,
+              baseSettings,
+              Param.TIMEOUT(settings),
+              () => userDefStoppingCond,
+              needProof,
+              prelPrinter _,
+              Param.PORTFOLIO_THREAD_NUM(settings))
 
-              ParallelFileProver(Param.PORTFOLIO(settings), args)
+          ParallelFileProver(Param.PORTFOLIO(settings), args)
 
-            } else {
-              new IntelliFileProver(reader(),
-                                    AbstractFileProver
-                                      .timeoutFromSettings(settings),
-                                    true,
-                                    userDefStoppingCond,
-                                    baseSettings)
-            }
+        } else {
+          new IntelliFileProver(reader(),
+                                AbstractFileProver
+                                  .timeoutFromSettings(settings),
+                                true,
+                                userDefStoppingCond,
+                                baseSettings)
+        }
 
-            Console.withOut(Console.err) {
-              println
-            }
+        Console.withOut(Console.err) {
+          println
+        }
 
-            printResult(prover, settings, name)
+        printResult(prover, settings, name)
 
-            val timeAfter = System.currentTimeMillis
-            
-            Console.withOut(Console.err) {
-              println
-              if (Param.LOGO(settings))
-                println("" + (timeAfter - timeBefore) + "ms")
-            }
-            
-            prover match {
-              case prover : AbstractFileProver => {
-                printSMT(prover, name, settings)
-                printTPTP(prover, name, settings)
-              }
-              case _ => // nothing
-            }
+        prover match {
+          case prover : AbstractFileProver => {
+            printSMT(prover, name, settings)
+            printTPTP(prover, name, settings)
+          }
+          case _ => // nothing
+        }
 
-            if (Param.LOG_LEVEL(settings) contains Param.LOG_STATS)
-              Console.withOut(Console.err) {
-                println
-                println("Statistics:")
-                println(ap.util.Timer)
-                ap.util.Timer.reset
-              }
-            
-            if (counterPrintingEnabled(settings))
-              Console.withOut(Console.err) {
-                println
-                println("Counters:")
-                ap.util.OpCounters.printCounters
-              }
-
-            Some(prover.result)
-          } catch {
+        Some(prover.result)
+      }
+    } catch {
       case _ : StackOverflowError => {
         if (format == Param.InputFormat.SMTLIB)
           println("unknown")
@@ -572,22 +577,24 @@ object CmdlMain {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  def proveMultiSMT(settings : GlobalSettings,
-                    input : java.io.Reader,
-                    userDefStoppingCond : => Boolean) = try {
-    val assertions = Param.ASSERTIONS(settings)
-    Debug.enableAllAssertions(assertions)
-
-    SimpleAPI.withProver(enableAssert = assertions,
-                         sanitiseNames = false,
-                         genTotalityAxioms = 
-                           Param.GENERATE_TOTALITY_AXIOMS(settings),
-                         randomSeed = Param.RANDOM_SEED(settings)) { p =>
-      val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
-      parser.processIncrementally(input,
-                                  Param.TIMEOUT(settings),
-                                  Param.TIMEOUT_PER(settings),
-                                  userDefStoppingCond)
+  /**
+   * Solve SMT-LIB problems in the incremental mode.
+   */
+  def proveProblemInc(settings : GlobalSettings,
+                      input : java.io.Reader,
+                      userDefStoppingCond : => Boolean) = try {
+    withStatistics(settings) {
+      SimpleAPI.withProver(enableAssert = Param.ASSERTIONS(settings),
+                           sanitiseNames = false,
+                           genTotalityAxioms = 
+                             Param.GENERATE_TOTALITY_AXIOMS(settings),
+                           randomSeed = Param.RANDOM_SEED(settings)) { p =>
+        val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
+        parser.processIncrementally(input,
+                                    Param.TIMEOUT(settings),
+                                    Param.TIMEOUT_PER(settings),
+                                    userDefStoppingCond)
+      }
     }
   } catch {
       case _ : StackOverflowError => {
@@ -606,18 +613,22 @@ object CmdlMain {
           e.printStackTrace
       }
   }
-  
-  def proveProblems(settings : GlobalSettings,
-                    name : String,
-                    input : () => java.io.Reader,
-                    userDefStoppingCond : => Boolean)
-                   (implicit format : Param.InputFormat.Value) = {
+
+  /**
+   * Prove or solve a problem, choosing between incremental and
+   * non-incremental mode according to the given settings.
+   */
+  def proveProblem(settings : GlobalSettings,
+                   name : String,
+                   input : () => java.io.Reader,
+                   userDefStoppingCond : => Boolean)
+                  (implicit format : Param.InputFormat.Value) = {
     Console.err.println("Loading " + name + " ...")
     format match {
       case Param.InputFormat.SMTLIB if (Param.INCREMENTAL(settings)) =>
-        proveMultiSMT(settings, input(), userDefStoppingCond)
+        proveProblemInc(settings, input(), userDefStoppingCond)
       case _ => {
-        proveProblem(settings, name, input, userDefStoppingCond)
+        proveProblemNonInc(settings, name, input, userDefStoppingCond)
       }
     }
   }
@@ -984,43 +995,38 @@ object CmdlMain {
     }
           
     Console.withErr(if (Param.QUIET(settings)) NullStream else Console.err) {
-      if (Param.LOGO(settings)) Console.withOut(Console.err) {
-        printGreeting
-        println
-      }
 
-      if (inputs.isEmpty && !Param.STDIN(settings)) {
-        Console.err.println("No inputs given, exiting")
-        return
-      }
+    if (Param.LOGO(settings)) Console.withOut(Console.err) {
+      printGreeting
+      println
+    }
 
-      warmup(settings)
+    if (inputs.isEmpty && !Param.STDIN(settings)) {
+      Console.err.println("No inputs given, exiting")
+      return
+    }
 
-      if (inputs.isEmpty && !Param.STDIN(settings)) {
-        Console.err.println("No inputs given, exiting")
-        return
-      }
+    warmup(settings)
 
-      for (filename <- inputs) try {
-        implicit val format = determineInputFormat(filename, settings)
-        proveProblems(settings,
-                      filename,
-                      () => new java.io.BufferedReader (
-                              new java.io.FileReader(
-                                new java.io.File (filename))),
-                      userDefStoppingCond)
-      } catch {
-        case e : Throwable => {
-          println("ERROR: " + e.getMessage)
-          if (stackTraces)
-            e.printStackTrace
-        }
+    for (filename <- inputs) try {
+      implicit val format = determineInputFormat(filename, settings)
+      proveProblem(settings,
+                   filename,
+                   () => new java.io.BufferedReader (
+                           new java.io.FileReader(new java.io.File (filename))),
+                   userDefStoppingCond)
+    } catch {
+      case e : Throwable => {
+        println("ERROR: " + e.getMessage)
+        if (stackTraces)
+          e.printStackTrace
       }
+    }
 
-      if (Param.STDIN(settings)) {
-        Console.err.println("Reading SMT-LIB 2 input from stdin ...")
-        proveMultiSMT(settings, Console.in, userDefStoppingCond)
-      }
+    if (Param.STDIN(settings)) {
+      Console.err.println("Reading SMT-LIB 2 input from stdin ...")
+      proveProblemInc(settings, Console.in, userDefStoppingCond)
+    }
     }
   }
 

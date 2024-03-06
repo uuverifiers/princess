@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,7 +110,7 @@ object JavaWrapper {
 
       implicit val format = CmdlMain.determineInputFormat(filename, settings)
       asString {
-        CmdlMain.proveProblems(settings, filename, input, false)
+        CmdlMain.proveProblem(settings, filename, input, false)
       }
     }
   }
