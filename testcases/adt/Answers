@@ -3,7 +3,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
 Loading datatype4b.smt2 ...
 Warning: assuming that recursive function f0 is partial
 Warning: assuming that recursive function f1 is partial
@@ -29,7 +28,6 @@ sat
   (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 43) (cons (int 17) (cons (int 42) nil))))) true true))
   (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 nil) true (ite (= x!0 (cons (int 43) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 42) nil)) true true)))))
 )
-
 Loading datatype4c.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -42,7 +40,6 @@ sat
   (define-fun x2 () Term (int 53))
   (define-fun x1 () Term (list (cons (int 53) (cons (int 55) nil))))
 )
-
 Loading datatype6.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -52,7 +49,6 @@ sat
 (model
   (define-fun t () Tree (node (cons 1 nil) leaf (node (cons 0 nil) leaf (node nil leaf leaf))))
 )
-
 Loading datatype6b.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -63,7 +59,6 @@ sat
   (define-fun b () List nil)
   (define-fun a () List (cons 0 nil))
 )
-
 Loading cvc-datatype-1.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -76,7 +71,6 @@ sat
   (define-fun x2 () list (cons (node null) null))
   (define-fun x1 () nat (succ zero))
 )
-
 Loading adt-model-bug.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -86,13 +80,11 @@ sat
 (model
   (define-fun x () ListT1 (insertT1 T1!16 (insertT1 T1!20 (insertT1 T1!24 nilT1))))
 )
-
 Loading quoted-datatype.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
 Loading polymorphicList.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -104,13 +96,11 @@ sat
   (define-fun l2 () (List Bool) (cons true (as nil (List Bool))))
   (define-fun l () (List Int) (cons 9 (as nil (List Int))))
 )
-
 Loading polymorphicList2.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
 Loading polymorphicList3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -121,7 +111,6 @@ sat
   (define-fun l3 () (List (List Int)) (cons (cons (- 1) (cons 11 (as nil (List Int)))) (cons (cons 0 (as nil (List Int))) (as nil (List (List Int))))))
   (define-fun l () (List Int) (cons (- 1) (cons 11 (as nil (List Int)))))
 )
-
 Loading polymorphicPairs.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -132,7 +121,6 @@ sat
   (define-fun y () (Either Int Bool) ((as Left (Either Int Bool)) 4))
   (define-fun x () (Pair Int Bool) ((as Pair (Pair Int Bool)) 4 false))
 )
-
 Loading emptyPar.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -142,7 +130,6 @@ sat
 (model
   (define-fun x () T (T 1 3))
 )
-
 Loading datatype2.smt2 ...
 unsat
 unsat
@@ -277,7 +264,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-
 Loading datatype6b.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -288,7 +274,6 @@ sat
   (define-fun b () List nil)
   (define-fun a () List (cons 0 nil))
 )
-
 Loading cvc-datatype-1.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -301,7 +286,6 @@ sat
   (define-fun x2 () list null)
   (define-fun x1 () nat (succ (succ zero)))
 )
-
 Loading datatype2.smt2 ...
 unsat
 unsat
