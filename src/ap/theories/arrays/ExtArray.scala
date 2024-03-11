@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,7 +54,7 @@ import ap.util.{Seqs, Debug, IdealRange}
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet,
                                  HashSet => MHashSet, ArrayBuffer,
-                                 LinkedHashSet, ArrayStack}
+                                 LinkedHashSet, Stack}
 import scala.math.Ordering.Implicits._
 
 object ExtArray {
@@ -951,8 +951,8 @@ class ExtArray (val indexSorts : Seq[Sort],
                                   Seq[LinearCombination])]
     val toAdd     = new ArrayBuffer[(LinearCombination, LinearCombination,
                                      Seq[LinearCombination])]
-    val todo      = new ArrayStack[(LinearCombination, LinearCombination,
-                                    Seq[LinearCombination])]
+    val todo      = new Stack[(LinearCombination, LinearCombination,
+                               Seq[LinearCombination])]
     var changed   = true
 
     def addDistinctLazy(a : LinearCombination, b : LinearCombination,

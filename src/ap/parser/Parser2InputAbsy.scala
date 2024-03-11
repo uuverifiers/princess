@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,7 @@ import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 
 import scala.collection.immutable.VectorBuilder
-import scala.collection.mutable.{ArrayStack => Stack}
+import scala.collection.mutable.Stack
 
 object Parser2InputAbsy {
 

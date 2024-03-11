@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
 package ap.interpolants
 
 import scala.util.Sorting
-import scala.collection.mutable.{ArrayStack => MStack,
+import scala.collection.mutable.{Stack => MStack,
                                  Map => MMap, HashMap => MHashMap}
 
 import ap._

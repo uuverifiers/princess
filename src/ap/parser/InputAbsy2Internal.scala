@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.inequalities.InEqConj
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayBuffer, ArrayStack => Stack}
+import scala.collection.mutable.{ArrayBuffer, Stack}
 
 object InputAbsy2Internal {
   private val AC = Debug.AC_INPUT_ABSY

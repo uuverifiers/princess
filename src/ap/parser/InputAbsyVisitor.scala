@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,7 @@ import ap.terfor.conjunctions.Quantifier
 import ap.theories.{TheoryRegistry, ModuloArithmetic, ADT, Theory, MulTheory}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
+import scala.collection.mutable.{Stack, ArrayBuffer,
                                  LinkedHashSet, HashSet => MHashSet,
                                  HashMap => MHashMap}
 import scala.collection.{Map => CMap}

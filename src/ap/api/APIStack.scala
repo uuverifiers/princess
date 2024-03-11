@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,7 +43,7 @@ import ap.theories.TheoryCollector
 
 import Signature.PredicateMatchConfig
 
-import scala.collection.mutable.{ArrayStack, LinkedHashMap}
+import scala.collection.mutable.{Stack, LinkedHashMap}
 
 class APIStack {
 
@@ -149,7 +149,7 @@ class APIStack {
   def clearStack = storedStates.clear
 
   private val storedStates =
-    new ArrayStack[(ModelSearchProver.IncProver,
+         new Stack[(ModelSearchProver.IncProver,
                     Boolean,
                     Boolean,
                     Boolean,

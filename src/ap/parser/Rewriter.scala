@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@ package ap.parser
 
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayStack => Stack}
+import scala.collection.mutable.Stack
 
 /**
  * Simple rewriting engine on the input AST datastructures

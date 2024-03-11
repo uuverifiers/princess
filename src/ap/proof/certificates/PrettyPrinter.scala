@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,8 +41,7 @@ import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.TermOrder
 
-import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
-                                 ArrayStack}
+import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap, Stack}
 import scala.util.Sorting
 
 object CertificatePrettyPrinter {
@@ -329,7 +328,7 @@ class CertificatePrettyPrinter(
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val branchStack = new ArrayStack[(Int, String)]
+  private val branchStack = new Stack[(Int, String)]
 
   private def push : Unit =
     branchStack push ((formulaLabel.size, prefix))

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,7 @@ import ap.util.{Seqs, Tarjan}
 import scala.collection.{Map => GMap}
 import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
-                                 ArrayBuffer, Map => MMap, ArrayStack,
+                                 ArrayBuffer, Map => MMap, Stack,
                                  LinkedHashMap, Set => MSet}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -526,7 +526,7 @@ object AbstractStringTheoryWithSort {
         val emptyString = IFunApp(str_empty, List())
         terms.put((emptyIndex, this), emptyString)
 
-        val todo = new ArrayStack[(IdealInt, ITerm)]
+        val todo = new Stack[(IdealInt, ITerm)]
         todo push ((emptyIndex, emptyString))
 
         while (!todo.isEmpty) {

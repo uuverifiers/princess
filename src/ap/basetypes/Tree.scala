@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2015-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@
 
 package ap.basetypes;
 
-import scala.collection.mutable.ArrayStack
+import scala.collection.mutable.Stack
 
 object Leaf {
   def apply[D](d : D) = Tree(d, List())
@@ -82,7 +82,7 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
   def toSeq = toList
   def toSet = iterator.toSet
   def iterator = new Iterator[D] {
-    val todo = new ArrayStack[Tree[D]]
+    val todo = new Stack[Tree[D]]
     todo push Tree.this
     def hasNext = !todo.isEmpty
     def next() = {

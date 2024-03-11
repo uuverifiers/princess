@@ -33,7 +33,7 @@
 
 package ap.basetypes;
 
-import scala.collection.mutable.{ArrayBuffer, ArrayStack => Stack}
+import scala.collection.mutable.{ArrayBuffer, Stack}
 
 import ap.util.Debug
 

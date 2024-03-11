@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,8 +54,7 @@ import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs, LRUCache,
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, Map => MMap, Set => MSet,
-                                 BitSet => MBitSet, ArrayStack,
-                                 LinkedHashSet}
+                                 BitSet => MBitSet, Stack, LinkedHashSet}
 import scala.collection.{Set => GSet}
 
 object ADT {
@@ -727,7 +726,7 @@ class ADT (sortNames      : Seq[String],
         val referencedSorts = new MBitSet
 
         {
-          val sortsTodo = new ArrayStack[Int]
+          val sortsTodo = new Stack[Int]
           referencedSorts += entrySort
           sortsTodo push entrySort
 

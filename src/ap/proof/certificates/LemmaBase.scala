@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
 package ap.proof.certificates
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 ArrayStack, HashSet => MHashSet}
+                                 Stack, HashSet => MHashSet}
 import scala.util.Sorting
 
 import ap.terfor.conjunctions.Conjunction
@@ -123,7 +123,7 @@ class LemmaBase(printLemmas : Boolean = false) {
   private var assumedFormulas : Set[CertFormula] = Set()
 
   // Stack for <code>assumedFormulas</code>
-  private val assumedFormulaStack = new ArrayStack[Set[CertFormula]]
+  private val assumedFormulaStack = new Stack[Set[CertFormula]]
 
   // Certificates that have been added, but can currently not
   // be put in <code>literals2Certs</code> since they are in conflict

@@ -38,7 +38,7 @@ import IExpression.Predicate
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  LinkedHashMap, LinkedHashSet,
-                                 ArrayBuffer, ArrayStack}
+                                 ArrayBuffer, Stack}
 
 /**
  * Class to compress chains of implications, for faster constraint
@@ -84,7 +84,7 @@ object ImplicationCompressor {
 //    println(implications)
 
     def impliedPreds(p : IFormula) : Option[Seq[IFormula]] = {
-      val todo = new ArrayStack[IFormula]
+      val todo = new Stack[IFormula]
       val res = new LinkedHashSet[IFormula]
       
       todo push p
@@ -160,7 +160,7 @@ object ImplicationCompressor {
     import IExpression._
     
     def impliedPreds(p : IFormula) : Option[Seq[IFormula]] = {
-      val todo = new ArrayStack[IFormula]
+      val todo = new Stack[IFormula]
       val res = new LinkedHashSet[IFormula]
       
       todo push p

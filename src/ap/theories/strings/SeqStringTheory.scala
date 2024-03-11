@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,7 @@ import ap.proof.goal.Goal
 import ap.util.Seqs
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 ArrayStack, ArrayBuffer}
+                                 Stack, ArrayBuffer}
 
 object SeqStringTheory {
 
@@ -870,7 +870,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     def apply(conj : Conjunction, order : TermOrder) = {
       val words = new MHashMap[Term, SymWord]
       val defTerms = new MHashSet[Term]
-      val todo = new ArrayStack[LinearCombination]
+      val todo = new Stack[LinearCombination]
 
       for (a <- conj.predConj.positiveLitsWithPred(_str_empty)) {
         words.put(a.last, EmptyWord)
