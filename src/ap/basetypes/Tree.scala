@@ -87,7 +87,8 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
     def hasNext = !todo.isEmpty
     def next() = {
       val Tree(data, children) = todo.pop
-      todo ++= children
+      for (x <- children)
+        todo push x
       data
     }
   }

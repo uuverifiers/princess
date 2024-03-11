@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -95,7 +95,8 @@ object ImplicationCompressor {
           if (res contains ~next)
             return None
           res += next
-          todo ++= implications.getOrElse(next, List())
+          for (x <- implications get next; y <- x)
+            todo push y
         }
       }
       
