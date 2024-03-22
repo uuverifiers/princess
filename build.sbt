@@ -10,7 +10,7 @@ lazy val commonSettings = Seq(
                                    "scm:git@github.com/uuverifiers/princess.git")),
     developers           := List(
                               Developer(
-                                id    = "p_ruemmer",
+                                id    = "pruemmer",
                                 name  = "Philipp Ruemmer",
                                 email = "ph_r@gmx.net",
                                 url   = url("https://philipp.ruemmer.org")
