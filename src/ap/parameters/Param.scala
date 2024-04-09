@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@ import ap.theories.strings.StringTheoryBuilder
 import ap.Signature.PredicateMatchConfig
 import ap.proof.tree.{RandomDataSource, NonRandomDataSource}
 import ap.terfor.conjunctions.{ReducerPluginFactory, IdentityReducerPlugin}
+import ap.parser.SMTParseableTheory
 
 object Param {
   
@@ -47,6 +48,11 @@ object Param {
   }
 
   case object LOGO extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+
+  case object PRINT_RUNTIME extends Param {
     type Value = Boolean
     val defau : Boolean = true
   }
@@ -356,6 +362,11 @@ object Param {
   case object STRING_ESCAPES extends Param {
     type Value = Boolean
     val defau : Boolean = false
+  }
+
+  case object SMTParserExtraTheories extends Param {
+    type Value = Seq[SMTParseableTheory]
+    val defau : Seq[SMTParseableTheory] = List()
   }
 
   case object SINGLE_INSTANTIATION_PREDICATES extends Param {
