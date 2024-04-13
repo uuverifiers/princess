@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -111,9 +111,10 @@ object ExtArray {
   }
 
   /**
-   * Constructor of lambda expressions.
-   * 
-   * TODO: also add an extractor.
+   * Constructor and extractor of lambda expressions, encoded using
+   * epsilon terms and quantifiers. The body of the expression is
+   * expected to contain free variables <code>_0, _1, ...</code>
+   * corresponding to the variables bound by the lambda.
    */
   object Lambda {
     def apply(argumentSorts : Seq[Sort],
@@ -124,12 +125,55 @@ object ExtArray {
       val arrayTheory = ExtArray(argumentSorts, resultSort)
       val arraySort   = arrayTheory.sort
       val shiftedBody = shiftVars(body, arity, 1)
-      val lhs         = arrayTheory.select(
-                          List(v(arity, arraySort)) ++
-                            (for ((s, n) <- argumentSorts.zipWithIndex)
-                             yield v(n, s)) : _*)
+      val lhs         = selTerm(arrayTheory)
       arraySort.eps(all(argumentSorts,
                         ITrigger(List(lhs), lhs === shiftedBody)))
+    }
+
+    private def selTerm(theory : ExtArray) = {
+      import IExpression._
+      theory.select(
+        List(v(theory.indexSorts.size, theory.sort)) ++
+          (for ((s, n) <- theory.indexSorts.zipWithIndex)
+           yield v(n, s)) : _*)
+    }
+
+    def unapply(t : ITerm) : Option[(Seq[Sort], Sort, ITerm)] = t match {
+      case ISortedEpsilon(ExtArray.ArraySort(theory), matrix) =>
+        for (body <- extractLambdaBody(theory, matrix))
+        yield (theory.indexSorts, theory.objSort, body)
+      case _ => None
+    }
+
+    private def extractLambdaBody(theory : ExtArray,
+                                  matrix : IFormula) : Option[ITerm] = {
+      import IExpression._
+
+      var quanSorts : List[Sort] = List()
+      var body = matrix
+
+      while (body.isInstanceOf[IQuantified])
+        body match {
+          case ISortedQuantified(Quantifier.ALL, qsort, sub) => {
+            quanSorts = qsort :: quanSorts
+            body = sub
+          }
+          case _ =>
+            return None
+        }
+
+      if (quanSorts != theory.indexSorts)
+        return None
+
+      val lhs = selTerm(theory)
+
+      body match {
+        case ITrigger(Seq(`lhs`), Eq(`lhs`, sub))
+            if !ContainsVariable(sub, quanSorts.size) =>
+          Some(shiftVars(sub, quanSorts.size, -1))
+        case _ =>
+          None
+      }
     }
   }
 
@@ -344,24 +388,40 @@ class ExtArray (val indexSorts : Seq[Sort],
 
   val sort = new ExtArray.ArraySort(this)
 
+  /**
+   * Function for reading an element of the array.
+   */
   val select =
     MonoSortedIFunction(
       prefix + "select" + suffix,
       List(sort) ++ indexSorts,
       objSort,
       partial, false)
+
+  /**
+   * Function for updating an array at given indexes.
+   */
   val store =
     MonoSortedIFunction(
       prefix + "store" + suffix,
       List(sort) ++ indexSorts ++ List(objSort),
       sort,
       partial, false)
+
+  /**
+   * Function for constant arrays.
+   */
   val const =
     MonoSortedIFunction(
       prefix + "const" + suffix,
       List(objSort),
       sort,
       partial, false)
+
+  /**
+   * Java-friendly copy of the <code>const</code> function.
+   */
+  val constArray = const
 
   // Store function used for bidirectional propagation
   val store2 =
