@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -209,8 +209,8 @@ object SMTTypes {
       // check whether the theory can resolve this sort
       val typ =
         (TheoryRegistry lookupSort s) match {
-          case t : SMTLinearisableTheory => t.sort2SMTType(s)
-          case _                         => None
+          case Some(t : SMTLinearisableTheory) => t.sort2SMTType(s)
+          case _                               => None
         }
       typ match {
         case Some(t) => (t, None)
