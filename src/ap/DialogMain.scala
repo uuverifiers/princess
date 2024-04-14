@@ -140,7 +140,7 @@ class InputDialog extends JPanel {
 
   import DialogUtil._
 
-  private implicit val ec =
+  private implicit val ec : scala.concurrent.ExecutionContextExecutor =
     ExecutionContext fromExecutor Executors.newCachedThreadPool
   
   //////////////////////////////////////////////////////////////////////////////

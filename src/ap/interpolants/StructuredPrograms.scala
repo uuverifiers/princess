@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,10 +94,10 @@ object StructuredPrograms {
   }
   
   implicit def toRichTerm(t : ITerm)
-                         (implicit voc : FrameworkVocabulary) = new RichTerm (t)
+                         (implicit voc : FrameworkVocabulary) : RichTerm = new RichTerm (t)
 
   implicit def toRichTerm(c : ConstantTerm)
-                         (implicit voc : FrameworkVocabulary) = new RichTerm (c)
+                         (implicit voc : FrameworkVocabulary) : RichTerm = new RichTerm (c)
 
   def seq(stmts : StructuredProgram*) : StructuredProgram =
     stmts.reduceLeft(Sequence(_, _))

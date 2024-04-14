@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2023      Amanda Stjerna <amanda.stjerna@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1761,7 +1761,7 @@ class SimpleAPI private (enableAssert        : Boolean,
    * Convert a term to a rich term, offering operations
    * <code>mul, div, mod</code>, etc., for non-linear arithmetic.
    */
-  implicit def convert2RichMulTerm(term : ITerm) =
+  implicit def convert2RichMulTerm(term : ITerm) : ap.theories.MulTheory#RichMulTerm =
     mulTheory.convert2RichMulTerm(term)
 
   //////////////////////////////////////////////////////////////////////////////

@@ -300,7 +300,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
   import NonInterferenceChecker2.{AC, Renaming, addConst, cloneConst,
                                   cloneConsts, createRenaming}
         
-  implicit def voc = frameworkVocabulary
+  implicit def voc : FrameworkVocabulary = frameworkVocabulary
   import frameworkVocabulary.{select, store}
 
   val (init, program) = progCtor(frameworkVocabulary)
