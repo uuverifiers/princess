@@ -49,8 +49,8 @@ lazy val commonSettings = Seq(
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
     scalaVersion         := "2.11.12",
     crossScalaVersions   := Seq("2.11.12", "2.12.18"),
-    fork in run          := true,
-    cancelable in Global := true,
+    run / fork           := true,
+    Global / cancelable  := true,
     publishTo := Some(Resolver.file("file", new File( "/tmp/shared-repo" )) )
 )
 
@@ -58,8 +58,8 @@ lazy val commonSettings = Seq(
 // Jar files for the parsers
 
 lazy val parserSettings = Seq(
-//    publishArtifact in packageDoc := false,
-//    publishArtifact in packageSrc := false,
+//    packageDoc / publishArtifact := false,
+//    packageSrc / publishArtifact := false,
     exportJars := true,
     crossPaths := true 
 )
@@ -69,7 +69,7 @@ lazy val parser = (project in file("parser")).
   settings(parserSettings: _*).
   settings(
     name := "Princess-parser",
-    packageBin in Compile := baseDirectory.value / "parser.jar"
+    Compile / packageBin := baseDirectory.value / "parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -78,7 +78,7 @@ lazy val smtParser = (project in file("smt-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Princess-smt-parser",
-    packageBin in Compile := baseDirectory.value / "smt-parser.jar"
+    Compile / packageBin := baseDirectory.value / "smt-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -90,11 +90,11 @@ lazy val root = (project in file(".")).
   settings(commonSettings: _*).
 //
   settings(
-    scalaSource in Compile := baseDirectory.value / "src",
+    Compile / scalaSource := baseDirectory.value / "src",
 //
-    mainClass in Compile := Some("ap.CmdlMain"),
+    Compile / mainClass := Some("ap.CmdlMain"),
 //
-    scalacOptions in Compile ++=
+    Compile / scalacOptions ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
@@ -103,7 +103,7 @@ lazy val root = (project in file(".")).
     }}).value,
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.2.0",
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
