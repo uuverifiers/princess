@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -564,7 +564,7 @@ object SMTLineariser {
       case IBoolLit(value) => print(value)
       case _ => {
         val lineariser =
-          new SMTLineariser("", "", "", List(), List(), List(),
+          new SMTLineariser("", "", "", List(), List(), List(), List(),
                             "", "", "",
                             constantType, functionType, predType,
                             prettyBitvectors)
@@ -574,7 +574,8 @@ object SMTLineariser {
 
   def apply(term : ITerm) : Unit = {
     val lineariser =
-      new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
+      new SMTLineariser("", "", "", List(), List(), List(), List(),
+                        "", "", "",
                         constantTypeFromSort,
                         functionTypeFromSort, predTypeFromSort)
     lineariser printTerm term
@@ -582,7 +583,8 @@ object SMTLineariser {
 
   def applyNoPrettyBitvectors(term : ITerm) : Unit = {
     val lineariser =
-      new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
+      new SMTLineariser("", "", "", List(), List(), List(), List(),
+                        "", "", "",
                         constantTypeFromSort,
                         functionTypeFromSort, predTypeFromSort,
                         false)
@@ -602,22 +604,31 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def findTheories(formulas : Iterable[IFormula],
-                           consts   : Iterable[ConstantTerm],
-                           preds    : Iterable[Predicate]) : Seq[Theory] = {
+  private def findTheories(formulas      : Iterable[IFormula],
+                           consts        : Iterable[ConstantTerm],
+                           preds         : Iterable[Predicate],
+                           funs          : Iterable[IFunction],
+                           extraTheories : Iterable[Theory]) : Seq[Theory] = {
     val theoryCollector = new TheoryCollector
+
+    for (t <- extraTheories)
+      theoryCollector addTheory t
+    
     for (f <- formulas)
       theoryCollector(f)
 
     for (c <- consts)
       theoryCollector(SortedConstantTerm sortOf c)
 
-    for (p <- preds) p match {
-      case p : MonoSortedPredicate =>
-        for (s <- p.argSorts)
-          theoryCollector(s)
-      case _ =>
-        // nothing
+    for (p <- preds)
+      for (s <- MonoSortedPredicate.argumentSorts(p))
+        theoryCollector(s)
+
+    for (f <- funs) {
+      val (argSorts, resSort) = MonoSortedIFunction.functionType(f)
+      theoryCollector(resSort)
+      for (s <- argSorts)
+        theoryCollector(s)
     }
 
     (theoryCollector.theories ++
@@ -627,13 +638,12 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def apply(formulas : Seq[IFormula], signature : Signature,
-            benchmarkName : String) : Unit =
-    apply(formulas, signature, "AUFLIA", "unknown", benchmarkName)
-
-  def apply(formulas : Seq[IFormula], signature : Signature,
-            logic : String, status : String,
-            benchmarkName : String) : Unit = {
+  def printWithDeclsSig(formulas      : Seq[IFormula],
+                        signature     : Signature,
+   		        extraTheories : Seq[Theory] = List(),
+                        benchmarkName : String = "",
+                        logic         : String = "AUFLIA",
+		        status        : String = "unknown") : Unit = {
     val order = signature.order
     
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
@@ -665,13 +675,26 @@ object SMTLineariser {
            if (TheoryRegistry lookupSymbol p).isEmpty)
       yield p
 
+    val funsToDeclare = {
+      val raw = (for (formula <- finalFormulas.iterator;
+                      fun <- FunctionCollector(formula).iterator;
+                      if (TheoryRegistry lookupSymbol fun).isEmpty)
+		 yield fun).toSet
+      raw.toVector.sortBy(_.name)
+    }
+
+    val theories = findTheories(finalFormulas,
+                                constsToDeclare,
+		                predsToDeclare,
+	                        funsToDeclare,
+                                extraTheories)
+
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare.toList,
                                        predsToDeclare,
-                                       findTheories(finalFormulas,
-                                                   constsToDeclare,
-                                                   predsToDeclare),
+				       funsToDeclare,
+                                       theories,
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort,
@@ -683,19 +706,25 @@ object SMTLineariser {
     lineariser.close
   }
 
-  def apply(benchmarkName : String,
-            logic : String,
-            status : String,
-            constsToDeclare : Seq[ConstantTerm],
-            predsToDeclare : Seq[Predicate],
-            formulas : Seq[IFormula]) : Unit = {
+  def printWithDecls(formulas        : Seq[IFormula],
+                     constsToDeclare : Seq[ConstantTerm] = List(),
+                     predsToDeclare  : Seq[Predicate]    = List(),
+	             funsToDeclare   : Seq[IFunction]    = List(),
+		     extraTheories   : Seq[Theory]       = List(),
+	             benchmarkName   : String            = "",
+                     logic           : String            = "AUFLIA",
+                     status          : String            = "unknown") : Unit = {
+    val theories = findTheories(formulas,
+                                constsToDeclare,
+		                predsToDeclare,
+	                        funsToDeclare,
+                                extraTheories)
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare,
                                        predsToDeclare,
-                                       findTheories(formulas,
-                                                    constsToDeclare,
-                                                    predsToDeclare),
+				       funsToDeclare,
+                                       theories,
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort,
@@ -811,6 +840,7 @@ class SMTLineariser(benchmarkName     : String,
                     status            : String,
                     constsToDeclare   : Seq[ConstantTerm],
                     predsToDeclare    : Seq[Predicate],
+                    funsToDeclare     : Seq[IFunction],
                     theoriesToDeclare : Seq[Theory],
                     funPrefix         : String,
                     predPrefix        : String,
@@ -860,8 +890,9 @@ class SMTLineariser(benchmarkName     : String,
   def open {
     println("(set-logic " + logic + ")")
     println("(set-info :source |")
-    println("    Benchmark: " + benchmarkName)
-    println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
+    if (benchmarkName != "")
+      println("    Benchmark: " + benchmarkName)
+    println("    Output by Princess (https://github.com/uuverifiers/princess)")
     println("|)")
 
     if(status.nonEmpty)
@@ -875,17 +906,18 @@ class SMTLineariser(benchmarkName     : String,
 
     // declare the required predicates
     for (pred <- predsToDeclare) {
+      val argSorts = MonoSortedPredicate.argumentSorts(pred)
       print("(declare-fun " + pred2Identifier(pred) + " (")
-      
-      val argSorts = pred match {
-        case pred : MonoSortedPredicate =>
-          pred.argSorts
-        case _ =>
-          for (_ <- 1 to pred.arity) yield Sort.Integer
-      }
-
       print((argSorts map (sort2SMTString(_))) mkString " ")
       println(") Bool)")
+    }
+    
+    // declare the required functions
+    for (fun <- funsToDeclare) {
+      val (argSorts, resSort) = MonoSortedIFunction.functionType(fun)
+      print("(declare-fun " + fun2Identifier(fun)._1 + " (")
+      print((argSorts map (sort2SMTString(_))) mkString " ")
+      println(") " + sort2SMTString(resSort) + ")")
     }
     
     // declare universal constants
