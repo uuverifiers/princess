@@ -222,12 +222,16 @@ object CmdlMain {
           case List() =>
             if (prover.signature.existentialConstants.isEmpty &&
                 prover.signature.universalConstants.isEmpty) {
-              SMTLineariser(List(prover.rawInputFormula),
-                            prover.rawSignature, filename)
+              SMTLineariser.printWithDeclsSig(
+                              formulas      = List(prover.rawInputFormula),
+                              signature     = prover.rawSignature,
+                              benchmarkName = filename)
             } else {
               val formulas =
                 for (f <- prover.inputFormulas) yield removePartName(f)
-              SMTLineariser(formulas, prover.signature, filename)
+              SMTLineariser.printWithDeclsSig(formulas      = formulas,
+                                              signature     = prover.signature,
+                                              benchmarkName = filename)
             }
           case IInterpolantSpec(left, right) :: _ => {
             def formula(name : PartName) =
@@ -244,7 +248,9 @@ object CmdlMain {
             // work otherwise
             val formulas =
               for (part <- left ++ right) yield (common ||| formula(part))
-            SMTLineariser(formulas, prover.signature, filename)
+            SMTLineariser.printWithDeclsSig(formulas      = formulas,
+                                            signature     = prover.signature,
+                                            benchmarkName = filename)
           }
         }
       }
