@@ -58,6 +58,12 @@ class SetTrie[T](implicit order : Ordering[T]) extends MSet[Set[T]] {
       isLast || children.exists(x => x._2.nonEmptyRec)
 
     /**
+     * Recursively compute the number of sets in this collection.
+     */
+    def size : Int =
+      children.iterator.map(x => x._2.size).sum + (if (isLast) 1 else 0)
+
+    /**
      * Recursively insert a set.
      */
     def insert(el : Iterator[T]) : Unit =
@@ -129,6 +135,28 @@ class SetTrie[T](implicit order : Ordering[T]) extends MSet[Set[T]] {
       }
 
     /**
+     * Recursively check whether the set-trie contains some
+     * (strict or non-strict) super-set.
+     */
+    def containsSuperset(el : List[T]) : Boolean =
+      el match {
+        case List() =>
+          isLast || children.nonEmpty
+        case head :: tail =>
+          children.exists {
+            case (value, child) =>
+              order.compare(value, head) match {
+                case n if n < 0 =>
+                  child.containsSuperset(el)
+                case 0 =>
+                  child.containsSuperset(tail)
+                case _ =>
+                  false
+              }
+          }
+      }
+
+    /**
      * Recursively enumerate the elements of this set-trie.
      */
     def enumerate(prefix : Set[T]) : Iterator[Set[T]] =
@@ -165,10 +193,20 @@ class SetTrie[T](implicit order : Ordering[T]) extends MSet[Set[T]] {
   def containsSubset(el : Set[T]) : Boolean =
     root.containsSubset(toList(el))
 
+  /**
+   * Check whether the set-trie contains some element that is a
+   * (strict or non-strict) super-set of the given set.
+   */
+  def containsSuperset(el : Set[T]) : Boolean =
+    root.containsSuperset(toList(el))
+
   def iterator : Iterator[Set[T]] =
     root.enumerate(Set())
 
   override def isEmpty : Boolean =
-    root.isLast || root.children.nonEmpty
+    !root.isLast && root.children.isEmpty
+
+  override def size : Int =
+    root.size
 
 }

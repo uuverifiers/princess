@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,8 @@ object AllTests extends App {
   addTest(new ap.basetypes.TestLeftistHeap ("testLargeHeap"))
   addTest(new ap.basetypes.TestLeftistHeap ("testHeapCollector"))
   addTest(new ap.basetypes.TestLeftistHeap ("testFlatMap"))
+  addTest(new ap.basetypes.TestSetTrie ("randomSmall"))
+  addTest(new ap.basetypes.TestSetTrie ("randomBig"))
   addTest(new ap.terfor.TestTermOrder ("testSimpleExtension"))
   addTest(new ap.terfor.TestTermOrder ("testConditionalExtension"))
   addTest(new ap.terfor.TestTermOrder ("testLinearCombinationComparison"))
