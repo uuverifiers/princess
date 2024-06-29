@@ -63,7 +63,9 @@ object IntValueEnumTheory {
  * terms will initially be binary; once the range of possible values
  * of a term has been narrowed down to at most
  * <code>completeSplitBound</code> values, in a single step the range
- * will be split into all individual values.
+ * will be split into all individual values. In order to initiate
+ * splitting, literals <code>IntValueEnumTheory.enumPred(t)</code>
+ * have to be added to a proof goal.
  */
 class IntValueEnumTheory(name               : String,
                          splitterCost       : Int = 0,

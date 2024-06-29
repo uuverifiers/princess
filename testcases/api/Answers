@@ -374,6 +374,10 @@ NegTester
 (forall ((var0 Int)) (not (and (not (= var0 0)) (or (and (is-nil c) (= 0 var0)) (and (is-cons c) (= 1 var0))))))
 (not (is-nil c))
 
+TestSaturationProcedure
+Valid
+Unsat
+
 interpolation-bug.scala
 0: Unsat
 1: Vector(rootjthen_fwd, false)
