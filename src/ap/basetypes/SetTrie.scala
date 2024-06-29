@@ -173,12 +173,17 @@ class SetTrie[T](implicit order : Ordering[T]) extends MSet[Set[T]] {
   private def toList(el : Set[T]) : List[T] =
     el.toList.sorted
 
-  def +=(el : Set[T]) : SetTrie.this.type = {
+  def clear() : Unit = {
+    root.isLast = false
+    root.children.clear()
+  }
+
+  def addOne(el : Set[T]) : SetTrie.this.type = {
     root.insert(toIterator(el))
     this
   }
 
-  def -=(el : Set[T]) : SetTrie.this.type = {
+  def subtractOne(el : Set[T]) : SetTrie.this.type = {
     root.remove(toIterator(el))
     this
   }
