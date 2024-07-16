@@ -176,6 +176,10 @@ abstract class SaturationProcedure(name : String) extends Theory {
   val triggerRelevantFunctions : Set[IFunction]                 = Set()
   val functionalPredicates     : Set[Predicate]                 = Set()
 
+  override def isSoundForSat(
+    theories : Seq[Theory],
+    config : Theory.SatSoundnessConfig.Value) : Boolean = true
+
   TheoryRegistry register this
 
 }
