@@ -368,13 +368,13 @@ abstract class Settings[STT <: Settings[STT]]
   protected def setParams(paramMap : Map[Param, Any]) : STT
   
   protected[parameters] def apply(p : Param) : Any = {
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Settings.AC, allParams contains p)
-    //-END-ASSERTION-/////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     (paramMap get p) match {
       case Some(value : Any) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertPost(Settings.AC, value.isInstanceOf[p.Value])
+        Debug.assertPost(Settings.AC, value.isInstanceOf[p.Value @unchecked])
         //-END-ASSERTION-///////////////////////////////////////////////////////
         value
       }
@@ -384,15 +384,16 @@ abstract class Settings[STT <: Settings[STT]]
   
   protected[parameters] def +(paramPair : (Param, Any)) : STT = {
     val (p, value) = paramPair
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Settings.AC, (allParams contains p) &&
-                                 value.isInstanceOf[p.Value])
+                                 value.isInstanceOf[p.Value @unchecked])
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     setParams(paramMap + paramPair)
   }
   
   override def equals(that : Any) : Boolean = that match {
-    case that : Settings[STT] => this.allValues sameElements that.allValues
+    case that : Settings[STT @unchecked] =>
+      this.allValues sameElements that.allValues
     case _ => false
   }
 

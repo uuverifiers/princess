@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2021-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -88,7 +88,7 @@ object Dijkstra {
 class Dijkstra[Node] (graph : Dijkstra.WeightedGraph[Node],
                       source : Node) {
 
-  private implicit val pairOrder =
+  private implicit val pairOrder : Ordering[(Int, Node)] =
     Ordering.by[(Int, Node), Int] { p => -p._1 }
 
   private val todo = new PriorityQueue[(Int, Node)]

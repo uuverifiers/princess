@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,10 +86,11 @@ class KBO(funWeights : IFunction => Int, constWeights : ConstantTerm => Int,
     }
   }
   
-  private implicit val exprOrdering = new Ordering[IExpression] {
-    def compare(e1 : IExpression, e2 : IExpression) : Int =
-      KBO.this.compare(e1.asInstanceOf[ITerm], e2.asInstanceOf[ITerm])
-  }
+  private implicit val exprOrdering : Ordering[IExpression] =
+    new Ordering[IExpression] {
+      def compare(e1 : IExpression, e2 : IExpression) : Int =
+        KBO.this.compare(e1.asInstanceOf[ITerm], e2.asInstanceOf[ITerm])
+    }
   
   def compare(t1 : ITerm, t2 : ITerm) : Int =
     Seqs.lexCombineInts(weight(t1) - weight(t2),

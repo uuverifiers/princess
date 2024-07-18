@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,8 @@ class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
 
   private val AC = Debug.AC_QUEUE_WITH_ITERATORS
 
-  private implicit val orderIterator = new Ordering[PeekIterator[A]] {
+  private implicit val orderIterator : Ordering[PeekIterator[A]] =
+  new Ordering[PeekIterator[A]] {
     def compare(thisIt : PeekIterator[A], thatIt : PeekIterator[A]) : Int = {
       ////////////////////////////////////////////////////////////////////////
       Debug.assertInt(AC, thisIt.hasNext && thatIt.hasNext)

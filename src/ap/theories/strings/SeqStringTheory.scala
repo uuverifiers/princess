@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -375,7 +375,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     def ~~>(s : ITerm) = IExpression.trig(t === s, t)
   }
 
-  private implicit def toRichTerm(t : ITerm) = new RichTerm(t)
+  private implicit def toRichTerm(t : ITerm) : RichTerm = new RichTerm(t)
 
   val reMatchingAxioms = {
     import IExpression._

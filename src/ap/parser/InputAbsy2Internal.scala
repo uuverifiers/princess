@@ -61,7 +61,7 @@ object InputAbsy2Internal {
 
 private class InputAbsy2Internal(order : TermOrder) {
   
-  private implicit val o = order
+  private implicit val o : TermOrder = order
   
   import IExpression._
   

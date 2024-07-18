@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -170,7 +170,8 @@ object IExpression {
    * Implicit conversion, to enable the application of a predicate
    * to a sequence of terms, like in <code>p(s, t)</code>.
    */
-  implicit def toPredApplier(pred : Predicate) = new PredApplier(pred)
+  implicit def toPredApplier(pred : Predicate) : PredApplier =
+    new PredApplier(pred)
 
   /**
    * Class implementing prefix-notation for predicates
@@ -183,7 +184,8 @@ object IExpression {
    * Implicit conversion, to enable the application of a function
    * to a sequence of terms, like in <code>f(s, t)</code>.
    */
-  implicit def toFunApplier(fun : IFunction) = new FunApplier(fun)
+  implicit def toFunApplier(fun : IFunction) : FunApplier =
+    new FunApplier(fun)
 
   /**
    * Class implementing prefix-notation for functions

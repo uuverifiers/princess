@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,8 +73,8 @@ class IntervalPropagator private (goal : Goal,
   import GroebnerMultiplication._mul
   import Seqs.{optionMax, optionMin}
 
-  private implicit val _ = ordering
-  private val order      = goal.order
+  private implicit val o : MonomialOrdering = ordering
+  private val order = goal.order
 
   private def fromLinearCombination(lc : LinearCombination) =
     if (compatibleOrder)
