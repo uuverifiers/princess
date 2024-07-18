@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -571,16 +571,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private def rrPred(op : String, negated : Boolean, args : ITerm*)
                     (implicit t : Type) : IFormula =
-    checkUnintAtom((t match { case RatType => "rat_"; case RealType => "real_" }) + op,
+    checkUnintAtom((t match { case RatType => "rat_"; case RealType => "real_"; case _ => "" }) + op,
                    args.toList, for (_ <- args.toList) yield t, negated)
 
   private def rrFun(op : String, args : ITerm*)(implicit t : Type) : ITerm =
-    checkUnintFunTerm((t match { case RatType => "rat_"; case RealType => "real_" }) + op,
+    checkUnintFunTerm((t match { case RatType => "rat_"; case RealType => "real_"; case _ => "" }) + op,
                       args.toList, for (_ <- args.toList) yield t)._1
   
   private def findRepresentations(r : IdealRat, t : Type) : Seq[ITerm] =
     (for ((c1, c2) <- (ratLiterals get r).toSeq)
-     yield i(t match { case RatType => c1; case RealType => c2 })) /* ++
+     yield i(t match { case RatType => c1; case RealType => c2;
+                       case _ => throw new SyntaxError("cannot handle " + t) })) /* ++
     (if (r.denom.isOne) List(CheckedFunTerm(t match { case RatType => "$to_rat"
                                                       case RealType => "$to_real" },
                                             List((r.num, IntType)))._1) else List()) */
@@ -693,7 +694,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ("fof" ^^ { _ => tptpType = TPTPType.FOF }) ~ "(" ~>
     (atomic_word | wholeNumber) ~ "," ~
     formula_role_other_than_type ~ "," ~ fof_logic_formula <~ ")" ~ "." ^^ {
-    case name ~ "," ~ role ~ "," ~ f => 
+    case name ~ _ ~ role ~ _ ~ f => 
 	role match {
 	  case "conjecture" =>
             (true, INamedPart(env lookupPartName (name + CONJECTURE_SUFFIX), f))
@@ -707,7 +708,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     (atomic_word | wholeNumber) ~ "," ~
     formula_role_other_than_type ~ "," ~
     fof_logic_formula <~ ")" ~ "." ^^ {
-    case name ~ "," ~ role ~ "," ~ f => 
+    case name ~ _ ~ role ~ _ ~ f => 
     role match {
       case "conjecture" => {
         assert(false)
@@ -779,7 +780,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~>
     (atomic_word | wholeNumber) ~ "," ~ 
     formula_role_other_than_type ~ "," ~ tff_logic_formula <~ ")" ~ "." ^^ {
-      case name ~ "," ~ role ~ "," ~ f => 
+      case name ~ _ ~ role ~ _ ~ f => 
 	  role match {
             case "conjecture" =>
               (true,
@@ -808,13 +809,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val tff_typed_atom:PackratParser[() => Unit] =
      ( ( tff_untyped_atom ~ ":" ~ tff_top_level_type ) ^^ { 
 	        // could declare a new type or a symbol of an existing type
-       case typeName ~ ":" ~ Rank((Nil, TType)) => { () =>
+       case typeName ~ _ ~ Rank((Nil, TType)) => { () =>
          val sort = Sort.createUninterpretedSort(typeName)
          addTheory(sort.theory)
          env.addSort(typeName, Type(typeName, sort))
          ()
        }
-       case symbolName ~ ":" ~ rank => { () =>
+       case symbolName ~ _ ~ rank => { () =>
          declareSym(symbolName, rank)
        }
      } ) |
@@ -867,7 +868,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private lazy val tff_mapping_type:PackratParser[Rank] =
     ( ( tff_unitary_type ~ ">" ~ tff_atomic_type ) ^^
-        { case argsTypes ~ ">" ~ resType =>
+        { case argsTypes ~ _ ~ resType =>
           Rank(argsTypes -> resType) } ) | (
             "(" ~> tff_mapping_type <~ ")" )
     
@@ -876,7 +877,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   private lazy val tff_xprod_type:PackratParser[List[Type]] =
     ( tff_atomic_type ~ "*" ~  rep1sep(tff_atomic_type, "*") ^^ {
-      case t1 ~ "*" ~ tail => t1::tail
+      case t1 ~ _ ~ tail => t1::tail
      } ) |
     ( "(" ~> tff_xprod_type <~ ")" )
 
@@ -902,12 +903,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   private lazy val tff_or_formula =
     tff_unitary_formula ~ "|" ~ rep1sep(tff_unitary_formula, "|") ^^ {
-      case f1 ~ "|" ~ tail => f1::tail reduceLeft { _ | _ }
+      case f1 ~ _ ~ tail => f1::tail reduceLeft { _ | _ }
     }
   
   private lazy val tff_and_formula =     
     tff_unitary_formula ~ "&" ~ rep1sep(tff_unitary_formula, "&") ^^ {
-      case f1 ~ "&" ~ tail => {
+      case f1 ~ _ ~ tail => {
         f1::tail reduceLeft { _ & _ }
       }
     }
@@ -970,7 +971,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     (((forallSign ^^ { _ => Quantifier.ALL.asInstanceOf[Quantifier] } ) |
 	    ("?"        ^^ { _ => Quantifier.EX.asInstanceOf[Quantifier] } )) ~ 
 	     "[" ~ tff_varlist ~ "]" ^^ { 
-                case q ~ "[" ~ vl ~ "]" => { 
+                case q ~ _ ~ vl ~ _ => { 
                   for (v <- vl)
                     env.pushVar(v.name, v.t)
                   // Return the partially instantiated Quantifier-Formula
@@ -984,7 +985,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 }
              }) ~ ":" ~ tff_unitary_formula ^^ {
                // Put together the two parts, quantification and formula
-               case (quantTemplate, varNum) ~ ":" ~ f => {
+               case (quantTemplate, varNum) ~ _ ~ f => {
                  for (_ <- 0 until varNum)
                     env.popVar
                  quantTemplate(possiblyEmptyTrigger(f))
@@ -998,7 +999,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private lazy val tff_var: PackratParser[TypedVar] = 
     ( variableStr ~ ":" ~ tff_atomic_type ^^ { 
-        case x ~ ":" ~ typ => TypedVar(x, typ)
+        case x ~ _ ~ typ => TypedVar(x, typ)
       } ) |
     ( variableStr <~ guard(not(":")) ^^ { 
         // default type of variables (in quantifications) is IType
@@ -1037,12 +1038,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   private lazy val fof_or_formula =
     fof_unitary_formula ~ "|" ~ rep1sep(fof_unitary_formula, "|") ^^ {
-      case f1 ~ "|" ~ tail => f1::tail reduceLeft { _ | _ }
+      case f1 ~ _ ~ tail => f1::tail reduceLeft { _ | _ }
     }
   
   private lazy val fof_and_formula =     
     fof_unitary_formula ~ "&" ~ rep1sep(fof_unitary_formula, "&") ^^ {
-      case f1 ~ "&" ~ tail => f1::tail reduceLeft { _ & _ }
+      case f1 ~ _ ~ tail => f1::tail reduceLeft { _ & _ }
     }
   
   private lazy val fof_unitary_formula:PackratParser[IFormula] = 
@@ -1056,7 +1057,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     (((forallSign ^^ { _ => Quantifier.ALL.asInstanceOf[Quantifier] } ) |
       ("?"        ^^ { _ => Quantifier.EX.asInstanceOf[Quantifier] } )) ~ 
        "[" ~ fof_varlist ~ "]" ^^ { 
-              case q ~ "[" ~ vl ~ "]" => { 
+              case q ~ _ ~ vl ~ _ => { 
                 for (v <- vl)
                   env.pushVar(v.name, v.t)
                 // Return the partially instantiated Quantifier-Formula
@@ -1070,7 +1071,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               } 
            }) ~ ":" ~ fof_unitary_formula ^^ {
               // Put together the two parts, quantification and formula
-              case (quantTemplate, varNum) ~ ":" ~ f => {
+              case (quantTemplate, varNum) ~ _ ~ f => {
                 for (_ <- 0 until varNum)
                   env.popVar
                 quantTemplate(possiblyEmptyTrigger(f))
@@ -1138,11 +1139,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ( (tff_ite_t_term | tff_let_term) ~ ( equalsSign | "!=" ) ~ term ^^ {
         case lhs ~ "=" ~ rhs => CheckedEquation(lhs, rhs)
         case lhs ~ "!=" ~ rhs => !CheckedEquation(lhs, rhs)
+        case p => throw new SyntaxError("cannot handle " + p)
       }) |
   // functor with or without arguments
   ( guard(not("$ite_t" | "$let_tt" | "$let_ft")) ~>
      ( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
-   	       case functor ~ "(" ~ termlist ~ ")" => (functor, termlist) } ) |
+   	       case functor ~ _ ~ termlist ~ _ => (functor, termlist) } ) |
        ( functor ~ guard(not("(")) ^^ { 
 	       case functor ~ _ => (functor, List()) } ) ) ~
    // Up to here the above could be an atom or the lhs of an equation.
@@ -1192,7 +1194,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   private lazy val funterm: PackratParser[(ITerm, Type)] =
     functor ~ "(" ~ termlist ~ ")" ^^ {
-      case functor ~ "(" ~ termlist ~ ")" => CheckedFunTerm(functor, termlist)
+      case functor ~ _ ~ termlist ~ _ => CheckedFunTerm(functor, termlist)
         
 //	      if (!(Sigma.ranks contains functor))
 //	        Sigma += (functor -> Rank((termlist map { _ => IType }) -> IType))

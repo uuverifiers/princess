@@ -706,6 +706,9 @@ object CmdlMain {
         println("unknown")
         Console.err.println("Cancelled or timeout")
       }
+
+      case result =>
+        throw new Exception("Unknown prover result: " + result)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -780,6 +783,9 @@ object CmdlMain {
       case Prover.TimeoutResult() =>  {
         println("% SZS status Timeout for " + name)
       }
+
+      case result =>
+        throw new Exception("Unknown prover result: " + result)
     }
       
     ////////////////////////////////////////////////////////////////////////////
@@ -894,6 +900,9 @@ object CmdlMain {
         println("CANCELLED/TIMEOUT")
         maybePrintFixedConstraint(false, "Current constraint", settings)
       }
+
+      case result =>
+        throw new Exception("Unknown prover result: " + result)
     }
   }
 

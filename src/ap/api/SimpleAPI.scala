@@ -2509,6 +2509,7 @@ class SimpleAPI private (enableAssert        : Boolean,
             interpolantImpIsValid(condition)
           }
         }
+        case _ => true
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 

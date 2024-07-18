@@ -217,6 +217,7 @@ class TermOrder private (
                        constantWeight(d) == ConstantWeight(constantNum(d))
                      case Seq(c) =>
                        constantWeight(c) == ConstantWeight(constantNum(c))
+                     case _ => true
                     }) &&
                    (predicateSeq.iterator.zipWithIndex forall {
                      case (p, i) =>
