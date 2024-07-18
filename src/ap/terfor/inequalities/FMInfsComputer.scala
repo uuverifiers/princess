@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -134,7 +134,8 @@ private class FMInfsComputer(infThrottleThreshold : Int,
    * and then the kind of the inequality (geq is greater than leq, inferences
    * are greater than independent inequalities) 
    */
-  private implicit val orderTodo = new Ordering[InEquality] {
+  private implicit val orderTodo : Ordering[InEquality] =
+    new Ordering[InEquality] {
     def compare(thisIE : InEquality, thatIE : InEquality) =
       Seqs.lexCombineInts((thisIE.lc constantDiff thatIE.lc) match {
                             case None => 0

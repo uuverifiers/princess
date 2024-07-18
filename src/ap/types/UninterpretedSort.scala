@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2019-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -184,7 +184,8 @@ class UninterpretedSortTheory(name : String) extends Theory {
   val predicateMatchConfig : ap.Signature.PredicateMatchConfig =
     Map(domainPredicate -> ap.Signature.PredicateMatchStatus.None)
 
-  private implicit val order = TermOrder.EMPTY.extendPred(domainPredicate)
+  private implicit val order : TermOrder =
+    TermOrder.EMPTY.extendPred(domainPredicate)
 
   import TerForConvenience._
 

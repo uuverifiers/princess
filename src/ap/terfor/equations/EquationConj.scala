@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -309,10 +309,11 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * The left-hand sides are sorted by the leading term and worked off in this
    * order
    */
-  private implicit val orderTodo = new Ordering[LinearCombination] {
-    def compare(thisLC : LinearCombination, thatLC : LinearCombination) =
-      order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
-  }
+  private implicit val orderTodo : Ordering[LinearCombination] =
+    new Ordering[LinearCombination] {
+      def compare(thisLC : LinearCombination, thatLC : LinearCombination) =
+        order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
+    }
 
   /**
    * The queue holding the left-hand sides that we still need to canonise

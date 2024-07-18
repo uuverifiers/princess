@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,52 +57,58 @@ object TerForConvenience {
 
   def v(index : Int) : VariableTerm = VariableTerm(index)
   
-  implicit def eqConj2Conj(eqs : EquationConj) =
+  implicit def eqConj2Conj(eqs : EquationConj) : Conjunction =
     Conjunction.conj(eqs, eqs.order)
   
-  implicit def negEqConj2Conj(eqs : NegEquationConj) =
+  implicit def negEqConj2Conj(eqs : NegEquationConj) : Conjunction =
     Conjunction.conj(eqs, eqs.order)
   
-  implicit def negEqConj2ArithConj(eqs : NegEquationConj) =
+  implicit def negEqConj2ArithConj(eqs : NegEquationConj) : ArithConj =
     ArithConj.conj(eqs, eqs.order)
 
-  implicit def eqConj2ArithConj(eqs : EquationConj) =
+  implicit def eqConj2ArithConj(eqs : EquationConj) : ArithConj =
     ArithConj.conj(eqs, eqs.order)
 
-  implicit def inEqConj2ArithConj(eqs : InEqConj) =
+  implicit def inEqConj2ArithConj(eqs : InEqConj) : ArithConj =
     ArithConj.conj(eqs, eqs.order)
 
-  implicit def inEqConj2Conj(eqs : InEqConj) =
+  implicit def inEqConj2Conj(eqs : InEqConj) : Conjunction =
     Conjunction.conj(eqs, eqs.order)
   
-  implicit def arithConj2Conj(ac : ArithConj) =
+  implicit def arithConj2Conj(ac : ArithConj) : Conjunction =
     Conjunction.conj(ac, ac.order)
 
-  implicit def predConj2Conj(pc : PredConj) =
+  implicit def predConj2Conj(pc : PredConj) : Conjunction =
     Conjunction.conj(pc, pc.order)
 
-  implicit def negatedConjs2Conj(conjs : NegatedConjunctions) =
+  implicit def negatedConjs2Conj(conjs : NegatedConjunctions) : Conjunction =
     Conjunction(List(), ArithConj.TRUE, PredConj.TRUE, conjs, conjs.order)
 
-  implicit def term2RichLC(lc : Term)(implicit order : TermOrder) =
+  implicit def term2RichLC(lc : Term)
+                          (implicit order : TermOrder) : RichLinearCombination =
     new RichLinearCombination(lc, order)
 
-  implicit def termSeq2RichLCSeq(lcs : Seq[Term])(implicit order : TermOrder) =
+  implicit def termSeq2RichLCSeq(lcs : Seq[Term])
+                                (implicit order : TermOrder)
+                               : RichLinearCombinationSeq =
     new RichLinearCombinationSeq(for (lc <- lcs) yield l(lc), order)
 
-  implicit def pred2RichPred(pred : Predicate)(implicit order : TermOrder) =
+  implicit def pred2RichPred(pred : Predicate)
+                            (implicit order : TermOrder) : RichPredicate =
     new RichPredicate(pred, order)
 
-  implicit def pred2Conj(p : Predicate)(implicit order : TermOrder) =
+  implicit def pred2Conj(p : Predicate)
+                        (implicit order : TermOrder) : Conjunction =
     Conjunction.conj(pred2PredConj(p), order)
 
-  implicit def pred2PredConj(p : Predicate)(implicit order : TermOrder) =
+  implicit def pred2PredConj(p : Predicate)
+                            (implicit order : TermOrder) : PredConj =
     atom2PredConj(Atom(p, Seq(), order))
 
-  implicit def atom2Conj(atom : Atom) =
+  implicit def atom2Conj(atom : Atom) : Conjunction =
     Conjunction.conj(atom2PredConj(atom), atom.order)
 
-  implicit def atom2PredConj(atom : Atom) =
+  implicit def atom2PredConj(atom : Atom) : PredConj =
     PredConj(List(atom), List(), atom.order)
 
   //////////////////////////////////////////////////////////////////////////////
@@ -259,7 +265,7 @@ object TerForConvenience {
  */
 class RichLinearCombination(lc : LinearCombination, order : TermOrder) {
   import TerForConvenience._
-  implicit val o = order
+  implicit val o : TermOrder = order
 
   // various component-wise operations
   def +++(that : Seq[Term]) : Seq[LinearCombination] =
@@ -296,7 +302,7 @@ class RichLinearCombination(lc : LinearCombination, order : TermOrder) {
  */
 class RichLinearCombinationSeq(lcs : Seq[LinearCombination], order : TermOrder) {
   import TerForConvenience._
-  implicit val o = order
+  implicit val o : TermOrder = order
   
   // various component-wise operations
   def +++(that : Seq[Term]) : Seq[LinearCombination] =
@@ -356,7 +362,7 @@ class RichLinearCombinationSeq(lcs : Seq[LinearCombination], order : TermOrder) 
  * A few functions to work with predicates
  */
 class RichPredicate(pred : Predicate, order : TermOrder) {
-  implicit val o = order
+  implicit val o : TermOrder = order
 
   def apply(args : Seq[LinearCombination]) : Atom = Atom(pred, args, order)
 

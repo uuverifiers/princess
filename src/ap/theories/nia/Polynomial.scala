@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -287,7 +287,7 @@ case class Monomial(val pairs : Monomial.PairList)
                    (implicit val ordering : MonomialOrdering) {
   import Monomial._
 
-  implicit val o = ordering.termOrdering
+  implicit val o : Ordering[ConstantTerm] = ordering.termOrdering
 
   lazy val isConstant = !(pairs.exists(x => x._2 > 0))
 
@@ -598,7 +598,7 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Debug.AC_NIA,
                    (terms sliding 2) forall { case Seq(a, b) => a > b
-                                              case Seq(_) => true })
+                                              case _ => true })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def isZero = terms.isEmpty
@@ -765,7 +765,7 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
  */
 class Basis(implicit val ordering : MonomialOrdering) {
 
-  implicit val o = new Ordering[Polynomial] {
+  implicit val o : Ordering[Polynomial] = new Ordering[Polynomial] {
     def compare(p1 : Polynomial, p2 : Polynomial) =
       // p2.size.compare(p1.size)
       ap.util.Seqs.lexCompare(p2.terms.iterator map (_.m),

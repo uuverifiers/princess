@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -320,7 +320,8 @@ trait MulTheory extends Theory {
     def ^(exp : ITerm) : ITerm = pow(term, exp)
   }
 
-  implicit def convert2RichMulTerm(term : ITerm) = new RichMulTerm(term)
+  implicit def convert2RichMulTerm(term : ITerm) : RichMulTerm =
+    new RichMulTerm(term)
 
   //////////////////////////////////////////////////////////////////////////////
 

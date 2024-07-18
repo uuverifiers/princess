@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -251,7 +251,7 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
     override def size = seq.size
     def iterator = seq.iterator
     
-    private implicit val ord = order.reverseAtomOrdering
+    private implicit val ord : Ordering[Atom] = order.reverseAtomOrdering
       
     def contains(a : Atom) : Boolean =
       // we first check the set of contained constants and predicates to avoid

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -189,7 +189,8 @@ trait TheoryProcedure {
   /**
    * An implicit function to simplify cascading of possible actions.
    */
-  protected implicit def richActionSeq(acts : Seq[Plugin.Action]) =
+  protected implicit def richActionSeq(acts : Seq[Plugin.Action])
+                                     : RichActionSeq =
     new RichActionSeq(acts)
 
   class RichActionSeq(acts : Seq[Plugin.Action]) {
