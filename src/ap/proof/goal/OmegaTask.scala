@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -243,7 +243,7 @@ case object OmegaTask extends EagerTask {
       if (currentBest == null || currentBest.cases > newCases)
         currentBest = new SplitPossibility {
           val cases = newCases
-          def apply : ProofTree = whatToDo
+          def apply() : ProofTree = whatToDo
         }
     
     def push(that : BestSplitPossibilityStore) : Unit =
