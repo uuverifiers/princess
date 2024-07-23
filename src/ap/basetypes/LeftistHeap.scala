@@ -136,12 +136,12 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
         s.push(this)
         while (elements.hasNext) {
             var h : LeftistHeap[T, HC] =
-              new Node(elements.next, emptyHeap, emptyHeap, emptyHeap)
-            while (!s.isEmpty && h.size >= s.top.size) h = h.insertHeap(s.pop)
+              new Node(elements.next(), emptyHeap, emptyHeap, emptyHeap)
+            while (!s.isEmpty && h.size >= s.top.size) h = h.insertHeap(s.pop())
             s.push(h)
         }
-        var res : LeftistHeap[T, HC] = s.pop
-        while (!s.isEmpty) res = res.insertHeap(s.pop);
+        var res : LeftistHeap[T, HC] = s.pop()
+        while (!s.isEmpty) res = res.insertHeap(s.pop());
         res
    }
 
@@ -193,7 +193,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
       push(this)
       
       while (!todo.isEmpty) {
-        val next = todo.pop
+        val next = todo.pop()
         
         if (stop(next)) {
           res = res insertHeap next
@@ -253,7 +253,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
       val it=this.unsortedIterator
       val str = new StringBuffer("[")
       while (it.hasNext) {
-        str.append(""+it.next)
+        str.append(""+it.next())
         if (it.hasNext) {
           str.append(",")
         }
@@ -281,7 +281,7 @@ class UnsortedIterator[A, HC <: HeapCollector[A, HC]] extends Iterator[A] {
   def hasNext : Boolean = !remainder.isEmpty
 
   def next() : A = {
-    remainder.pop match {
+    remainder.pop() match {
       case Node(data, left, right, _) => {
         // descend in right-first order, this helps to keep the stack small
         push ( left )
@@ -527,7 +527,7 @@ case class Node[T, HC <: HeapCollector[T, HC]]
             this
           case newData =>
             if (newData.hasNext) {
-              val nextData = newData.next
+              val nextData = newData.next()
               if (!newData.hasNext &&
                   (left.isEmpty || ord.lteq(nextData, left.findMin)) &&
                   (right.isEmpty || ord.lteq(nextData, right.findMin)))

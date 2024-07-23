@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,7 +51,7 @@ class FilterIt[T] private (baseIt : Iterator[T],
 
   private def runToNext = {
     while (!nextValAvailable && baseIt.hasNext) {
-      nextVal = baseIt.next
+      nextVal = baseIt.next()
       nextValAvailable = pred(nextVal)
     }
   }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -573,7 +573,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
         }
       }
       
-      println
+      println()
       print("Checking Owicki-Gries conditions ... ")
       if (owickiGriesChecks) {
         println("passed")
@@ -582,7 +582,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
         throw OwickiGriesException
       }
       
-      println
+      println()
       println("Verified non-interference!")
     }
     
@@ -885,7 +885,7 @@ class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram
         }
       }
       
-      println
+      println()
       print("Checking Owicki-Gries conditions ... ")
       if (owickiGriesChecks) {
         println("passed")
@@ -894,7 +894,7 @@ class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram
         throw OwickiGriesException
       }
       
-      println
+      println()
       println("Verified non-interference!")
     }
     

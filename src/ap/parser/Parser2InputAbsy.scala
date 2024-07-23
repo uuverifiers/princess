@@ -177,7 +177,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
    * Pop a frame from the settings stack.
    */
   protected def popState : StackState = {
-    val (oldEnv, oldCopied, oldAxioms, oldState) = storedStates.pop
+    val (oldEnv, oldCopied, oldAxioms, oldState) = storedStates.pop()
     currentEnv = oldEnv
     environmentCopied = oldCopied
     axioms = oldAxioms
@@ -230,7 +230,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
     
     todo push f
     while (!todo.isEmpty) {
-      val next = todo.pop
+      val next = todo.pop()
       
       if (cont(next)) next match {
         case Connective(subExpr @ _*) =>

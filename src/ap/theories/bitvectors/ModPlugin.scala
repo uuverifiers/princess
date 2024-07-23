@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -254,7 +254,7 @@ object ModPlugin extends Plugin {
     var lastAtom : Atom = null
     val atomIt = extracts.iterator
     while (atomIt.hasNext) {
-      val a = atomIt.next
+      val a = atomIt.next()
       
       if (a(2).isConstant)
         // extract can be evaluated, delay all operations on extracts
@@ -801,7 +801,7 @@ object ModPlugin extends Plugin {
     val diseqs = goal.facts.arithConj.negativeEqs
     val ineqs = goal.facts.arithConj.inEqs
 
-    println
+    println()
     println("Calling theory solver: ModuloArithmetic")
 
     if (!goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract").isEmpty) {

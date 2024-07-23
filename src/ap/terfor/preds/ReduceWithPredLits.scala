@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -193,7 +193,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     
     val posIt = conj.positiveLits.iterator
     while (posIt.hasNext) {
-      val a = posIt.next
+      val a = posIt.next()
       if (allPreds contains a.pred) reduce(a, facts, false) match {
         case UnchangedResult =>
           addNewPosLit(a)
@@ -235,7 +235,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
 
         val negIt = conj.negativeLits.iterator
         while (negIt.hasNext) {
-          val a = negIt.next
+          val a = negIt.next()
           if (allAllPreds contains a.pred) reduce(a, allFacts, false) match {
             case UnchangedResult =>
               newNegLits += a

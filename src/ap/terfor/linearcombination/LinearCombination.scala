@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -285,14 +285,14 @@ object LinearCombination {
     if (!terms.hasNext) {
       ZERO
     } else {
-      val first = terms.next
+      val first = terms.next()
       if (!terms.hasNext) {
         if (first._2 == OneTerm)
           apply(first._1)
         else
           new LinearCombination1(first._1, first._2, IdealInt.ZERO, order)
       } else {
-        val second = terms.next
+        val second = terms.next()
         if (!terms.hasNext) {
           if (second._2 == OneTerm)
             new LinearCombination1(first._1, first._2, second._1, order)
@@ -300,7 +300,7 @@ object LinearCombination {
             new LinearCombination2(first._1, first._2, second._1, second._2,
                                    IdealInt.ZERO, order)
         } else {
-          val third = terms.next
+          val third = terms.next()
           if (!terms.hasNext && third._2 == OneTerm) {
             new LinearCombination2(first._1, first._2, second._1, second._2,
                                    third._1, order)
@@ -327,7 +327,7 @@ object LinearCombination {
     def flatten(it : Iterator[(IdealInt, Term)], coeff : IdealInt) : Unit =
       if (coeff.isOne) {
         while (it.hasNext) {
-          val p@(c, t) = it.next
+          val p@(c, t) = it.next()
           t match {
             case t : LinearCombination => flatten(t.pairIterator, c)
             case _ => res += p
@@ -335,7 +335,7 @@ object LinearCombination {
         }
       } else {
         while (it.hasNext) {
-          val (c, t) = it.next
+          val (c, t) = it.next()
           t match {
             case t : LinearCombination => flatten(t.pairIterator, c * coeff)
             case _ => res += (coeff * c -> t)
@@ -372,7 +372,7 @@ object LinearCombination {
     
     val it = terms.iterator
     while (it.hasNext) {
-      val (c, t) = it.next
+      val (c, t) = it.next()
       if (t == currentTerm) {
         currentCoeff = currentCoeff + c
       } else {
@@ -1023,7 +1023,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
   def moduloLeadingCoeff : LinearCombination = {
     val lc       = this.leadingCoeff
     val it       = this.pairIterator
-    val head     = it.next
+    val head     = it.next()
     val modTerms = for ((c, t) <- it;
                         newC = c.reduceAbs(lc) _2;
                         if !newC.isZero)

@@ -867,7 +867,7 @@ class ExtArray (val indexSorts : Seq[Sort],
 
             val t2 = (for (t2 <- arrayTerms.iterator;
                            if sets(t2) == repr2 && arrayIds(t2) == id)
-                      yield t2).next
+                      yield t2).next()
 
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, !t.isConstant && !t2.isConstant)
@@ -955,7 +955,7 @@ class ExtArray (val indexSorts : Seq[Sort],
       yield p
 
     if (interestingPairs.hasNext) {
-      val (a, b) = interestingPairs.next
+      val (a, b) = interestingPairs.next()
       val split = Plugin.AxiomSplit(List(),
                                     List((distinctArraysAxiom(a, b), List()),
                                          (a === b,                   List())),
@@ -1106,7 +1106,7 @@ class ExtArray (val indexSorts : Seq[Sort],
 
     // Rule (8)
     while (!todo.isEmpty) {
-      val (a, b, indexes) = todo.pop
+      val (a, b, indexes) = todo.pop()
       for (storeLit <- storeWithArray.getOrElse(b, List())) {
         val indexes2 = storeLit.slice(1, arity + 1)
         if (noAliasSeq(indexes, indexes2))
@@ -1221,7 +1221,7 @@ class ExtArray (val indexSorts : Seq[Sort],
 
     // propagation of array values across _store and _store2 equivalences
     while (!todo.isEmpty) {
-      val nextInd = todo.iterator.next
+      val nextInd = todo.iterator.next()
       todo -= nextInd
 
       val nextArray = absArrays(nextInd)

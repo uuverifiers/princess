@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -159,7 +159,7 @@ case object FactsNormalisationTask extends EagerTask {
                  realClauses) += c
           }
           
-          (otherStuff.result, realClauses.result)
+          (otherStuff.result(), realClauses.result())
         }
 
         goal.compoundFormulas.mapQFClauses(
@@ -179,7 +179,7 @@ case object FactsNormalisationTask extends EagerTask {
             (if (illegalQFClause(redC)) otherStuff else realClauses) += redC
           }
           
-          (otherStuff.result, realClauses.result)
+          (otherStuff.result(), realClauses.result())
         }
 
         goal.compoundFormulas.mapQFClauses(

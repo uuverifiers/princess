@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -631,7 +631,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   protected def pop : Unit = {
     checkIncremental("pop")
     checkNotExtracting("pop")
-    prover.pop
+    prover.pop()
 
     val (oldFunctionDefs, oldPolyADTs, oldNextPartitionNumber, oldPartNameIndexes) =
       popState
@@ -1315,7 +1315,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
           val f = asFormula(translateTerm(cmd.term_, -1))
           val simpF = prover.withTimeout(timeoutPer) { prover simplify f }
           smtLinearise(simpF)
-          println
+          println()
         } catch {
           case SimpleAPI.TimeoutException =>
             error("timeout while simplifying expression")
@@ -1547,7 +1547,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                         if (!p.listsexpr_.isEmpty &&
                             (printer print p.listsexpr_.head) == "and") => {
                       val it = p.listsexpr_.iterator
-                      it.next
+                      it.next()
                       (for (s <- it)
                        yield partNameIndexes(
                                env.lookupPartName(printer print s))).toSet
@@ -3551,7 +3551,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         if (!p.listsexpr_.isEmpty &&
             (printer print p.listsexpr_.head) == "and") => {
         val it = p.listsexpr_.iterator
-        it.next
+        it.next()
         val names = (for (s <- it) yield partNameIndexes(
                        env.lookupPartName(printer print s))).toSet
         result = List(Tree(names, result))

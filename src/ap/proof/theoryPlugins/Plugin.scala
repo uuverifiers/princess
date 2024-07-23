@@ -256,7 +256,7 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
      val res = new VectorBuilder[Plugin.Action]
      var cont = true
      while (cont && it.hasNext) {
-       val nextPlugin = it.next
+       val nextPlugin = it.next()
 
        //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
        val logging = Param.LOG_LEVEL(goal.settings)
@@ -288,7 +288,7 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
     val it = plugins.iterator
     var res : Seq[Plugin.Action] = List()
     while (res.isEmpty && it.hasNext)
-      res = it.next computeModel goal
+      res = it.next() computeModel goal
     res
   }
 
@@ -756,7 +756,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
         actionStack push actions
 
         while (!actionStack.isEmpty) {
-          val actions = actionStack.pop
+          val actions = actionStack.pop()
           if (actions.isEmpty) {
             resultingTrees += ptf.updateGoal(goal)
           } else actions.last match {
@@ -889,7 +889,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
         // we have to make sure that the plugin is called a a further time,
         // otherwise we get very confusing semantics
         // just add a formula that we already know about
-        goal formulaTasks !newFacts.iterator.next
+        goal formulaTasks !newFacts.iterator.next()
       } else {
         formulaTasks
       }

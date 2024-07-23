@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -678,7 +678,7 @@ object ModuloArithmetic extends Theory {
   // We only keep the functionality axiom for the bv_extract function
   val axioms =
     (Conjunction.conj(preAxioms, order).iterator filter (
-       _.predicates == Set(_bv_extract))).next
+       _.predicates == Set(_bv_extract))).next()
 
   val totalityAxioms = Conjunction.TRUE
 

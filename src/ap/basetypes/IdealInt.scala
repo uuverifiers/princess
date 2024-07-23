@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -208,7 +208,7 @@ object IdealInt {
    */
   def max(it : Iterator[IdealInt]) : IdealInt =
     if (it.hasNext) {
-      var res = it.next
+      var res = it.next()
       for (t <- it) res = res max t
       res
     } else {
@@ -223,7 +223,7 @@ object IdealInt {
    */
   def min(it : Iterator[IdealInt]) : IdealInt =
     if (it.hasNext) {
-      var res = it.next
+      var res = it.next()
       for (t <- it) res = res min t
       res
     } else {
@@ -317,9 +317,9 @@ object IdealInt {
   def gcd(vals : Iterator[IdealInt]) : IdealInt = {
      if (!vals.hasNext) return ZERO
      
-     var currentGcd = vals.next.abs
+     var currentGcd = vals.next().abs
      while (vals.hasNext && !currentGcd.isOne) {
-       val nextValue = vals.next
+       val nextValue = vals.next()
        if (!nextValue.isZero) currentGcd = nextValue gcd currentGcd
      }
 
@@ -350,7 +350,7 @@ object IdealInt {
   def lcm(vals : Iterator[IdealInt]) : IdealInt = {
      var currentLcm = ONE
      while (vals.hasNext) {
-       val nextValue = vals.next.abs
+       val nextValue = vals.next().abs
        if (nextValue.isZero) return ZERO
        if (!nextValue.isOne)
          currentLcm = (currentLcm * nextValue) / (currentLcm gcd nextValue)

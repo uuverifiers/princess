@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1048,7 +1048,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             val builder = ArrayBuilder.make[ConstantTerm]
             val it = newOrder.orderedConstants.iterator
             while (it.hasNext) {
-              val c = it.next
+              val c = it.next()
               if (!(oldConsts contains c))
                 builder += c
             }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,13 +78,13 @@ class TestRandomProving(n : String) extends APTestCase(n) {
       while (!formula.variables.isEmpty)
         formula = Conjunction.quantify(Array(Quantifier.ALL), formula, to)
       
-/*            println
+/*            println()
             println(formula) */
 
       val tree = prover(formula, to)
       val _ = tree.closingConstraint
 
-/*      println
+/*      println()
     println("After many steps:")
 println(tree) */
 

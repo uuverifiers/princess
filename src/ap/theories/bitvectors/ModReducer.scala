@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -403,7 +403,7 @@ object ModReducer {
                 yield (knownAtom, reduceMult * simpCoeff)
 
               if (simplifiers.hasNext) {
-                val (knownAtom, subtractedValue) = simplifiers.next
+                val (knownAtom, subtractedValue) = simplifiers.next()
 
                 val lc = knownAtom(2) - knownAtom(3)
                 val newA2 = LinearCombination.sum(

@@ -421,15 +421,15 @@ abstract class AbstractStringTheory extends StringTheory {
             var nextNode : LinearCombination = null
 
             while (atom == null && it.hasNext) {
-              val a = it.next
+              val a = it.next()
               val argIt = successorsOf(a)
 
-              val arg1 = argIt.next
+              val arg1 = argIt.next()
               if (component contains arg1) {
                 atom = a
                 nextNode = arg1
               } else if (argIt.hasNext) {
-                val arg2 = argIt.next
+                val arg2 = argIt.next()
                 if (component contains arg2) {
                   atom = a
                   nextNode = arg2
@@ -530,7 +530,7 @@ object AbstractStringTheoryWithSort {
         todo push ((emptyIndex, emptyString))
 
         while (!todo.isEmpty) {
-          val (nextIndex, nextString) = todo.pop
+          val (nextIndex, nextString) = todo.pop()
           for (consedStrings <- conses get nextIndex) {
             for ((_, (char, stringIndex)) <- consedStrings)
               for (charTerm <- CharSort.decodeToTerm(char, terms)) {

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -338,7 +338,7 @@ class LoggingBranchInferenceCollector private
     val it = infs.iterator
     var cont = it.hasNext
     while (cont) {
-      val next = it.next
+      val next = it.next()
       if (it.hasNext) {
         addDirectly(next)
       } else {
@@ -411,7 +411,7 @@ class LoggingBranchInferenceCollector private
         
         def expand : Iterator[BranchInference] = {
           val it                    = pairAr.iterator
-          val (firstCoeff, firstLC) = it.next
+          val (firstCoeff, firstLC) = it.next()
           var curCoeff              = firstCoeff
           var curIneq               = CertInequality(firstLC)
 

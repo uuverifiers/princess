@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,7 +69,7 @@ object ServerMain {
 
     Console.withOut(Console.err) {
       CmdlMain.printGreeting
-      println
+      println()
       println("Daemon started on port " + port)
     }
 

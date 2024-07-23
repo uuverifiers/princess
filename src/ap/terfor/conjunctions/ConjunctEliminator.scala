@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -150,7 +150,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     var occurred : Boolean = false
     val lcIt = conj.arithConj.positiveEqs.iterator
     while (lcIt.hasNext) {
-      val lc = lcIt.next
+      val lc = lcIt.next()
       if (occursIn(lc, c)) {
         // the constant must occur in at most one equation
         if (occurred) return false
@@ -218,7 +218,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     {
       val lcIt = oriEqs.iterator
       while (lcIt.hasNext) {
-        val lc = lcIt.next
+        val lc = lcIt.next()
         val N = lc.size
       
         var i = 0
@@ -256,7 +256,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     {
       val lcIt = oriEqs.iterator
       while (lcIt.hasNext) {
-        val lc = lcIt.next
+        val lc = lcIt.next()
         val N = lc.size
       
         var i = 0
@@ -318,7 +318,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     var signum : Int = 0
     val lcIt = conj.arithConj.inEqs.iterator
     while (lcIt.hasNext) {
-      val lc = lcIt.next
+      val lc = lcIt.next()
       val newSignum = (lc get c).signum
       if (newSignum != 0) {
         if (signum * newSignum == -1) return false
@@ -359,7 +359,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       // first scan the inequality symbols
       val lcIt = oriInEqs.iterator
       while (lcIt.hasNext) {
-        val lc = lcIt.next
+        val lc = lcIt.next()
         val N = lc.size
       
         var i = 0
@@ -390,7 +390,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       // then add symbols only occurring in negative equations
       val lcIt2 = oriNegEqs.iterator
       while (lcIt2.hasNext) {
-        val lc = lcIt2.next
+        val lc = lcIt2.next()
         val N = lc.size
       
         var i = 0
@@ -483,7 +483,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     var occurred : Boolean = false
     val atomIt = conj.predConj.positiveLits.iterator
     while (atomIt.hasNext) {
-      val a = atomIt.next
+      val a = atomIt.next()
       if (occursIn(a, c)) {
         if (!(eliminableFunctionPreds contains a.pred)) return false
         // we currently only eliminate predicates that only contain
@@ -541,7 +541,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     
     val lcIt = conj.arithConj.inEqs.iterator
     while (lcIt.hasNext) {
-      val lc = lcIt.next
+      val lc = lcIt.next()
       
       if (occursIn(lc, c)) {
         if (firstLC == null) {
@@ -627,7 +627,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
     val candIt = eliminationCandidates(conj)
     while (candIt.hasNext) {
-      val c = candIt.next
+      val c = candIt.next()
       if ((universalSymbols contains c) &&
           !occursInPreds(c) &&
           !occursInPositiveEqs(c) &&

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,12 +57,12 @@ class PeekIteratorTrafo[T](delegate : Iterator[T]) extends PeekIterator[T] {
   def hasNext = nextVal.isDefined || delegate.hasNext
   
   def next() : T = nextVal match {
-    case None => delegate.next
+    case None => delegate.next()
     case Some(v) => { nextVal = None; v }
   }
   
   def peekNext : T = nextVal match {
-    case None => { val v = delegate.next; nextVal = Some(v); v }
+    case None => { val v = delegate.next(); nextVal = Some(v); v }
     case Some(v) => v
   }
 }
@@ -75,6 +75,6 @@ trait PeekIterator[+T] extends Iterator[T] {
   def peekNext : T
   
   def dropAll : Unit = {
-    while (hasNext) next
+    while (hasNext) next()
   }
 }

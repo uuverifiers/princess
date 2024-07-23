@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -169,14 +169,14 @@ object PartialCertificate {
    * Class for lazily providing the child certificates for a partial certificate
    */
   abstract class CertBuilder {
-    def next : Certificate
-    def skipNext : Unit
+    def next() : Certificate
+    def skipNext() : Unit
 //    def close : Unit
 
     def skipNext(num : Int) : Unit = {
       var i = 0
       while (i < num) {
-        skipNext
+        skipNext()
         i = i + 1
       }
     }
@@ -273,7 +273,7 @@ case object PartialIdentityCertificate extends PartialCertificate {
   def dfExplore(certBuilder : PartialCertificate.CertBuilder,
                 lemmaBase : LemmaBase,
                 lemmaBaseAssumedInferences : Int) : Certificate =
-    certBuilder.next
+    certBuilder.next()
 
   def shuffle(implicit randomDataSource : RandomDataSource) =
     (this, PartialCertificate.List_0)
@@ -353,11 +353,11 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
     val newBuilder = new PartialCertificate.CertBuilder {
       private val firstIt = first.iterator
 
-      def next : Certificate =
-        firstIt.next.dfExplore(certBuilder, lemmaBase, 0)
+      def next() : Certificate =
+        firstIt.next().dfExplore(certBuilder, lemmaBase, 0)
 
-      def skipNext : Unit =
-        certBuilder skipNext firstIt.next.arity
+      def skipNext() : Unit =
+        certBuilder skipNext firstIt.next().arity
     }
 
     second.dfExplore(newBuilder, lemmaBase, lemmaBaseAssumedInferences)
@@ -457,11 +457,11 @@ class PartialInferenceCertificate protected[certificates]
 
     (lemmaBase assumeFormulas formulaIt) match {
       case Some(cert) => {
-        certBuilder.skipNext
+        certBuilder.skipNext()
         inferences.getCertificate(cert, order)
       }
       case None =>
-        certBuilder.next match {
+        certBuilder.next() match {
           case null => null
           case sub => inferences.getCertificate(sub, order)
         }
@@ -511,14 +511,14 @@ class PartialCombCertificate protected[certificates]
     val providedForsIt = providedFormulas.iterator
 
     while (providedForsIt.hasNext) {
-      val providedFors = providedForsIt.next
+      val providedFors = providedForsIt.next()
 
       lemmaBase.push
       val sub : Certificate =
         (lemmaBase assumeFormulas providedFors.iterator) match {
           case Some(cert) => {
             try {
-              certBuilder.skipNext
+              certBuilder.skipNext()
             } finally {
               lemmaBase.pop
             }
@@ -528,7 +528,7 @@ class PartialCombCertificate protected[certificates]
             var popCert : Option[Certificate] = None
             val subCert =
               try {
-                val sub = certBuilder.next
+                val sub = certBuilder.next()
                 if (sub != null) {
                   for (cert <- LemmaBase prepareCert sub)
                     lemmaBase addCertificate cert

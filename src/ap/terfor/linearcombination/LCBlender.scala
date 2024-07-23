@@ -63,7 +63,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     terms += ScalingIterator(coeff, lc.pairIterator)
-    nextVal = computeNext
+    nextVal = computeNext()
   }
   
   def +=(coeff1 : IdealInt, lc1 : LinearCombination,
@@ -76,7 +76,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
 
     terms += ScalingIterator(coeff1, lc1.pairIterator)
     terms += ScalingIterator(coeff2, lc2.pairIterator)
-    nextVal = computeNext
+    nextVal = computeNext()
   }
   
   def ++=(lcs : Iterable[(IdealInt, LinearCombination)]) : Unit = {
@@ -91,7 +91,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
       terms += ScalingIterator(coeff, lc.pairIterator)
     }
 
-    nextVal = computeNext
+    nextVal = computeNext()
   }
   
   /**
@@ -100,13 +100,13 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
    * is not <code>null</code>, it is guaranteed that the queue only contains
    * monomials that are strictly smaller than the returned monomial
    */
-  private def computeNext : (IdealInt,Term) = {
+  private def computeNext() : (IdealInt,Term) = {
     while (!terms.isEmpty) {
-      val (firstC, firstT) = terms.next
+      val (firstC, firstT) = terms.next()
 
       var currentCoeff = firstC
       while (!terms.isEmpty && (terms.max _2) == firstT) {
-        val nextC = (terms.next _1)
+        val nextC = (terms.next() _1)
         currentCoeff = currentCoeff + nextC
       }
      
@@ -123,7 +123,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
   def result : LinearCombination =
     LinearCombination.createFromSortedSeq(resultBuf, order)
   
-  private var nextVal : (IdealInt,Term) = computeNext
+  private var nextVal : (IdealInt,Term) = computeNext()
   
   def hasNext = (nextVal != null)
   
@@ -136,7 +136,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
 
     resultBuf += nextVal
     val res = nextVal
-    nextVal = computeNext
+    nextVal = computeNext()
     res
   }
   

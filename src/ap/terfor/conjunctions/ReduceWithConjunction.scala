@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -373,7 +373,7 @@ object ReduceWithConjunction {
             eq2.leadingCoeff > IdealInt(2) &&
             (eq2 getCoeff 1).signum < 0) {
         val it = eq2.pairIterator
-        val (c, t) = it.next
+        val (c, t) = it.next()
         LinearCombination.createFromSortedSeq(Iterator((-c, t)) ++ it, order)
       } else {
         eq2
