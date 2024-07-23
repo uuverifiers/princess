@@ -76,7 +76,7 @@ class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
     if (!maxElementAvailable) {
       def peekNextFromSequence = {
         val maxSeq = sequences.dequeue
-        maxElement = maxSeq.next
+        maxElement = maxSeq.next()
         if (maxSeq.hasNext) {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, ord.gteq(maxElement, maxSeq.peekNext))
@@ -153,7 +153,7 @@ class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
    *  @throws Predef.NoSuchElementException
    *  @return   the element with the highest priority.
    */
-  def dequeue: A = next
+  def dequeue: A = next()
   
   /** Returns the element with the highest priority in the queue,
    *  or throws an error if there is no element contained in the queue.

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,12 +92,12 @@ object ReducerPlugin {
 
       val predIt = rewrittenPreds.iterator
       while (predIt.hasNext) {
-        val pred = predIt.next
+        val pred = predIt.next()
 
         {
           val atomIt = (predConj positiveLitsWithPred pred).iterator
           while (atomIt.hasNext) {
-            val a = atomIt.next
+            val a = atomIt.next()
             val f = rewrite(a)
 
             if (!(f eq a)) {
@@ -113,7 +113,7 @@ object ReducerPlugin {
           val atomIt = (predConj negativeLitsWithPred pred).iterator
 
           while (atomIt.hasNext) {
-            val a = atomIt.next
+            val a = atomIt.next()
             val f = rewrite(a)
 
             if (!(f eq a)) {

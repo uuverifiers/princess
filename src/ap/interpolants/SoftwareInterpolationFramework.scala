@@ -403,7 +403,7 @@ class SymbolRangeEnvironment {
   
   def push = frames.push(topFrame.clone)
   
-  def pop = frames.pop
+  def pop = frames.pop()
   
   def addRange(c : ConstantTerm, iv : Interval) = (topFrame get c) match {
     case Some(oldIV) => topFrame += (c -> (oldIV meet iv))

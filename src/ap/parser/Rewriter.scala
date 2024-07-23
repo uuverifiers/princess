@@ -73,10 +73,10 @@ object Rewriter {
     
     toVisit push expr
     
-    while (!toVisit.isEmpty) toVisit.pop match {
+    while (!toVisit.isEmpty) toVisit.pop() match {
       case PostVisit(oldExpr) => {
         var subRes : List[IExpression] = List()
-        for (_ <- 0 until oldExpr.length) subRes = results.pop :: subRes
+        for (_ <- 0 until oldExpr.length) subRes = results.pop() :: subRes
         
         val newExpr = oldExpr update subRes
 
@@ -101,7 +101,7 @@ object Rewriter {
     Debug.assertInt(AC, results.size == 1)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    results.pop
+    results.pop()
   }
   
   private case class PostVisit(expr : IExpression) extends IExpression

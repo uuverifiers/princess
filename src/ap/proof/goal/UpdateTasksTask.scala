@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -137,7 +137,7 @@ case object UpdateTasksTask extends EagerTask {
        })
 
     while (singletonVars.hasNext) {
-      val singletonVar = singletonVars.next
+      val singletonVar = singletonVars.next()
 
       implicit val order = formula.order
 

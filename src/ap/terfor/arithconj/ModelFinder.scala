@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -279,14 +279,14 @@ case class InNegEqModelElement(ac : ArithConj, _cs : GSet[ConstantTerm])
       val (c, _value, step) =
         if (it.hasNext) {
           // found a constant with an upper or lower bound
-          val lc = it.next
+          val lc = it.next()
           (lc.constants.head,
            -lc.constant * lc.leadingCoeff,
            IdealInt(lc.leadingCoeff.signum))
         } else {
           // take any of the constants
           val c = (for (c <- (order sort cs).iterator; if !(model contains c))
-                   yield c).next
+                   yield c).next()
           (c, IdealInt.ZERO, IdealInt.ONE)
         }
 

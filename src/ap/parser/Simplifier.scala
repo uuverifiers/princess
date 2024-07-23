@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -182,7 +182,7 @@ class Simplifier(splittingLimit : Int = 20,
     val prefix = new ArrayBuffer[ITerm]
     val it = terms.iterator
     while (it.hasNext) {
-      val a = it.next
+      val a = it.next()
       iteSplitter(a) match {
         case Some((cond, a1, a2)) => {
           val prefixList = prefix.toList

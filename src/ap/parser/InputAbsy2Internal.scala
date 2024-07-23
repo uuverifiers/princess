@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,11 +90,11 @@ private class InputAbsy2Internal(order : TermOrder) {
       
       val subRes = new Iterator[(IdealInt, Term)] {
         def hasNext = inputStack.size > preInputSize
-        def next : (IdealInt, Term) = inputStack.pop match {
+        def next() : (IdealInt, Term) = inputStack.pop() match {
           case IPlus(t1, t2) => {
             inputStack push t1
             inputStack push t2
-            next
+            next()
           }
           case t : ITerm =>
             translateTermCoeff(t)
@@ -104,7 +104,7 @@ private class InputAbsy2Internal(order : TermOrder) {
       val res = LinearCombination(subRes, order)
 
       // ensure that no garbage remain on the stack
-      while (subRes.hasNext) subRes.next
+      while (subRes.hasNext) subRes.next()
 
       (IdealInt.ONE, res)
     }
@@ -205,7 +205,7 @@ private class InputAbsy2Internal(order : TermOrder) {
         case IBinJunctor.Or =>  LazyConjunction.FALSE
       }
       
-      while (inputStack.size > preInputSize) inputStack.pop match {
+      while (inputStack.size > preInputSize) inputStack.pop() match {
         case IBinFormula(`op`, f1, f2) => {
           inputStack push f1
           inputStack push f2
@@ -214,13 +214,13 @@ private class InputAbsy2Internal(order : TermOrder) {
           case IBinJunctor.And => {
             res = res & translateFor(f)
             if (res.isFalse) {
-              while (inputStack.size > preInputSize) inputStack.pop
+              while (inputStack.size > preInputSize) inputStack.pop()
             }
           }
           case IBinJunctor.Or => {
             res = res | translateFor(f)
             if (res.isTrue) {
-              while (inputStack.size > preInputSize) inputStack.pop
+              while (inputStack.size > preInputSize) inputStack.pop()
             }
           }
         }

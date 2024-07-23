@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,7 +100,7 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
                         new IdentitySubst (to), BranchInferenceCollection.EMPTY,
                         settings)
         
-//        println
+//        println()
 //        println(goal)
     
         val tree = FactsNormalisationTask(goal,
@@ -184,7 +184,7 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
           formula = Conjunction.quantify(Array(quan), subst(formula), to)
         }
         
-/*        println
+/*        println()
         println(num)
         num = num + 1
         println(formula) */

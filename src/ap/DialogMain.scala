@@ -368,17 +368,17 @@ class InputDialog extends JPanel {
       println("  /* Declare sorts and algebraic data-types */")
       println("  ")
       println("}")
-      println
+      println()
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
       println("}")
-      println
+      println()
       println("\\existentialConstants {")
       println("  /* Declare existentially quantified constants of the problem */")
       println("  ")
       println("}")
-      println
+      println()
       println("\\functions {")
       println("  /* Declare constants and functions occurring in the problem")
       println("   * (implicitly universally quantified).")
@@ -386,19 +386,19 @@ class InputDialog extends JPanel {
       println("   * while \"\\relational\" can be used to define \"functions\" without functionality axiom. */")
       println("  ")
       println("}")
-      println
+      println()
       println("\\predicates {")
       println("  /* Declare predicates occurring in the problem")
       println("   * (implicitly universally quantified) */  ")
       println("  ")
       println("}")
-      println
+      println()
       println("\\problem {")
       println("  /* Problem to be proven. The implicit quantification is:")
       println("   *    \\forall <universalConstants>;")
       println("   *      \\exists <existentialConstants>;")
       println("   *        \\forall <functions/predicates>; ... */")
-      println
+      println()
       println("  true")
       println("}")
     })
@@ -406,34 +406,34 @@ class InputDialog extends JPanel {
   private def defaultSMTNewTab =
     newTabWithInput("Problem " + (createdTabs + 1), None, "-inputFormat=smtlib", asString {
      println("(set-logic AUFLIA)")
-     println
+     println()
      println(";; Set some options")
      println(";; The options affect all sub-sequent commands,")
      println(";; and can be specified more than once in a problem")
-     println
+     println()
      println(";; Translate boolean functions as predicates, or as functions?")
      println(";; (set-option :boolean-functions-as-predicates true) ; default: false")
-     println
+     println()
      println(";; Inline let-expressions, or encode them using quantifiers?")
      println(";; (set-option :inline-let false) ; default: true")
-     println
+     println()
      println(";; Inline define-fun functions, or encode them using axioms?")
      println(";; (set-option :inline-definitions false) ; default: true")
-     println
+     println()
      println(";; Introduce totality axiom for functions?")
      println(";; (set-option :totality-axiom false) ; default: true")
-     println
+     println()
      println(";; Introduce functionality axiom for functions?")
      println(";; (set-option :functionality-axiom false) ; default: true")
-     println
+     println()
      println(";; Prepare for generating interpolants?")
      println(";; (set-option :produce-interpolants true) ; default: false")
-     println
+     println()
      println(";; Declare functions and constants")
      println(";; (declare-fun f (Int) Int)")
      println(";; (declare-fun p (Int Int) Bool)")
      println(";; (declare-fun c () Int)")
-     println
+     println()
      println("(assert true)")
      println("(check-sat)")
      println("; (get-interpolants) ; also generate Craig interpolants?")
@@ -449,7 +449,7 @@ class InputDialog extends JPanel {
     println(" * Example:")
     println(" * Problem over Algebraic Data-Types")
     println(" */")
-    println
+    println()
     println("/* Definition of Algebraic Data-Types */")
     println("\\sorts {")
     println("  Colour { red; green; blue; };")
@@ -476,23 +476,23 @@ class InputDialog extends JPanel {
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
     println(" */")
-    println
+    println()
     println("\\existentialConstants {")
     println("  /* Declare existentially quantified constants of the problem */")
-    println
+    println()
     println("  int A;")
     println("}")
-    println
+    println()
     println("\\predicates {")
     println("  /* Declare predicates occurring in the problem */  ")
-    println
+    println()
     println("  divides(int, int);")
     println("}")
-    println
+    println()
     println("\\problem {")
     println("  /* Problem to be proven. The implicit quantification is:")
     println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
-    println
+    println()
     println("     \\forall int x; divides(x, x)")
     println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
     println("  ->")
@@ -505,21 +505,21 @@ class InputDialog extends JPanel {
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
     println(" */")
-    println
+    println()
     println("\\functions {")
     println("   int x, a, b, c;")
     println("}")
-    println
+    println()
     println("\\problem {")
     println("  /* Problem to be proven and interpolated */")
-    println
+    println()
     println("  \\part[cond]          (a-2*x = 0 & -a <= 0) &")
     println("  \\part[stmt1]         (2*b - a <=0 & -2*b + a -1 <=0) &")
     println("  \\part[stmt2]         c-3*b-1=0")
     println("                       ->")
     println("  \\part[assert]        c > a")
     println("}")
-    println
+    println()
     println("/* Interpolation sequence specification */")
     println("\\interpolant {cond; stmt1; stmt2; assert}")
   })
@@ -580,13 +580,13 @@ class InputDialog extends JPanel {
     println("(set-logic AUFLIA)")
     println("(declare-fun a () Int)")
     println("(declare-fun p (Int) Bool)")
-    println
+    println()
     println("(assert (forall ((x Int)) (p (* 2 x))))")
     println("(assert (forall ((x Int)) (not (p (+ (* 2 x) 1)))))")
-    println
+    println()
     println("(assert (p a))")
     println("(assert (not (p (+ a 10))))")
-    println
+    println()
     println("(check-sat)")
   })
 
@@ -596,13 +596,13 @@ class InputDialog extends JPanel {
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
     println(" */")
-    println
+    println()
     println("\\functions {")
     println("  int x, y, z, ar;")
     println("  \\partial int select(int, int);")
     println("  \\partial int store(int, int, int);")
     println("}")
-    println
+    println()
     println("\\problem {")
     println("// Array axioms")
     println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
@@ -611,7 +611,7 @@ class InputDialog extends JPanel {
     println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
     println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
     println("->")
-    println
+    println()
     println("  \\part[p0] (store(0, x, 1) = ar)")
     println("->")
     println("  \\part[p1] (select(ar, y) >= select(ar, x))")
@@ -622,7 +622,7 @@ class InputDialog extends JPanel {
     println("->")
     println("  false")
     println("}")
-    println
+    println()
     println("\\interpolant {p0, p1; p2, p3}")
   })
   */
@@ -632,19 +632,19 @@ class InputDialog extends JPanel {
     println(";")
     println("; Simple interpolation example")
     println(";")
-    println
+    println()
     println("(set-logic AUFLIA)")
-    println
+    println()
     println("(set-option :produce-interpolants true)")
-    println
+    println()
     println("(declare-fun f (Int) Int)")
     println("(declare-fun a () Int)")
     println("(declare-fun b () Int)")
-    println
+    println()
     println("(assert (> a (* b 2)))")
     println("(assert (< a (+ (* b 2) 2)))")
     println("(assert (> (f (- a 1)) (f (* 2 b))))")
-    println
+    println()
     println("(check-sat)")
     println("(get-interpolants)")
   })
@@ -836,7 +836,7 @@ abstract class PrincessPanel(menu : JPopupMenu)
 
   outputField setText asString {
     CmdlMain.printGreeting
-//    println
+//    println()
 //    CmdlMain.printOptions
   }
 
@@ -998,7 +998,7 @@ abstract class PrincessPanel(menu : JPopupMenu)
       case e : CmdlParser.UnknownArgumentException => {
         outputField setText asString {
           println(e.getMessage)
-          println
+          println()
           CmdlMain.printOptions
         }
         outputField setCaretPosition 0

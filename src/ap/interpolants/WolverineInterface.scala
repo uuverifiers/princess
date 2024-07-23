@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2010,2011 Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,9 +57,9 @@ object WolverineInterfaceMain extends {
       println("__  /_/ /_  ___/_  /__  __ \\  ___/  _ \\_  ___/_  ___/")
       println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
       println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")
-      println
+      println()
       println("(The Princess in the wolf skin)")
-      println
+      println()
     }
 
 } with SoftwareInterpolationFramework {
@@ -100,7 +100,7 @@ object WolverineInterfaceMain extends {
   //////////////////////////////////////////////////////////////////////////////
 
   def main(args: Array[String]) : Unit = Console.withOut(Console.err) {
-    println
+    println()
     println("Waiting for input ...")
     println("-> Terminate each problem with \"interpolate.\" or \"checkValidity.\"")
     println("   in a separate line")
@@ -159,7 +159,7 @@ object WolverineInterfaceMain extends {
       }
 
 /*      Console.withOut(Console.err) {
-          println
+          println()
           println(ap.util.Timer)
 //          ap.util.Timer.reset
         } */
@@ -212,7 +212,7 @@ object WolverineInterfaceMain extends {
           } */
     
             wolverineLineariser.visit(simpInter, List())
-            println
+            println()
     
             //-BEGIN-ASSERTION-///////////////////////////////////////////
             // Check that the implications I_i & T_(i+1) => I_(i+1) hold,

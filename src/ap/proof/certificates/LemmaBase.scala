@@ -283,7 +283,7 @@ class LemmaBase(printLemmas : Boolean = false) {
    */
   def assumeFormulas(ls : Iterator[CertFormula]) : Option[Certificate] = {
     while (ls.hasNext)
-      assumeFormula(ls.next) match {
+      assumeFormula(ls.next()) match {
         case None => // nothing
         case x => return x
       }
@@ -434,7 +434,7 @@ class LemmaBase(printLemmas : Boolean = false) {
   private val rand = new scala.util.Random(654321)
 
   private def randomPick[A](it : Iterator[A]) : A = {
-    val x = it.next
+    val x = it.next()
     if (it.hasNext && rand.nextBoolean)
       randomPick(it)
     else

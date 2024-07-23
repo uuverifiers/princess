@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -277,7 +277,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
   private def selectHeaviestLiteral[A <: TerFor]
               (lits : Iterator[A], weighter : (A) => Int) : (A, ArrayBuffer[A]) = {
     val remainingLits = new ArrayBuffer[A]
-    var bestLit : A = lits.next  // lits has to be non-empty
+    var bestLit : A = lits.next()  // lits has to be non-empty
     var bestVal : Int = weighter(bestLit)
     
     for (c <- lits) {

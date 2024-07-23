@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -719,7 +719,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     def spawnNewProverIfPossible : Boolean =
       if (runningProverNum < maxParallelProvers && subProversToSpawn.hasNext) {
         updateOffset
-        val newProver = subProversToSpawn.next
+        val newProver = subProversToSpawn.next()
         spawnedProvers += newProver
 
         if (preliminaryResult != null && !newProver.producesProofs) {

@@ -64,21 +64,21 @@ object CmdlMain {
     println("__  /_/ /_  ___/_  /__  __ \\  ___/  _ \\_  ___/_  ___/")
     println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
-    println
+    println()
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
-    println
+    println()
     println("(c) Philipp Rümmer, 2009-2024")
     println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
     println("              Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
-    println
+    println()
     println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
   }
   
   def printUsage = {
     println("Usage: princess <option>* <inputfile>*")
-    println
+    println()
     printOptions
   }
   
@@ -133,7 +133,7 @@ object CmdlMain {
     println(" -logging=flags            Comma-separated list of log flags       (default: \"\")")
     println("                             Flags: tasks, splits, backtracking, stats, lemmas,")
     println("                                    counters, countersCont")
-    println
+    println()
     println("Proof/interpolation options")
     println("---------------------------")
     println(" -constructProofs=val      Extract proofs")
@@ -142,7 +142,7 @@ object CmdlMain {
     println("                             always")
     println(" [+-]elimInterpolantQuants Eliminate quantifiers from interpolants  (default: +)")
 //    println(" [+-]simplifyProofs        Simplify extracted proofs                (default: +)")
-    println
+    println()
     println("Quantifier/constraint options")
     println("-----------------------------")
     println(" [+-]posUnitResolution     Resolution of clauses with literals in   (default: +)")
@@ -160,7 +160,7 @@ object CmdlMain {
     println("                             cnf: conjunctive normal form")
     println(" [+-]traceConstraintSimplifier  Show constraint simplifications     (default: -)")
     println(" [+-]dnfConstraints        Continuously rewrite constraints to DNF  (default: +)")
-    println
+    println()
     println("Function options")
     println("----------------")
     println(" -generateTriggers=val     Automatically choose triggers for quant. formulae")
@@ -187,7 +187,7 @@ object CmdlMain {
     println("                           arguments from distinctness of results")
     println(" [+-]useFunctionalConsistencyTheory  Use dummy theory to represent  (default: -)")
     println("                           functional consistency axioms")
-    println
+    println()
     println("Theory options")
     println("--------------")
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
@@ -211,7 +211,7 @@ object CmdlMain {
   private def printSMT(prover : AbstractFileProver,
                        filename : String, settings : GlobalSettings) =
     if (Param.PRINT_SMT_FILE(settings) != "") {
-      println
+      println()
       
       def linearise : Unit = {
         // TODO: this should be reimplemented, in particular functions be
@@ -269,7 +269,7 @@ object CmdlMain {
   private def printTPTP(prover : AbstractFileProver,
                         filename : String, settings : GlobalSettings) =
     if (Param.PRINT_TPTP_FILE(settings) != "") {
-      println
+      println()
       
       def linearise : Unit = {
         import IExpression._
@@ -294,7 +294,7 @@ object CmdlMain {
                                prover : Prover)
                               (implicit format : Param.InputFormat.Value) = {
     if (Param.COMPUTE_UNSAT_CORE(settings)) {
-      Console.err.println
+      Console.err.println()
       Console.err.println("Unsatisfiable core:")
       val usedNames = (prover getAssumedFormulaParts cert) - PartName.NO_NAME
       val nameStrings = usedNames map {
@@ -318,7 +318,7 @@ object CmdlMain {
                                    settings : GlobalSettings,
                                    prover : Prover)
                                  (implicit format : Param.InputFormat.Value) = {
-    println
+    println()
     doPrintTextCertificate(cert,
                            prover.getFormulaParts,
                            prover.getPredTranslation,
@@ -363,7 +363,7 @@ object CmdlMain {
 
   private def printDOTCertificate(cert : Certificate,
                                   settings : GlobalSettings) = {
-    Console.err.println
+    Console.err.println()
      
     if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "-") {
       Console.err.println("Saving certificate in GraphViz format to " +
@@ -401,11 +401,11 @@ object CmdlMain {
     format match {
       case Param.InputFormat.SMTLIB => {
         SMTLineariser(f)
-        println
+        println()
       }
       case _ => {
         PrincessLineariser printExpression f
-        println
+        println()
       }
     }
   
@@ -461,19 +461,19 @@ object CmdlMain {
             
       Console.withOut(Console.err) {
         if (Param.PRINT_RUNTIME(settings)) {
-          println
+          println()
           println("" + (timeAfter - timeBefore) + "ms")
         }
             
         if (Param.LOG_LEVEL(settings) contains Param.LOG_STATS) {
-          println
+          println()
           println("Statistics:")
           println(ap.util.Timer)
           ap.util.Timer.reset
         }
             
         if (counterPrintingEnabled(settings)) {
-          println
+          println()
           println("Counters:")
           ap.util.OpCounters.printCounters
         }
@@ -498,9 +498,9 @@ object CmdlMain {
           import ParallelFileProver._
 
           def prelPrinter(p : Prover) : Unit = {
-            Console.err.println
+            Console.err.println()
             printResult(p, baseSettings, name)
-            Console.err.println
+            Console.err.println()
           }
               
           val needProof =
@@ -530,7 +530,7 @@ object CmdlMain {
         }
 
         Console.withOut(Console.err) {
-          println
+          println()
         }
 
         printResult(prover, settings, name)
@@ -755,7 +755,7 @@ object CmdlMain {
       case Prover.NoCounterModelCertInter(cert, inters) => {
         printTPTPResult(true, prover, name)
         Console.withOut(Console.err) {
-          println
+          println()
           println("Interpolants:")
           for (i <- inters) printFormula(i)
         }
@@ -808,7 +808,7 @@ object CmdlMain {
               case _ => false
             }) => // nothing
           case _ => {
-            println
+            println()
             println("Concrete witness:")
             printModel(model)
           }
@@ -853,7 +853,7 @@ object CmdlMain {
         println("VALID")
         maybePrintFixedConstraint(true, "Most-general constraint", settings)
 
-        println
+        println()
         println("Interpolants:")
         for (i <- inters) printFormula(i)
 
@@ -868,7 +868,7 @@ object CmdlMain {
       case Prover.AllModels(constraint, optModel) =>  {
         println("VALID")
         if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-          println
+          println()
           println("Equivalent constraint:")
           printFormula(constraint)
         }
@@ -884,7 +884,7 @@ object CmdlMain {
         println("CANCELLED/TIMEOUT")
 
         if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-          println
+          println()
           println("Current constraint:")
           Timeout.withTimeoutMillis(1000) {
             printFormula(tree.closingConstraint)
@@ -931,7 +931,7 @@ object CmdlMain {
                              stderr   : Boolean = false) =
     if (Param.PRINT_TREE(settings))
       Console.withOut(if (stderr) Console.err else Console.out) {
-        println
+        println()
         println("Proof tree:")
         println(tree)
       }
@@ -941,7 +941,7 @@ object CmdlMain {
                                   (implicit format : Param.InputFormat.Value) =
     if (!constraint.isTrue ||
           Param.MOST_GENERAL_CONSTRAINT(settings)) {
-      println
+      println()
       println("Under the " +
                 (if (Param.MOST_GENERAL_CONSTRAINT(settings))
                    "most-general "
@@ -954,7 +954,7 @@ object CmdlMain {
                                         name     : String,
                                         settings : GlobalSettings) =
     if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-      println
+      println()
       println(name + ":")
       println(value)
     }
@@ -965,7 +965,7 @@ object CmdlMain {
                              (implicit format : Param.InputFormat.Value) =
     for (model <- optModel)
       Console.withOut(if (stderr) Console.err else Console.out) {
-        println
+        println()
         println(name + ":")
         printModel(model)
       }
@@ -983,12 +983,12 @@ object CmdlMain {
       case e : Throwable => {
         Console.withOut(Console.err) {
           printGreeting
-          println
+          println()
         }
         println(e.getMessage)
-        println
+        println()
         printUsage
-        println
+        println()
         return
       }
     }
@@ -1000,12 +1000,12 @@ object CmdlMain {
           
     if (Param.FULL_HELP(settings)) {
       println(version)
-      println
+      println()
       printUsage
-      println
-      println
+      println()
+      println()
       printExoticOptions
-      println
+      println()
       return
     }
           
@@ -1014,7 +1014,7 @@ object CmdlMain {
           
     if (Param.LOGO(settings)) Console.withOut(Console.err) {
       printGreeting
-      println
+      println()
     }
 
     if (inputs.isEmpty && !Param.STDIN(settings)) {

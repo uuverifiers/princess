@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1065,7 +1065,7 @@ object Interpolator
       yield left
 
     if (atomLRValue.hasNext) {
-      atomLRValue.next
+      atomLRValue.next()
     } else {
       val extOrder = iContext.order
 
@@ -1077,7 +1077,7 @@ object Interpolator
         yield left
               
       if (constLRValue.hasNext)
-        constLRValue.next
+        constLRValue.next()
       else {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Interpolator.AC, {

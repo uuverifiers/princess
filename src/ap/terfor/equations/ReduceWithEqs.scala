@@ -216,10 +216,10 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
           changed = true
         }
                    
-        if (blender.hasNext && (blender.peekNext _2) == nextTerm) blender.next
+        if (blender.hasNext && (blender.peekNext _2) == nextTerm) blender.next()
       }
 
-      case None => blender.next
+      case None => blender.next()
       }
     }
     

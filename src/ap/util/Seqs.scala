@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,7 +59,7 @@ object Seqs {
           return 0      
       }      
       
-      val compRes = ord.compare(it1.next, it2.next)
+      val compRes = ord.compare(it1.next(), it2.next())
       if (compRes != 0) return compRes
     }
     
@@ -79,7 +79,7 @@ object Seqs {
           return 0      
       }      
       
-      val compRes = ord.compare(it1.next, it2.next)
+      val compRes = ord.compare(it1.next(), it2.next())
       if (compRes != 0) return compRes
     }
     
@@ -568,7 +568,7 @@ object Seqs {
     val it = s.iterator
     if (it.hasNext) {
       val resBuf = Vector.newBuilder[A]
-      var prevEl = it.next
+      var prevEl = it.next()
       resBuf += prevEl
       
       for (el <- it) {
@@ -611,7 +611,7 @@ object Seqs {
                                                             : FAS_RESULT[A] = {
     val buf = ArrayBuilder.make[A]
     while (it.hasNext) {
-      val el = it.next
+      val el = it.next()
       if (badEl(el)) return FoundBadElement(el)
       if (!skipEl(el)) buf += trafo(el)
     }
@@ -630,7 +630,7 @@ object Seqs {
    */
   def some[A](vals : Iterator[Option[A]]) : Option[A] = {
     while (vals.hasNext) {
-      val n = vals.next
+      val n = vals.next()
       if (n.isDefined) return n
     }
     None
@@ -645,7 +645,7 @@ object Seqs {
    */
   def optionSum(vals : Iterator[Option[Int]]) : Option[Int] = {
     var res = 0
-    while (vals.hasNext) vals.next match {
+    while (vals.hasNext) vals.next() match {
       case Some(n) =>
         res = res + n
       case None =>
@@ -658,7 +658,7 @@ object Seqs {
 
   def disjointSeq[A](a : scala.collection.Set[A], b : Iterator[A]) : Boolean = {
     while (b.hasNext) {
-      if (a contains b.next)
+      if (a contains b.next())
         return false
     }
     true
@@ -674,7 +674,7 @@ object Seqs {
   def disjointSeq[A](a1 : scala.collection.Set[A], a2 : scala.collection.Set[A],
                      b : Iterator[A]) : Boolean =  {
     while (b.hasNext) {
-      val x = b.next
+      val x = b.next()
       if ((a1 contains x) && (a2 contains x))
         return false
     }
@@ -720,8 +720,8 @@ object Seqs {
    */
   def reduceLeft[A](els : Iterator[A], f : (A, A) => A) : Option[A] =
     if (els.hasNext) {
-      var res = els.next
-      while (els.hasNext) res = f(res, els.next)
+      var res = els.next()
+      while (els.hasNext) res = f(res, els.next())
       Some(res)
     } else {
       None
@@ -741,7 +741,7 @@ object Seqs {
    */
   def max(it : Iterator[Int]) : Int =
     if (it.hasNext) {
-      var res = it.next
+      var res = it.next()
       for (t <- it) res = res max t
       res
     } else {
@@ -754,7 +754,7 @@ object Seqs {
    */
   def min(it : Iterator[Int]) : Int =
     if (it.hasNext) {
-      var res = it.next
+      var res = it.next()
       for (t <- it) res = res min t
       res
     } else {
@@ -779,10 +779,10 @@ object Seqs {
   def max[A, B <% Ordered[B]](it : Iterator[A], measure : (A) => B) : A = {
     if (!it.hasNext) throw new NoSuchElementException
 
-    var res = it.next
+    var res = it.next()
     var resSize = measure(res)
     while (it.hasNext) {
-      val next = it.next
+      val next = it.next()
       val nextSize = measure(next)
       if (nextSize > resSize) {
         res = next
@@ -804,10 +804,10 @@ object Seqs {
   def min[A, B <% Ordered[B]](it : Iterator[A], measure : (A) => B) : A = {
     if (!it.hasNext) throw new NoSuchElementException
 
-    var res = it.next
+    var res = it.next()
     var resSize = measure(res)
     while (it.hasNext) {
-      val next = it.next
+      val next = it.next()
       val nextSize = measure(next)
       if (nextSize < resSize) {
         res = next
@@ -823,7 +823,7 @@ object Seqs {
     var resSize : Option[B] = None
 
     while (it.hasNext) {
-      val next = it.next
+      val next = it.next()
       measure(next) match {
         case None => // nothing
         case s@Some(nextSize) =>
@@ -876,7 +876,7 @@ object Seqs {
     val res1 = Vector.newBuilder[A]
     val res2 = Vector.newBuilder[A]
     while (els.hasNext) {
-      val n = els.next
+      val n = els.next()
       if (firstKind(n))
         res1 += n
       else
@@ -892,10 +892,10 @@ object Seqs {
    */
   def subSeq[A](a : Iterator[A], b : Iterator[A]) : Boolean = {
     while (a.hasNext) {
-      val const = a.next
+      val const = a.next()
       do {
         if (!b.hasNext) return false
-      } while (const != b.next)
+      } while (const != b.next())
     }
     true    
   }
@@ -906,11 +906,11 @@ object Seqs {
   def subSeq[A](a : Iterator[A], aFilter : scala.collection.Set[A],
                 b : Iterator[A]) : Boolean = {
     while (a.hasNext) {
-      val const = a.next
+      val const = a.next()
       if (aFilter contains const) {
         do {
           if (!b.hasNext) return false
-        } while (const != b.next)
+        } while (const != b.next())
       }
     }
     true    
@@ -924,7 +924,7 @@ object Seqs {
     val aIt = a.iterator
     val bIt = b.iterator
     while (aIt.hasNext) {
-      if (!bIt.hasNext || !(aIt.next eq bIt.next))
+      if (!bIt.hasNext || !(aIt.next() eq bIt.next()))
         return false
     }
     !bIt.hasNext
@@ -965,8 +965,8 @@ object Seqs {
       return res.result
     }
 
-    var aNext = aIt.next
-    var bNext = bIt.next
+    var aNext = aIt.next()
+    var bNext = bIt.next()
       
     while (true) {
       val c = ord.compare(aNext, bNext)
@@ -974,7 +974,7 @@ object Seqs {
       if (c > 0) {
         res += aNext
         if (aIt.hasNext) {
-          aNext = aIt.next
+          aNext = aIt.next()
         } else {
           res += bNext
           res ++= bIt
@@ -983,7 +983,7 @@ object Seqs {
       } else if (c < 0) {
         res += bNext
         if (bIt.hasNext) {
-          bNext = bIt.next
+          bNext = bIt.next()
         } else {
           res += aNext
           res ++= aIt
@@ -992,7 +992,7 @@ object Seqs {
       } else {
         // both elements are considered equal, so we drop one of them
         if (aIt.hasNext) {
-          aNext = aIt.next            
+          aNext = aIt.next()            
         } else {
           res += bNext
           res ++= bIt
@@ -1012,7 +1012,7 @@ object Seqs {
   def count[A](els : Iterator[A], p : (A) => Boolean) : Int = {
     var res : Int = 0
     while (els.hasNext)
-      if (p(els.next))
+      if (p(els.next()))
         res = res + 1
     res
   }
@@ -1049,16 +1049,16 @@ object Seqs {
 
     val newIt = newSeq.iterator
     val oldIt = oldSeq.iterator
-    var oldEl = oldIt.next
+    var oldEl = oldIt.next()
     var c : Int = 0
     
     while (newIt.hasNext) {
-      val newEl = newIt.next
+      val newEl = newIt.next()
       c = ord.compare(newEl, oldEl)
       
       while (c < 0)
         if (oldIt.hasNext) {
-          oldEl = oldIt.next
+          oldEl = oldIt.next()
           c = ord.compare(newEl, oldEl)
         } else {
           resNew += newEl
@@ -1109,8 +1109,8 @@ object Seqs {
 
     val seq0It = seq0.iterator
     val seq1It = seq1.iterator
-    var seq0El = seq0It.next
-    var seq1El = seq1It.next
+    var seq0El = seq0It.next()
+    var seq1El = seq1It.next()
     
     while (true) {
       val c = ord.compare(seq0El, seq1El)
@@ -1124,7 +1124,7 @@ object Seqs {
 
       if (c <= 0) {
         if (seq1It.hasNext) {
-          seq1El = seq1It.next
+          seq1El = seq1It.next()
         } else {
           if (c < 0)
             left += seq0El
@@ -1135,7 +1135,7 @@ object Seqs {
 
       if (c >= 0) {
         if (seq0It.hasNext) {
-          seq0El = seq0It.next
+          seq0El = seq0It.next()
         } else {
           if (c > 0)
             right += seq1El
@@ -1177,7 +1177,7 @@ object Seqs {
         var newB = bEls(newBIndex)
         
         while (aEls.hasNext) {
-          val nextA = aEls.next
+          val nextA = aEls.next()
           var step = 1
 
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
@@ -1328,9 +1328,9 @@ object Seqs {
    */
   def union[A](sets : Iterator[Set[A]]) : Set[A] =
     if (sets.hasNext) {
-      var first = sets.next
+      var first = sets.next()
       while (first.isEmpty && sets.hasNext)
-        first = sets.next
+        first = sets.next()
 
       first ++ (for (s <- sets; x <- s.iterator) yield x)
     } else {

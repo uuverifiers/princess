@@ -732,7 +732,7 @@ class ADT (sortNames      : Seq[String],
           sortsTodo push entrySort
 
           while (!sortsTodo.isEmpty) {
-            val sort = sortsTodo.pop
+            val sort = sortsTodo.pop()
             for (ctorId <- globalCtorIdsPerSort(sort))
               for ((_, ADTSort(refSort)) <- ctorSignatures(ctorId)._2.arguments)
                 if (referencedSorts add refSort)
@@ -839,7 +839,7 @@ class ADT (sortNames      : Seq[String],
         (for (n <- Iterator.iterate[IdealInt](IdealInt.ONE)(_ + IdealInt.ONE);
               if reducer(VariableSubst(0, List(LinearCombination(n)),
                                        TermOrder.EMPTY)(constraint)).isTrue)
-         yield n).next
+         yield n).next()
       }
     }
 
@@ -1194,7 +1194,7 @@ class ADT (sortNames      : Seq[String],
 
   override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
-//println
+//println()
 //println("Preprocessing:")
 //println(f)
     val after = rewriteADTFormula(f, order)
@@ -1206,7 +1206,7 @@ class ADT (sortNames      : Seq[String],
                                        order,
                                        reducerSettings)(after)
 //println(" -> " + after2)
-//println
+//println()
    after2
   }
 

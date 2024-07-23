@@ -90,7 +90,7 @@ object ImplicationCompressor {
       todo push p
       
       while (!todo.isEmpty) {
-        val next = todo.pop
+        val next = todo.pop()
         if (!(res contains next)) {
           if (res contains ~next)
             return None
@@ -166,7 +166,7 @@ object ImplicationCompressor {
       todo push p
       
       while (!todo.isEmpty) {
-        val next = todo.pop
+        val next = todo.pop()
         if (!(res contains next)) {
           if (res contains ~next)
             return None

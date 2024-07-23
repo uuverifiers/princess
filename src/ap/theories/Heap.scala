@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2023 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1166,7 +1166,7 @@ class Heap(heapSortName : String, addressSortName : String,
 
   /*override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
-    println
+    println()
     println("Preprocessing:")
     println(f) //println(Console.YELLOW_B + f.quans + Console.RESET)
     val reducerSettings = Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,
@@ -1174,7 +1174,7 @@ class Heap(heapSortName : String, addressSortName : String,
     val after = ReduceWithConjunction(Conjunction.TRUE, order, reducerSettings)(
       f)
     println(" -> " + after)
-    println
+    println()
     after
   }*/
 

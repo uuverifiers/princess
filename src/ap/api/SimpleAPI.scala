@@ -407,7 +407,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     println("import ap._")
     println("import ap.parser._")
     println("import ap.basetypes.IdealInt")
-    println
+    println()
     println("SimpleAPI.withProver(tightFunctionScopes = " +
                                     tightFunctionScopes + ", " +
                                   "genTotalityAxioms = " +
@@ -415,7 +415,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     println("import p._")
     println("import IExpression._")
     println("{")
-    println
+    println()
   }
   
   private val basicPreprocSettings = {
@@ -428,7 +428,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   private def closeAllScopes = {
     for (_ <- 0 until apiStack.frameNum)
       println("} // pop scope")
-    println
+    println()
   }
 
   def reset = {
@@ -1908,7 +1908,7 @@ class SimpleAPI private (enableAssert        : Boolean,
       print("println(\"" + getScalaNum + ": \" + checkSat(true))")
       if (!block)
         print(" // checkSat(" + block + ")")
-      println
+      println()
     }
 
     if (block)
@@ -1999,7 +1999,7 @@ class SimpleAPI private (enableAssert        : Boolean,
   private def startExhaustiveProver = {
     val completeFor =
       if (formulaeInProver.size == 1)
-        formulaeInProver.keysIterator.next
+        formulaeInProver.keysIterator.next()
       else
         ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
               Conjunction.disj(formulaeInProver.keysIterator, currentOrder))
@@ -2031,7 +2031,7 @@ class SimpleAPI private (enableAssert        : Boolean,
       print("println(\"" + getScalaNum + ": \" + nextModel(true))")
       if (!block)
         print(" // nextModel(" + block + ")")
-      println
+      println()
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -3870,7 +3870,7 @@ class SimpleAPI private (enableAssert        : Boolean,
    * assertions and declarations done in the meantime will disappear.
    */
   def scope[A](comp: => A) : A = {
-    push
+    push()
     try {
       comp
     } finally {
@@ -3878,7 +3878,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         // then something bad happened, and we are in an inconsistent state
         shutDownHelp
       } else {
-        pop
+        pop()
       }
     }
   }
@@ -3902,7 +3902,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         // then something bad happened, and we are in an inconsistent state
         shutDownHelp
       } else {
-        pop
+        pop()
       }
     }
   }
@@ -3910,12 +3910,12 @@ class SimpleAPI private (enableAssert        : Boolean,
   /**
    * Add a new frame to the assertion stack.
    */
-  def push : Unit = {
+  def push() : Unit = {
     doDumpSMT {
       println("(push 1)")
     }
     doDumpScala {
-      println
+      println()
       println("scope {")
     }
 
@@ -3938,14 +3938,14 @@ class SimpleAPI private (enableAssert        : Boolean,
   def pushEmptyFrame(resetFormulas : Boolean = false,
                      resetOptions : Boolean = false) : Unit =
     if (!resetFormulas && !resetOptions) {
-      push
+      push()
     } else {
       doDumpSMT {
         println("(push 1) ; pushEmptyFrame(resetFormulas = " + resetFormulas +
                 ", resetOptions = " + resetOptions + ")")
       }
       doDumpScala {
-        println
+        println()
         println("scope(resetFormulas = " + resetFormulas +
                 ", resetOptions = " + resetOptions + ") {")
       }
@@ -3967,13 +3967,13 @@ class SimpleAPI private (enableAssert        : Boolean,
   /**
    * Pop the top-most frame from the assertion stack.
    */
-  def pop : Unit = {
+  def pop() : Unit = {
     doDumpSMT {
       println("(pop 1)")
     }
     doDumpScala {
       println("} // pop scope")
-      println
+      println()
     }
 
     popHelp

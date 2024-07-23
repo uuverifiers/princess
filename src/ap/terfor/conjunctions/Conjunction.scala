@@ -132,7 +132,7 @@ object Conjunction {
       }
     
     while (formulas.hasNext) {
-      val f = formulas.next
+      val f = formulas.next()
       if (f.isFalse)
         return (ArithConj.FALSE, PredConj.TRUE, NegatedConjunctions.TRUE)
       addFormula(f)
@@ -639,7 +639,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def isProperDivisibility : Boolean = {
     val lc = (arithConj.positiveEqs.iterator ++
-              arithConj.negativeEqs.iterator).next.leadingCoeff
+              arithConj.negativeEqs.iterator).next().leadingCoeff
     !lc.isOne
   }
     

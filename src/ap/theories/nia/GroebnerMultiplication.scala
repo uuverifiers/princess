@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -144,7 +144,7 @@ object GroebnerMultiplication extends MulTheory {
 
       val predIt = remainingPreds.iterator
       while (!cont && predIt.hasNext) {
-        val a = predIt.next
+        val a = predIt.next()
         val lhsDefined =
           (a(0).constants.iterator ++ a(1).constants.iterator) forall inputConsts
 
@@ -253,15 +253,15 @@ object GroebnerMultiplication extends MulTheory {
 /*
 println("======================")
 
-println
+println()
 println("Active:")
 println(active)
 
-println
+println()
 println("Passive:")
 println(passive)
 
-println
+println()
 println("Unproc:")
 println(unprocessed)
 */
@@ -1212,7 +1212,7 @@ println(unprocessed)
                                  Seq[Plugin.Action])] =
           for (negeq <- negeqs.iterator;
                if (negeq.constants.size == 1);
-               c = negeq.constants.iterator.next;
+               c = negeq.constants.iterator.next();
                if ((targetSet contains c) &&
                    (intervalSet getTermInterval c).containsInt(-negeq.constant));
                opt1 = (negeq > 0);
@@ -1295,7 +1295,7 @@ println(unprocessed)
             })
 
           if (alternatives.hasNext) {
-            val s@(options, desc, label, actions) = alternatives.next
+            val s@(options, desc, label, actions) = alternatives.next()
 
             if (Param.PROOF_CONSTRUCTION(goal.settings)) {
               // just apply the split that we found
@@ -1405,7 +1405,7 @@ println(unprocessed)
     val diseqs = goal.facts.arithConj.negativeEqs
     val ineqs = goal.facts.arithConj.inEqs
 
-    println
+    println()
     println(t)
 
     if (!muls.isEmpty) {

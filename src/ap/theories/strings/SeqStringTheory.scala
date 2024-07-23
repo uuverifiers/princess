@@ -889,7 +889,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         conj.predConj.positiveLitsWithPred(_str_cons) groupBy { a => a(1) }
 
       while (!todo.isEmpty) {
-        val nextTerm = todo.pop
+        val nextTerm = todo.pop()
         val baseWord =
           words.getOrElse(nextTerm, SymWord(List(), Some(nextTerm)))
         for (a <- term2Cons.getOrElse(nextTerm, List()))

@@ -113,13 +113,13 @@ abstract class CollectingVisitor[A, R] {
     toVisit push expr
     argsToVisit push arg
     
-    while (!toVisit.isEmpty) toVisit.pop match {
+    while (!toVisit.isEmpty) toVisit.pop() match {
       case PostVisit(expr, arg) => {
         subResReverseView.N = expr.length
 
         var i = subResReverseView.N - 1
         while (i >= 0) {
-          subRes += results.pop
+          subRes += results.pop()
           i = i - 1
         }
 
@@ -128,7 +128,7 @@ abstract class CollectingVisitor[A, R] {
       }
       
       case expr => {
-        val arg = argsToVisit.pop
+        val arg = argsToVisit.pop()
 
         preVisit(expr, arg) match {
           case ShortCutResult(res) =>
@@ -175,7 +175,7 @@ abstract class CollectingVisitor[A, R] {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(CollectingVisitor.AC, results.length == 1)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    results.pop
+    results.pop()
   }
   
   def visitWithoutResult(expr : IExpression, arg : A) : Unit = {
@@ -185,12 +185,12 @@ abstract class CollectingVisitor[A, R] {
     toVisit push expr
     argsToVisit push arg
     
-    while (!toVisit.isEmpty) toVisit.pop match {
+    while (!toVisit.isEmpty) toVisit.pop() match {
       case PostVisit(expr, arg) =>
         postVisit(expr, arg, null)
       
       case expr => {
-        val arg = argsToVisit.pop
+        val arg = argsToVisit.pop()
 
         preVisit(expr, arg) match {
           case ShortCutResult(res) => {

@@ -106,9 +106,9 @@ object AllTests extends App {
   
   val timeAfter = System.currentTimeMillis
     
-  println
+  println()
   println("Time needed: " + (timeAfter - timeBefore) + "ms")
-  println
+  println()
   
   for(tf <- r.exceptions) { 
     tf.printStackTrace

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -129,7 +129,7 @@ case class BindingContext private (// the groups of constants that are bound in 
     val constIt = consts.iterator
     
     while (constIt.hasNext) {
-      val c = constIt.next
+      val c = constIt.next()
       val cLevel = constantPos get c
 
       val cIsGreater = (maxConstantLevel, cLevel) match {

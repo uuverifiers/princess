@@ -101,7 +101,7 @@ object Timer {
       } finally {
         if (!timerDisabled) {
           addTime
-          runningOps.pop
+          runningOps.pop()
         }
       }
 

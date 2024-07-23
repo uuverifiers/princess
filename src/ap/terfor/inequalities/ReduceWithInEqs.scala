@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -345,8 +345,8 @@ class ReduceWithInEqsImpl protected[inequalities]
                                order))
         }
 
-        val (coeff1, lc1) = bounds.next
-        val (coeff2, lc2) = bounds.next
+        val (coeff1, lc1) = bounds.next()
+        val (coeff2, lc2) = bounds.next()
         val initIneq =
           LinearCombination.sum(Array((coeff1, lc1), (coeff2, lc2)), order)
         logger.combineInequalities(coeff1, lc1, coeff2, lc2,
@@ -646,7 +646,7 @@ class ReduceWithInEqsImpl protected[inequalities]
 
         val lcIt = conj.iterator
         while (lcIt.hasNext) {
-          val lc = lcIt.next
+          val lc = lcIt.next()
 
           upperBound(lc) match {
             case Some(d) if (d.signum < 0) =>

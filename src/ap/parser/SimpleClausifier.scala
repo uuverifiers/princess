@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -234,7 +234,7 @@ class SimpleClausifier {
   private def uniformSorts(sortsFors : Seq[(IFormula, List[Sort])])
                          : Option[Sort] = {
     val sorts = for ((_, ss) <- sortsFors.iterator; s <- ss.iterator) yield s
-    val sort = sorts.next
+    val sort = sorts.next()
     if (sorts forall (_ == sort))
       Some(sort)
     else

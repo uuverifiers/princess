@@ -94,7 +94,7 @@ class APIStack {
          oldMGCs, oldValidityMode, oldStatus,
          oldTheoryPlugin, oldTheories,
          oldAbbrevFunctions, oldAbbrevPredicates) =
-      storedStates.pop
+      storedStates.pop()
     currentProver          = oldProver
     needExhaustiveProver   = oldNeedExhaustiveProver
     matchedTotalFunctions  = oldMatchedTotalFunctions

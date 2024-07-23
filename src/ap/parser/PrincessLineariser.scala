@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -84,7 +84,7 @@ object PrincessLineariser {
     
     println("\\problem {")
     printExpression(formula)
-    println
+    println()
     println("}")
   }
   

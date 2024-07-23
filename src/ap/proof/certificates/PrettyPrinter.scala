@@ -144,7 +144,7 @@ class CertificatePrettyPrinter(
     push
     try {
       for (name <- usedNames) {
-        println
+        println()
         val label = name match {
           case PartName.NO_NAME         => "input"
           case PartName.FUNCTION_AXIOMS => "function-axioms"
@@ -155,7 +155,7 @@ class CertificatePrettyPrinter(
       }
 
       if (!(unusedNames forall PartName.predefNamesSet)) {
-        println
+        println()
         println("Further assumptions not needed in the proof:")
         println("--------------------------------------------")
         printlnPrefBreaking("",
@@ -164,11 +164,11 @@ class CertificatePrettyPrinter(
                               .mkString(", "))
       }
 
-      println
+      println()
       println("Those formulas are unsatisfiable:")
       println("---------------------------------")
 
-      println
+      println()
       println("Begin of proof")
       addPrefix("| ")
       printCertificate(dagCertificate.last)
@@ -181,7 +181,7 @@ class CertificatePrettyPrinter(
     for (id <- (certificateNum - 2) to 0 by -1) {
       val cert = dagCertificate(id)
 
-      println
+      println()
       println("Sub-proof #" + (certificateNum - id - 1) +
               " shows that the following formulas are inconsistent:")
       println("----------------------------------------------------------------")
@@ -191,7 +191,7 @@ class CertificatePrettyPrinter(
         for (f <- cert.assumedFormulas)
           introduceFormula(f)
 
-        println
+        println()
         println("Begin of proof")
         addPrefix("| ")
         printCertificate(cert)

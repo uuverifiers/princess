@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -180,7 +180,7 @@ class TestInequalities(n : String) extends APTestCase(n) {
       
       val reduced = reducer(toBeReduced)
       
-/*      println
+/*      println()
       println(inEqConj)
       println(toBeReduced)
       println(reduced) */

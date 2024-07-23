@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -241,7 +241,7 @@ object LShiftCastSplitter extends TheoryProcedure {
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     if (debug) {
-      println
+      println()
       println("l_shift_cast splitter ...")
     }
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -487,7 +487,7 @@ object RShiftCastSplitter extends TheoryProcedure {
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     if (debug) {
-      println
+      println()
       println("r_shift_cast splitter ...")
     }
     //-END-ASSERTION-///////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2015-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,7 +86,7 @@ case class Tree[D](d : D, children : List[Tree[D]]) {
     todo push Tree.this
     def hasNext = !todo.isEmpty
     def next = {
-      val Tree(data, children) = todo.pop
+      val Tree(data, children) = todo.pop()
       for (x <- children)
         todo push x
       data

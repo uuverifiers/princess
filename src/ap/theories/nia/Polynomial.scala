@@ -721,7 +721,7 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
       }
 
     if (newPolys.hasNext)
-      newPolys.next simplifyBy reducers
+      newPolys.next() simplifyBy reducers
     else
       this
   }
@@ -791,7 +791,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
     if (isEmpty) {
       None
     } else {
-      val p = polyIterator.next
+      val p = polyIterator.next()
       if (p.isConstant && !p.isZero)
         Some(p)
       else
@@ -876,7 +876,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
       yield p
 
     if (reducers.hasNext) {
-      val reducer = reducers.next
+      val reducer = reducers.next()
       val redPoly = poly reduceBy reducer
       val newLabel = label | labelFor(reducer)
 
@@ -903,7 +903,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
       yield p
 
     if (reducers.hasNext) {
-      val reducer = reducers.next
+      val reducer = reducers.next()
       val redPoly = poly reduceBy reducer
       val newLabel =
         label | labels.getOrElse(reducer, andAlso labelFor reducer)
@@ -975,7 +975,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
                p <- newBasis.polyMap.getOrElse(divMon, List()).iterator)
           yield p
         if (reducers.hasNext) {
-          val reducer = reducers.next
+          val reducer = reducers.next()
           usedLabels = usedLabels | (newBasis labelFor reducer)
           Some(reducer)
         } else {
