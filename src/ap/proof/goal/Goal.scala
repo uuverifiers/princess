@@ -183,7 +183,7 @@ object Goal {
         otherTasks += new AddFactsTask(facts, age)
       }
        
-      otherTasks.result
+      otherTasks.result()
     } else if (formula.quans.isEmpty) {
       List(BetaFormulaTask(formula, age, eliminatedConstants, vocabulary,
                            settings))
@@ -265,7 +265,7 @@ class Goal private (val facts : Conjunction,
         res += tf
       }
     }
-    res.result
+    res.result()
   }
   
   private def elimConstants(tfs : Iterator[LinearCombination])

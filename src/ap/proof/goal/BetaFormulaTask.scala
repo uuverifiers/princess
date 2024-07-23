@@ -295,7 +295,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
       }
     }
     
-    (bestLit, remainingLits.result)
+    (bestLit, remainingLits.result())
   }
   
   //////////////////////////////////////////////////////////////////////////////
