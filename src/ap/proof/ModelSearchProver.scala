@@ -578,7 +578,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             case _ => // nothing
           }
 
-          def next = {
+          def next() = {
             extractNextChild
             val child = treeStack.head
             treeStack = treeStack.tail
@@ -597,7 +597,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             }
           }
 
-          def skipNext = {
+          def skipNext() = {
             extractNextChild
             treeStack = treeStack.tail
           }
