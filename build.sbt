@@ -90,8 +90,6 @@ lazy val root = (project in file(".")).
   settings(commonSettings: _*).
 //
   settings(
-    Compile / scalaSource := baseDirectory.value / "src",
-//
     Compile / mainClass := Some("ap.CmdlMain"),
 //
     Compile / scalacOptions ++=
@@ -105,4 +103,8 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+//
+    libraryDependencies +=
+      "org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
+
