@@ -33,41 +33,37 @@
 
 package ap.basetypes;
 
-import ap.util.{Debug, APTestCase, PlainRange, FilterIt}
+import ap.util.{Debug, PlainRange, FilterIt}
 
-class TestIdealInt(n : String) extends APTestCase(n) {
-  
-  def runTest = {
-    n match {
-      case "testDiv" => testDiv
-      case "testReduceAbs" => testReduceAbs
-      case "testGcdAndCofactors1" => testGcdAndCofactors1
-      case "testGcdAndCofactorsSeq" => testGcdAndCofactorsSeq
-      case "testGcdSeq" => testGcdSeq
-    }
-  }
-  
-  private def testDiv = {
+import org.scalacheck.Properties
+import ap.util.Prop._
+
+class TestIdealInt extends Properties("TestIdealInt") {
+
+  Debug.enableAllAssertions(true)
+
+  property("testDiv") = {
     for (a <- Debug.randoms(-20, 20).take(50);
          b <- FilterIt(Debug.randoms(-20, 20), (b:Int) => b != 0).take(20)) {
       val ia = IdealInt(a)
       val ib = IdealInt(b)
-      ia /% ib
       assertEquals(ia, (ia / ib) * ib + (ia % ib))
       assertTrue((ia % ib).signum >= 0 && (ia % ib) < b.abs)
     }
+    true
   }
 
-  private def testReduceAbs = {
+  property("testReduceAbs") = {
     for (a <- Debug.randoms(-20, 20).take(50);
          b <- FilterIt(Debug.randoms(-20, 20), (b:Int) => b != 0).take(20)) {
       val ia = IdealInt(a)
       val ib = IdealInt(b)
       ia reduceAbs ib
     }
+    true
   }
 
-  private def testGcdAndCofactors1 = {
+  property("testGcdAndCofactors1") = {
     for (a <- Debug.randoms(-20, 20).take(50);
          b <- Debug.randoms(-20, 20).take(20))
       IdealInt.gcdAndCofactors(a, b)
@@ -75,9 +71,11 @@ class TestIdealInt(n : String) extends APTestCase(n) {
     for (a <- Debug.randoms(-2000000, 2000000).take(50);
          b <- Debug.randoms(-2000000, 2000000).take(20))
       IdealInt.gcdAndCofactors(a, b)
+
+    true
   }
 
-  private def testGcdAndCofactorsSeq = {
+  property("testGcdAndCofactorsSeq") = {
     for (length <- PlainRange(6); _ <- PlainRange(10)) {
       val input = (for (x <- Debug.randoms(-20, 20).take(length))
                    yield IdealInt(x)).toList
@@ -88,9 +86,11 @@ class TestIdealInt(n : String) extends APTestCase(n) {
 //      for (x <- cof) print("" + x + " ")
 //      println()
     }
+
+    true
   }
   
-  private def testGcdSeq = {
+  property("testGcdSeq") = {
     for (length <- PlainRange(6); _ <- PlainRange(10)) {
       val input = (for (x <- Debug.randoms(-20, 20).take(length))
                    yield IdealInt(x)).toList
@@ -101,5 +101,7 @@ class TestIdealInt(n : String) extends APTestCase(n) {
 //      for (x <- cof) print("" + x + " ")
 //      println()
     }
+
+    true
   }
 }
