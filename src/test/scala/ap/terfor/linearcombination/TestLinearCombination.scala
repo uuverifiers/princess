@@ -37,17 +37,10 @@ import ap.terfor._
 import ap.util.{Debug, Logic, APTestCase, PlainRange}
 import ap.basetypes.IdealInt
 
-class TestLinearCombination(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testLC1" => testLC1
-      case "testLCFlatten" => testLCFlatten
-      case "testLCAddition1" => testLCAddition1
-      case "testLCAddition2" => testLCAddition2
-      case "testLCAddition3" => testLCAddition3
-    }
-  }
+class TestLinearCombination extends Properties("TestLinearCombination") {
 
   private val consts = for (i <- Array.range(0, 20)) yield new ConstantTerm("c" + i)
   private val constsAndOne = consts ++ List(OneTerm)
@@ -77,7 +70,7 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
   /**
    * Creation and re-ordering of linear combinations
    */
-  def testLC1 = {
+  property("testLC1") = {
     for (len <- PlainRange(20)) {
       val input = randomInput(len)
                           
@@ -93,12 +86,14 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
                                     (lc1 get c) == coeffSum(c, input) &&
                                     (lc2 get c) == coeffSum(c, input)))
     }
+
+    true
   }
   
   /**
    * Flattening nested linear combinations during creation
    */
-  def testLCFlatten = {
+  property("testLCFlatten") = {
     for (len <- PlainRange(20)) {
       val input = for (i <- PlainRange(len)) yield {
                     (IdealInt(Debug.random(-20, 20)),
@@ -115,13 +110,15 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
                               yield (lc1 get c) == coeffSum(c, input) &&
                                     (lc2 get c) == coeffSum(c, input)))
     }
+
+    true
   }
 
   /**
    * Addition of two linear combinations (with coefficients 1) using the
    * <code>LCBlender</code>
    */
-  def testLCAddition1 = {
+  property("testLCAddition1") = {
     for (len <- PlainRange(20)) {
       val lc1 = LinearCombination(randomInput(len), to)
       val lc2 = LinearCombination(randomInput(Debug.random(0, 20)), to)
@@ -134,14 +131,16 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
       val res = blender.result
       assertTrue(Logic.forall(for (c <- constsAndOne)
                               yield (lc1 get c) + (lc2 get c) == (res get c)))
-    }    
+    }
+
+    true
   }
 
   /**
    * Addition of a set of linear combinations (with arbitrary coefficients)
    * using the <code>LCBlender</code> and <code>LinearCombination.sum</code>
    */
-  def testLCAddition2 = {
+  property("testLCAddition2") = {
     for (len <- PlainRange(0, 10); lcNum <- PlainRange(5)) {
       val lcs = (for (lcLen <- Debug.randoms(0, len+1))
                  yield LinearCombination(randomInput(lcLen), to))
@@ -161,7 +160,9 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
                                     (res get c)))
 
       assertEquals(res, LinearCombination.sum(coeffs zip lcs, to))
-    }    
+    }
+
+    true
   }
 
   /**
@@ -169,7 +170,7 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
    * <code>LCBlender</code>, this time with delayed adding of the linear
    * combinations to the blender
    */
-  def testLCAddition3 = {
+  property("testLCAddition3") = {
     for (len <- PlainRange(20)) {
       val lc1 = LinearCombination(randomInput(len), to)
       val lc2 = LinearCombination(randomInput(Debug.random(4, 6)), to)
@@ -186,7 +187,9 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
       val res = blender.result
       assertTrue(Logic.forall(for (c <- constsAndOne)
                               yield (lc1 get c) + (lc2 get c) == (res get c)))
-    }    
+    }
+
+    true
   }
 
 }

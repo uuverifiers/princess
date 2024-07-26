@@ -33,18 +33,16 @@
 
 package ap.basetypes;
 
-import ap.util.{Debug, APTestCase, PlainRange, FilterIt, Logic, Combinatorics}
+import ap.util.{Debug, PlainRange, FilterIt, Logic, Combinatorics}
 
 import scala.collection.mutable.{HashSet => MHashSet}
 
-class TestSetTrie(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "randomSmall" => testRandomSmall
-      case "randomBig" => testRandomBig
-    }
-  }
+class TestSetTrie extends Properties("TestSetTrie") {
+
+  Debug.enableAllAssertions(true)
 
   val values = Vector(1, 2, 3, 4)
 
@@ -56,7 +54,7 @@ class TestSetTrie(n : String) extends APTestCase(n) {
   def randomBigSet =
     (for (_ <- 0 until Debug.random(0, 1000)) yield Debug.random(0, 1000)).toSet
 
-  def testRandomSmall = {
+  property("testRandomSmall") = {
     for (n <- 0 until 50) {
       val trie = new SetTrie[Int]
       val refSet = new MHashSet[Set[Int]]
@@ -75,9 +73,11 @@ class TestSetTrie(n : String) extends APTestCase(n) {
         randomStep(trie, refSet, big = false)
       }
     }
+
+    true
   }
 
- def testRandomBig = {
+ property("testRandomBig") = {
       val trie = new SetTrie[Int]
       val refSet = new MHashSet[Set[Int]]
 
@@ -96,6 +96,8 @@ class TestSetTrie(n : String) extends APTestCase(n) {
 
         randomStep(trie, refSet, big = true)
       }
+
+   true
   }
 
   def compareSets(trie : SetTrie[Int], refSet : MHashSet[Set[Int]]) = {

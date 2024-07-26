@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,28 +33,19 @@
 
 package ap.basetypes;
 
-import ap.util.{Debug, APTestCase, PlainRange, FilterIt, Logic}
+import ap.util.{Debug, PlainRange, FilterIt, Logic}
 
-class TestLeftistHeap(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testInsertElements" => testInsertElements
-      case "testInsertIterator" => testInsertIterator
-      case "testInsertHeap" => testInsertHeap
-      case "testRemoveAll" => testRemoveAll
-      case "testLargeHeap" => testLargeHeap
-      case "testHeapCollector" => testHeapCollector
-      case "testFlatMap" => testFlatMap
-      case "testFlatMap2" => testFlatMap2
-    }
-  }
+class TestLeftistHeap extends Properties("TestLeftistHeap") {
+
+  Debug.enableAllAssertions(true)
 
   private val a = List(-34, 20, 60, 16, 7, 5, 20, 13)
   private val b = List(8, 1000, -1000)
-
   
-   def testInsertElements = {
+   property("testInsertElements") = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
         assertTrue("Empty heap should be empty",
                    h.isEmpty && h.size == 0)
@@ -83,6 +74,8 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
         h = h.deleteMin 
         assertTrue("Empty heap should be empty",
                    h.isEmpty  && h.size  == 0)
+
+     true
   }
 
   private def sameElements[T] ( t0 : Iterator[T], t1 : Iterator[T] ) : Boolean =
@@ -133,7 +126,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     res
   }
 
-  def testInsertIterator = {
+  property("testInsertIterator") = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
         h = h.insertIt ( List[Int]().iterator  )
@@ -155,9 +148,11 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
 
         h = h.insertIt ( h.sortedIterator  )
         checkHeap ( a ::: a ::: a ::: a ::: a ::: a ::: a ::: a, h )
+
+    true
   }
 
-  def testInsertHeap = {
+  property("testInsertHeap") = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
         h = h.insertIt ( a.iterator  )        
@@ -171,9 +166,11 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
 
         h = h.insertHeap ( LeftistHeap.EMPTY_HEAP[Int].insert ( 123 ) )
         checkHeap ( 123 :: a ::: a, h )
+
+    true
   }
 
-  def testRemoveAll = {
+  property("testRemoveAll") = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
         // Test removal of all elements (from empty heap)
@@ -191,15 +188,19 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
         // Test removal of non-existing elements
         assertEquals ( "Heap should not be different",
                        h, removeAll ( h, b.iterator  ) )
+
+    true
   }
  
-  def testLargeHeap = {
+  property("testLargeHeap") = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
         val l = Debug.randoms(0, 1000000).take(1000).toList
         
         h = h.insertIt ( l.iterator )
 
         checkHeap ( l, h )
+
+    true
   }
   
   private class SetCollector(val conts : Set[Int])
@@ -207,7 +208,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     def +(n : Int, hc : SetCollector) = new SetCollector(conts + n ++ hc.conts)
   }
 
-  def testHeapCollector = {
+  property("testHeapCollector") = {
     val empty = LeftistHeap.EMPTY_HEAP[Int, SetCollector](new SetCollector(Set.empty))
     val elements = Debug.randoms(0, 100).take(100).toList
     val filled = empty ++ elements
@@ -220,9 +221,11 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
       emptied = emptied.deleteMin
       assert(sameElements(emptied.collector.conts.iterator, emptied.unsortedIterator))
     }
+
+    true
   }
 
-  def testFlatMap = {
+  property("testFlatMap") = {
     var h = LeftistHeap.EMPTY_HEAP[Int]
     val l = Debug.randoms(0, 1000000).take(1000).toList
     
@@ -232,9 +235,11 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     val h3 = h2.flatItMapIter((i) => Iterator.single(i-1), (h) => false)
     
     checkHeap ( l, h3 )
+
+    true
   }
 
-  def testFlatMap2 = {
+  property("testFlatMap2") = {
     var h = LeftistHeap.EMPTY_HEAP[Int]
     val l = Debug.randoms(0, 1000000).take(1000).toList
     
@@ -244,5 +249,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     val h3 = h2.flatItMapRec((i) => Iterator.single(i-1), (h) => false)
     
     checkHeap ( l, h3 )
+
+    true
   }
 }
