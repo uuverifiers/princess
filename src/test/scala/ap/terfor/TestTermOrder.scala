@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,23 +35,20 @@ package ap.terfor;
 
 import scala.collection.immutable.HashSet
 
-import ap.util.{Debug, Logic, APTestCase, PlainRange}
+import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import linearcombination.LinearCombination
 
-class TestTermOrder(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testSimpleExtension" => testSimpleExtension
-      case "testConditionalExtension" => testConditionalExtension
-      case "testLinearCombinationComparison" => testLinearCombinationComparison
-    }
-  }
-  
+class TestTermOrder extends Properties("TestTermOrder") {
+
+  Debug.enableAllAssertions(true)
+
   private val consts = for (i <- Array.range(0, 20)) yield new ConstantTerm("c" + i)
 
-  def testSimpleExtension = {
+  property("testSimpleExtension") = {
     var to = TermOrder.EMPTY
     for (c <- consts) to = to.extend(c, Set.empty)
     
@@ -66,9 +63,11 @@ class TestTermOrder(n : String) extends APTestCase(n) {
       assertTrue(to.compare(consts(i), OneTerm)
                  > 0)
     }
+
+    true
   }
 
-  def testConditionalExtension = {
+  property("testConditionalExtension") = {
     var to = TermOrder.EMPTY
     for (c <- consts) {
       val biggerConsts = HashSet.empty ++
@@ -76,9 +75,11 @@ class TestTermOrder(n : String) extends APTestCase(n) {
                           yield consts(i))
       to = to.extend(c, biggerConsts - c)
     }
+
+    true
   }
 
-  def testLinearCombinationComparison = {
+  property("testLinearCombinationComparison") = {
     var to = TermOrder.EMPTY
     for (c <- consts) to = to.extend(c, Set.empty)
 
@@ -107,5 +108,7 @@ class TestTermOrder(n : String) extends APTestCase(n) {
       else if (smallerThan(lc2, lc1))
         assertTrue ( res > 0 )
     }
+
+    true
   }
 }
