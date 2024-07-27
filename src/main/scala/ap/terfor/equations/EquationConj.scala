@@ -537,8 +537,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       val nextToReduce = nonRedLhss(eqIndex)
       val reduced =
         if (reducer == null)
-          // no reduction in the first iteration
-          nextToReduce
+          modEquations(nextToReduce, reducerTerms)
         else 
           reducer(nextToReduce, reducerTerms)
 

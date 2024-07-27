@@ -235,10 +235,11 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
   private def runBlender(blender : LCBlender) : Boolean = runBlender(blender, null)
 
   /**
-   * Same as <code>apply(lc:LinearCombination)</code>, but also multiply
-   * <cocde>lc</code> with integers in case this allows to eliminate the leading
-   * term (pseudo-division). It is ensured that the resulting
-   * <code>LinearCombination</code> has a positive leading coefficient
+   * Same as <code>apply(lc:LinearCombination)</code>, but also
+   * multiply <cocde>lc</code> with integers in case this allows us to
+   * eliminate the leading term (pseudo-division). It is ensured that
+   * the resulting <code>LinearCombination</code> has a positive
+   * leading coefficient
    */
   def pseudoReduce(lc : LinearCombination) : LinearCombination = {
     var curLC = apply(lc)
