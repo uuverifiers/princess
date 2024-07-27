@@ -34,21 +34,17 @@
 package ap.terfor.inequalities;
 
 import ap.terfor._
-import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
+import ap.util.{Debug, Logic, PlainRange, FilterIt}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 
-class TestInequalities(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testConj1" => testConj1
-      case "testConj2" => testConj2
-      case "testReduceWithInEqs1" => testReduceWithInEqs1
-      case "testReduceWithInEqs2" => testReduceWithInEqs2
-    }
-  }
+class TestInequalities extends Properties("TestInequalities") {
+
+  Debug.enableAllAssertions(true)
 
   private val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
   private val constsAndOne = consts ++ List(OneTerm)
@@ -65,7 +61,7 @@ class TestInequalities(n : String) extends APTestCase(n) {
   /**
    * Create random systems/conjunctions of inequalities
    */
-  def testConj1 = {
+  property("testConj1") = {
     for (eqNum <- PlainRange(11); _ <- PlainRange(50)) {
       val input = (for (len <- Debug.randoms(0, 8)) yield randomLC(len))
                    .take(eqNum).toList
@@ -112,12 +108,14 @@ class TestInequalities(n : String) extends APTestCase(n) {
                      Logic.forall(for (lc <- eqConjRev.iterator)
                                   yield reducer(lc.sortBy(to)).isZero) }) */
       }
-    }
+
+    true
+  }
 
   /**
    * Create random systems/conjunctions of inequalities and their conjunction
    */
-  def testConj2 = {
+  property("testConj2") = {
     for (conjNum <- PlainRange(5); _ <- PlainRange(50)) {
       val input = (for (eqNum <- Debug.randoms(0, 6)) yield
                     InEqConj((for (len <- Debug.randoms(0, 8))
@@ -135,13 +133,15 @@ class TestInequalities(n : String) extends APTestCase(n) {
         println("" + eqConj.geqZero.size + " " + eqConj.geqZeroInfs.size)
         println */
     }
+
+    true
   }
 
   /**
    * Create random systems/conjunctions of equations, negated equations and
    * inequalities and reduce them
    */
-  def testReduceWithInEqs1 = {
+  property("testReduceWithInEqs1") = {
     for (eqNum <- PlainRange(10); inEqNum <- PlainRange(10); _ <- PlainRange(30)) {
       val eqInput = (for (len <- Debug.randoms(0, 4)) yield randomLC(len))
                      .take(eqNum).toList
@@ -157,12 +157,14 @@ class TestInequalities(n : String) extends APTestCase(n) {
       reducer(eqConj)
       reducer(negEqConj)
     }
+
+    true
   }
 
   /**
    * Reduce inequalities using other inequalities
    */
-  def testReduceWithInEqs2 = {
+  property("testReduceWithInEqs2") = {
     for (redInEqNum <- PlainRange(10); inEqNum <- PlainRange(10); _ <- PlainRange(30)) {
       val redInput = (for (len <- Debug.randoms(0, 4)) yield randomLC(len))
                       .take(redInEqNum).toList
@@ -197,6 +199,8 @@ class TestInequalities(n : String) extends APTestCase(n) {
                ReduceWithInEqs(allAssumptions, to)(toBeReduced).isTrue)
       }
     }
+
+    true
   }
 
 }

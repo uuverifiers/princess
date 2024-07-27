@@ -528,21 +528,25 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     // When logging computations, we have to extract the precise terms added
     // by the reducer
     val reducerTerms =
-      if (logger.isLogging) new ArrayBuffer[(IdealInt, LinearCombination)] else null
+      if (logger.isLogging)
+        new ArrayBuffer[(IdealInt, LinearCombination)]
+      else
+        null
     
     while (eqIndex >= 0) {
       val nextToReduce = nonRedLhss(eqIndex)
       val reduced =
         if (reducer == null)
-          // no reduction in the first iteration
-          nextToReduce
+          modEquations(nextToReduce, reducerTerms)
         else 
           reducer(nextToReduce, reducerTerms)
 
       val primAndReduced =
         if (logger.isLogging && reducerTerms.size > 0) {
           reducerTerms += ((IdealInt.ONE, nextToReduce))
-          logger.ceScope.start((reducerTerms, order)) { addReduced(reduced) }
+          logger.ceScope.start((reducerTerms, order)) {
+            addReduced(reduced)
+          }
         } else {
           addReduced(reduced)
         }

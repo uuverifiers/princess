@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,22 +36,16 @@ package ap.terfor.equations;
 import scala.collection.immutable.HashMap
 
 import ap.terfor._
-import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
+import ap.util.{Debug, Logic, PlainRange, FilterIt, Seqs}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 
-class TestEquationSet(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testConj1" => testConj1
-      case "testNegConj1" => testNegConj1
-      case "testReduceWithEqs1" => testReduceWithEqs1
-      case "testReduceWithEqs2" => testReduceWithEqs2
-      case "testReduceWithEqs3" => testReduceWithEqs3
-      case "testReduceDisj" => testReduceDisj
-    }
-  }
+class TestEquationSet extends Properties("TestEquationSet") {
+
+  Debug.enableAllAssertions(true)
 
   private val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
   private val constsAndOne = consts ++ List(OneTerm)
@@ -91,7 +85,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
    * Solve randomly generated systems/conjunctions of linear equations
    * through row and column operations
    */
-  def testConj1 = {
+  property("testConj1") = {
     for (eqNum <- PlainRange(10); _ <- PlainRange(10)) {
 //      println(eqNum)
       val input = (for (len <- Debug.randoms(0, 8)) yield randomLC(len))
@@ -119,13 +113,15 @@ class TestEquationSet(n : String) extends APTestCase(n) {
                    Logic.forall(for (lc <- eqConjRev.iterator)
                                 yield reducer(lc.sortBy(to)).isZero) })
     }
+
+    true
   }
 
   /**
    * Solve the individual linear equations of a randomly generated disjunction of
    * equations through row and column operations
    */
-  def testNegConj1 = {
+  property("testNegConj1") = {
     for (eqNum <- PlainRange(10); _ <- PlainRange(10)) {
       val input = (for (len <- Debug.randoms(0, 8)) yield randomLC(len))
                   .take(eqNum).toList
@@ -144,13 +140,15 @@ class TestEquationSet(n : String) extends APTestCase(n) {
                                 yield reducer(lhs).isZero))
       }
     }
+
+    true
   }
     
   /**
    * Test the reduction of arbitrary linear combinations with arbitrary
    * equations that have 1 as leading coefficient
    */
-  def testReduceWithEqs1 = {
+  property("testReduceWithEqs1") = {
     def randomLCUnitLeading(len : Int) : LinearCombination = {
       while (true) {
         val res = randomLC(len)
@@ -172,12 +170,14 @@ class TestEquationSet(n : String) extends APTestCase(n) {
                               yield reduced.get(t).isZero))
       assertTrue(to.compare(toBeReduced, reduced) >= 0)
     }
+
+    true
   }
 
   /**
    * Test the reduction with linear combinations of the form <code>c3 - 1</code>
    */
-  def testReduceWithEqs2 = {
+  property("testReduceWithEqs2") = {
     for (eqsNum <- PlainRange(10); _ <- PlainRange(10)) {
       val eqsMap = HashMap.empty ++
         (for (i <- FilterIt(Debug.randoms(0, constsAndOne.size),
@@ -199,13 +199,15 @@ class TestEquationSet(n : String) extends APTestCase(n) {
           yield reduced.get(t) == toBeReduced.get(t)))
       assertTrue(to.compare(toBeReduced, reduced) >= 0)
     }
+
+    true
   }
 
   /**
    * Test the reduction of arbitrary linear combinations with arbitrary
    * equations (that do not have 0 both as left-hand- and right-hand-side)
    */
-  def testReduceWithEqs3 = {
+  property("testReduceWithEqs3") = {
     def randomLCNonZero(len : Int) : LinearCombination = {
       while (true) {
         val res = randomLC(len)
@@ -226,13 +228,15 @@ class TestEquationSet(n : String) extends APTestCase(n) {
                                      isAbsMinMod lc.leadingCoeff)))
       assertTrue(to.compare(toBeReduced, reduced) >= 0)
     }
+
+    true
   }
 
   /**
    * Test the reduction of equation conjunctions and disjunctions with arbitrary
    * equations (that do not have 0 both as left-hand- and right-hand-side)
    */
-  def testReduceDisj = {
+  property("testReduceDisj") = {
     def randomLCNonZero(len : Int) : LinearCombination = {
       while (true) {
         val res = randomLC(len)
@@ -241,7 +245,9 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       throw new Error // never reached
     }
 
-    for (eqsNum <- PlainRange(10); disjSize <- PlainRange(5); _ <- PlainRange(10)) {
+    for (eqsNum   <- PlainRange(10);
+         disjSize <- PlainRange(5);
+         _        <- PlainRange(50)) {
       val eqsMap = HashMap.empty ++ (for (len <- Debug.randoms(1, 5))
                                      yield { val lc = randomLCNonZero(len); 
                                              (lc.leadingTerm, lc) }).take(eqsNum)
@@ -251,17 +257,37 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       val toBeReduced2 = EquationConj(input, to)
       val reduced = ReduceWithEqs(eqsMap, to)(toBeReduced)
       val reduced2 = ReduceWithEqs(eqsMap, to)(toBeReduced2)
-      
+
       assertTrue(toBeReduced.size != 1 ||
                  Logic.forall(for (lc <- reduced.iterator)
                               yield (to.compare(toBeReduced(0), lc) >= 0)))
       assertTrue(toBeReduced2.size != 1 ||
                  Logic.forall(for (lc <- reduced2.iterator)
                               yield (to.compare(toBeReduced2(0), lc) >= 0)))
-
       assertTrue(reduced2.isFalse ||
                  Logic.forall(for (lc <- reduced2.iterator)
                               yield !(eqsMap contains lc.leadingTerm)))
+
+      val unitConsts =
+        (for (c <- eqsMap.keysIterator;
+              if c.isInstanceOf[ConstantTerm];
+              if eqsMap(c).leadingCoeff.isUnit)
+         yield c.asInstanceOf[ConstantTerm]).toSet
+
+      assertTrue(Seqs.disjoint(unitConsts, reduced.constants))
+      assertTrue(Seqs.disjoint(unitConsts, reduced2.constants))
+
+      assertTrue((1 until reduced2.size).forall {
+                   i => 
+                   !reduced2(i).leadingCoeff.isUnit ||
+                   (0 until i).forall {
+                     j =>
+                     !reduced2(j).constants.contains(
+                       reduced2(i).leadingTerm.asInstanceOf[ConstantTerm])
+                   }
+                 })
     }
+
+    true
   }
 }
