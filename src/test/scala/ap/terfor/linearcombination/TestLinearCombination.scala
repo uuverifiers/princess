@@ -42,6 +42,8 @@ import ap.util.Prop._
 
 class TestLinearCombination extends Properties("TestLinearCombination") {
 
+  Debug.enableAllAssertions(true)
+
   private val consts = for (i <- Array.range(0, 20)) yield new ConstantTerm("c" + i)
   private val constsAndOne = consts ++ List(OneTerm)
   private val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c))
