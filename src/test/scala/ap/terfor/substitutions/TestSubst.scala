@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,25 +34,24 @@
 package ap.terfor.substitutions;
 
 import ap.terfor._
-import ap.util.{Debug, Logic, APTestCase, PlainRange}
+import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 
-class TestSubst(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testPseudoSubst" => testPseudoSubst
-    }
-  }
+class TestSubst extends Properties("TestSubst") {
+
+  Debug.enableAllAssertions(true)
 
   private val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
   private val constsOne = consts ++ List(OneTerm)
   private val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c))
   private val constsLC = for (t <- consts) yield LinearCombination(t, to)
 
-  def testPseudoSubst = {
+  property("testPseudoSubst") = {
     implicit val order = to
     
     val lc0 = (constsLC(0) scale 5) + constsLC(1) + 6
@@ -69,6 +68,8 @@ class TestSubst(n : String) extends APTestCase(n) {
     val lc1 = (constsLC(0) scale 5) + (constsLC(1) scale 3) + 6
     assertEquals(subst0(EquationConj(lc1, to)),
                  EquationConj((constsLC(0) scale 5) + (constsLC(2) scale 2) + 6, to))
+
+    true
   }
-  
+
 }
