@@ -33,7 +33,7 @@
 
 package ap.proof;
 
-import ap.util.{Debug, Logic, APTestCase, PlainRange}
+import ap.util.{Debug, Logic, PlainRange}
 import ap.proof.goal.{Goal, TaskManager, FactsNormalisationTask, CompoundFormulas}
 import ap.proof.tree._
 import ap.proof.certificates.BranchInferenceCollection
@@ -47,16 +47,12 @@ import ap.terfor.arithconj.ArithConj
 import ap.basetypes.IdealInt
 import ap.parameters.{GoalSettings, Param}
 
-class TestEquationSystems(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testEqs1" => testEqs1
-      case "testEqs2" => testEqs2
-      case "testQuantifiedEqs1" => testQuantifiedEqs1
-      case "testDivisibility1" => testDivisibility1
-    }
-  }
+class TestEquationSystems extends Properties("TestEquationSystems") {
+
+  Debug.enableAllAssertions(true)
 
   private val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
   private val constsOne = consts ++ List(OneTerm)
@@ -89,7 +85,7 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
                                     ConstraintSimplifier.FAIR_SIMPLIFIER)
   private val prover = new ExhaustiveProver(settings)
   
-  def testEqs1 = {
+  property("testEqs1") = {
     for (eqNum <- PlainRange(0, 15); eqSize <- PlainRange(0, 15)) {
       val ac = randomAC(eqNum, eqSize)
       val facts = Conjunction.conj(Array(ac), to)
@@ -114,9 +110,11 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
           
       }
     }
+
+    true
   }
   
-  def testEqs2 = {
+  property("testEqs2") = {
     var eqs : Formula =
       EquationConj(LinearCombination(Array((IdealInt.ONE, consts(0)),
                                            (IdealInt(-5), consts(1)),
@@ -138,9 +136,11 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
       
           TestProofTree.assertNormalisedTree(tree)
     }
+
+    true
   }
   
-  def testDivisibility1 = {
+  property("testDivisibility1") = {
     val div1 = Conjunction.quantify(Array(Quantifier.EX),
       EquationConj(LinearCombination(Array((IdealInt(5), VariableTerm(0)),
                                            (IdealInt(1), consts.last),
@@ -161,9 +161,11 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
       
       TestProofTree.assertNormalisedTree(tree)
     }
+
+    true
   }
   
-  def testQuantifiedEqs1 = {
+  property("testQuantifiedEqs1") = {
     val settings =
       Param.CONSTRAINT_SIMPLIFIER.set(GoalSettings.DEFAULT,
                                       ConstraintSimplifier.NO_SIMPLIFIER)
@@ -199,6 +201,8 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
           TestProofTree.assertNormalisedTree(tree)
       }
     }
+
+    true
   }
 
 }

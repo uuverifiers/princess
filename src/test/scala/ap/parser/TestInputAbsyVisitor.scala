@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,17 +34,14 @@
 package ap.parser;
 
 import ap.terfor.TermOrder
-import ap.util.{Debug, Logic, APTestCase, PlainRange, Seqs}
+import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  def runTest = {
-    n match {
-      case "testDepthVisitor" => testDepthVisitor
-      case "testSubstVisitor" => testSubstVisitor
-      case "testInputAbsy2Internal" => testInputAbsy2Internal
-    }
-  }
+class TestInputAbsyVisitor extends Properties("TestInputAbsyVisitor") {
+
+  Debug.enableAllAssertions(true)
 
   import IExpression._
   
@@ -65,7 +62,7 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
         t update subres
   }
   
-  def testDepthVisitor = {
+  property("testDepthVisitor") = {
     val p = new Predicate("p", 2)
     val c = new ConstantTerm("c")
   
@@ -77,9 +74,11 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     assertEquals(DepthCountingVisitor.visit(psi & psi, ()), 3)
     assertEquals(DepthCountingVisitor.visit(!psi, ()), 3)
     assertEquals(DepthCountingVisitor.visit(psi | phi, ()), 3)
+
+    true
   }
 
-  def testSubstVisitor = {
+  property("testSubstVisitor") = {
     val p = new Predicate("p", 2)
     val c = new ConstantTerm("c")
     val cAsIExpr : ITerm = c
@@ -95,9 +94,11 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     assertEquals(new SimpleSubstVisitor(d, v(0)).visit(psi, ()), ex(p(v(0), v(0))));
     assertEquals(new SimpleSubstVisitor(v(1), c).visit(rho, ()),
                  (c === i(15) + c) & p(c, c*5));
+
+    true
   }
   
-  def testInputAbsy2Internal = {
+  property("testInputAbsy2Internal") = {
     val c = new ConstantTerm("c")
     val d = new ConstantTerm("d")
     val p = new Predicate("p", 2)
@@ -107,5 +108,7 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     InputAbsy2Internal(p(4, c), to)
     InputAbsy2Internal(ex(p(v(0), d)), to)
     InputAbsy2Internal((v(1) === i(15) + c) & p(c, v(1) * 5), to)
+
+    true
   }
 }
