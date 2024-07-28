@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@
 
 package ap.terfor;
 
-import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
+import ap.util.{Debug, Logic, PlainRange, FilterIt}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithEqs}
@@ -42,26 +42,16 @@ import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier,
                                ReduceWithConjunction}
 
-class TestPropConnectives(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
 
+class TestPropConnectives extends Properties("TestPropConnectives") {
+
+  Debug.enableAllAssertions(true)
   
   private val tg = new TestGenConjunctions
   
   import tg.{randomLC, randomEqAC, randomAC, randomEqConj, randomConj, to, toRev}
-
-  
-  def runTest = {
-    n match {
-      case "testArithConj1" => testArithConj1
-      case "testArithConj2" => testArithConj2
-      case "testArithConj3" => testArithConj3
-      case "testConj1" => testConj1((sizeFactor: Int) => randomEqConj(sizeFactor, 5, 8))
-      case "testConj2" => testConj1((sizeFactor: Int) => randomConj(sizeFactor, 8, 8))
-      case "testReduceWithConjunction1" => testReduceWithConjunction1
-      case "testReduceWithConjunction2" => testReduceWithConjunction2
-    }
-  }
-
 
   
   private def internallyPropagate(ac : ArithConj) : ArithConj = 
@@ -71,7 +61,7 @@ class TestPropConnectives(n : String) extends APTestCase(n) {
   /**
    * Generate arbitrary instances of <code>ArithConj</code>
    */
-  def testArithConj1 = {
+  property("testArithConj1") = {
     for (eqNumConj <- PlainRange(5); eqNumDisj <- PlainRange(5); _ <- PlainRange(10)) {
       val inputConj = (for (len <- Debug.randoms(0, 8)) yield randomLC(len))
                       .take(eqNumConj).toList
@@ -90,21 +80,25 @@ class TestPropConnectives(n : String) extends APTestCase(n) {
       ac.sortBy(toRev)
       internallyPropagate(ac)
     }
+
+    true
   }
 
   /**
    * Generate arbitrary instances of <code>ArithConj</code>
    */
-  def testArithConj2 = {
+  property("testArithConj2") = {
     for (eqNumConj <- PlainRange(5); eqNumDisj <- PlainRange(5); _ <- PlainRange(10)) {
       val ac = randomEqAC(eqNumConj, eqNumDisj, 8)
 
       ac.sortBy(toRev)
       internallyPropagate(ac)
     }
+
+    true
   }
 
-  def testArithConj3 = {
+  property("testArithConj3") = {
     for (eqNumConj <- PlainRange(5); eqNumDisj <- PlainRange(5); inEqNum <- PlainRange(5);
          _ <- PlainRange(10)) {
       val ac = randomAC(eqNumConj, eqNumDisj, inEqNum, 8)
@@ -112,6 +106,18 @@ class TestPropConnectives(n : String) extends APTestCase(n) {
       ac.sortBy(toRev)
       internallyPropagate(ac)
     }
+
+    true
+  }
+
+  property("testConj1") = {
+    testConj1((sizeFactor: Int) => randomEqConj(sizeFactor, 5, 8))
+    true
+  }
+
+  property("testConj2") = {
+    testConj1((sizeFactor: Int) => randomConj(sizeFactor, 8, 8))
+    true
   }
 
   /**
@@ -168,17 +174,19 @@ class TestPropConnectives(n : String) extends APTestCase(n) {
    * Generate arbitrary instances of <code>Conjunction</code> and apply
    * <code>ReduceWithAC</code> to them
    */
-  def testReduceWithConjunction1 = {
-     for (sizeFactor <- PlainRange(0, 10); _ <- PlainRange(100)) {
-       val toBeReduced = randomEqConj(sizeFactor, 5, 8)
-       ReduceWithConjunction(Conjunction.TRUE, to)(toBeReduced)
-     }
+  property("testReduceWithConjunction1") = {
+    for (sizeFactor <- PlainRange(0, 10); _ <- PlainRange(100)) {
+      val toBeReduced = randomEqConj(sizeFactor, 5, 8)
+      ReduceWithConjunction(Conjunction.TRUE, to)(toBeReduced)
+    }
+    true
   }
 
-  def testReduceWithConjunction2 = {
+  property("testReduceWithConjunction2") = {
     for (sizeFactor <- PlainRange(0, 10); _ <- PlainRange(100)) {
       val toBeReduced = randomConj(sizeFactor, 5, 8)
       ReduceWithConjunction(Conjunction.TRUE, to)(toBeReduced)
     }
+    true
   }
 }

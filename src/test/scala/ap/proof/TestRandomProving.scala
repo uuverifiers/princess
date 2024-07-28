@@ -34,35 +34,51 @@
 package ap.proof;
 
 import ap.parameters.{Param, GoalSettings}
-import ap.util.{Debug, Logic, APTestCase, PlainRange}
+import ap.util.{Debug, Logic, PlainRange}
 import ap.terfor.TestGenConjunctions
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.goal.Goal
 import ap.proof.tree.TestProofTree
 
-class TestRandomProving(n : String) extends APTestCase(n) {
+import org.scalacheck.Properties
+import ap.util.Prop._
+
+class TestRandomProving extends Properties("TestRandomProving") {
+
+  Debug.enableAllAssertions(true)
 
   private val tg = new TestGenConjunctions
   
   import tg.{randomEqConj, randomConj, to}
   
-  def runTest = {
-    n match {
-      // proving with only equations
-      case "testEqFormulas1" => testProveFormulas(6, 100,
-                                                  randomEqConj(_, 5, 8),
-                                                  ConstraintSimplifier.NO_SIMPLIFIER)
-      case "testEqFormulas2" => testProveFormulas(5, 60,
-                                                  randomEqConj(_, 4, 6),
-                                                  ConstraintSimplifier.FAIR_SIMPLIFIER)
-      // proving with equations and inequalities
-      case "testFormulas1" =>   testProveFormulas(6, 100,
-                                                  randomConj(_, 5, 8),
-                                                  ConstraintSimplifier.NO_SIMPLIFIER)
-      case "testFormulas2" =>   testProveFormulas(5, 60,
-                                                  randomConj(_, 4, 6),
-                                                  ConstraintSimplifier.FAIR_SIMPLIFIER)
-    }
+  // proving with only equations
+  property("testEqFormulas1") = {
+    testProveFormulas(6, 100,
+                      randomEqConj(_, 5, 8),
+                      ConstraintSimplifier.NO_SIMPLIFIER)
+    true
+  }
+
+  property("testEqFormulas2") = {
+    testProveFormulas(5, 60,
+                      randomEqConj(_, 4, 6),
+                      ConstraintSimplifier.FAIR_SIMPLIFIER)
+    true
+  }
+
+  // proving with equations and inequalities
+  property("testFormulas1") = {
+    testProveFormulas(6, 100,
+                      randomConj(_, 5, 8),
+                      ConstraintSimplifier.NO_SIMPLIFIER)
+    true
+  }
+
+  property("testFormulas2") = {
+    testProveFormulas(5, 60,
+                      randomConj(_, 4, 6),
+                      ConstraintSimplifier.FAIR_SIMPLIFIER)
+    true
   }
 
   private def testProveFormulas(maxSize : Int, iterations : Int,
