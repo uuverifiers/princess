@@ -33,7 +33,7 @@
 
 package ap.terfor;
 
-import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
+import ap.util.{Debug, Logic, PlainRange, FilterIt}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
