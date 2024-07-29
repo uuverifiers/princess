@@ -105,6 +105,7 @@ abstract class SaturationProcedure(name : String) extends Theory {
     val saturationProcedure : SaturationProcedure = SaturationProcedure.this
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =
       handleApplicationPoint(goal, point)
+    override def toString = name
   }
 
   override def plugin = Some(
@@ -141,6 +142,8 @@ abstract class SaturationProcedure(name : String) extends Theory {
           case _ =>
             List()
         }
+
+      override def toString = name
     }
   )
 

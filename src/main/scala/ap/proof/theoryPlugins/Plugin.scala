@@ -433,7 +433,20 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
   import Plugin._
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
-    val actions = plugin handleGoal goal
+    val actions = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      val logging = Param.LOG_LEVEL(goal.settings)
+      if (logging contains Param.LOG_STATS) {
+        ap.util.Timer.measure(plugin.getClass.getName) {
+          plugin handleGoal goal
+        }
+      } else {
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+        plugin handleGoal goal
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    }
 
     if (actions.isEmpty) {
 
