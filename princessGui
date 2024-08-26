@@ -1,6 +1,12 @@
 #!/bin/sh
 
-BASEDIR=`dirname $(readlink -e $0)`
+if [ $(uname) = "Linux" -o $(uname) = "Darwin" ]; then
+    pathCmd="readlink -f"
+else
+    pathCmd="realpath"
+fi
+
+BASEDIR=`dirname $($pathCmd $0)`
 EXTLIBSDIR=$BASEDIR/extlibs
 ASSEMBLY=$BASEDIR/target/scala-2.*/Princess-assembly*
 
