@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -473,9 +473,11 @@ trait Theory {
   /**
    * Optionally, simplifiers that are applied to formulas output by the
    * prover, for instance to interpolants or the result of quantifier. Such
-   * simplifiers are invoked by with <code>ap.parser.Simplifier</code>.
+   * simplifiers are invoked by <code>ap.parser.Simplifier</code>. By
+   * default, this list will only include the <code>evaluatingSimplifier</code>.
    */
-  def postSimplifiers : Seq[IExpression => IExpression] = List()
+  def postSimplifiers : Seq[IExpression => IExpression] =
+    List(evaluatingSimplifier _)
 
   /**
    * Optionally, a plugin for the reducer applied to formulas both before
@@ -494,6 +496,23 @@ trait Theory {
    * arguments, represented as constructor terms.
    */
   def evalPred(p : IAtom) : Option[Boolean] = None
+
+  /**
+   * A simplification function that applies the methods <code>evalFun</code>
+   * and <code>evalPred</code> to some given expression (but not recursively).
+   * This is used in the <code>Theory.postSimplifiers</code> methods.
+   */
+  def evaluatingSimplifier(t : IExpression) : IExpression =
+    t match {
+      case t : IFunApp =>
+        evalFun(t).getOrElse(t)
+      case p : IAtom =>
+        evalPred(p) match {
+          case Some(b) => IBoolLit(b)
+          case None => p
+        }
+      case t => t
+    }
 
   /**
    * If this theory defines any <code>Theory.Decoder</code>, which

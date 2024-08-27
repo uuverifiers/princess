@@ -1219,7 +1219,8 @@ class Heap(heapSortName : String, addressSortName : String,
       case _                                     => false
     }
 
-  override val postSimplifiers : Seq[IExpression => IExpression] = Vector(rewriter)
+  override val postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ Vector(rewriter _)
 
   //////////////////////////////////////////////////////////////////////////////
 
