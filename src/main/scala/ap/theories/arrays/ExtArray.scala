@@ -1637,7 +1637,7 @@ class ExtArray (val indexSorts : Seq[Sort],
   private val simp = new ExtArraySimplifier
 
   override val postSimplifiers : Seq[IExpression => IExpression] =
-    simp.rewritings
+    super.postSimplifiers ++ simp.rewritings
 
   //////////////////////////////////////////////////////////////////////////////
 
