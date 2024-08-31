@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -133,7 +133,7 @@ class IntelliFileProver(reader   : java.io.Reader,
       case Param.NegSolvingOptions.Auto =>
         //
         // purely existential formulas can best be handled by negation
-        (!rawConstants.isEmpty &&
+        ((!rawConstants.isEmpty || rawQuantifiers.contains(Quantifier.EX)) &&
          onlyExistentialConstsVars) ||
         //
         // formulas in the forall-exists fragment can also be handled better
