@@ -913,20 +913,13 @@ class ExtArray (val indexSorts : Seq[Sort],
    */
   private def equalityPropagation(goal : Goal) : Seq[Plugin.Action] = {
     import TerForConvenience._
-    val predConj = goal.facts.predConj
-
-    if (Seqs.disjoint(Set(_store, _store2), predConj.predicates))
-      return List()
-
-    val allAtoms =
-      predConj.positiveLits ++ predConj.negativeLits
-    val nonTheoryAtoms =
-      allAtoms filterNot { a => predicates contains a.pred }
 
     // relevant are only constants which also occur in atoms that do not
     // belong to string constraints
     val interestingConstants =
-      (for (a <- nonTheoryAtoms; c <- a.constants) yield c).toSet
+      pluginObj.interfaceConstants(goal,
+                                   Set(_store, _store2),
+                                   predicates.toSet)
 
     if (interestingConstants.isEmpty)
       return List()
