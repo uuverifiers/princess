@@ -13,7 +13,7 @@ TESTS="downwardsPropagation.smt2 \
        extensionality1.smt2 extensionality2.smt2 extensionality3.smt2 \
        extensionality4.smt2 extensionality4b.smt2 extensionality5.smt2 \
        extensionality6.smt2 quantifiers.smt2 lambda.smt2 lambda2.smt2 \
-       lambda3.smt2"
+       lambda3.smt2 splitting-bug.smt2"
 
 $PRI "$@" $TESTS
 

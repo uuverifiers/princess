@@ -42,8 +42,9 @@ import ap.terfor.{Formula, TermOrder, TerForConvenience, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ReducableModelElement
+import ap.terfor.preds.Predicate
 import ap.parameters.{Param, ReducerSettings}
-import ap.util.Debug
+import ap.util.{Debug, Seqs}
 
 import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{Stack, ArrayBuffer}
@@ -196,6 +197,53 @@ trait TheoryProcedure {
   class RichActionSeq(acts : Seq[Plugin.Action]) {
     def elseDo(otherwise : => Seq[Plugin.Action]) : Seq[Plugin.Action] =
       if (acts.isEmpty) otherwise else acts
+  }
+
+  /**
+   * Find constants that occur both in atoms constructed using theory
+   * predicates and in atoms constructed using non-theory predicates.
+   * Arithmetic facts (equations, disequations, inequalities) in a goal
+   * are not considered, but arithmetic clauses are included.
+   */
+  def interfaceConstants(goal                 : Goal,
+                         theoryPredicates     : Set[Predicate])
+                                              : Set[ConstantTerm] =
+    interfaceConstants(goal, theoryPredicates, theoryPredicates)
+
+  /**
+   * Find constants that occur both in atoms constructed using predicates
+   * from <code>consideredPredicates</code> and in atoms constructed
+   * using predicates not in <code>theoryPredicates</code>. Arithmetic
+   * facts (equations, disequations, inequalities) in a goal are not
+   * considered, but arithmetic clauses are included.
+   */
+  def interfaceConstants(goal                 : Goal,
+                         consideredPredicates : Set[Predicate],
+                         theoryPredicates     : Set[Predicate])
+                                              : Set[ConstantTerm] = {
+    val predConj = goal.facts.predConj
+
+    if (Seqs.disjoint(consideredPredicates, predConj.predicates))
+      return Set()
+
+    val allAtoms =
+      predConj.positiveLits ++ predConj.negativeLits
+    val theoryAtoms =
+      allAtoms filter { a => consideredPredicates contains a.pred }
+    val nonTheoryAtoms =
+      allAtoms filterNot { a => theoryPredicates contains a.pred }
+
+    val theoryConsts =
+      (for (a <- theoryAtoms.iterator;
+            c <- a.constants.iterator) yield c).toSet
+    // we include constants present in the arithmetic clauses, which
+    // could imply (dis)equations as well
+    val nonTheoryConsts =
+      goal.compoundFormulas.qfClauses.constants ++
+      (for (a <- nonTheoryAtoms.iterator;
+            c <- a.constants.iterator) yield c)
+
+    theoryConsts & nonTheoryConsts
   }
 
 }
