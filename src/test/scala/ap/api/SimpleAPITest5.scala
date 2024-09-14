@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 import ap.proof.goal.Goal
@@ -38,24 +40,47 @@ import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.proof.theoryPlugins.Plugin
 
-object SimpleAPITest4 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest5 extends Properties("SimpleAPITest5") with ExtraAssertions {
+
+  val expectedOutput = """Starting ...
+T/O
+Valid
+"""
+
+  property("SimpleAPITest5") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
   import IExpression._
   import p._
 
-  val a, b = p.createBooleanVariable
+  val x, y = createConstant
 
-  !! (a ==> b)
+  !! (x >= 0 & x <= 10000)
 
-  println(???) // Sat
-  
-  val c = p.createBooleanVariable
+  try {
+  withTimeout(2000) {
+    println("Starting ...")
+    while (??? == SimpleAPI.ProverStatus.Sat) {
+      val v = eval(x)
+//      println(v)
+      !! (x =/= v)
+    }
+  }
+  } catch {
+    case SimpleAPI.TimeoutException =>
+      println("T/O")
+  }
 
-  !! (b ==> c)
-  
-  println(???) // Sat
+  !! (y >= x)
+  ?? (y >= 0)
+
+  println(???)
 
   p.shutDown
+  }
 }
