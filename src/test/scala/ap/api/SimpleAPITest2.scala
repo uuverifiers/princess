@@ -50,6 +50,11 @@ Sat
 Sat
 Unsat
 Sat
+
+-- Adding some assertions without preprocessing
+Sat
+Unsat
+Sat
 """
 
   property("SimpleAPITest2") = checkOutput(expectedOutput) {
@@ -88,6 +93,24 @@ Sat
 
     p.scope {
       addAssertion(s ==> c <= -100)
+      println(p???) // Unsat
+    }
+  
+    println(p???) // Sat again
+  }
+  
+  part("Adding some assertions without preprocessing")
+
+  scope {
+    implicit val o = order
+
+    addAssertionPreproc(r & (c === d + 15))
+    addAssertionPreproc(d >= 100)
+    addAssertionPreproc(r ==> s)
+    println(???) // still Sat
+
+    p.scope {
+      addAssertionPreproc(s ==> c <= -100)
       println(p???) // Unsat
     }
   
