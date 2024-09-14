@@ -297,7 +297,7 @@ object SimpleAPI {
   //////////////////////////////////////////////////////////////////////////////
 
   private object FormulaKind extends Enumeration {
-    val Input, FunctionAxiom, TheoryAxiom = Value
+    val Input, InputPreproc, FunctionAxiom, TheoryAxiom = Value
   }
   
 }
@@ -1761,7 +1761,8 @@ class SimpleAPI private (enableAssert        : Boolean,
    * Convert a term to a rich term, offering operations
    * <code>mul, div, mod</code>, etc., for non-linear arithmetic.
    */
-  implicit def convert2RichMulTerm(term : ITerm) =
+  implicit def convert2RichMulTerm(term : ITerm)
+                : ap.theories.MulTheory#RichMulTerm =
     mulTheory.convert2RichMulTerm(term)
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1831,6 +1832,18 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
     
   /**
+   * Add an assertion that is already fully preprocessed to the prover:
+   * assume that the given formula is true
+   */
+  def addAssertionPreproc(assertion : Formula) : Unit = {
+    doDumpScala {
+      println("// addAssertionPreproc(" + assertion + ")")
+    }
+    checkQuantifierOccurrences(assertion, true)
+    addFormulaPreproc(!LazyConjunction(assertion)(currentOrder))
+  }
+    
+  /**
    * Add a conclusion to the prover: assume that the given formula is false.
    * Adding conclusions will switch the prover to "validity" mode; from this
    * point on, the prover answers with the status <code>Valid/Invalid</code>
@@ -1868,6 +1881,22 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
     checkQuantifierOccurrences(conc, false)
     addFormula(LazyConjunction(conc)(currentOrder))
+  }
+  
+  /**
+   * Add a conclusion that has already been fully preprocessed to the prover:
+   * assume that the given formula is false.
+   * Adding conclusions will switch the prover to "validity" mode; from this
+   * point on, the prover answers with the status <code>Valid/Invalid</code>
+   * instead of <code>Unsat/Sat</code>.
+   */
+  def addConclusionPreproc(conc : Formula) : Unit = {
+    validityMode = true
+    doDumpScala {
+      println("// addConclusionPreproc(" + conc + ")")
+    }
+    checkQuantifierOccurrences(conc, false)
+    addFormulaPreproc(LazyConjunction(conc)(currentOrder))
   }
   
   /**
@@ -3986,6 +4015,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     apiStack.popAPIFrame
     formulaeTodo           = false
     rawFormulaeTodo        = LazyConjunction.FALSE
+    rawPreprocFormulaeTodo = LazyConjunction.FALSE
     proofThreadStatus      = ProofThreadStatus.ToBeRestarted
     currentModel           = null
     lastPartialModel       = null
@@ -4017,6 +4047,14 @@ class SimpleAPI private (enableAssert        : Boolean,
         ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
                               completeFor)
       addToProver(reducedFor, FormulaKind.Input)
+    }
+
+    if (!rawPreprocFormulaeTodo.isFalse) {
+      val reducedFor =
+        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
+                              rawPreprocFormulaeTodo.toConjunction)
+      addToProver(reducedFor, FormulaKind.InputPreproc)
+      rawPreprocFormulaeTodo = LazyConjunction.FALSE
     }
 
     if (!axioms.isFalse)
@@ -4055,7 +4093,7 @@ class SimpleAPI private (enableAssert        : Boolean,
           convertQuantifiers(Theory.preprocess(formula,
                                                theories,
                                                currentOrder))
-        case FormulaKind.TheoryAxiom =>
+        case FormulaKind.InputPreproc | FormulaKind.TheoryAxiom =>
           formula
       }
     }
@@ -4065,8 +4103,10 @@ class SimpleAPI private (enableAssert        : Boolean,
 
     val partitionNum =
       kind match {
-        case FormulaKind.Input => currentPartitionNum
-        case _                 => INTERNAL_AXIOM_PART_NR
+        case FormulaKind.Input | FormulaKind.InputPreproc =>
+          currentPartitionNum
+        case _ =>
+          INTERNAL_AXIOM_PART_NR
       }
 
     var relevantFormulas = false
@@ -4087,7 +4127,8 @@ class SimpleAPI private (enableAssert        : Boolean,
       case ProofThreadStatus.ToBeRestarted | ProofThreadStatus.Initialized =>
         // nothing
       case ProofThreadStatus.AtPartialModel | ProofThreadStatus.AtFullModel =>
-        if (kind == FormulaKind.Input && (currentOrder eq currentProver.order)){
+        if ((kind == FormulaKind.Input || kind == FormulaKind.InputPreproc) &&
+            (currentOrder eq currentProver.order)){
           // then we should be able to add this formula to the running prover
           proverCmd put AddFormulaCommand(formula2)
         } else {
@@ -4161,6 +4202,16 @@ class SimpleAPI private (enableAssert        : Boolean,
   private def addFormulaHelp(f : LazyConjunction) : Unit = {
     implicit val o = currentOrder
     rawFormulaeTodo = rawFormulaeTodo | f
+  }
+
+  private def addFormulaPreproc(f : LazyConjunction) : Unit = {
+    doDumpSMT {
+      println("; adding preprocessed internal formula: " + f)
+    }
+    resetModel
+
+    implicit val o = currentOrder
+    rawPreprocFormulaeTodo = rawPreprocFormulaeTodo | f
   }
 
   /**
@@ -4351,8 +4402,14 @@ class SimpleAPI private (enableAssert        : Boolean,
   private var currentConstraint      : Conjunction = _
   private var currentCertificate     : Certificate = _
   private var currentSimpCertificate : Certificate = _
+
+  // Input formulas that have been asserted but not added to the prover yet
   private var formulaeTodo           : IFormula = false
+  // Internal formulas that have been asserted but not added to the prover yet
   private var rawFormulaeTodo        : LazyConjunction = LazyConjunction.FALSE
+  // Internal formulas that are already fully preprocessed, that have been
+  // asserted but not added to the prover yet
+  private var rawPreprocFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
 
   private def proverRecreationNecessary = {
     currentProver = null
