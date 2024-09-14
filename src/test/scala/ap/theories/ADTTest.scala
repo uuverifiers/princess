@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,15 +33,23 @@
 
 // Unit tests for the decision procedure for algebraic data-types
 
+package ap.theories
+
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ADT
   import ap.types.Sort
   import ADT._
   import ap.util.Debug
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class ADTTest extends Properties("ADTTest") with ExtraAssertions {
+
+  property("ADTTest") = {
   Debug enableAllAssertions true
 
   val listADT =
@@ -54,15 +62,13 @@
   val Seq(nil, cons) = listADT.constructors
   val Seq(_, Seq(head, tail)) = listADT.selectors
 
-  println(listADT.witnesses)
+  {
+    import IExpression._
+    assertEquals(listADT.witnesses, Seq(nil()))
+  }
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
-
-    def expect[A](x : A, expected : A) : A = {
-      assert(x == expected, "expected: " + expected + ", got: " + x)
-      x
-    }
 
     val x, y, z, a, b = createConstant
 
@@ -72,53 +78,54 @@
       !! (cons(x, cons(y, nil())) === z)
       !! (head(z) === 42)
 
-      println(expect(???, ProverStatus.Sat))
-      println(partialModel)
+      assertEquals(???, ProverStatus.Sat)
+      assertEquals(partialModel.toString,
+                   "{c2 -> 44, c1 -> 43, c0 -> 42, list_depth(cons(43, nil)) -> 48, list_depth(nil) -> 47, list_depth(cons(42, cons(43, nil))) -> 49, list_ctor(cons(43, nil)) -> 1, list_ctor(nil) -> 0, list_ctor(cons(42, cons(43, nil))) -> 1, tail(cons(43, nil)) -> nil, tail(cons(42, cons(43, nil))) -> cons(43, nil), head(cons(43, nil)) -> 43, head(cons(42, cons(43, nil))) -> 42, cons(43, nil) -> cons(43, nil), cons(42, cons(43, nil)) -> cons(42, cons(43, nil)), nil -> nil}")
     }
 
     scope {
       !! (cons(x, y) === nil())
-      println(expect(???, ProverStatus.Unsat))
+      assertEquals(???, ProverStatus.Unsat)
     }
 
     scope {
       !! (listADT.hasCtor(x, 1))
       !! (x === nil())
-      println(expect(???, ProverStatus.Unsat))
+      assertEquals(???, ProverStatus.Unsat)
     }
 
     scope {
       !! (listADT.hasCtor(x, 1))
       ?? (x === cons(head(x), tail(x)))
-      println(expect(???, ProverStatus.Valid))
+      assertEquals(???, ProverStatus.Valid)
     }
 
     scope {
       !! (cons(x, y) === cons(a, b))
       ?? (y === b)
-      println(expect(???, ProverStatus.Valid))
+      assertEquals(???, ProverStatus.Valid)
     }
 
     scope {
       !! (cons(x, cons(y, z)) === z)
-      println(expect(???, ProverStatus.Unsat))
+      assertEquals(???, ProverStatus.Unsat)
     }
 
     scope {
       ?? (listADT.hasCtor(x, 0) | listADT.hasCtor(x, 1))
-      println(expect(???, ProverStatus.Valid))
+      assertEquals(???, ProverStatus.Valid)
     }
 
     scope {
       !! (x === cons(y, z) | x === cons(a, b))
       ?? (x =/= nil())
-      println(expect(???, ProverStatus.Valid))
+      assertEquals(???, ProverStatus.Valid)
     }
 
     scope {
       !! (x =/= nil())
       !! (x =/= cons(head(x), tail(x)))
-      println(expect(???, ProverStatus.Unsat))
+      assertEquals(???, ProverStatus.Unsat)
     }
     }
 
@@ -134,11 +141,14 @@
                    listADT.constructorPreds(1)(List(l(ac), l(zc), l(xc))))
       scope {
         ?? (listADT.hasCtor(x, 1))
-        println(expect(???, ProverStatus.Valid))
+        assertEquals(???, ProverStatus.Valid)
       }
       scope {
         ?? (listADT.hasCtor(x, 0))
-        println(expect(???, ProverStatus.Invalid))
+        assertEquals(???, ProverStatus.Invalid)
       }
     }
   }
+  true
+  }
+}
