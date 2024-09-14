@@ -132,7 +132,7 @@ class ADTTest extends Properties("ADTTest") with ExtraAssertions {
     scope {
       addTheory(listADT)
       import TerForConvenience._
-      implicit val _ = order
+      implicit val o = order
       val IConstant(xc) = x
       val IConstant(yc) = y
       val IConstant(zc) = z
