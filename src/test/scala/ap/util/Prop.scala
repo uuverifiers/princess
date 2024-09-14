@@ -33,6 +33,10 @@
 
 package ap.util
 
+import ap.DialogUtil
+
+import org.scalacheck.Properties
+
 object Prop {
 
   def assertEquals(a : Any, b : Any) : Unit =
@@ -46,5 +50,24 @@ object Prop {
 
   def assertTrue(msg : String, b : Boolean) : Unit =
     assert(b, msg)
+
+}
+
+trait ExtraAssertions extends Properties {
+
+  def checkOutput(expected : String)(comp : => Unit) : Boolean = {
+    val output = DialogUtil.asString(comp)
+    if (output == expected) {
+      true
+    } else {
+      for (((exp, seen), line) <-
+             (expected.linesIterator zip output.linesIterator).zipWithIndex) {
+        if (exp != seen) {
+          Console.err.println(f"${name}:${line}: ${seen}")
+        }
+      }
+      false
+    }
+  }
 
 }

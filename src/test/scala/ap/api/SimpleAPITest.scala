@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,11 +31,189 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 import ap.theories.{ADT, ExtArray}
 
-object SimpleAPITest extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest extends Properties("SimpleAPITest") with ExtraAssertions {
+
+  val expectedOutput = """
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping (locally add assertions, declare symbols, etc)
+Unsat
+Sat
+
+-- Shorter notation via importing
+Sat
+Sat
+
+-- Nesting scopes and use of quantifiers
+Unsat
+
+-- Declaring functions
+Sat
+f(z) - f(x) = -1
+(f(x) === f(z)) = false
+Partial model: {c4 -> 20, c3 -> 10, c2 -> 0, c1 -> 100, c0 -> 115, f(20) -> 21, f(0) -> 22, p1 -> true, p0 -> true}
+In model: f(z) - f(x) = Some(-1)
+          f(17) = None
+          (f(x) >= -5) = Some(true)
+Unsat
+
+-- Generating different models for the same formula
+  p1  	  p2  	  p3
+------------------------
+  -	  true	  true
+  true	  true	  false
+
+-- Incremental solving
+  p1  	  p2  	  p3
+------------------------
+  true	  true	  false
+  true	  true	  true
+  false	  true	  true
+
+-- Validity mode
+Sat
+x = 6
+2*x = 12
+Valid
+
+-- Theory of simple arrays (deprecated)
+Sat
+select(a, 1) = 1
+select(a, 10) = 11
+Unsat
+Valid
+Unsat
+
+-- Theory of extensional arrays
+Sat
+select(a, 1) = 1
+select(a, 10) = 3
+In partial model: select(a, 1) = Some(1)
+In partial model: select(a, 10) = Some(3)
+Unsat
+Valid
+Inconclusive
+
+-- Non-trivial quantifiers
+Invalid
+Valid
+
+-- Quantifiers, functions, and triggers
+Sat
+b = -2
+Unsat
+Sat
+b = -5
+b = -4
+b = -3
+b = -2
+
+-- Boolean functions and triggers
+Sat
+Partial model: {c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> true, r(1, 5) -> true, p1 -> true, p0 -> true}
+Valid
+
+-- Evaluation with Boolean variables
+p = q & p = 0 & (q != 0 | r != 0)
+Sat
+Some(true)
+
+-- Existential constants
+Valid
+X = 1
+X + Y = 1
+Y = 0
+Valid
+X = 10
+Model: {X2 -> 10}
+
+-- Quantifier elimination
+Valid
+Equivalent qf constraint: X >= 4
+Valid
+Equivalent qf constraint: X = 42 | X = 3
+Valid
+Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
+
+-- Simplification, projection
+Project 5 < x & x < 2*y existentially to y: y >= 4
+Project x > y | x < 0 universally to x: -1 >= x
+Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
+Project x ==> y universally to y: y
+Project x === True existentially to empty set: true
+
+-- Asynchronous interface
+true
+true
+Sat
+
+-- Asynchronous interface, timeouts
+true
+true
+Sat
+
+-- Asynchronous interface, busy waiting
+true
+Sat
+
+-- Stopping computations
+expected result
+
+-- Stopping computation after a while
+expected result
+Wait for 30ms ...
+Sat
+
+-- Interpolation
+Unsat
+Vector(c >= 0, d >= 1)
+Vector(d - c >= 1, d >= 1)
+
+-- Interpolation with functions
+Unsat
+Vector(c != 3 | f(3) = 5, f(3) = 5)
+Vector(c != 3)
+
+-- Interpolation with simple arrays (deprecated)
+Unsat
+Vector(select(b, 0) = 1)
+
+-- Interpolation with extensional arrays
+Unsat
+Vector(select(b, 0) != 2)
+
+-- Generating a larger amount of constraints
+Sat
+c100 = 100
+Valid
+
+-- Generating a larger amount of constraints (2)
+Sat
+x500 = 124750
+Valid
+"""
+
+  property("SimpleAPITest") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
@@ -588,4 +766,5 @@ object SimpleAPITest extends App {
   }
   
   p.shutDown
+  }
 }
