@@ -77,7 +77,7 @@ x = 15, k = 25
    */
   object Splitter extends TheoryProcedure {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      implicit val _ = goal.order
+      implicit val order = goal.order
       import TerForConvenience._
 
       val squareLits = goal.facts.predConj.positiveLitsWithPred(squarePred)
@@ -131,7 +131,7 @@ x = 15, k = 25
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
     
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      implicit val _ = goal.order
+      implicit val order = goal.order
       import TerForConvenience._
 
       val squareLits = goal.facts.predConj.positiveLitsWithPred(squarePred)
