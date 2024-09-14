@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
@@ -42,7 +44,21 @@ import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 
 import scala.collection.mutable.ArrayBuffer
 
-object SimpleAPITest6 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest6 extends Properties("SimpleAPITest6") with ExtraAssertions {
+
+  val expectedOutput = """Sat
+Unsat
+Sat
+x = 10, k = 0
+Sat
+x = 15, k = 25
+"""
+
+  property("SimpleAPITest6") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
@@ -198,4 +214,5 @@ object SimpleAPITest6 extends App {
   }
 
   p.shutDown
+  }
 }

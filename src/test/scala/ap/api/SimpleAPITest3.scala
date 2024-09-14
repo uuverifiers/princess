@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,50 +31,60 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import ap._
-import ap.terfor.TerForConvenience
+package ap.api
 
-object SimpleAPITest2 extends App {
+import ap._
+import ap.parser._
+import ap.proof.goal.Goal
+import ap.terfor.preds.{Atom, Predicate}
+import ap.terfor.conjunctions.Conjunction
+import ap.proof.theoryPlugins.Plugin
+
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest3 extends Properties("SimpleAPITest3") with ExtraAssertions {
+
+  val expectedOutput = """Invalid
+Valid
+"""
+
+  property("SimpleAPITest3") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
-  import TerForConvenience._
+  import IExpression._
   import SimpleAPI.ProverStatus
-
-  def part(str : String) = {
-    println
-    println("-- " + str)
-  }
-  
   import p._
 
-  part("Declaration of symbols")
-
-  val c = createConstantRaw("c")
-  val d = createConstantRaw("d")
-  val r = createRelation("r", 0)
-  val s = createRelation("s", 0)
-  val v = createRelation("v", 0)
-
-  println(p???) // no assertions, Sat
+  val a, b, c, d = p.createBooleanVariable
   
-  part("Adding some assertions (uses methods from TerForConvenience._)")
-  
-  scope {
-    implicit val o = order
-
-    addAssertion(r & (c === d + 15))
-    addAssertion(d >= 100)
-    addAssertion(r ==> s)
-    println(???) // still Sat
-
-    p.scope {
-      addAssertion(s ==> c <= -100)
-      println(p???) // Unsat
+  // Add a theory plugin that implements the implication
+  //   a & b ==> c
+  // by checking whether a, b are known, and in this case
+  // adding also the fact c
+  setupTheoryPlugin(new Plugin {
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+      val knownPosLits =
+        (for (atom <- goal.facts.predConj.positiveLits)
+           yield atom.pred().asInstanceOf[IFormula]).toSet
+      if ((Set(a, b) subsetOf knownPosLits) && !(knownPosLits contains c))
+        List(Plugin.AddAxiom(List(), asConjunction(c), null))
+      else
+        List()
     }
+  })
   
-    println(p???) // Sat again
-  }
-  
+  !! (a & b)
+  ?? (d)
+
+  println(???)  // Invalid
+
+  !! (c ==> d)
+
+  println(???)  // Valid
+
   p.shutDown
+  }
 }

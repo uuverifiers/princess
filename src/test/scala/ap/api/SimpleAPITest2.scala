@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,42 +31,69 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
-import ap.parser._
+import ap.terfor.TerForConvenience
 
-object SimpleAPITest7 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
 
+class SimpleAPITest2 extends Properties("SimpleAPITest2") with ExtraAssertions {
+
+  val expectedOutput = """
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from TerForConvenience._)
+Sat
+Unsat
+Sat
+"""
+
+  property("SimpleAPITest2") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
-  val p1 = SimpleAPI.spawnWithAssertions
-  val p2 = SimpleAPI.spawnWithAssertions
-
-  import IExpression._
+  val p = SimpleAPI.spawnWithAssertions
+  
+  import TerForConvenience._
   import SimpleAPI.ProverStatus
 
-  val f = p1.createFunction("f", 1)
-  p2 addFunction f
-
-  val x = p1.createConstant
-  p2 addConstant x
-
-  val phi =
-    and(for (i <- 1 until 16) yield (f(i) === -f(i-1) + 3)) &
-    (f(x) > 1) & (x >= 0 & x < 16)
-
-  p1.scope {
-    p1 !! phi
-    p1 !! (f(0) === 1)
-    println(p1 ???)
+  def part(str : String) = {
+    println
+    println("-- " + str)
   }
+  
+  import p._
 
-  p2.scope {
-    p2 !! phi
-    p2 !! (f(0) === 0)
-    println(p2 ???)
-    println(p2.partialModel.eval(f(1)))
+  part("Declaration of symbols")
+
+  val c = createConstantRaw("c")
+  val d = createConstantRaw("d")
+  val r = createRelation("r", 0)
+  val s = createRelation("s", 0)
+  val v = createRelation("v", 0)
+
+  println(p???) // no assertions, Sat
+  
+  part("Adding some assertions (uses methods from TerForConvenience._)")
+  
+  scope {
+    implicit val o = order
+
+    addAssertion(r & (c === d + 15))
+    addAssertion(d >= 100)
+    addAssertion(r ==> s)
+    println(???) // still Sat
+
+    p.scope {
+      addAssertion(s ==> c <= -100)
+      println(p???) // Unsat
+    }
+  
+    println(p???) // Sat again
   }
-
-  p1.shutDown
-  p2.shutDown
-
+  
+  p.shutDown
+  }
 }

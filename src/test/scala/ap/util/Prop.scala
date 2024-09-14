@@ -62,9 +62,8 @@ trait ExtraAssertions extends Properties {
     } else {
       for (((exp, seen), line) <-
              (expected.linesIterator zip output.linesIterator).zipWithIndex) {
-        if (exp != seen) {
+        if (exp != seen)
           Console.err.println(f"${name}:${line}: ${seen}")
-        }
       }
       false
     }
