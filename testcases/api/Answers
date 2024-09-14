@@ -309,21 +309,6 @@ starting
 (_eps ((var0 Int)) (and (<= 0 var0) (or (= var0 x) (= (* (- 1) var0) x))))
 finished
 
-ADTTest.scala
-Vector(nil)
-Sat
-{c2 -> 44, c1 -> 43, c0 -> 42, list_depth(cons(43, nil)) -> 48, list_depth(nil) -> 47, list_depth(cons(42, cons(43, nil))) -> 49, list_ctor(cons(43, nil)) -> 1, list_ctor(nil) -> 0, list_ctor(cons(42, cons(43, nil))) -> 1, tail(cons(43, nil)) -> nil, tail(cons(42, cons(43, nil))) -> cons(43, nil), head(cons(43, nil)) -> 43, head(cons(42, cons(43, nil))) -> 42, cons(43, nil) -> cons(43, nil), cons(42, cons(43, nil)) -> cons(42, cons(43, nil)), nil -> nil}
-Unsat
-Unsat
-Valid
-Valid
-Unsat
-Valid
-Valid
-Unsat
-Valid
-Invalid
-
 ADTTest2.scala
 Unsat
 Vector(!(list_ctor(x) = 0))
