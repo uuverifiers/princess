@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2021-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,34 +31,54 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for the decision procedure for algebraic data-types
+package ap.theories
 
-//object ADTTest extends App {
+//object ADTTest5 extends App {
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ADT
   import ADT._
+  import ap.types.Sort
   import ap.util.Debug
+
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class ADTTest5 extends Properties("ADTTest5") with ExtraAssertions {
+
+  val expectedOutput = """Test 1
+Sat
+tuple(const(0))
+Sat
+tuple(const(0))
+tuple(const(0))
+Test 2
+Sat
+tuple(store(const(0), 0, 1))
+tuple(const(0))
+Test 3
+Sat
+tuple(store(const(13), 1, 11))
+tuple(const(0))
+"""
+
+  property("ADTTest5") = checkOutput(expectedOutput) {
 
   Debug enableAllAssertions true
 
-  val colADT =
-    new ADT (List("colour", "colour_list"),
-             List(("red",   CtorSignature(List(), ADTSort(0))),
-                  ("blue",  CtorSignature(List(), ADTSort(0))),
-                  ("green", CtorSignature(List(), ADTSort(0))),
-                  ("nil",   CtorSignature(List(), ADTSort(1))),
-                  ("cons",  CtorSignature(List(("head", ADTSort(0)),
-                                               ("tail", ADTSort(1))),
-                                          ADTSort(1)))),
-             ADT.TermMeasure.Size)
+  val ar = ExtArray(List(Sort.Integer), Sort.Integer)
 
-  val Seq(colour, colour_list)                    = colADT.sorts
-  val Seq(red, blue, green, nil, cons)            = colADT.constructors
-  val Seq(_,   _,    _,     _,   Seq(head, tail)) = colADT.selectors
-  val Seq(colour_size, colour_list_size)          = colADT.termSize
+  val adt =
+    new ADT (List("tuple"),
+             List(("tuple",
+                   CtorSignature(List(("t1", OtherSort(ar.sort))),
+                                 ADTSort(0)))))
+
+  val Seq(tupleSort) = adt.sorts
+  val Seq(tuple)     = adt.constructors
+  val Seq(Seq(t1))   = adt.selectors
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
@@ -68,50 +88,38 @@
       x
     }
 
-    val c1, c2 = createConstant(colour)
-    val x, y, z = createConstant(colour_list)
+    val c = createConstant("c", tupleSort)
+    val d = createConstant("d", tupleSort)
 
     import IExpression._
 
     println("Test 1")
     scope {
-      !! (cons(c1, cons(c2, x)) === z)
-      !! (head(z) === red())
-
       println(expect(???, ProverStatus.Sat))
-      println(evalToTerm(z))
+      println(evalToTerm(c))
 
-      scope {
-        !! (colour_list_size(z) === 13)
-
-        println(expect(???, ProverStatus.Sat))
-        println(evalToTerm(z))
-      }
-
-      scope {
-        !! (colour_list_size(z) === 14)
-
-        println(expect(???, ProverStatus.Unsat))
-      }
+      !! (c === d)
+      println(expect(???, ProverStatus.Sat))
+      println(evalToTerm(c))
+      println(evalToTerm(d))
     }
 
     println("Test 2")
     scope {
-      !! (cons(c1, cons(c2, nil())) === z)
-      !! (head(z) === red())
-      !! (c1 === c2)
-
+      !! (c =/= d)
       println(expect(???, ProverStatus.Sat))
+      println(evalToTerm(c))
+      println(evalToTerm(d))
+    }
 
-      val model = partialModel
-      println(model evalToTerm z)
-      println(model eval colADT.hasCtor(z, 3))
-      println(model eval colADT.hasCtor(z, 4))
-      println(model evalToTerm head(z))
-      println(model evalToTerm head(tail(z)))
-      println(model evalToTerm head(tail(cons(green(), z))))
-      println(model evalToTerm colour_list_size(cons(green(), z)))
+    println("Test 3")
+    scope {
+      !! (ar.select(t1(d), 1) > 10)
+      println(expect(???, ProverStatus.Sat))
+      println(evalToTerm(d))
+      println(evalToTerm(c))
     }
 
   }
-//}
+}
+}

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,73 +31,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for the decision procedure for algebraic data-types
+package ap.api
 
-//package ap.theories
+import ap.parser._
 
-//object ADTTest5 extends App {
-  import ap.SimpleAPI
-  import ap.terfor.TerForConvenience
-  import SimpleAPI.ProverStatus
-  import ap.parser._
-  import ap.theories.{ADT, ExtArray}
-  import ADT._
-  import ap.types.Sort
-  import ap.util.Debug
+import org.scalacheck.Properties
 
-  Debug enableAllAssertions true
+class ManyEqvs extends Properties("ManyEqvs") {
+  property("main") =
+    SimpleAPI.withProver { p =>
+      import p._
+      import IExpression._
 
-  val ar = ExtArray(List(Sort.Integer), Sort.Integer)
+      val x = createBooleanVariables(801)
+      val y = createBooleanVariables(801)
 
-  val adt =
-    new ADT (List("tuple"),
-             List(("tuple",
-                   CtorSignature(List(("t1", OtherSort(ar.sort))),
-                                 ADTSort(0)))))
+      for (i <- 0 until 800) {
+        push
+        !! (x(i) <=> x(i+1))
+        !! (y(i) <=> y(i+1))
+        !! (x(i) <=> y(i))
+      }
 
-  val Seq(tupleSort) = adt.sorts
-  val Seq(tuple)     = adt.constructors
-  val Seq(Seq(t1))   = adt.selectors
-
-  SimpleAPI.withProver(enableAssert = true) { p =>
-    import p._
-
-    def expect[A](x : A, expected : A) : A = {
-      assert(x == expected, "expected: " + expected + ", got: " + x)
-      x
-    }
-
-    val c = createConstant("c", tupleSort)
-    val d = createConstant("d", tupleSort)
-
-    import IExpression._
-
-    println("Test 1")
-    scope {
-      println(expect(???, ProverStatus.Sat))
-      println(evalToTerm(c))
-
-      !! (c === d)
-      println(expect(???, ProverStatus.Sat))
-      println(evalToTerm(c))
-      println(evalToTerm(d))
-    }
-
-    println("Test 2")
-    scope {
-      !! (c =/= d)
-      println(expect(???, ProverStatus.Sat))
-      println(evalToTerm(c))
-      println(evalToTerm(d))
-    }
-
-    println("Test 3")
-    scope {
-      !! (ar.select(t1(d), 1) > 10)
-      println(expect(???, ProverStatus.Sat))
-      println(evalToTerm(d))
-      println(evalToTerm(c))
-    }
-
+      withTimeout(30000) {
+        ???
+      }
+      true
   }
-//}
+}

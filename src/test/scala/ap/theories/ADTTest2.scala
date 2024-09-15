@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,17 +31,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for the decision procedure for algebraic data-types,
 // testing interpolation
+
+package ap.theories
 
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ADT
   import ap.types.Sort
   import ADT._
   import ap.util.Debug
+
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class ADTTest2 extends Properties("ADTTest2") with ExtraAssertions {
+
+  val expectedOutput = """Unsat
+Vector(!(list_ctor(x) = 0))
+Unsat
+Vector(!(head(x) = 0))
+Unsat
+Vector((head(x) = 42))
+Unsat
+Vector((head(x) = 42), !(head(a) = 43))
+Valid
+Vector((nil = x), (y = x))
+Valid
+Vector((cons(1, cons(2, nil)) = x), (y = x))
+"""
+
+  property("ADTTest2") = checkOutput(expectedOutput) {
 
   Debug enableAllAssertions true
 
@@ -138,3 +160,5 @@
       println(getInterpolants(List(Set(1), Set(2), Set(3))))
     }
   }
+  }
+}

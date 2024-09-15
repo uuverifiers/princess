@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,54 +31,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for the decision procedure for algebraic data-types
+package ap.theories
 
-// This test previously produced "Inconclusive" instead of "Sat"
+import ap.parser._
+import ap.SimpleAPI
+import ap.util.Debug
+import ap.types.Sort
 
-//object ADTTest6 extends App {
-  import ap.SimpleAPI
-  import ap.terfor.TerForConvenience
-  import SimpleAPI.ProverStatus
-  import ap.parser._
-  import ap.theories.ADT
-  import ADT._
-  import ap.types.Sort
-  import ap.util.Debug
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  Debug enableAllAssertions true
+/**
+ * Test correct SMT-LIB pretty-printing of ADT testers.
+ */
+class NegTester extends Properties("NegTester") {
 
-  val (storeSort, store, Seq(x, y)) =
-    ADT.createRecordType("Store",
-                         List(("x", Sort.Integer),
-                              ("y", Sort.Integer)))
-
-  val storeTheory = storeSort.asInstanceOf[ADT.ADTProxySort].adtTheory
-
+  property("main") = {
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
-    import IExpression._
 
-    addTheory(storeTheory)
+    import ADT._
 
-    val c = createConstant("c", storeSort)
+    Debug enableAllAssertions true
 
-    val g = asConjunction(!(x(c) =/= 1))
-    val f = !g
+    val listADT =
+      new ADT (List("list"),
+               List(("nil",  CtorSignature(List(), ADTSort(0))),
+                    ("cons", CtorSignature(List(("head", OtherSort(Sort.Integer)),
+                                                ("tail", ADTSort(0))),
+                                           ADTSort(0)))))
 
-    scope {
-      println(g)
-      addConclusion(g)
-      println(???)
-      println(evalToTerm(c))
-    }
+    val Seq(nil, cons) = listADT.constructors
+    val Seq(_, Seq(head, tail)) = listADT.selectors
 
-    scope {
-      println(f)
-      addAssertion(f)
-      println(???)
-      println(evalToTerm(c))
-    }
+    val c = createConstant("c", listADT.sorts(0))
 
+    addTheory(listADT)
+
+    assertEquals(smtPP(listADT.hasCtor(c, 0)), "(is-nil c)")
+    assertEquals(smtPP(!listADT.hasCtor(c, 0)), "(not (is-nil c))")
+
+    assertEquals(smtPP(asIFormula(asConjunction(listADT.hasCtor(c, 0)))), "(forall ((var0 Int)) (not (and (not (= var0 0)) (or (and (is-nil c) (= 0 var0)) (and (is-cons c) (= 1 var0))))))")
+    assertEquals(smtPP(asIFormula(asConjunction(!listADT.hasCtor(c, 0)))), "(not (is-nil c))")
+
+    true
   }
-
-//}
+  }
+}
