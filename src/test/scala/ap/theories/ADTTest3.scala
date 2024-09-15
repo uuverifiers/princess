@@ -262,7 +262,7 @@ Invalid
       println(expect(???, ProverStatus.Invalid))
       println(partialModel)
       println(eval(d))
-      implicit val _ = decoderContext
+      implicit val ctxt = decoderContext
       println(colour asTerm eval(d))
     }
 
@@ -318,7 +318,7 @@ Invalid
       !! (e === cons(d, nil()))
       println(expect(???, ProverStatus.Sat))
 
-      implicit val _ = decoderContext
+      implicit val ctxt = decoderContext
       println(colour asTerm eval(d))
       println(colour_list asTerm eval(e))
 
@@ -386,7 +386,7 @@ Invalid
     scope {
       addTheory(colADT)
       import TerForConvenience._
-      implicit val _ = order
+      implicit val o = order
       val IConstant(xc) = x
       val IConstant(yc) = y
       val IConstant(zc) = z
