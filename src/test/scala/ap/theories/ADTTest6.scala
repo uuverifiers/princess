@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,15 +35,32 @@
 
 // This test previously produced "Inconclusive" instead of "Sat"
 
+package ap.theories
+
 //object ADTTest6 extends App {
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ADT
   import ADT._
   import ap.types.Sort
   import ap.util.Debug
+
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class ADTTest6 extends Properties("ADTTest6") with ExtraAssertions {
+
+  val expectedOutput = """ALL (! (_0 + -1 != 0 & x(c, _0)))
+Invalid
+Store(3, 4)
+EX (_0 + -1 != 0 & x(c, _0))
+Sat
+Store(3, 4)
+"""
+
+  property("ADTTest6") = checkOutput(expectedOutput) {
 
   Debug enableAllAssertions true
 
@@ -81,4 +98,5 @@
 
   }
 
-//}
+}
+}

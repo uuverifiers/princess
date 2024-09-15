@@ -9,10 +9,7 @@ RUNOPTIONS="-cp `pwd`/../../bin:."
 
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
-TESTS="SimpleAPITest8 \
-       SimpleAPITest9 SimpleAPITest10 SimpleAPITest11 SimpleAPITest12 \
-       SimpleAPITest13 \
-       TestRat SimpleAPIModelTest SimpleAPICompleteModelTest NegTester \
+TESTS="TestRat NegTester \
        TestSaturationProcedure"
 
 for testname in $TESTS; do
@@ -28,8 +25,6 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        nonlinearInterpolation.scala division.scala \
        deadlock.scala exception.scala incremental.scala \
        divmodprint.scala \
-       ADTTest2.scala ADTTest3.scala ADTTest4.scala \
-       ADTTest5.scala ADTTest6.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \

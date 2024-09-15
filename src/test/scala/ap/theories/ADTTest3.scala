@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,14 +33,145 @@
 
 // Unit tests for the decision procedure for algebraic data-types
 
+package ap.theories
+
 //object ADTTest extends App {
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ADT
   import ADT._
   import ap.util.Debug
+
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class ADTTest3 extends Properties("ADTTest3") with ExtraAssertions {
+
+  val expectedOutput = """Vector(red, nil)
+Test 1
+Sat
+{c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(cons(green, nil)) -> 7, colour_list_depth(nil) -> 6, colour_list_depth(cons(red, cons(green, nil))) -> 8, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
+Test 2
+Unsat
+Test 3
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 10
+Unsat
+Test 11
+Valid
+Test 12
+Invalid
+{c5 -> green}
+2
+Some(green)
+Test 13
+Valid
+Test 14
+Valid
+Test 15
+Invalid
+Test 15b
+Valid
+Test 16
+Valid
+Test 17
+Unsat
+Test 18
+Sat
+Some(green)
+Some(cons(green, nil))
+Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
+Sat
+Some(green)
+Some(cons(green, nil))
+Test 20
+Sat
+Some(nil)
+Some(cons(blue, nil))
+None
+Test 21
+Sat
+Some(green)
+Some(blue)
+Some(green)
+None
+Test 30
+Valid
+Invalid
+Vector(red, nil)
+Test 1
+Sat
+{c2 -> 6, c1 -> 0, c0 -> 0, colour_list_size(cons(red, nil)) -> 3, colour_list_size(nil) -> 1, colour_list_size(cons(red, cons(red, nil))) -> 5, colour_list_ctor(cons(red, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(red, nil))) -> 1, tail(cons(red, nil)) -> nil, tail(cons(red, cons(red, nil))) -> cons(red, nil), head(cons(red, nil)) -> red, head(cons(red, cons(red, nil))) -> red, cons(red, cons(red, nil)) -> cons(red, cons(red, nil)), cons(red, nil) -> cons(red, nil), nil -> nil}
+Test 2
+Unsat
+Test 3
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 10
+Unsat
+Test 11
+Valid
+Test 12
+Invalid
+{c5 -> green}
+2
+Some(green)
+Test 13
+Valid
+Test 14
+Valid
+Test 15
+Invalid
+Test 15b
+Valid
+Test 16
+Valid
+Test 17
+Unsat
+Test 18
+Sat
+Some(green)
+Some(cons(green, nil))
+Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
+Sat
+Some(green)
+Some(cons(green, nil))
+Test 20
+Sat
+Some(nil)
+Some(cons(blue, nil))
+None
+Test 21
+Sat
+Some(green)
+Some(blue)
+Some(blue)
+None
+Test 30
+Valid
+Invalid
+"""
+
+  property("ADTTest3") = checkOutput(expectedOutput) {
 
   Debug enableAllAssertions true
 
@@ -274,4 +405,5 @@
     }
   }
   }
-//}
+}
+}
