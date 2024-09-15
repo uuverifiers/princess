@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,25 +31,52 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
-import ap.proof.goal.Goal
-import ap.terfor.preds.{Atom, Predicate}
-import ap.terfor.conjunctions.Conjunction
-import ap.proof.theoryPlugins.Plugin
 
-object SimpleAPITest11 extends App {
+/**
+ * Test the ability of the SimpleAPI to stop and restart.
+ */
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest13 extends Properties("SimpleAPITest13") with ExtraAssertions {
+
+  val expectedOutput = """Running
+Unknown
+Running
+Unsat
+"""
+
+  property("SimpleAPITest13") = checkOutput(expectedOutput) {
+
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
-  
-  import IExpression._
   import p._
 
-  val x, y = createConstant
+  setConstructProofs(true)
 
-  !! (all(z => select(x, z) > 0))
-  println(???)
-  println(eval(x))
+  import IExpression._
+  import SimpleAPI.ProverStatus
 
-  p.shutDown
+  val r = createRelation("r", List(Sort.Integer, Sort.Integer))
+
+  !! (all((x, y) => (r(x, y) ==> (r(x+1, 2*y) | r(x+1, 2*y+1)))))
+  !! (r(1, 1))
+  !! (all(y => !r(7, y)))
+
+  println(checkSat(false)) // Running
+
+  Thread.sleep(300)
+
+  stop(true)               // usually Unknown
+  println(ProverStatus.Unknown)
+  backtrackToL0
+  println(checkSat(false)) // Running
+  println(???)             // Unsat
+  backtrackToL0
+  }
 }

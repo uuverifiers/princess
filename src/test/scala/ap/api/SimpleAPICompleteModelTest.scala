@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 import ap.theories.{ADT, ExtArray}
@@ -39,7 +41,73 @@ import ap.theories.rationals.Rationals
 /**
  * Several test cases that led to assertion failures in the past.
  */
-object SimpleAPICompleteModelTest extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPICompleteModelTest extends Properties("SimpleAPICompleteModelTest") with ExtraAssertions {
+
+  val expectedOutput = """
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping and extraction of complete models
+Unsat
+Sat
+c = 115
+Sat
+x = 0
+2*x = 0
+
+-- Scoping and extraction of complete models (2)
+Sat
+c = 115
+Sat
+x = 0
+
+-- Scoping and extraction of complete models (3)
+Sat
+c = 115
+Sat
+u() = false
+!u() = true
+Inconclusive
+w(42) = true
+w(-10) = false
+(w(42) <=> w(-10)) = false
+all(x => (x <= -10 ===> w(x))) = false
+all(x => (x <= -10 ===> w(x))) = false
+(w(42) <=> w(-10)) = false
+w(42) = true
+w(-10) = false
+
+-- Scoping and extraction of complete models (4)
+Sat
+c = 115
+Sat
+!u() = true
+u() = false
+Sat
+
+-- Evaluation with rationals
+Sat
+x = 1
+x = Rat_frac(1, 1)
+y = Rat_frac(0, 1)
+x/2 = Rat_frac(1, 2)
+x = Rat_frac(1, 1)
+"""
+
+  property("SimpleAPICompleteModelTest") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
@@ -181,5 +249,5 @@ object SimpleAPICompleteModelTest extends App {
       println("x = " + model.evalToTerm(x))
     }
   }
-
+  }
 }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,38 +31,46 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 
-/**
- * Test the ability of the SimpleAPI to stop and restart.
- */
-object SimpleAPITest13 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPITest10 extends Properties("SimpleAPITest10") with ExtraAssertions {
+
+  val expectedOutput = """Sat
+Sat
+"""
+
+  property("SimpleAPITest10") = checkOutput(expectedOutput) {
 
   ap.util.Debug.enableAllAssertions(true)
-  val p = SimpleAPI.spawnWithAssertions
-  import p._
-
-  setConstructProofs(true)
+  val p1 = SimpleAPI.spawnWithAssertions
+  val p2 = SimpleAPI.spawnWithAssertions
 
   import IExpression._
   import SimpleAPI.ProverStatus
 
-  val r = createRelation("r", List(Sort.Integer, Sort.Integer))
+  val a = p1 createBooleanVariable "a"
+  val b = p1 createBooleanVariable "b"
+  val o = a | b
 
-  !! (all((x, y) => (r(x, y) ==> (r(x+1, 2*y) | r(x+1, 2*y+1)))))
-  !! (r(1, 1))
-  !! (all(y => !r(7, y)))
+  val ab = p1 abbrev o
+  p1 !! ab
+  println(p1 ???)    // Sat
 
-  println(checkSat(false)) // Running
+  p2 addBooleanVariable a
+  p2 addBooleanVariable b
+  p2.addAbbrev(ab, o)
 
-  Thread.sleep(300)
+  p2 !! ab
+  println(p2 ???)    // Sat
 
-  stop(true)               // usually Unknown
-  println(ProverStatus.Unknown)
-  backtrackToL0
-  println(checkSat(false)) // Running
-  println(???)             // Unsat
-  backtrackToL0
-
+  p1.shutDown
+  p2.shutDown
+  }
 }
