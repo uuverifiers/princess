@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,70 +31,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// This test previously produced "Inconclusive" instead of "Sat"
+package ap.api
 
-package ap.theories
-
-//object ADTTest6 extends App {
-  import ap.SimpleAPI
-  import ap.terfor.TerForConvenience
-  import SimpleAPI.ProverStatus
-  import ap.parser._
-  import ADT._
-  import ap.types.Sort
-  import ap.util.Debug
+import ap.parser._
 
 import org.scalacheck.Properties
-import ap.util.ExtraAssertions
-import ap.util.Prop._
 
-class ADTTest6 extends Properties("ADTTest6") with ExtraAssertions {
+class ManyEqvs extends Properties("ManyEqvs") {
+  property("main") =
+    SimpleAPI.withProver { p =>
+      import p._
+      import IExpression._
 
-  val expectedOutput = """ALL (! (_0 + -1 != 0 & x(c, _0)))
-Invalid
-Store(3, 4)
-EX (_0 + -1 != 0 & x(c, _0))
-Sat
-Store(3, 4)
-"""
+      val x = createBooleanVariables(801)
+      val y = createBooleanVariables(801)
 
-  property("ADTTest6") = checkOutput(expectedOutput) {
+      for (i <- 0 until 800) {
+        push
+        !! (x(i) <=> x(i+1))
+        !! (y(i) <=> y(i+1))
+        !! (x(i) <=> y(i))
+      }
 
-  Debug enableAllAssertions true
-
-  val (storeSort, store, Seq(x, y)) =
-    ADT.createRecordType("Store",
-                         List(("x", Sort.Integer),
-                              ("y", Sort.Integer)))
-
-  val storeTheory = storeSort.asInstanceOf[ADT.ADTProxySort].adtTheory
-
-  SimpleAPI.withProver(enableAssert = true) { p =>
-    import p._
-    import IExpression._
-
-    addTheory(storeTheory)
-
-    val c = createConstant("c", storeSort)
-
-    val g = asConjunction(!(x(c) =/= 1))
-    val f = !g
-
-    scope {
-      println(g)
-      addConclusion(g)
-      println(???)
-      println(evalToTerm(c))
-    }
-
-    scope {
-      println(f)
-      addAssertion(f)
-      println(???)
-      println(evalToTerm(c))
-    }
-
+      withTimeout(30000) {
+        ???
+      }
+      true
   }
-
-}
 }

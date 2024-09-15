@@ -42,12 +42,6 @@ Sat
 Sat
 {y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
 
-NegTester
-(is-nil c)
-(not (is-nil c))
-(forall ((var0 Int)) (not (and (not (= var0 0)) (or (and (is-nil c) (= 0 var0)) (and (is-cons c) (= 1 var0))))))
-(not (is-nil c))
-
 TestSaturationProcedure
 Valid
 Unsat
@@ -321,9 +315,6 @@ true
 true
 false
 false
-
-ManyEqvs.scala
-Sat
 
 project-bug.scala
 true

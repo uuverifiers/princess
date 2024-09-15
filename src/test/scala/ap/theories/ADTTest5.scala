@@ -31,8 +31,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for the decision procedure for algebraic data-types
-
 package ap.theories
 
 //object ADTTest5 extends App {
