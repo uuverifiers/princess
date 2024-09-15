@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 import ap.theories.{ADT, ExtArray}
@@ -38,7 +40,43 @@ import ap.theories.{ADT, ExtArray}
 /**
  * Several test cases that led to assertion failures in the past.
  */
-object SimpleAPIModelTest extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class SimpleAPIModelTest extends Properties("SimpleAPIModelTest") with ExtraAssertions {
+
+  val expectedOutput = """
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping (locally add assertions, declare symbols, etc)
+Unsat
+Sat
+c = 115
+Sat
+x = 0
+Sat
+c = 115
+Sat
+x = 0
+Sat
+c = 115
+Sat
+u() = true
+Sat
+"""
+
+  property("SimpleAPIModelTest") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
@@ -112,5 +150,5 @@ object SimpleAPIModelTest extends App {
   }
 
   println(p???)               // Sat again
-  
+  }
 }

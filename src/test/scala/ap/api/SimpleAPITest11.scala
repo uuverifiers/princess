@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2015-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,34 +31,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
+import ap.proof.goal.Goal
+import ap.terfor.preds.{Atom, Predicate}
+import ap.terfor.conjunctions.Conjunction
+import ap.proof.theoryPlugins.Plugin
 
-object SimpleAPITest10 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
 
+class SimpleAPITest11 extends Properties("SimpleAPITest11") with ExtraAssertions {
+
+  val expectedOutput = """Inconclusive
+0
+"""
+
+  property("SimpleAPITest11") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
-  val p1 = SimpleAPI.spawnWithAssertions
-  val p2 = SimpleAPI.spawnWithAssertions
-
+  val p = SimpleAPI.spawnWithAssertions
+  
   import IExpression._
-  import SimpleAPI.ProverStatus
+  import p._
 
-  val a = p1 createBooleanVariable "a"
-  val b = p1 createBooleanVariable "b"
-  val o = a | b
+  val x, y = createConstant
 
-  val ab = p1 abbrev o
-  p1 !! ab
-  println(p1 ???)    // Sat
+  !! (all(z => select(x, z) > 0))
+  println(???)
+  println(eval(x))
 
-  p2 addBooleanVariable a
-  p2 addBooleanVariable b
-  p2.addAbbrev(ab, o)
-
-  p2 !! ab
-  println(p2 ???)    // Sat
-
-  p1.shutDown
-  p2.shutDown
-
+  p.shutDown
+  }
 }

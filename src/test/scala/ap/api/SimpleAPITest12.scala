@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2021-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,28 +31,33 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.api
+
 import ap._
 import ap.parser._
 
-object SimpleAPITest8 extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
 
+class SimpleAPITest12 extends Properties("SimpleAPITest12") with ExtraAssertions {
+
+  val expectedOutput = """\exists int v0; x * v0 >= 1
+\exists int v0; x - v0 * _0 >= 1
+"""
+
+  property("SimpleAPITest12") = checkOutput(expectedOutput) {
   ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
-
+  
   import IExpression._
-  import SimpleAPI.ProverStatus
   import p._
 
-  setConstructProofs(true)
+  val x = createConstant("x")
 
-  val a, b = createBooleanVariable
-
-  !! (a | b)
-  println(???)  // Sat
-
-  !! (!b)
-  println(???)  // Sat
+  println(pp(simplify(ex(y => x ** y > 0))))
+  println(pp(simplify(ex(y => x > y ** v(0)))))
 
   p.shutDown
-
+  }
 }
