@@ -46,6 +46,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory, ReducerPlugin}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Atom, PredConj}
+import ap.theories.rationals.Rationals
 import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction,
                  MonoSortedPredicate, Sort, UninterpretedSortTheory}
 import ap.interpolants.ExtArraySimplifier
@@ -665,10 +666,12 @@ class ExtArray (val indexSorts : Seq[Sort],
           t <- (TheoryRegistry lookupSort s).toSeq) yield t).distinct
 
   val (predicates, axioms, _, funPredMap) =
-    Theory.genAxioms(theoryFunctions = functions,
-                     extraPredicates = List(distinctArrays, arrayConstant),
-                     otherTheories   = dependencies.toSeq,
-                     theoryAxioms    = allAxioms)
+    Rationals.ignoringQuantifiers {
+      Theory.genAxioms(theoryFunctions = functions,
+                       extraPredicates = List(distinctArrays, arrayConstant),
+                       otherTheories   = dependencies.toSeq,
+                       theoryAxioms    = allAxioms)
+    }
 
   val totalityAxioms = Conjunction.TRUE
 

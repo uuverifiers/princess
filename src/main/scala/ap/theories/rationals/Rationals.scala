@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 
 package ap.theories.rationals
 
+import ap.Signature
 import ap.parser._
 import ap.theories._
 import ap.basetypes.IdealInt
@@ -47,7 +48,30 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
 
   import IExpression._
 
+  private val ignoreQuantifiersFlag =
+    new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
+
+  ignoreQuantifiersFlag.value = Array(false)
+
+  private def ignoreQuantifiers : Boolean = ignoreQuantifiersFlag.value(0)
+
+  /**
+   * Hack to enable other theories to use rationals even in axioms with
+   * quantifiers. This should be removed as soon as the incompatibility of
+   * rationals and quantifiers has been resolved.
+   */
+  protected[ap] def ignoringQuantifiers[A](comp : => A) : A =
+    ignoreQuantifiersFlag.withValue(Array(true)) { comp }
+
   override val dependencies = List(GroebnerMultiplication)
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                        : (IFormula, Signature) = {
+    val (res, newSig) = fracPreproc(f, signature)
+    if (!ignoreQuantifiers)
+      IncompletenessChecker.visitWithoutResult(res, Context(()))
+    (res, newSig)
+  }
 
   protected override
     def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d) match {
