@@ -263,8 +263,8 @@ class Fractions(name : String,
       underlyingRing.minus(s)
   }
 
-  override def iPreprocess(f : IFormula, signature : Signature)
-                        : (IFormula, Signature) = {
+  def fracPreproc(f : IFormula, signature : Signature)
+               : (IFormula, Signature) = {
     val visitor =
       new Preprocessor
     val res =
@@ -278,8 +278,14 @@ class Fractions(name : String,
         case res =>
           res
       }
-    IncompletenessChecker.visitWithoutResult(res2, Context(()))
     (res2, signature)
+  }
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                        : (IFormula, Signature) = {
+    val (res, newSig) = fracPreproc(f, signature)
+    IncompletenessChecker.visitWithoutResult(res, Context(()))
+    (res, newSig)
   }
 
   private class Preprocessor extends CollectingVisitor[Unit, IExpression] {
@@ -324,8 +330,8 @@ class Fractions(name : String,
    * The theory is not complete for the full first-order case; check
    * whether the denom function occurs in the scope of a quantifier.
    */
-  private object IncompletenessChecker
-          extends ContextAwareVisitor[Unit, Unit] {
+  protected object IncompletenessChecker
+            extends ContextAwareVisitor[Unit, Unit] {
     def postVisit(t : IExpression, ctxt : Context[Unit],
                   subres : Seq[Unit]) : Unit = t match {
       case ISortedQuantified(q, `dom`, _)
