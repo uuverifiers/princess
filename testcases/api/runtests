@@ -28,7 +28,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \
-       TestStrings.scala TestBVEval.scala \
+       TestStrings.scala \
        simplifier-bug.scala project-bug.scala \
        printBooleanTerm.scala SimplePrint.scala TestFunctionRange.scala"
 

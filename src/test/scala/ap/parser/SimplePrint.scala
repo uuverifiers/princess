@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,46 +31,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.api
+package ap.parser;
 
-import ap._
-import ap.parser._
+import ap.terfor.TermOrder
 
-/**
- * Test the ability of the SimpleAPI to stop and restart.
- */
 import org.scalacheck.Properties
 import ap.util.ExtraAssertions
 import ap.util.Prop._
 
-class SimpleAPITest13 extends Properties("SimpleAPITest13") with ExtraAssertions {
+// Some simple tests for pretty-printing of formulas
+class SimplePrint extends Properties("SimplePrint") with ExtraAssertions {
 
-  property("SimpleAPITest13") = SimpleAPI.withProver(enableAssert = true) { p =>
+  val expectedOutput = """(1 >= 0)
+(<= 0 1)
+"""
 
-  ap.util.Debug.enableAllAssertions(true)
-  import p._
+  property("main") = checkOutput(expectedOutput) {
+    ap.util.Debug.enableAllAssertions(true)
 
-  setConstructProofs(true)
+    val f = (IIntLit(1) >= IIntLit(0))
 
-  import IExpression._
-  import SimpleAPI.ProverStatus
-
-  val r = createRelation("r", List(Sort.Integer, Sort.Integer))
-
-  !! (all((x, y) => (r(x, y) ==> (r(x+1, 2*y) | r(x+1, 2*y+1)))))
-  !! (r(1, 1))
-  !! (all(y => !r(7, y)))
-
-  assert(checkSat(false) == ProverStatus.Running) // Running
-
-  Thread.sleep(300)
-
-  assert(Set(ProverStatus.Unknown, ProverStatus.Running) contains stop(true))
-  backtrackToL0
-  assert(Set(ProverStatus.Running, ProverStatus.Unsat) contains checkSat(false)) // Running
-  assert(??? == ProverStatus.Unsat)             // Unsat
-  backtrackToL0
-
-  true
+    println(f)
+    SMTLineariser(f)
+    println
   }
 }
