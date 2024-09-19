@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,14 +31,55 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Bit-vector evaluation
+package ap.api
 
-  import ap.SimpleAPI
   import SimpleAPI.ProverStatus
   import ap.parser._
   import ap.theories.ModuloArithmetic
   import ap.util.Debug
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+// Bit-vector evaluation
+class TestBVEval extends Properties("TestBVEval") with ExtraAssertions {
+
+  val expectedOutput = """Sat
+1: Some(3)
+2: Some(true)
+3: Some(3)
+4: Some(mod_cast(0, 15, 3))
+5: Some(3)
+6: mod_cast(0, 15, 3)
+7: 3
+8: Some(4)
+9: Some(6)
+10: Some(4)
+11: mod_cast(0, 15, 4)
+12: 4
+Sat
+13: Some(mod_cast(0, 15, 3))
+14: Some(3)
+15: mod_cast(0, 15, 3)
+16: 3
+Sat
+17: Some(mod_cast(0, 15, 3))
+18: Some(3)
+19: mod_cast(0, 15, 3)
+20: 3
+21: Some(mod_cast(0, 15, 3))
+22: Some(3)
+23: mod_cast(0, 15, 3)
+24: 3
+25: Some(true)
+26: true
+27: 1
+28: y.\as[int] >= 2
+29: false
+"""
+
+  property("main") = checkOutput(expectedOutput) {
   Debug enableAllAssertions true
 
   SimpleAPI.withProver(enableAssert = true) { p =>
@@ -132,3 +173,5 @@
       println("29: " + pp(projectAll(f, List(y))))
     }
   }
+}
+}

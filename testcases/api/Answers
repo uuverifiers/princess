@@ -272,40 +272,6 @@ x = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty))
 y = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty)))))
 Valid
 
-TestBVEval.scala
-Sat
-1: Some(3)
-2: Some(true)
-3: Some(3)
-4: Some(mod_cast(0, 15, 3))
-5: Some(3)
-6: mod_cast(0, 15, 3)
-7: 3
-8: Some(4)
-9: Some(6)
-10: Some(4)
-11: mod_cast(0, 15, 4)
-12: 4
-Sat
-13: Some(mod_cast(0, 15, 3))
-14: Some(3)
-15: mod_cast(0, 15, 3)
-16: 3
-Sat
-17: Some(mod_cast(0, 15, 3))
-18: Some(3)
-19: mod_cast(0, 15, 3)
-20: 3
-21: Some(mod_cast(0, 15, 3))
-22: Some(3)
-23: mod_cast(0, 15, 3)
-24: 3
-25: Some(true)
-26: true
-27: 1
-28: y.\as[int] >= 2
-29: false
-
 simplifier-bug.scala
 true
 true
@@ -328,10 +294,6 @@ true
 false
 (not true)
 (not false)
-
-SimplePrint.scala
-(1 >= 0)
-(<= 0 1)
 
 TestFunctionRange.scala
 Valid
