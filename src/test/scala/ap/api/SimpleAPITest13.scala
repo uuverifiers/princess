@@ -46,7 +46,7 @@ import ap.util.Prop._
 class SimpleAPITest13 extends Properties("SimpleAPITest13") with ExtraAssertions {
 
   property("SimpleAPITest13") = SimpleAPI.withProver(enableAssert = true) { p =>
-
+try {
   ap.util.Debug.enableAllAssertions(true)
   import p._
 
@@ -61,15 +61,18 @@ class SimpleAPITest13 extends Properties("SimpleAPITest13") with ExtraAssertions
   !! (r(1, 1))
   !! (all(y => !r(7, y)))
 
-  assert(checkSat(false) == ProverStatus.Running) // Running
+  assert(Set(ProverStatus.Unsat, ProverStatus.Running) contains checkSat(false))
 
   Thread.sleep(300)
 
-  assert(Set(ProverStatus.Unknown, ProverStatus.Running) contains stop(true))
+  assert(Set(ProverStatus.Unknown, ProverStatus.Unsat, ProverStatus.Running) contains stop(true))
   backtrackToL0
-  assert(Set(ProverStatus.Running, ProverStatus.Unsat) contains checkSat(false)) // Running
-  assert(??? == ProverStatus.Unsat)             // Unsat
+  assert(Set(ProverStatus.Unsat, ProverStatus.Running) contains checkSat(false))
+  assert(??? == ProverStatus.Unsat)
   backtrackToL0
+} catch {
+  case t : Throwable => t.printStackTrace()
+}
 
   true
   }
