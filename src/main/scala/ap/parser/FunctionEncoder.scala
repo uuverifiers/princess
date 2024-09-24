@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -137,7 +137,8 @@ object FunctionEncoder {
   private class AbstractionFrame(val prevFrame : AbstractionFrame,
                                  // the quantifiers immediately above
                                  // this frame
-                                 val outerQuantifiers : Seq[Sort]) {
+                                 val outerQuantifiers : Seq[Sort],
+                                 val catchAll : Boolean = false) {
     val quantifierNum : Int = outerQuantifiers.size
 
     // Function notation can also be used for relations ("relational
@@ -180,6 +181,8 @@ object FunctionEncoder {
           case None => allocNewAbstraction
         }
     }
+
+    override def toString = f"AbstractionFrame($prevFrame, $outerQuantifiers, $catchAll)" 
   }
 
   /**
@@ -201,7 +204,7 @@ object FunctionEncoder {
     // We insert the definition of the new bound variable at the outermost
     // possible point, which is determined by the variables occurring in
     // <code>t</code>
-    while (curFrame.prevFrame != null &&
+    while (!curFrame.catchAll &&
            Seqs.disjointSeq(tVars, 0 until curFrame.quantifierNum) &&
            Seqs.disjointSeq(tVars, curFrame.abstractionList.iterator map (_._2))) {
       tVars = for (i <- tVars) yield (i - curFrame.quantifierNum)
@@ -333,7 +336,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     val visitor =
       new EncoderVisitor(firstFreeVariableIndex, order)
     val context : Context[EncodingContext] =
-      Context(AddDefinitions(new AbstractionFrame (null, List()), List()))
+      Context(AddDefinitions(new AbstractionFrame (null, List(), true), List()))
     
     val newF = visitor.visit(nnfF, context).asInstanceOf[IFormula]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -586,8 +589,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         }
 
         val newFrame =
-          new AbstractionFrame (if (catchAll) null else c.a.frame,
-                                outerQuantifiers)
+          new AbstractionFrame (c.a.frame, outerQuantifiers, catchAll)
         super.preVisit(t, c(AddDefinitions(newFrame, List())))
       }
 
