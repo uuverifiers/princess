@@ -59,7 +59,7 @@ object LShiftCastSplitter extends TheoryProcedure {
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
   protected[bitvectors] def shiftCastActions(goal : Goal, noSplits : Boolean)
-                                           : Seq[Plugin.Action]={
+                                           : Seq[Plugin.Action] = {
     val castPreds =
       goal.facts.predConj.positiveLitsWithPred(_l_shift_cast).toBuffer
 
@@ -80,6 +80,20 @@ object LShiftCastSplitter extends TheoryProcedure {
                             Boolean,   // for upper bound all bits after shift
                                        // are zero
                             List[Formula])] = None
+
+    def addSplitOption(
+          cases : IdealInt,
+          pred : (Atom, IdealInt, IdealInt, Boolean, List[Formula])) : Unit =
+      cases match {
+        case IdealInt(cases) if cases < bestSplitNum => {
+          bestSplitNum = cases
+          splitPred = Some(pred)
+        }
+        case _ if bestSplitNum == Int.MaxValue => {
+          splitPred = Some(pred)
+        }
+        case _ => // nothing
+      }
 
     val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
 
@@ -175,11 +189,8 @@ object LShiftCastSplitter extends TheoryProcedure {
           case (rawLower, Some(upper)) if simpleElims.isEmpty => {
             // need to do some splitting
             val lower = rawLower getOrElse IdealInt.MINUS_ONE
-            val cases = (upper - (lower max IdealInt.ZERO) + 1).intValueSafe
-            if (cases < bestSplitNum) {
-              bestSplitNum = cases
-              splitPred = Some((a, lower, upper, vanishing, assumptions))
-            }
+            addSplitOption(upper - (lower max IdealInt.ZERO) + 1,
+                           (a, lower, upper, vanishing, assumptions))
           }
           case _ =>
             // nothing
@@ -284,7 +295,7 @@ object RShiftCastSplitter extends TheoryProcedure {
 
   import TerForConvenience._
 
-  private def rshiftToExtract(a : Atom, shift : Int)
+  private def rshiftToExtract(a : Atom, shift : IdealInt)
                              (implicit order : TermOrder) : Conjunction =
     (SortedPredicate argumentSorts a).last match {
       case UnsignedBVSort(bits) => {
@@ -327,6 +338,20 @@ object RShiftCastSplitter extends TheoryProcedure {
                             IdealInt,  // lower exponent bound
                             IdealInt,  // upper exponent bound
                             List[Formula])] = None
+
+    def addSplitOption(
+          cases : IdealInt,
+          pred : (Atom, IdealInt, IdealInt, List[Formula])) : Unit =
+      cases match {
+        case IdealInt(cases) if cases < bestSplitNum => {
+          bestSplitNum = cases
+          splitPred = Some(pred)
+        }
+        case _ if bestSplitNum == Int.MaxValue => {
+          splitPred = Some(pred)
+        }
+        case _ => // nothing
+      }
 
     val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
 
@@ -400,24 +425,21 @@ object RShiftCastSplitter extends TheoryProcedure {
           simpleElims =
             Plugin.RemoveFacts(a) ::
             Plugin.AddAxiom(assumptions.distinct,
-                            rshiftToExtract(a, shiftLower.intValueSafe),
+                            rshiftToExtract(a, shiftLower),
                             ModuloArithmetic) ::
             simpleElims
 
         } else {
 
-          val cases = (shiftUpper - shiftLower + 1).intValueSafe
-          if (cases < bestSplitNum) {
-            bestSplitNum = cases
-            splitPred = Some((a, shiftLower, shiftUpper, assumptions))
-          }
+          addSplitOption(shiftUpper - shiftLower + 1,
+                         (a, shiftLower, shiftUpper, assumptions))
 
         }
       } else {
         println("WARNING: unbounded shift " + a)
 
-        if (bestSplitNum == Int.MaxValue)
-          splitPred = Some((a, shiftLower, null, assumptions))
+        addSplitOption(Int.MaxValue,
+                       (a, shiftLower, null, assumptions))
 
       }
     }
@@ -443,7 +465,7 @@ object RShiftCastSplitter extends TheoryProcedure {
           // binary splitting
 
           List(
-            (rshiftToExtract(a, lower.intValueSafe) & (a(3) <= lower), List()),
+            (rshiftToExtract(a, lower) & (a(3) <= lower), List()),
             (conj(a(3) > lower), List())
           )
         }
@@ -454,7 +476,7 @@ object RShiftCastSplitter extends TheoryProcedure {
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
           (for (n <- IdealRange(lower, upper + 1)) yield {
-             (rshiftToExtract(a, n.intValueSafe) &
+             (rshiftToExtract(a, n) &
              (if (n == lower)
                 a(3) <= lower
               else if (n == upper)
