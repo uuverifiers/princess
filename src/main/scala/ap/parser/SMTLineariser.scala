@@ -1141,6 +1141,12 @@ class SMTLineariser(benchmarkName     : String,
         TryAgain(arg, ctxt addParentOp ")")
       }
 
+      case IFunApp(ModuloArithmetic.bv_concat,
+                   Seq(_, _, arg1, arg2)) => {
+        print("(concat")
+        TryAgain(IFunApp(invisible2, List(arg1, arg2)), ctxt)
+      }
+
       case IFunApp(ModuloArithmetic.zero_extend,
                    Seq(IIntLit(_), IIntLit(addWidth), arg)) => {
         print("((_ zero_extend " + addWidth + ") ")
