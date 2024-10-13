@@ -768,8 +768,11 @@ object SMTLineariser {
             None
           }
         }
-      case Some(Rationals) if fun == Rationals.frac =>
-        Some(("/", ""))
+      case Some(Rationals) => fun match {
+        case Rationals.frac => Some(("/", ""))
+        case Rationals.int  => Some(("/", "1"))
+        case _              => None
+      }
       case Some(ModuloArithmetic) => fun match {
         case ModuloArithmetic.int_cast => Some(("bv2nat", ""))
         case ModuloArithmetic.bv_add   => Some(("bvadd", ""))
