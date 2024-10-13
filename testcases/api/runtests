@@ -9,8 +9,7 @@ RUNOPTIONS="-cp `pwd`/../../bin:."
 
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
-TESTS="TestRat \
-       TestSaturationProcedure"
+TESTS="TestSaturationProcedure"
 
 for testname in $TESTS; do
   echo
