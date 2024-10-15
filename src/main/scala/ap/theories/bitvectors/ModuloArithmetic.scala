@@ -91,6 +91,9 @@ object ModuloArithmetic extends Theory {
   protected[bitvectors] def pow2MinusOne(bits : Int) : IdealInt =
     IdealInt.pow2MinusOne(bits)
 
+  protected[bitvectors] def pow2MinusOne(bits : IdealInt) : IdealInt =
+    IdealInt.pow2MinusOne(bits)
+
   private def isPowerOf2(n : IdealInt) : Option[Int] =
     IdealInt.log2(n)
 
@@ -222,8 +225,22 @@ object ModuloArithmetic extends Theory {
   /**
    * Evaluate <code>bv_extract</code> with concrete arguments
    */
-  def evalExtract(start : Int, end : Int, number : IdealInt) : IdealInt =
-    (number % pow2(start+1)) / pow2(end)
+  def evalExtract(start : IdealInt, end : IdealInt,
+                  number : IdealInt) : IdealInt =
+    number.signum match {
+      case 1 => {
+        if (number.getHighestSetBit < end)
+          IdealInt.ZERO
+        else
+          (number % pow2(start+1)) / pow2(end)
+      }
+      case 0 => {
+        IdealInt.ZERO
+      }
+      case -1 => {
+        pow2(start - end + 1) - evalExtract(start, end, number.invert) - 1
+      }
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
