@@ -303,6 +303,8 @@ object RShiftCastSplitter extends TheoryProcedure {
              Array(l(shift + bits - 1), l(shift), a(2), a(4)),
              order)
       }
+      case SignedBVSort(bits) if shift > bits =>
+        rshiftToExtract(a, bits)
       case _ => {
         // right-shift by dividing by 2^shift
         val factor = pow2(shift)

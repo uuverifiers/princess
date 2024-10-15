@@ -311,8 +311,8 @@ object ModReducer {
                 
                 case `_bv_extract` =>
                   if (a(2).isConstant) {
-                    val LinearCombination.Constant(IdealInt(ub)) = a(0)
-                    val LinearCombination.Constant(IdealInt(lb)) = a(1)
+                    val LinearCombination.Constant(ub) = a(0)
+                    val LinearCombination.Constant(lb) = a(1)
 
                     val newEq = a(3) === evalExtract(ub, lb, a(2).constant)
 
@@ -344,9 +344,9 @@ object ModReducer {
                     }
 
                     if (bitBoundary >= 0) {
-                      val LinearCombination.Constant(IdealInt(lb)) = a(1)
+                      val LinearCombination.Constant(lb) = a(1)
                       if (lb >= bitBoundary) {
-                        val LinearCombination.Constant(IdealInt(ub)) = a(0)
+                        val LinearCombination.Constant(ub) = a(0)
                         val newEq = a(3) === evalExtract(ub, lb, lower)
 
                         //-BEGIN-ASSERTION-/////////////////////////////////////

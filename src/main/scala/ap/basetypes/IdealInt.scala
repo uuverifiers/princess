@@ -168,6 +168,12 @@ object IdealInt {
     pow2(exp) - IdealInt.ONE
 
   /**
+   * Compute <code>2^exp - 1</code>.
+   */
+  def pow2MinusOne(exp : IdealInt) : IdealInt =
+    pow2(exp) - IdealInt.ONE
+
+  /**
    * If <code>n = 2^k</code>, return <code>Some(k)</code>, otherwise
    * <code>None</code>.
    */
@@ -851,6 +857,10 @@ final class IdealInt private (private val longStore : Long,
     */
   def unary_- : IdealInt =
     if (usesLong) IdealInt(-longStore) else IdealInt(getBI.negate)
+
+  /** Bit-wise inversion of this <code>IdealInt</code> */
+  def invert : IdealInt =
+    -this - 1
 
   /** Returns a <code>IdealInt</code> whose value is (<tt>this</tt> raised
    * to the power of <tt>exp</tt>).

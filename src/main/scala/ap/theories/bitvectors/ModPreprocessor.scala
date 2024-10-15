@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -201,6 +201,9 @@ object ModPreprocessor {
     def modCastPow2(bits : Int, ctxt : VisitorArg) : VisitorRes =
       modCast(IdealInt.ZERO, pow2MinusOne(bits), ctxt)
 
+    def modCastPow2(bits : IdealInt, ctxt : VisitorArg) : VisitorRes =
+      modCast(IdealInt.ZERO, pow2MinusOne(bits), ctxt)
+
     def modCastSignedPow2(bits : Int, ctxt : VisitorArg) : VisitorRes = {
       val ModSort(lower, upper) = SignedBVSort(bits)
       modCast(lower, upper, ctxt)
@@ -318,31 +321,26 @@ object ModPreprocessor {
                      ctxt addMod (upper - lower + IdealInt.ONE),
                      ctxt.noMod))
 
-      case IFunApp(`bv_extract`,
-                   Seq(IIntLit(IdealInt(begin)), IIntLit(IdealInt(end)), _*)) =>
+      case IFunApp(`bv_extract`, Seq(IIntLit(begin), IIntLit(end), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt.multMod(pow2(end), pow2(begin + 1))))
 
-      case IFunApp(`zero_extend`,
-                   Seq(IIntLit(IdealInt(width)),
-                       IIntLit(IdealInt(addWidth)), _)) =>
+      case IFunApp(`zero_extend`, Seq(IIntLit(width), IIntLit(addWidth), _)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod pow2(width + addWidth)))
 
       case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
-                   Seq(IIntLit(IdealInt(n)), _*)) =>
+                   Seq(IIntLit(n), _*)) =>
         // TODO: handle bit-width argument correctly
         UniSubArgs(ctxt addMod pow2(n))
 
-      case IFunApp(`bv_shl`,
-                   Seq(IIntLit(IdealInt(n)), _*)) =>
+      case IFunApp(`bv_shl`, Seq(IIntLit(n), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
       case IFunApp(`int_cast`, _) =>
         UniSubArgs(ctxt)
 
-      case IAtom(`bv_slt` | `bv_sle`,
-                 Seq(IIntLit(IdealInt(n)), _*)) =>
+      case IAtom(`bv_slt` | `bv_sle`, Seq(IIntLit(n), _*)) =>
         UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
@@ -501,16 +499,14 @@ object ModPreprocessor {
           // the identity function, can be ignored
           subres.head
 
-        case IFunApp(`bv_extract`, Seq(IIntLit(IdealInt(start)),
-                                       IIntLit(IdealInt(end)), _*)) =>
+        case IFunApp(`bv_extract`, Seq(IIntLit(start), IIntLit(end), _*)) =>
           if (subres(2).isConstant)
             VisitorRes(evalExtract(start, end, subres(2).lowerBound))
           else
             VisitorRes.update(t, subres)
 
         case IFunApp(`zero_extend`,
-                     Seq(IIntLit(IdealInt(width)),
-                         IIntLit(IdealInt(addWidth)), _)) =>
+                     Seq(IIntLit(width), IIntLit(addWidth), _)) =>
           subres.last.modCastPow2(width + addWidth, ctxt)
 
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
