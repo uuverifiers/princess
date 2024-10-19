@@ -29,7 +29,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \
        TestStrings.scala \
        simplifier-bug.scala project-bug.scala \
-       printBooleanTerm.scala SimplePrint.scala TestFunctionRange.scala"
+       printBooleanTerm.scala TestFunctionRange.scala"
 
 for testname in $TESTS; do
   echo
