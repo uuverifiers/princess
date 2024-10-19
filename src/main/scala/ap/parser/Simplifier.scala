@@ -280,12 +280,15 @@ class Simplifier(splittingLimit : Int = 20,
         val shifts   = IVarShift(List.fill(quanNum)(1) ::: List(-quanNum), 0)
         val shiftedF = VariablePermVisitor(prenexF, shifts)
         
-        val substitutedF = findDefinition(shiftedF, 0, sort, q == ALL) match {
-          case GoodDef(t) => VariableSubstVisitor(shiftedF, (List(t), -1))
-          case _ => { assert(false); null }
+        findDefinition(shiftedF, 0, sort, q == ALL) match {
+          case GoodDef(t) =>
+            quanWithSorts(q, quanSorts,
+                          VariableSubstVisitor(shiftedF, (List(t), -1)))
+          case _ =>
+            // then we could not pull out all quantifiers as required, cannot
+            // eliminate
+            expr
         }
-
-        quanWithSorts(q, quanSorts, substitutedF)
       }
     }
     case _ => expr
@@ -365,14 +368,19 @@ class Simplifier(splittingLimit : Int = 20,
 
     def postVisit(f : IExpression, Quan : Quantifier,
                   subres : Seq[IFormula]) : IFormula = f match {
-      case f @ IBinFormula(And | Or, _, _) => {
+      case f @ IBinFormula(j @ (And | Or), _, _) => {
+        val parPullOut = (j, Quan) match {
+          case (And, ALL) | (Or, EX) => true
+          case _                     => false
+        }
+
         var Seq(left, right) = subres
-        
+
         var cont      = true
         var quanSorts = List[Sort]()
         while (cont) (left, right) match {
           case (ISortedQuantified(Quan, s1, l), ISortedQuantified(Quan, s2, r))
-              if s1 == s2 => {
+              if parPullOut && s1 == s2 => {
             quanSorts = s1 :: quanSorts
             left      = l
             right     = r
@@ -445,11 +453,6 @@ class Simplifier(splittingLimit : Int = 20,
     
     case SimplifiableSum(t) => t
     
-    case IIntFormula(EqZero, IIntLit(v)) => v.isZero
-    case IIntFormula(GeqZero, IIntLit(v)) => (v.signum >= 0)
-
-    case IEquation(t1, t2) if t1 == t2 => true
-
     case _ => expr
   }
   
@@ -478,6 +481,60 @@ class Simplifier(splittingLimit : Int = 20,
     }
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Simplify equations and inequalities over integers.
+   */
+  private def simplifyRelations(expr : IExpression)
+                               : IExpression = expr match {
+    case IIntFormula(EqZero, IIntLit(v)) => v.isZero
+    case IIntFormula(GeqZero, IIntLit(v)) => v.signum >= 0
+
+    case IIntFormula(EqZero, ITimes(c, t))
+      if c.signum != 0 => eqZero(t)
+    case IIntFormula(GeqZero, ITimes(c, t))
+      if c.signum > 0 => geqZero(t)
+    case IIntFormula(GeqZero, ITimes(c, t))
+      if c.signum < 0 && !c.isMinusOne => geqZero(-t)
+
+    case IEquation(IIntLit(v1), IIntLit(v2)) => v1 == v2
+
+    case IIntFormula(EqZero,
+                     Difference(NonArithmeticTerm(t1),
+                                NonArithmeticTerm(t2))) =>
+      IEquation(t1, t2)
+
+    case IIntFormula(EqZero,
+                     Difference(IIntLit(v),
+                                NonArithmeticTerm(t))) =>
+      IEquation(t, v)
+
+    case IIntFormula(EqZero,
+                     IPlus(IIntLit(v),
+                           NonArithmeticTerm(t))) =>
+      IEquation(t, -v)
+
+    case IEquation(t1 @ (_ : IPlus | _ : ITimes), t2) =>
+      eqZero(t1 - t2)
+    case IEquation(t1, t2 @ (_ : IPlus | _ : ITimes)) =>
+      eqZero(t1 - t2)
+
+    case IEquation(IIntLit(v), NonArithmeticTerm(t)) =>
+      IEquation(t, v)
+
+    case IEquation(t1, t2) if t1 == t2 => true
+
+    case _ => expr
+  }
+
+  private object NonArithmeticTerm {
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case _ : IIntLit | _ : ITimes | _ : IPlus => None
+      case _ => Some(t)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -511,7 +568,7 @@ class Simplifier(splittingLimit : Int = 20,
   protected def furtherSimplifications(expr : IExpression) = expr
   
   private val defaultRewritings =
-    (List(toNNF _, elimSimpleLiterals _, elimQuantifier _) ++
+    (List(toNNF _, elimSimpleLiterals _, simplifyRelations _, elimQuantifier _) ++
      (if (doMiniScoping)
         List(miniScope _)
       else
