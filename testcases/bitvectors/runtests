@@ -35,6 +35,7 @@ TESTS="existential.pri \
        shift12c.pri \
        shift13.pri \
        shift14.smt2 \
+       shift15.smt2 \
        bench_977.smt2 \
        bench_977b.smt2 \
        bench_977c.smt2 \
