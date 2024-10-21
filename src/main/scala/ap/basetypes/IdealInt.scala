@@ -236,7 +236,7 @@ object IdealInt {
   def min(els : Iterable[IdealInt]) : IdealInt = min(els.iterator)
 
   /**
-   * Extended euclidean algorithm for computing both the gcd and the cofactors
+   * Extended Euclidean algorithm for computing both the gcd and the cofactors
    * of two <code>IdealInt</code>.
    */
   def gcdAndCofactors(_a : IdealInt, _b : IdealInt)
@@ -367,7 +367,7 @@ object IdealInt {
   }
 
   /**
-   * Extended euclidean algorithm for computing both the gcd and the cofactors
+   * Extended Euclidean algorithm for computing both the gcd and the cofactors
    * of a sequence of <code>IdealInt</code>.
    */
   def gcdAndCofactors(vals : Seq[IdealInt]) : (IdealInt, Seq[IdealInt]) = {
@@ -618,8 +618,10 @@ final class IdealInt private (private val longStore : Long,
       IdealInt(this.getBI multiply that.getBI)
 
   /**
-   * Division of <code>IdealInt</code>. We use euclidian division with remainder,
-   * i.e., the property <code>this == (this / that) * that + (this % that)</code>
+   * Division of <code>IdealInt</code>. We use Euclidian division with
+   * remainder,
+   * i.e., the property
+   * <code>this == (this / that) * that + (this % that)</code>
    * holds, and <code>this % that >= 0</code> and
    * <code>this % that < that.abs</code>.
    *
@@ -628,8 +630,10 @@ final class IdealInt private (private val longStore : Long,
   def /  (that: IdealInt): IdealInt = (this /% that) _1
 
   /**
-   * Remainder of <code>IdealInt</code>. We use euclidian division with remainder,
-   * i.e., the property <code>this == (this / that) * that + (this % that)</code>
+   * Remainder of <code>IdealInt</code>. We use Euclidian division
+   * with remainder,
+   * i.e., the property
+   * <code>this == (this / that) * that + (this % that)</code>
    * holds, and <code>this % that >= 0</code> and
    * <code>this % that < that.abs</code>.
    *
@@ -639,7 +643,7 @@ final class IdealInt private (private val longStore : Long,
 
   /** 
    * Returns a pair of two <code>IdealInt</code> containing
-   * (this / that) and (this % that). We use euclidian division with remainder,
+   * (this / that) and (this % that). We use Euclidian division with remainder,
    * i.e., the property <code>this == (this / that) * that + (this % that)</code>
    * holds, and <code>this % that >= 0</code> and
    * <code>this % that < that.abs</code>.
@@ -654,7 +658,7 @@ final class IdealInt private (private val longStore : Long,
     var rem = this - that * quot
     
     if (rem.signum < 0) {
-      // we need to correct the results so that they comply to the euclidian
+      // we need to correct the results so that they comply to the Euclidian
       // definition
       if (that.signum > 0) {
         quot = quot - IdealInt.ONE
