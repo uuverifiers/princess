@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name                 := "Princess",
     organization         := "uuverifiers",
-    version              := "2024-03-22",
+    version              := "2024-11-08",
     homepage             := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses             := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
     scmInfo              := Some(ScmInfo(
@@ -48,7 +48,7 @@ lazy val commonSettings = Seq(
                             ),
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
     scalaVersion         := "2.11.12",
-    crossScalaVersions   := Seq("2.11.12", "2.12.18"),
+    crossScalaVersions   := Seq("2.11.12", "2.12.20"),
     run / fork           := true,
     Global / cancelable  := true,
     publishTo := Some(Resolver.file("file", new File( "/tmp/shared-repo" )) )
@@ -97,7 +97,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.18" => "-opt:_"
+      case "2.12.20" => "-opt:_"
     }}).value,
 //
     libraryDependencies +=
