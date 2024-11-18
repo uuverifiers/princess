@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2024-03-22"
+  val version = "2024-11-08"
 
   /**
    * Flag to enable stack traces being fully printed, for problems

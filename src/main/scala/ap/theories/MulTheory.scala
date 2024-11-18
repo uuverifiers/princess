@@ -103,36 +103,42 @@ trait MulTheory extends Theory {
    * Euclidian division
    */
   def eDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm =
-    if (isSimpleTerm(numTerm) && Const.unapply(denomTerm).isDefined) {
-      val num = VariableShiftVisitor(numTerm, 0, 1)
-      val denom = VariableShiftVisitor(denomTerm, 0, 1)
-
-      val v0Denom = mult(v(0), denom)
-      denomTerm match {
-        case Const(IdealInt(2 | -2)) =>
-          // for the special case of denominator two, it is usually
-          // more efficient to split
-          eps((num === v0Denom) | (num === v0Denom + 1))
-        case _ =>
-          eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
+    (numTerm, denomTerm) match {
+      case (_, Const(IdealInt.ZERO)) =>
+        // This is an undefined case, translate as a partial function
+        eps(false)
+      case (Const(num), Const(denom)) =>
+        num / denom
+      case (SimpleTerm(numTerm), Const(denom)) => {
+        val num = VariableShiftVisitor(numTerm, 0, 1)
+        val v0Denom = mult(v(0), denom)
+        denom match {
+          case IdealInt(2 | -2) =>
+            // for the special case of denominator two, it is usually
+            // more efficient to split
+            eps((num === v0Denom) | (num === v0Denom + 1))
+          case _ =>
+            eps((v0Denom <= num) & (v0Denom > num - denom.abs))
+        }
       }
-    } else {
-      // avoid duplication of the numerator by introducing a quantifier
+      case _ => {
+        // avoid duplication of the numerator by introducing a quantifier
 
-      val num = VariableShiftVisitor(numTerm, 0, 4)
-      val denom = VariableShiftVisitor(denomTerm, 0, 4)
+        val num = VariableShiftVisitor(numTerm, 0, 4)
+        val denom = VariableShiftVisitor(denomTerm, 0, 4)
 
-      eps(ex(ex(ex((v(0) === num) &
-                   (v(1) === mult(v(3), v(2))) &
-                   (v(2) === denom) &
-                   (denomTerm match {
-                      case Const(IdealInt(2 | -2)) =>
-                        // for the special case of denominator two, it
-                        // is usually more efficient to split
-                        (v(0) === v(1)) | (v(0) === v(1) + 1)
-                      case _ =>
-                        (v(1) <= v(0)) & (v(1) > v(0) - abs(v(2)))
-                    })))))
+        eps(ex(ex(ex((v(0) === num) &
+                     (v(1) === mult(v(3), v(2))) &
+                     (v(2) === denom) &
+                     (denomTerm match {
+                        case Const(IdealInt(2 | -2)) =>
+                          // for the special case of denominator two, it
+                          // is usually more efficient to split
+                          (v(0) === v(1)) | (v(0) === v(1) + 1)
+                        case _ =>
+                          (v(1) <= v(0)) & (v(1) > v(0) - abs(v(2)))
+                      })))))
+      }
     }
 
   /**
@@ -145,14 +151,22 @@ trait MulTheory extends Theory {
   /**
    * Euclidian remainder
    */
-  def eMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
-    val num = VariableShiftVisitor(numTerm, 0, 1)
-    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+  def eMod(numTerm : ITerm, denomTerm : ITerm) : ITerm =
+    (numTerm, denomTerm) match {
+      case (_, Const(IdealInt.ZERO)) =>
+        // This is an undefined case, translate as a partial function
+        eps(false)
+      case (Const(num), Const(denom)) =>
+        num % denom
+      case _ => {
+        val num = VariableShiftVisitor(numTerm, 0, 1)
+        val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
-    eps((v(0) >= 0) & (v(0) < abs(denom)) &
-        ex(VariableShiftVisitor(num, 0, 1) ===
-             mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
-  }
+        eps((v(0) >= 0) & (v(0) < abs(denom)) &
+              ex(VariableShiftVisitor(num, 0, 1) ===
+                   mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
+      }
+    }
 
   /**
    * Euclidian remaining, assuming the SMT-LIB semantics for remainder
@@ -288,9 +302,23 @@ trait MulTheory extends Theory {
     def eDiv(that : ITerm) : ITerm = MulTheory.this.eDiv(term, that)
 
     /**
+     * Euclidian division, assuming the SMT-LIB semantics for division
+     * by zero.
+     */
+    def eDivWithSpecialZero(that : ITerm) : ITerm =
+      MulTheory.this.eDivWithSpecialZero(term, that)
+
+    /**
      * Euclidian remainder
      */
     def eMod(that : ITerm) : ITerm = MulTheory.this.eMod(term, that)
+
+    /**
+     * Euclidian remaining, assuming the SMT-LIB semantics for remainder
+     * by zero.
+     */
+    def eModWithSpecialZero(that : ITerm) : ITerm =
+      MulTheory.this.eModWithSpecialZero(term, that)
 
     /**
      * Truncation division
