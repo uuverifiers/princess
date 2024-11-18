@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,45 +31,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.util
+package ap.theories.arrays
 
-import ap.DialogUtil
+// Test case that verifies that asserting quantified array formulas
+// correctly produces the result Inconclusive
+
+import ap._
+import ap.parser._
 
 import org.scalacheck.Properties
 
-object Prop {
+class ArrayQuantifiers extends Properties("ArrayQuantifiers") {
 
-  def assertEquals(a : Any, b : Any) : Unit =
-    assert(a == b)
+  property("inconclusive") =
+SimpleAPI.withProver(enableAssert = true) { p =>
+import p._
+import IExpression._
+import SimpleAPI.ProverStatus
 
-  def assertEquals(msg : String, a : Any, b : Any) : Unit =
-    assert(a == b, msg)
+val ar = ExtArray(List(Sort.Integer), Sort.Integer)
 
-  def assertTrue(b : Boolean) : Unit =
-    assert(b)
+val a = createConstant("a", ar.sort)
 
-  def assertTrue(msg : String, b : Boolean) : Unit =
-    assert(b, msg)
+!! (ar.select(a, 0) === 0)
 
+assert(??? == ProverStatus.Sat) // Sat
+
+!! (all(x => ar.select(a, x) === x))
+
+assert(??? == ProverStatus.Inconclusive) // Inconclusive
+
+!! (ar.select(a, 1) === 2)
+
+assert(??? == ProverStatus.Unsat) // Unsat
+
+true
 }
-
-trait ExtraAssertions extends Properties {
-
-  def checkOutput(expected : String)(comp : => Unit) : Boolean = {
-    val output = DialogUtil.asString(comp)
-    if (output == expected) {
-      true
-    } else if (expected == "") {
-      println(output)
-      false
-    } else {
-      for (((exp, seen), line) <-
-             (expected.linesIterator zip output.linesIterator).zipWithIndex) {
-        if (exp != seen)
-          Console.err.println(f"${name}:${line}: ${seen}")
-      }
-      false
-    }
-  }
-
 }
