@@ -31,19 +31,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-//package ap.theories
+package ap.theories.arrays
 
 import ap.parser._
 import ap.SimpleAPI
-import ap.theories.ExtArray
 
-object TestExtArray extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+
+class TestExtArray extends Properties("TestExtArray") with ExtraAssertions {
+
+  val expectedOutput = """
+-- Test 1
+Some term: store(ar, x, 42)
+Sat
+Unsat
+
+-- Test 2
+Sat
+ar = store(const(2), 1, 1)
+ar2 = const(2)
+m.evalToTerm(ar): Some(store(const(2), 1, 1))
+m.evalToTerm(select(ar, 0)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 1)): Some(2)
+m.evalToTerm(select(store(const(0), 1, 2), 2)): Some(0)
+"""
+
+  import IExpression._
 
   def part(str : String) = {
     println
     println("-- " + str)
   }
 
+  property("testextarray") = checkOutput(expectedOutput) {
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
     import IExpression._
@@ -84,5 +105,5 @@ object TestExtArray extends App {
                 m.evalToTerm(select(store(const(0), 1, 2), 2)))
     }
   }
-
+  }
 }
