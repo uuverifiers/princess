@@ -43,8 +43,9 @@ import ap.algebra.{Ring, RingWithDivision, IntegerRing, Field, OrderedRing,
 /**
  * The theory and field of rational numbers.
  */
-object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
-                 with Field with OrderedRing with RingWithIntConversions {
+object Rationals
+  extends OrderedFractions("Rat", IntegerRing, IExpression.v(0) > 0)
+  with Field with RingWithIntConversions {
 
   import IExpression._
 
@@ -98,28 +99,6 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
     yield (frac(i(num), i(den)))
   })
 
-  def lt(s : ITerm, t : ITerm) : IFormula = (s, t) match {
-    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
-      s < t
-    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
-      0 < t
-    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
-      s < 0
-    case (s, t) =>
-      s < t
-  }
-
-  def leq(s : ITerm, t : ITerm) : IFormula = (s, t) match {
-    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
-      s <= t
-    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
-      0 <= t
-    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
-      s <= 0
-    case (s, t) =>
-      s <= t
-  }
-
   /**
    * Conversion of a rational term to an integer term, the
    * floor operator.
@@ -153,6 +132,11 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
    * Division, assuming SMT-LIB semantics for division by zero.
    */
   def divWithSpecialZero(s : ITerm, t : ITerm) : ITerm =
-    DivZero.handleZero(div _, RatDivZero, zero, dom)(s, t)
+    DivZero.handleZero(div _, RatDivZero, zero,
+                       { case `zero` => true; case _ => false },
+                       { case IFunApp(`int`, Seq(Const(n)))
+                              if !n.isZero => true
+                         case _ => false },
+                       dom)(s, t)
 }
 

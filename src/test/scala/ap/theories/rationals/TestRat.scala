@@ -52,7 +52,7 @@ Rat_int(1)
 (/ 1 2)
 
 -- Test 1
-Rat_frac(1, 12)
+Rat_mul(Rat_frac(1, 3), Rat_frac(1, 4))
 Sat
 {x -> Rat_frac(1, 12), Rat_denom -> 12}
 

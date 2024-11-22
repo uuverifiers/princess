@@ -37,7 +37,7 @@ import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories._
 import ap.algebra.{Ring, RingWithDivision, IntegerRing, Field, OrderedRing}
-import ap.types.{Sort, ProxySort, MonoSortedIFunction}
+import ap.types.{Sort, ProxySort, MonoSortedIFunction, MonoSortedPredicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.Signature
@@ -52,8 +52,8 @@ import scala.collection.mutable.{Map => MMap, Set => MSet}
  * range of considered denominators is described by the
  * <code>denomConstraint</code> argument over the variable <code>_0</code>.
  */
-class Fractions(name : String,
-                underlyingRing : Ring,
+class Fractions(name            : String,
+                underlyingRing  : Ring,
                 denomConstraint : IFormula)
       extends Theory with RingWithDivision {
 
@@ -130,7 +130,7 @@ class Fractions(name : String,
    */
   val int : IFunction =
     MonoSortedIFunction(name + "_int", List(Sort.Integer), dom,
-                        true, true)
+                        true, false)
 
   /**
    * Function to represent fractions, where numerator and denominator
@@ -138,11 +138,32 @@ class Fractions(name : String,
    */
   val frac : IFunction =
     MonoSortedIFunction(name + "_frac", List(RingSort, RingSort), dom,
-                        true, true)
+                        true, false)
+
+  /**
+   * Function to represent sums of terms.
+   */
+  val addition : IFunction =
+    MonoSortedIFunction(name + "_add", List(dom, dom), dom,
+                        true, false)
+
+  /**
+   * Function to represent products of terms.
+   */
+  val multiplication : IFunction =
+    MonoSortedIFunction(name + "_mul", List(dom, dom), dom,
+                        true, false)
+
+  /**
+   * Function to represent division.
+   */
+  val division : IFunction =
+    MonoSortedIFunction(name + "_div", List(dom, dom), dom,
+                        true, false)
 
   /**
    * Extractor for fractions, where numerator and denominator
-   * are expressions from the underlying ring
+   * are expressions from the underlying ring.
    */
   object Fraction {
     def apply(num : ITerm, denom : ITerm) : ITerm =
@@ -154,6 +175,18 @@ class Fractions(name : String,
   }
 
   /**
+   * Extractor for integers embedded into the ring.
+   */
+  object EmbeddedInt {
+    def apply(value : ITerm) : ITerm =
+      IFunApp(int, List(value))
+    def unapply(t : ITerm) : Option[ITerm] = t match {
+      case IFunApp(`int`, Seq(value)) => Some(value)
+      case _                          => None
+    }
+  }
+
+  /**
    * Function used internally to represent the unique denominator for all
    * fractions
    */
@@ -161,19 +194,22 @@ class Fractions(name : String,
     MonoSortedIFunction(name + "_denom", List(), RingSort,
                         true, false)
 
-  val functions = List(frac, denom, int)
+  val functions = List(frac, denom, int, addition, multiplication, division)
 
-  val (predicates, axioms, _, _) =
-    Theory.genAxioms(theoryFunctions = functions)
+  def extraPredicates : Seq[IExpression.Predicate] = List()
 
-  val functionPredicateMapping = functions zip predicates
+  val (predicates, axioms, _, funPredMap) =
+    Theory.genAxioms(theoryFunctions = functions,
+                     extraPredicates = extraPredicates)
+
+  val functionPredicateMapping = for (f <- functions) yield (f, funPredMap(f))
   val totalityAxioms = Conjunction.TRUE
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val triggerRelevantFunctions : Set[IFunction] = functions.toSet
   val functionalPredicates = predicates.toSet
   val plugin = None
 
-  private val _denom : IExpression.Predicate = predicates(1)
+  private val _denom : IExpression.Predicate = funPredMap(denom)
 
   override def isSoundForSat(theories : Seq[Theory],
                              config : Theory.SatSoundnessConfig.Value)
@@ -184,94 +220,37 @@ class Fractions(name : String,
       case _                                     => false
     }
 
-
   import IExpression._
 
   def int2ring(s: ITerm): ITerm = int(s)
-//    frac(underlyingRing.int2ring(s), ringOne)
 
-  val zero: ITerm = int2ring(0)   // frac(ringZero, ringOne)
-  val one : ITerm = int2ring(1)   // frac(ringOne, ringOne)
+  val zero: ITerm = int2ring(0)
+  val one : ITerm = int2ring(1)
 
-  def plus(s: ITerm, t: ITerm): ITerm = (s, t) match {
-    case (IFunApp(`int`, Seq(num1)),
-          IFunApp(`int`, Seq(num2))) =>
-      int(num1 +++ num2)
-    case (IFunApp(`frac`, Seq(num1, denom1)),
-          IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
-      frac(ringPlus(num1, num2), denom1)
-    case _ =>
-      ringPlus(s, t)
-  }
+  def plus(s: ITerm, t: ITerm): ITerm =
+    addition(s, t)
 
-  override def times(num : IdealInt, s : ITerm) : ITerm = s match {
-    case IFunApp(`int`, Seq(n)) =>
-      int(n *** num)
-    case IFunApp(`frac`, Seq(n, d)) =>
-      frac(ringTimes(num, n), d)
-    case s =>
-      ringTimes(num, s)
-  }
+  def mul(s: ITerm, t: ITerm): ITerm =
+    multiplication(s, t)
 
-  def mul(s: ITerm, t: ITerm): ITerm = (s, t) match {
-    case (IFunApp(`frac`, Seq(num1, denom1)),
-          IFunApp(`frac`, Seq(num2, denom2))) =>
-      frac(ringMul(num1, num2), ringMul(denom1, denom2))
-    case (IFunApp(`int`,  Seq(num1)),
-          IFunApp(`frac`, Seq(num2, denom2))) =>
-      frac(ringMul(ringInt2Ring(num1), num2), denom2)
-    case (IFunApp(`frac`, Seq(num1, denom1)),
-          IFunApp(`int`,  Seq(num2))) =>
-      frac(ringMul(num1, ringInt2Ring(num2)), denom1)
-    case (IFunApp(`int`, Seq(Const(num))), t) =>
-      times(num, t)
-    case (t, IFunApp(`int`, Seq(Const(num)))) =>
-      times(num, t)
-    case (IFunApp(`int`, Seq(num1)), IFunApp(`int`, Seq(num2))) =>
-      int(GroebnerMultiplication.mult(num1, num2))
-    case (s, t) =>
-      // (s / denom) * (t / denom) =
-      // s * t / denom^2 =
-      // (s * t / denom) / denom
-      dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
-                           (ringMul(v(0, ringDom), v(1, dom)) ===
-                              ringMul(shiftVars(s, 2), shiftVars(t, 2)))))
-  }
+  def div(s : ITerm, t : ITerm) : ITerm =
+    division(s, t)
 
-  def div(s : ITerm, t : ITerm) : ITerm = t match {
-    case IFunApp(`int`, Seq(Const(IdealInt.ONE))) =>
-      s
-    case IFunApp(`int`, Seq(n)) =>
-      mul(s, frac(ringOne, ringInt2Ring(n)))
-    case IFunApp(`frac`, Seq(n, d)) =>
-      mul(s, frac(d, n))
-    case t =>
-      // (s / denom) / (t / denom) =
-      // (s / denom) * (denom / t) =
-      // (s * denom / t) / denom
-      dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
-                           (ringMul(shiftVars(t, 2), v(1, dom)) ===
-                              ringMul(shiftVars(s, 2), v(0, ringDom)))))
-  }
-
-  def minus(s: ITerm): ITerm = s match {
-    case IFunApp(`int`, Seq(n)) =>
-      int(-n)
-    case IFunApp(`frac`, Seq(n, d)) =>
-      frac(underlyingRing.minus(n), d)
-    case s =>
-      underlyingRing.minus(s)
-  }
+  def minus(s: ITerm): ITerm =
+    multiplication(int(-1), s)
 
   def fracPreproc(f : IFormula, signature : Signature)
                : (IFormula, Signature) = {
-    val visitor =
-      new Preprocessor
-    val res =
-      visitor.visit(f, ()).asInstanceOf[IFormula]
+    val simplifier = new Simplifier
+    val encoder = new Encoder
+//    println(f)
+    val res0 = simplifier.visit(f, ()).asInstanceOf[IFormula]
+//    println(res0)
+    val res1 = encoder.visit(res0, ()).asInstanceOf[IFormula]
+//    println(res1)
     val res2 =
-      res match {
-        case INamedPart(name, res) if visitor.usedDenom =>
+      res1 match {
+        case INamedPart(name, res) if encoder.usedDenom(0) =>
           INamedPart(name,
                      ringDom.all((denom() === v(0, ringDom) &
                                     denomConstraint) ==> res))
@@ -288,41 +267,163 @@ class Fractions(name : String,
     (res, newSig)
   }
 
-  private class Preprocessor extends CollectingVisitor[Unit, IExpression] {
-    var usedDenom = false
+  private class Simplifier extends CollectingVisitor[Unit, IExpression] {
+
     def postVisit(t : IExpression, arg : Unit,
-                  subres : Seq[IExpression]) : IExpression = t match {
-      case IFunApp(`int`, _) =>
-        subres match {
-          case Seq(num : ITerm) => {
-            usedDenom = true
-            ringMul(denom(), ringInt2Ring(num))
+                  subres : Seq[IExpression]) : IExpression =
+      simplifyExpr(t, subres)
+  }
+
+  protected def simplifyExpr(t : IExpression,
+                             subres : Seq[IExpression]) : IExpression = {
+    import GroebnerMultiplication.{mult => GroebnerMult}
+
+      (t, subres) match {
+
+        // Simplification rules for addition
+        case (IFunApp(`addition`, _),
+              Seq(EmbeddedInt(num1), EmbeddedInt(num2))) =>
+          EmbeddedInt(num1 +++ num2)
+        case (IFunApp(`addition`, _),
+              Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
+          if denom1 == denom2 =>
+          Fraction(ringPlus(num1, num2), denom1)
+
+        // Simplification rules for multiplication
+        case (IFunApp(`multiplication`, _),
+              Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
+          Fraction(ringMul(num1, num2), ringMul(denom1, denom2))
+        case (IFunApp(`multiplication`, _),
+              Seq(EmbeddedInt(num1), Fraction(num2, denom2))) =>
+          Fraction(ringTimes(num1, num2), denom2)
+        case (IFunApp(`multiplication`, _),
+              Seq(Fraction(num1, denom1), EmbeddedInt(num2))) =>
+          Fraction(ringTimes(num2, num1), denom1)
+        case (IFunApp(`multiplication`, _),
+              Seq(EmbeddedInt(num1), EmbeddedInt(num2))) =>
+          EmbeddedInt(GroebnerMult(num1, num2))
+
+        case (IFunApp(`multiplication`, _),
+              Seq(t, EmbeddedInt(Const(IdealInt.ONE)))) =>
+          t
+        case (IFunApp(`multiplication`, _),
+              Seq(t, EmbeddedInt(Const(IdealInt.ZERO)))) =>
+          EmbeddedInt(IdealInt.ZERO)
+        case (IFunApp(`multiplication`, _),
+              Seq(EmbeddedInt(Const(IdealInt.ONE)), t)) =>
+          t
+        case (IFunApp(`multiplication`, _),
+              Seq(EmbeddedInt(Const(IdealInt.ZERO)), t)) =>
+          EmbeddedInt(IdealInt.ZERO)
+
+        case (IFunApp(`multiplication`, _),
+              Seq(EmbeddedInt(num1),
+                  IFunApp(`multiplication`, Seq(EmbeddedInt(num2), t)))) =>
+          GroebnerMult(num1, num2) match {
+            case Const(IdealInt.ONE) =>
+              t
+            case Const(IdealInt.ZERO) =>
+              EmbeddedInt(IdealInt.ZERO)
+            case num => 
+              multiplication(EmbeddedInt(num), t)
           }
-        }
-      case IFunApp(`frac`, _) =>
-        subres match {
-          case Seq(num : ITerm, den : ITerm) => {
-            usedDenom = true
-            dom.eps(dom.ex(
-                      (denom() === ringMul(v(0, dom), shiftVars(den, 2))) &
-                        (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
-          }
-        }
+
+        // Simplification rules for division
+        case (IFunApp(`division`, _),
+              Seq(num, EmbeddedInt(Const(IdealInt.ONE)))) =>
+          num
+        case (IFunApp(`division`, _),
+              Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
+          Fraction(ringMul(num1, denom2), ringMul(denom1, num2))
+        case (IFunApp(`division`, _),
+              Seq(Fraction(num1, denom1), EmbeddedInt(num2))) =>
+          Fraction(num1, ringTimes(num2, denom1))
+        case (IFunApp(`division`, _),
+              Seq(EmbeddedInt(num1), Fraction(num2, denom2))) =>
+          Fraction(ringTimes(num1, denom2), num2)
+        case (IFunApp(`division`, _),
+              Seq(EmbeddedInt(num), EmbeddedInt(denom))) =>
+          Fraction(ringInt2Ring(num), ringInt2Ring(denom))
+        case (IFunApp(`division`, _),
+              Seq(num : ITerm, EmbeddedInt(denom))) =>
+          multiplication(num, Fraction(ringOne, ringInt2Ring(denom)))
+
+        // Arithmetic simplification
+        case (ITimes(coeff, _),
+              Seq(EmbeddedInt(num))) =>
+          EmbeddedInt(num *** coeff)
+        case (IPlus(_, _),
+              Seq(EmbeddedInt(num1), EmbeddedInt(num2))) =>
+          EmbeddedInt(num1 +++ num2)
+        case (IEquation(_, _)
+              Seq(EmbeddedInt(s), EmbeddedInt(t))) =>
+          ringInt2Ring(s) === ringInt2Ring(t)
+        case (IIntFormula(IIntRelation.EqZero, _),
+              Seq(Difference(EmbeddedInt(s), EmbeddedInt(t)))) =>
+          ringInt2Ring(s) === ringInt2Ring(t)
+
+        case _ =>
+          t update subres
+      }
+    }
+
+  private class Encoder extends CollectingVisitor[Unit, IExpression] {
+    val usedDenom = Array(false)
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = 
+      encodeExpr(t, subres, usedDenom)
+  }
+
+  protected def encodeExpr(t         : IExpression,
+                           subres    : Seq[IExpression],
+                           usedDenom : Array[Boolean]) : IExpression = {
+    t match {
+      case IFunApp(`int`, _) => {
+        val Seq(num : ITerm) = subres
+        usedDenom(0) = true
+        ringMul(denom(), ringInt2Ring(num))
+      }
+      case IFunApp(`frac`, _) => {
+        val Seq(num : ITerm, den : ITerm) = subres
+        usedDenom(0) = true
+        dom.eps(dom.ex(
+                  (denom() === ringMul(v(0, dom), shiftVars(den, 2))) &
+                    (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
+      }
       case IFunApp(`denom`, _) => {
-        usedDenom = true
+        usedDenom(0) = true
         t
       }
+
+      case IFunApp(`addition`, _) => {
+        val Seq(s : ITerm, t : ITerm) = subres
+        ringPlus(s, t)
+      }
+
+      case IFunApp(`multiplication`, _) => {
+        // (s / denom) * (t / denom) =
+        // s * t / denom^2 =
+        // (s * t / denom) / denom
+        usedDenom(0) = true
+        val Seq(s : ITerm, t : ITerm) = subres
+        dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+                             (ringMul(v(0, ringDom), v(1, dom)) ===
+                                ringMul(shiftVars(s, 2), shiftVars(t, 2)))))
+      }
+
+      case IFunApp(`division`, _) => {
+        // (s / denom) / (t / denom) =
+        // (s / denom) * (denom / t) =
+        // (s * denom / t) / denom
+        usedDenom(0) = true
+        val Seq(s : ITerm, t : ITerm) = subres
+        dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+                             (ringMul(shiftVars(t, 2), v(1, dom)) ===
+                                ringMul(shiftVars(s, 2), v(0, ringDom)))))
+      }
+
       case _ =>
-        (t update subres) match {
-          case ITimes(coeff, IFunApp(`int`, Seq(s))) =>
-            int(coeff * s)
-          case IPlus(IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
-            int(s + t)
-          case IIntFormula(r, IFunApp(`int`, Seq(s))) =>
-            IIntFormula(r, s)
-          case res =>
-            res
-        }
+        (t update subres)
     }
   }
 
@@ -359,5 +460,68 @@ class Fractions(name : String,
   TheoryRegistry register this
 
   override def toString = name
+
+}
+
+/**
+ * The theory of fractions <code>s / t</code>, with <code>s, t</code>
+ * taken from some ordered ring.
+ */
+class OrderedFractions(name            : String,
+                       underlyingRing  : OrderedRing,
+                       denomConstraint : IFormula)
+      extends Fractions(name, underlyingRing, denomConstraint)
+      with OrderedRing {
+
+  import IExpression._
+  import underlyingRing.{int2ring => ringInt2Ring,
+                         lt => ringLt, leq => ringLeq}
+
+  /**
+   * Less-than predicate.
+   */
+  lazy val lessThan : Predicate =
+    MonoSortedPredicate(name + "_lt", List(dom, dom))
+
+  /**
+   * Less-than-or-equal predicate.
+   */
+  lazy val lessThanOrEqual : Predicate =
+    MonoSortedPredicate(name + "_leq", List(dom, dom))
+
+  override def extraPredicates = List(lessThan, lessThanOrEqual)
+
+  def lt(s : ITerm, t : ITerm) : IFormula = lessThan(s, t)
+
+  def leq(s : ITerm, t : ITerm) : IFormula = lessThanOrEqual(s, t)
+
+  override protected
+    def simplifyExpr(t : IExpression,
+                     subres : Seq[IExpression]) : IExpression = {
+      (t, subres) match {
+        case (IAtom(`lessThan`, _),
+              Seq(EmbeddedInt(s), EmbeddedInt(t))) =>
+          ringLt(ringInt2Ring(s), ringInt2Ring(t))
+        case (IAtom(`lessThanOrEqual`, _),
+              Seq(EmbeddedInt(s), EmbeddedInt(t))) =>
+          ringLeq(ringInt2Ring(s), ringInt2Ring(t))
+        case _ =>
+          super.simplifyExpr(t, subres)
+      }
+    }
+
+  override protected
+    def encodeExpr(t         : IExpression,
+                   subres    : Seq[IExpression],
+                   usedDenom : Array[Boolean]) : IExpression = {
+      (t, subres) match {
+        case (IAtom(`lessThan`, _), Seq(s : ITerm, t : ITerm)) =>
+          ringLt(s, t)
+        case (IAtom(`lessThanOrEqual`, _), Seq(s : ITerm, t : ITerm)) =>
+          ringLeq(s, t)
+        case _ =>
+          super.encodeExpr(t, subres, usedDenom)
+      }
+    }
 
 }
