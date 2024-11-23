@@ -257,10 +257,10 @@ class Fractions(name            : String,
 
   def fracPreproc(f : IFormula, signature : Signature)
                : (IFormula, Signature) = {
-    val simplifier = new Simplifier
+    val simplificationRules = Rewriter.combineRewritings(simplifiers)
     val encoder = new Encoder
 //    println(f)
-    val res0 = simplifier.visit(f, ()).asInstanceOf[IFormula]
+    val res0 = Rewriter.rewrite(f, simplificationRules).asInstanceOf[IFormula]
 //    println(res0)
     val res1 = encoder.visit(res0, ()).asInstanceOf[IFormula]
 //    println(res1)
@@ -283,6 +283,89 @@ class Fractions(name            : String,
     (res, newSig)
   }
 
+  protected def isNonZeroRingTerm(t : ITerm) : Boolean = false
+
+  private def simplifyExpr(t : IExpression) : IExpression =
+    t match {
+      // Simplification rules for literals
+      case Fraction(num, `ringOne`) =>
+        Embedded(num)
+
+      // Simplification rules for addition
+      case IFunApp(`addition`, Seq(Embedded(num1), Embedded(num2))) =>
+        Embedded(ringPlus(num1, num2))
+      case IFunApp(`addition`,
+                   Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
+        if denom1 == denom2 =>
+        Fraction(ringPlus(num1, num2), denom1)
+
+      // Simplification rules for multiplication
+      case IFunApp(`multiplication`,
+                   Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
+        Fraction(ringMul(num1, num2), ringMul(denom1, denom2))
+      case IFunApp(`multiplication`,
+                   Seq(Embedded(num1), Fraction(num2, denom2))) =>
+        Fraction(ringMul(num1, num2), denom2)
+      case IFunApp(`multiplication`,
+                   Seq(Fraction(num1, denom1), Embedded(num2))) =>
+        Fraction(ringMul(num2, num1), denom1)
+      case IFunApp(`multiplication`,
+                   Seq(Embedded(num1), Embedded(num2))) =>
+        Embedded(ringMul(num1, num2))
+
+      case IFunApp(`multiplication`, Seq(s, Embedded(t))) =>
+        multWithRing(t, s)
+      case IFunApp(`multiplication`, Seq(Embedded(t), s)) =>
+        multWithRing(t, s)
+
+      case IFunApp(`multiplication`,
+                   Seq(IFunApp(`multWithRing`, Seq(r, t)), s)) =>
+        multWithRing(r, multiplication(t, s))
+      case IFunApp(`multiplication`,
+                   Seq(s, IFunApp(`multWithRing`, Seq(r, t)))) =>
+        multWithRing(r, multiplication(s, t))
+
+      // Simplification rules for multiplication with ring element
+      case IFunApp(`multWithRing`, Seq(`ringOne`, t)) =>
+        t
+      case IFunApp(`multWithRing`, Seq(`ringZero`, t)) =>
+        zero
+
+      case IFunApp(`multWithRing`,
+                   Seq(t1, IFunApp(`multWithRing`, Seq(t2, s)))) =>
+        multWithRing(ringMul(t1, t2), s)
+
+      // Simplification rules for division
+      case IFunApp(`division`, Seq(num, `one`)) =>
+        num
+      case IFunApp(`division`,
+                   Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
+        if isNonZeroRingTerm(denom2) =>
+        Fraction(ringMul(num1, denom2), ringMul(denom1, num2))
+      case IFunApp(`division`,
+                   Seq(Fraction(num1, denom1), Embedded(num2))) =>
+        Fraction(num1, ringMul(num2, denom1))
+      case IFunApp(`division`,
+                   Seq(Embedded(num1), Fraction(num2, denom2)))
+        if isNonZeroRingTerm(denom2) =>
+        Fraction(ringMul(num1, denom2), num2)
+      case IFunApp(`division`,
+                   Seq(Embedded(num), Embedded(denom))) =>
+        Fraction(num, denom)
+      case IFunApp(`division`,
+                   Seq(num : ITerm, Embedded(denom))) =>
+        multiplication(num, Fraction(ringOne, denom))
+
+      // Arithmetic simplification
+      case Eq(Embedded(s), Embedded(t)) =>
+        s === t
+
+      case t => t
+    }
+
+  protected def simplifiers = List(simplifyExpr _)
+
+  /*
   private class Simplifier extends CollectingVisitor[Unit, IExpression] {
 
     def postVisit(t : IExpression, arg : Unit,
@@ -365,6 +448,7 @@ class Fractions(name            : String,
           t update subres
       }
     }
+   */
 
   private class Encoder extends CollectingVisitor[Unit, IExpression] {
     val usedDenom = Array(false)
@@ -499,19 +583,16 @@ class OrderedFractions(name            : String,
 
   def leq(s : ITerm, t : ITerm) : IFormula = lessThanOrEqual(s, t)
 
-  override protected
-    def simplifyExpr(t : IExpression,
-                     subres : Seq[IExpression]) : IExpression = {
-      (t, subres) match {
-        case (IAtom(`lessThan`, _),
-              Seq(Embedded(s), Embedded(t))) =>
-          ringLt(s, t)
-        case (IAtom(`lessThanOrEqual`, _),
-              Seq(Embedded(s), Embedded(t))) =>
-          ringLeq(s, t)
-        case _ =>
-          super.simplifyExpr(t, subres)
-      }
+  override protected def simplifiers =
+    super.simplifiers ++ List(simplifyIneqs _)
+
+  private def simplifyIneqs(t : IExpression) : IExpression =
+    t match {
+      case IAtom(`lessThan`, Seq(Embedded(s), Embedded(t))) =>
+        ringLt(s, t)
+      case IAtom(`lessThanOrEqual`, Seq(Embedded(s), Embedded(t))) =>
+        ringLeq(s, t)
+      case t => t
     }
 
   override protected

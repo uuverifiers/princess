@@ -122,6 +122,12 @@ object Rationals
     new DivZero("RatDivZero",
                 List(("ratDivZero", Rationals.dom)))
 
+  protected override def isNonZeroRingTerm(t : ITerm) : Boolean =
+    t match {
+      case Const(n) if !n.isZero => true
+      case _                     => false
+    }
+
   /**
    * Uninterpreted function representing the SMT-LIB rational division
    * by zero.

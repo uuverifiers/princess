@@ -89,6 +89,12 @@ Sat
 -- Test 9
 Sat
 {y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
+
+-- Test 10
+Unsat
+
+-- Test 11
+Unsat
 """
 
   def part(str : String) = {
@@ -192,6 +198,20 @@ Sat
       !! (lt(x, zero))
       println(???)
       println(partialModel)
+    }
+
+    scope {
+      part("Test 10")
+      // Division is defined as a partial function, therefore the
+      // following equation is not satisfiable
+      !! (x === div(int2ring(1), int2ring(0)))
+      println(???)
+    }
+
+    scope {
+      part("Test 11")
+      !! (x === div(int2ring(1), div(int2ring(2), int2ring(0))))
+      println(???)
     }
   }
   }

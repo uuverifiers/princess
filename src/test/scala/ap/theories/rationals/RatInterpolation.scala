@@ -61,7 +61,8 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (x === Rationals.plus(z, int2rat(5)))
 
       assert(??? == ProverStatus.Unsat)
-      println(getInterpolants(List(Set(1), Set(2))))
+      assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
+               "((-2 + (z + -1 * x)) >= 0)")
     }
 
     scope {
@@ -72,7 +73,8 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (z =/= Rationals.plus(x, Fraction(3, 2)))
 
       assert(??? == ProverStatus.Unsat)
-      println(getInterpolants(List(Set(1), Set(2))))
+      assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
+               "((3 * Rat_denom + (-2 * z + 2 * x)) = 0)")
     }
 
     scope {
