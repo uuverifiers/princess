@@ -768,9 +768,9 @@ object SMTLineariser {
           }
         }
       case Some(Rationals) => fun match {
-        case Rationals.frac => Some(("/", ""))
-        case Rationals.int  => Some(("/", "1"))
-        case _              => None
+        case Rationals.frac     => Some(("/", ""))
+        case Rationals.fromRing => Some(("/", "1"))
+        case _                  => None
       }
       case Some(ModuloArithmetic) => fun match {
         case ModuloArithmetic.int_cast => Some(("bv2nat", ""))

@@ -44,8 +44,8 @@ class TestRat extends Properties("TestRat") with ExtraAssertions {
 
   val expectedOutput = """
 -- Printing Literals
-Rat_int(0)
-Rat_int(1)
+Rat_fromRing(0)
+Rat_fromRing(1)
 (/ 0 1)
 (/ 1 1)
 (/ 42 1)

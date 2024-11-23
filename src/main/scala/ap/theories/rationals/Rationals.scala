@@ -134,7 +134,7 @@ object Rationals
   def divWithSpecialZero(s : ITerm, t : ITerm) : ITerm =
     DivZero.handleZero(div _, RatDivZero, zero,
                        { case `zero` => true; case _ => false },
-                       { case IFunApp(`int`, Seq(Const(n)))
+                       { case IFunApp(`fromRing`, Seq(Const(n)))
                               if !n.isZero => true
                          case _ => false },
                        dom)(s, t)
