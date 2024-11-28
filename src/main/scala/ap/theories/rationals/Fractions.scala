@@ -163,6 +163,15 @@ class Fractions(name            : String,
                         true, false)
 
   /**
+   * Function to represent a product of a fraction, represented using
+   * numerator and denominator, with a fraction term.
+   */
+  val multWithFraction : IFunction =
+    MonoSortedIFunction(name + "_mulWithFraction",
+                        List(RingSort, RingSort, dom), dom,
+                        true, false)
+
+  /**
    * Function to represent division.
    */
   val division : IFunction =
@@ -204,7 +213,7 @@ class Fractions(name            : String,
 
   val functions =
     List(frac, denom, fromRing, addition, multiplication,
-         multWithRing, division)
+         multWithRing, multWithFraction, division)
 
   def extraPredicates : Seq[IExpression.Predicate] = List()
 
@@ -285,11 +294,15 @@ class Fractions(name            : String,
 
   protected def isNonZeroRingTerm(t : ITerm) : Boolean = false
 
+  // TODO: only simplify fractional atoms
   private def simplifyExpr(t : IExpression) : IExpression =
     t match {
       // Simplification rules for literals
       case Fraction(num, `ringOne`) =>
         Embedded(num)
+      case Fraction(num, denom)
+        if num == denom && isNonZeroRingTerm(denom) =>
+        one
 
       // Simplification rules for addition
       case IFunApp(`addition`, Seq(Embedded(num1), Embedded(num2))) =>
@@ -300,23 +313,17 @@ class Fractions(name            : String,
         Fraction(ringPlus(num1, num2), denom1)
 
       // Simplification rules for multiplication
-      case IFunApp(`multiplication`,
-                   Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
-        Fraction(ringMul(num1, num2), ringMul(denom1, denom2))
-      case IFunApp(`multiplication`,
-                   Seq(Embedded(num1), Fraction(num2, denom2))) =>
-        Fraction(ringMul(num1, num2), denom2)
-      case IFunApp(`multiplication`,
-                   Seq(Fraction(num1, denom1), Embedded(num2))) =>
-        Fraction(ringMul(num2, num1), denom1)
-      case IFunApp(`multiplication`,
-                   Seq(Embedded(num1), Embedded(num2))) =>
-        Embedded(ringMul(num1, num2))
-
       case IFunApp(`multiplication`, Seq(s, Embedded(t))) =>
         multWithRing(t, s)
       case IFunApp(`multiplication`, Seq(Embedded(t), s)) =>
         multWithRing(t, s)
+
+      case IFunApp(`multiplication`,
+                   Seq(Fraction(num, denom), s)) =>
+        multWithFraction(num, denom, s)
+      case IFunApp(`multiplication`,
+                   Seq(s, Fraction(num, denom))) =>
+        multWithFraction(num, denom, s)
 
       case IFunApp(`multiplication`,
                    Seq(IFunApp(`multWithRing`, Seq(r, t)), s)) =>
@@ -324,6 +331,13 @@ class Fractions(name            : String,
       case IFunApp(`multiplication`,
                    Seq(s, IFunApp(`multWithRing`, Seq(r, t)))) =>
         multWithRing(r, multiplication(s, t))
+
+      case IFunApp(`multiplication`,
+                   Seq(IFunApp(`multWithFraction`, Seq(num, denom, t)), s)) =>
+        multWithFraction(num, denom, multiplication(t, s))
+      case IFunApp(`multiplication`,
+                   Seq(s, IFunApp(`multWithFraction`, Seq(num, denom, t)))) =>
+        multWithFraction(num, denom, multiplication(s, t))
 
       // Simplification rules for multiplication with ring element
       case IFunApp(`multWithRing`, Seq(`ringOne`, t)) =>
@@ -334,6 +348,34 @@ class Fractions(name            : String,
       case IFunApp(`multWithRing`,
                    Seq(t1, IFunApp(`multWithRing`, Seq(t2, s)))) =>
         multWithRing(ringMul(t1, t2), s)
+      case IFunApp(`multWithRing`,
+                   Seq(t, IFunApp(`multWithFraction`, Seq(num, denom, s)))) =>
+        multWithFraction(ringMul(t, num), denom, s)
+      case IFunApp(`multWithRing`,
+                   Seq(t, IFunApp(`addition`, Seq(s1, s2)))) =>
+        addition(multWithRing(t, s1), multWithRing(t, s2))
+
+      // Simplification rules for multiplication with fraction
+      case IFunApp(`multWithFraction`, Seq(num, denom, t))
+        if num == denom && isNonZeroRingTerm(denom) =>
+        t
+      case IFunApp(`multWithFraction`, Seq(num, `ringOne`, t)) =>
+        multWithRing(num, t)
+      case IFunApp(`multWithFraction`, Seq(`ringZero`, denom, t))
+        if isNonZeroRingTerm(denom) =>
+        zero
+
+      case IFunApp(`multWithFraction`,
+                   Seq(num1, denom1,
+                       IFunApp(`multWithFraction`, Seq(num2, denom2, s)))) =>
+        multWithFraction(ringMul(num1, num2), ringMul(denom1, denom2), s)
+      case IFunApp(`multWithFraction`,
+                   Seq(num, denom, IFunApp(`multWithRing`, Seq(t, s)))) =>
+        multWithFraction(ringMul(num, t), denom, s)
+      case IFunApp(`multWithFraction`,
+                   Seq(num, denom, IFunApp(`addition`, Seq(s1, s2)))) =>
+        addition(multWithFraction(num, denom, s1),
+                 multWithFraction(num, denom, s2))
 
       // Simplification rules for division
       case IFunApp(`division`, Seq(num, `one`)) =>
@@ -354,101 +396,19 @@ class Fractions(name            : String,
         Fraction(num, denom)
       case IFunApp(`division`,
                    Seq(num : ITerm, Embedded(denom))) =>
-        multiplication(num, Fraction(ringOne, denom))
+        multWithFraction(ringOne, denom, num)
 
       // Arithmetic simplification
       case Eq(Embedded(s), Embedded(t)) =>
         s === t
+      case Eq(Fraction(num1, denom1), Fraction(num2, denom2))
+        if isNonZeroRingTerm(denom1) && isNonZeroRingTerm(denom2) =>
+        ringMul(num1, denom2) === ringMul(num2, denom1)
 
       case t => t
     }
 
   protected def simplifiers = List(simplifyExpr _)
-
-  /*
-  private class Simplifier extends CollectingVisitor[Unit, IExpression] {
-
-    def postVisit(t : IExpression, arg : Unit,
-                  subres : Seq[IExpression]) : IExpression =
-      simplifyExpr(t, subres)
-  }
-
-  protected def simplifyExpr(t : IExpression,
-                             subres : Seq[IExpression]) : IExpression = {
-    import GroebnerMultiplication.{mult => GroebnerMult}
-
-      (t, subres) match {
-
-        // Simplification rules for addition
-        case (IFunApp(`addition`, _),
-              Seq(Embedded(num1), Embedded(num2))) =>
-          Embedded(ringPlus(num1, num2))
-        case (IFunApp(`addition`, _),
-              Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
-          if denom1 == denom2 =>
-          Fraction(ringPlus(num1, num2), denom1)
-
-        // Simplification rules for multiplication
-        case (IFunApp(`multiplication`, _),
-              Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
-          Fraction(ringMul(num1, num2), ringMul(denom1, denom2))
-        case (IFunApp(`multiplication`, _),
-              Seq(Embedded(num1), Fraction(num2, denom2))) =>
-          Fraction(ringMul(num1, num2), denom2)
-        case (IFunApp(`multiplication`, _),
-              Seq(Fraction(num1, denom1), Embedded(num2))) =>
-          Fraction(ringMul(num2, num1), denom1)
-        case (IFunApp(`multiplication`, _),
-              Seq(Embedded(num1), Embedded(num2))) =>
-          Embedded(ringMul(num1, num2))
-
-        case (IFunApp(`multiplication`, _), Seq(t, `one`)) =>
-          t
-        case (IFunApp(`multiplication`, _), Seq(t, `zero`)) =>
-          zero
-        case (IFunApp(`multiplication`, _), Seq(`one`, t)) =>
-          t
-        case (IFunApp(`multiplication`, _), Seq(`zero`, t)) =>
-          zero
-
-        case (IFunApp(`multiplication`, _),
-              Seq(Embedded(num1),
-                  IFunApp(`multiplication`, Seq(Embedded(num2), t)))) =>
-          multiplication(Embedded(ringMul(num1, num2)), t)
-
-        // Simplification rules for division
-        case (IFunApp(`division`, _),
-              Seq(num, `one`)) =>
-          num
-        case (IFunApp(`division`, _),
-              Seq(Fraction(num1, denom1), Fraction(num2, denom2))) =>
-          Fraction(ringMul(num1, denom2), ringMul(denom1, num2))
-        case (IFunApp(`division`, _),
-              Seq(Fraction(num1, denom1), Embedded(num2))) =>
-          Fraction(num1, ringMul(num2, denom1))
-        case (IFunApp(`division`, _),
-              Seq(Embedded(num1), Fraction(num2, denom2))) =>
-          Fraction(ringMul(num1, denom2), num2)
-        case (IFunApp(`division`, _),
-              Seq(Embedded(num), Embedded(denom))) =>
-          Fraction(num, denom)
-        case (IFunApp(`division`, _),
-              Seq(num : ITerm, Embedded(denom))) =>
-          multiplication(num, Fraction(ringOne, denom))
-
-        // Arithmetic simplification
-        case (IEquation(_, _)
-              Seq(Embedded(s), Embedded(t))) =>
-          s === t
-        case (IIntFormula(IIntRelation.EqZero, _),
-              Seq(Difference(Embedded(s), Embedded(t)))) =>
-          s === t
-
-        case _ =>
-          t update subres
-      }
-    }
-   */
 
   private class Encoder extends CollectingVisitor[Unit, IExpression] {
     val usedDenom = Array(false)
@@ -467,6 +427,9 @@ class Fractions(name            : String,
         ringMul(denom(), num)
       }
       case IFunApp(`frac`, _) => {
+        // num / den =
+        // (num / den) * denom / denom =
+        // (num * (denom / den)) / denom
         val Seq(num : ITerm, den : ITerm) = subres
         usedDenom(0) = true
         dom.eps(dom.ex(
@@ -497,6 +460,14 @@ class Fractions(name            : String,
       case IFunApp(`multWithRing`, _) => {
         val Seq(s : ITerm, t : ITerm) = subres
         ringMul(s, t)
+      }
+
+      case IFunApp(`multWithFraction`, _) => {
+        // (num / den) * (s / denom) =
+        // (num * s / den) / denom
+        val Seq(num : ITerm, den : ITerm, s : ITerm) = subres
+        dom.eps(ringMul(shiftVars(num, 1), shiftVars(s, 1)) ===
+                  ringMul(v(0, dom), shiftVars(den, 1)))
       }
 
       case IFunApp(`division`, _) => {

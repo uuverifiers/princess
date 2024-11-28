@@ -79,13 +79,21 @@ class RatInterpolation extends Properties("RatInterpolation") {
 
     scope {
       setPartitionNumber(1)
-//      !! (y === Rationals.plus(Rationals.mul(Fraction(1, 2), x), int2rat(1)))
-      !! (Rationals.times(2, y) === Rationals.plus(x, int2rat(2)))
-//      !! (z === Rationals.plus(y, Fraction(1, 2)))
-      !! (Rationals.times(2, z) === Rationals.plus(Rationals.times(2, y), int2rat(1)))
+      !! (Rationals.leq(x, Fraction(1, 2)))
       setPartitionNumber(2)
-//      !! (z =/= Rationals.plus(Rationals.mul(Fraction(1, 2), x), Fraction(3, 2)))
-      !! (Rationals.times(2, z) =/= Rationals.plus(x, int2rat(3)))
+      !! (Rationals.leq(y, Fraction(1, 2)))
+      setPartitionNumber(3)
+      !! (Rationals.geq(Rationals.plus(x, y), Fraction(4, 3)))
+      assert(??? == ProverStatus.Unsat)
+      println(getInterpolants(List(Set(1), Set(2), Set(3))))
+    }
+
+    scope {
+      setPartitionNumber(1)
+      !! (y === Rationals.plus(Rationals.mul(Fraction(1, 2), x), int2rat(1)))
+      !! (z === Rationals.plus(y, Fraction(1, 2)))
+      setPartitionNumber(2)
+      !! (z =/= Rationals.plus(Rationals.mul(Fraction(1, 2), x), Fraction(3, 2)))
 
       assert(??? == ProverStatus.Unsat)
       println(getInterpolants(List(Set(1), Set(2))))
