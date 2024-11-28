@@ -41,9 +41,14 @@ import ap.types.{Sort, ProxySort, MonoSortedIFunction, MonoSortedPredicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.Signature
+import ap.util.Debug
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{Map => MMap, Set => MSet}
+
+object Fractions {
+    val AC = Debug.AC_RATIONAL
+}
 
 /**
  * The theory of fractions <code>s / t</code>, with <code>s, t</code>
@@ -59,6 +64,7 @@ class Fractions(name            : String,
 
   import underlyingRing.{dom => RingSort, plus => ringPlus, mul => ringMul,
                          times => ringTimes, int2ring => ringInt2Ring}
+  import Fractions.AC
 
   private val ringZero = underlyingRing.zero
   private val ringOne  = underlyingRing.one
@@ -211,6 +217,8 @@ class Fractions(name            : String,
     MonoSortedIFunction(name + "_denom", List(), RingSort,
                         true, false)
 
+  private val denomT : ITerm = IFunApp(denom, Seq())
+
   val functions =
     List(frac, denom, fromRing, addition, multiplication,
          multWithRing, multWithFraction, division)
@@ -277,7 +285,7 @@ class Fractions(name            : String,
       res1 match {
         case INamedPart(name, res) if encoder.usedDenom(0) =>
           INamedPart(name,
-                     ringDom.all((denom() === v(0, ringDom) &
+                     ringDom.all((denomT === v(0, ringDom) &
                                     denomConstraint) ==> res))
         case res =>
           res
@@ -311,6 +319,10 @@ class Fractions(name            : String,
                    Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
         if denom1 == denom2 =>
         Fraction(ringPlus(num1, num2), denom1)
+      case IFunApp(`addition`, Seq(t, `zero`)) =>
+        t
+      case IFunApp(`addition`, Seq(`zero`, t)) =>
+        t
 
       // Simplification rules for multiplication
       case IFunApp(`multiplication`, Seq(s, Embedded(t))) =>
@@ -344,6 +356,10 @@ class Fractions(name            : String,
         t
       case IFunApp(`multWithRing`, Seq(`ringZero`, t)) =>
         zero
+      case IFunApp(`multWithRing`, Seq(s, Embedded(t))) =>
+        Embedded(ringMul(s, t))
+      case IFunApp(`multWithRing`, Seq(s, Fraction(num, denom))) =>
+        Fraction(ringMul(s, num), denom)
 
       case IFunApp(`multWithRing`,
                    Seq(t1, IFunApp(`multWithRing`, Seq(t2, s)))) =>
@@ -424,7 +440,7 @@ class Fractions(name            : String,
       case IFunApp(`fromRing`, _) => {
         val Seq(num : ITerm) = subres
         usedDenom(0) = true
-        ringMul(denom(), num)
+        ringMul(denomT, num)
       }
       case IFunApp(`frac`, _) => {
         // num / den =
@@ -433,7 +449,7 @@ class Fractions(name            : String,
         val Seq(num : ITerm, den : ITerm) = subres
         usedDenom(0) = true
         dom.eps(dom.ex(
-                  (denom() === ringMul(v(0, dom), shiftVars(den, 2))) &
+                  (denomT === ringMul(v(0, dom), shiftVars(den, 2))) &
                     (v(1, dom) === ringMul(v(0, dom), shiftVars(num, 2)))))
       }
       case IFunApp(`denom`, _) => {
@@ -452,7 +468,7 @@ class Fractions(name            : String,
         // (s * t / denom) / denom
         usedDenom(0) = true
         val Seq(s : ITerm, t : ITerm) = subres
-        dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+        dom.eps(ringDom.ex((denomT === v(0, ringDom)) & denomConstraint &
                              (ringMul(v(0, ringDom), v(1, dom)) ===
                                 ringMul(shiftVars(s, 2), shiftVars(t, 2)))))
       }
@@ -476,7 +492,7 @@ class Fractions(name            : String,
         // (s * denom / t) / denom
         usedDenom(0) = true
         val Seq(s : ITerm, t : ITerm) = subres
-        dom.eps(ringDom.ex((denom() === v(0, ringDom)) & denomConstraint &
+        dom.eps(ringDom.ex((denomT === v(0, ringDom)) & denomConstraint &
                              (ringMul(shiftVars(t, 2), v(1, dom)) ===
                                 ringMul(shiftVars(s, 2), v(0, ringDom)))))
       }
@@ -485,6 +501,85 @@ class Fractions(name            : String,
         (t update subres)
     }
   }
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  // TODO: is the following approach only applicable for rationals??
+
+  private def backtranslateAtoms(e : IExpression) : IExpression = e match {
+    case Eq(`denomT`, ITimes(coeff, t))
+      if !coeff.isZero && !termNeedsRewr(t) => {
+      t === Fraction(ringOne, coeff)
+    }
+    case Eq(ITimes(coeff1, `denomT`), ITimes(coeff2, t))
+      if !coeff2.isZero && !termNeedsRewr(t) => {
+      t === Fraction(coeff1, coeff2)
+    }
+    case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
+      if !coeff2.isZero && !termNeedsRewr(t) => {
+      t === Fraction(coeff1, coeff2)
+    }
+
+    case Eq(t1, t2) if termNeedsRewr(t1) || termNeedsRewr(t2) => {
+      val (s1, r1) = divByDenom(t1)
+      val (s2, r2) = divByDenom(t2)
+      //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
+      Debug.assertInt(AC, r1 == r2)
+      //-END-ASSERTION-////////////////////////////////////////////////////////
+      s1 === s2
+    }
+    case EqZ(t) if termNeedsRewr(t) => {
+      val (s, r) = divByDenom(t)
+      //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
+      Debug.assertInt(AC, r.isZero)
+      //-END-ASSERTION-////////////////////////////////////////////////////////
+      s === zero
+    }
+    case t => t
+  }
+
+  protected def termNeedsRewr(t : ITerm) : Boolean = {
+    import IExpression.Sort.:::
+    t match {
+      case IPlus(_ ::: `dom`, _)  => true
+      case IPlus(_, _ ::: `dom`)  => true
+      case ITimes(_, _ ::: `dom`) => true
+      case IPlus(s, t)            => termNeedsRewr(s) || termNeedsRewr(t)
+      case ITimes(_, s)           => termNeedsRewr(s)
+      case `denomT`               => true
+      case _                      => false
+    }
+  }
+
+  /**
+   * Divide each term of a sum by the <code>denom()</code> term, rewriting
+   * accordingly. Constant terms are dropped and their sum is returned
+   * as the second result.
+   */
+  def divByDenom(t : ITerm) : (ITerm, IdealInt) = {
+    t match {
+      case IPlus(t1, t2) => {
+        val (s1, r1) = divByDenom(t1)
+        val (s2, r2) = divByDenom(t2)
+        (addition(s1, s2), r1 + r2)
+      }
+      case ITimes(coeff, t1) => {
+        val (s1, r1) = divByDenom(t1)
+        (multWithRing(ringInt2Ring(coeff), s1), coeff * r1)
+      }
+      case `denomT` =>
+        (one, 0)
+      case IIntLit(value) =>
+        (zero, value)
+      case t =>
+        (t, 0)
+    }
+  }
+
+  override def postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ simplifiers ++ List(backtranslateAtoms _)
+
+  /////////////////////////////////////////////////////////////////////////////
 
   /**
    * The theory is not complete for the full first-order case; check
@@ -535,6 +630,7 @@ class OrderedFractions(name            : String,
   import IExpression._
   import underlyingRing.{int2ring => ringInt2Ring,
                          lt => ringLt, leq => ringLeq}
+  import Fractions.AC
 
   /**
    * Less-than predicate.
@@ -556,6 +652,9 @@ class OrderedFractions(name            : String,
 
   override protected def simplifiers =
     super.simplifiers ++ List(simplifyIneqs _)
+
+  override def postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ List(backtranslateIneqs _)
 
   private def simplifyIneqs(t : IExpression) : IExpression =
     t match {
@@ -579,5 +678,18 @@ class OrderedFractions(name            : String,
           super.encodeExpr(t, subres, usedDenom)
       }
     }
+
+  private def backtranslateIneqs(e : IExpression) : IExpression = e match {
+    case GeqZ(t) if termNeedsRewr(t) => {
+      val (s, r) = divByDenom(t)
+      r.signum match {
+        case -1 => lessThan(zero, s)
+        case 0  => lessThanOrEqual(zero, s)
+        case 1  => throw new Exception(
+                     "cannot back-translate rational inequality " + e)
+      }
+    }
+    case t => t
+  }
 
 }

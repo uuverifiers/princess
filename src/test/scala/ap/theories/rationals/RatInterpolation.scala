@@ -61,8 +61,8 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (x === Rationals.plus(z, int2rat(5)))
 
       assert(??? == ProverStatus.Unsat)
-      assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
-               "((-2 + (z + -1 * x)) >= 0)")
+      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
+               "(< (/ 0 1) (+ z (* (- 1) x)))")
     }
 
     scope {
@@ -73,8 +73,20 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (z =/= Rationals.plus(x, Fraction(3, 2)))
 
       assert(??? == ProverStatus.Unsat)
-      assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
-               "((3 * Rat_denom + (-2 * z + 2 * x)) = 0)")
+      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
+               "(and (= (+ (+ (/ 3 1) (* (- 3) z)) z) (* (- 2) x)) (= (/ 1 1) (+ (+ (/ 1 1) (* (- 1) z)) z)))")
+    }
+
+    scope {
+      setPartitionNumber(1)
+      !! (x === Rationals.Fraction(2, 3))
+      setPartitionNumber(2)
+      !! (x === Rationals.Fraction(6, 5))
+
+      assert(??? == ProverStatus.Unsat)
+//      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
+//        "")
+//      println(smtPP(getInterpolants(List(Set(1), Set(2)))(0)))
     }
 
     scope {
@@ -85,7 +97,7 @@ class RatInterpolation extends Properties("RatInterpolation") {
       setPartitionNumber(3)
       !! (Rationals.geq(Rationals.plus(x, y), Fraction(4, 3)))
       assert(??? == ProverStatus.Unsat)
-      println(getInterpolants(List(Set(1), Set(2), Set(3))))
+ //     println(getInterpolants(List(Set(1), Set(2), Set(3))).map(smtPP _))
     }
 
     scope {
@@ -96,7 +108,7 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (z =/= Rationals.plus(Rationals.mul(Fraction(1, 2), x), Fraction(3, 2)))
 
       assert(??? == ProverStatus.Unsat)
-      println(getInterpolants(List(Set(1), Set(2))))
+  //    println(getInterpolants(List(Set(1), Set(2))))
     }
 
     true

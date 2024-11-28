@@ -768,9 +768,12 @@ object SMTLineariser {
           }
         }
       case Some(Rationals) => fun match {
-        case Rationals.frac     => Some(("/", ""))
-        case Rationals.fromRing => Some(("/", "1"))
-        case _                  => None
+        case Rationals.frac           => Some(("/", ""))
+        case Rationals.fromRing       => Some(("/", "1"))
+        case Rationals.addition       => Some(("+", ""))
+        case Rationals.multiplication => Some(("*", ""))
+        case Rationals.multWithRing   => Some(("*", ""))
+        case _                        => None
       }
       case Some(ModuloArithmetic) => fun match {
         case ModuloArithmetic.int_cast => Some(("bv2nat", ""))
@@ -796,6 +799,11 @@ object SMTLineariser {
     (TheoryRegistry lookupSymbol pred) match {
       case Some(t : SMTLinearisableTheory) =>
         t.pred2SMTString(pred)
+      case Some(Rationals) => pred match {
+        case Rationals.lessThan        => Some("<")
+        case Rationals.lessThanOrEqual => Some("<=")
+        case _                         => None
+      }
       case _ =>
         None
     }
