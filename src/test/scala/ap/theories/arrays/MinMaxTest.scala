@@ -45,7 +45,7 @@ class MinMaxTest extends Properties("MinMaxTest") {
 
   val ArTheory = new MinMaxArray(List(Sort.Integer))
 
-  property("simple1") = {
+  property("simple") = {
     ap.util.Debug.enableAllAssertions(true)
 
     SimpleAPI.withProver(enableAssert = true) { p =>
@@ -75,4 +75,50 @@ class MinMaxTest extends Properties("MinMaxTest") {
     }
   }
 
+  property("interpolation") = {
+    ap.util.Debug.enableAllAssertions(true)
+
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      
+      val a = createConstant("a", ArTheory.sort)
+      val b = createConstant("b", ArTheory.sort)
+
+      setConstructProofs(true)
+
+      scope {
+        setPartitionNumber(1)
+        !! (ArTheory.max(a) === 10)
+        setPartitionNumber(2)
+        !! (ArTheory.select(a, 42) === 11)
+        assert(??? == ProverStatus.Unsat)
+        assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
+                 "!(select(a, 42) = 11)")
+      }
+
+      scope {
+        setPartitionNumber(1)
+        !! (ArTheory.max(a) === 10)
+        setPartitionNumber(2)
+        !! (ArTheory.min(a) === 11)
+        assert(??? == ProverStatus.Unsat)
+        assert(getInterpolants(List(Set(1), Set(2)))(0).toString ==
+                 "EX (select(a, _0) = 10)")
+      }
+
+      scope {
+        setPartitionNumber(1)
+        !! (ArTheory.max(a) === 10)
+        setPartitionNumber(2)
+        !! (b === ArTheory.store(a, 100, 101))
+        setPartitionNumber(3)
+        !! (ArTheory.select(b, 0) === 102)
+        assert(??? == ProverStatus.Unsat)
+        assert(getInterpolants(List(Set(1), Set(2), Set(3))).map(_.toString) ==
+                 Seq("!(select(a, 0) = 102)", "!(select(b, 0) = 102)"))
+      }
+
+      true
+    }
+  }
 }
