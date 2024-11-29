@@ -79,6 +79,17 @@ class RatInterpolation extends Properties("RatInterpolation") {
 
     scope {
       setPartitionNumber(1)
+      !! (x === int2rat(1))
+      setPartitionNumber(2)
+      !! (x === int2rat(2))
+
+      assert(??? == ProverStatus.Unsat)
+      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
+               "(not (= (/ 1 1) (+ (* (/ (- 1) 2) x) x)))")
+    }    
+
+    scope {
+      setPartitionNumber(1)
       !! (x === Rationals.Fraction(2, 3))
       setPartitionNumber(2)
       !! (x === Rationals.Fraction(6, 5))

@@ -1164,6 +1164,11 @@ class SMTLineariser(benchmarkName     : String,
         TryAgain(arg, ctxt addParentOp ")")
       }
 
+      case IFunApp(Rationals.multWithFraction, Seq(num, denom, t)) =>
+        TryAgain(IFunApp(Rationals.multiplication,
+                         Seq(Rationals.Fraction(num, denom), t)),
+                 ctxt)
+
       //////////////////////////////////////////////////////////////////////////
 
       case StringTheory.ConcreteString(str) => {

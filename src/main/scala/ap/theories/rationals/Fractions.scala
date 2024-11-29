@@ -523,18 +523,29 @@ class Fractions(name            : String,
     case Eq(t1, t2) if termNeedsRewr(t1) || termNeedsRewr(t2) => {
       val (s1, r1) = divByDenom(t1)
       val (s2, r2) = divByDenom(t2)
-      //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
-      Debug.assertInt(AC, r1 == r2)
-      //-END-ASSERTION-////////////////////////////////////////////////////////
-      s1 === s2
+      if (r1 == r2)
+        s1 === s2
+      else
+        false
     }
     case EqZ(t) if termNeedsRewr(t) => {
       val (s, r) = divByDenom(t)
-      //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
-      Debug.assertInt(AC, r.isZero)
-      //-END-ASSERTION-////////////////////////////////////////////////////////
-      s === zero
+      if (r.isZero)
+        s === zero
+      else
+        false
     }
+
+    case Eq(IFunApp(`addition`, Seq(s, t)), `zero`) =>
+      s === multWithRing(ringInt2Ring(-1), t)
+
+    case Eq(IFunApp(`multWithRing`, Seq(coeff, s : IVariable)), t)
+      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
+      s === multWithFraction(ringOne, coeff, t)
+    case Eq(t, IFunApp(`multWithRing`, Seq(coeff, s : IVariable)))
+      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
+      s === multWithFraction(ringOne, coeff, t)
+
     case t => t
   }
 
