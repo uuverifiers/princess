@@ -125,7 +125,22 @@ object Rationals
 
   /////////////////////////////////////////////////////////////////////////////
 
+      import IExpression.Sort.:::
+
+  val Var0Eq = SymbolEquation(v(0, dom))
+
   private def backtranslateAtoms(e : IExpression) : IExpression = e match {
+    case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) => {
+      println(e)
+      e
+    }
+
+    case Var0Eq(Const(num), Const(denom), remainder)
+      if !num.isZero && !denom.isZero => {
+      println((num, denom, remainder))
+      v(0, dom) === multWithFraction(-denom, num, remainder)
+    }
+
     case Eq(`denomT`, ITimes(coeff, t))
       if !coeff.isZero && !termNeedsRewr(t) => {
       t === Fraction(ringOne, coeff)
@@ -165,12 +180,14 @@ object Rationals
       }
     }
 
+    /*
     case Eq(IFunApp(`multWithRing`, Seq(coeff, s : IVariable)), t)
       if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
       s === multWithFraction(ringOne, coeff, t)
     case Eq(t, IFunApp(`multWithRing`, Seq(coeff, s : IVariable)))
       if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
       s === multWithFraction(ringOne, coeff, t)
+*/
 
     case t => t
   }
@@ -195,6 +212,7 @@ object Rationals
    */
   def divByDenom(t : ITerm) : (ITerm, IdealInt) = {
     t match {
+      // TODO: add multiplication
       case IPlus(t1, t2) => {
         val (s1, r1) = divByDenom(t1)
         val (s2, r2) = divByDenom(t2)
@@ -208,6 +226,8 @@ object Rationals
         (one, 0)
       case IIntLit(value) =>
         (zero, value)
+      case IVariable(n) =>
+        (v(n, dom), 0)
       case t =>
         (t, 0)
     }

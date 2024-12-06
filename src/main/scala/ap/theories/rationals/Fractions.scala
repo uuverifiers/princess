@@ -63,7 +63,8 @@ class Fractions(name            : String,
       extends Theory with RingWithDivision {
 
   import underlyingRing.{dom => RingSort, plus => ringPlus, mul => ringMul,
-                         times => ringTimes, int2ring => ringInt2Ring}
+                         times => ringTimes, int2ring => ringInt2Ring,
+                         minus => ringMinus}
   import Fractions.AC
 
   private val ringZero     = underlyingRing.zero
@@ -207,6 +208,84 @@ class Fractions(name            : String,
     def unapply(t : ITerm) : Option[ITerm] = t match {
       case IFunApp(`fromRing`, Seq(value)) => Some(value)
       case _                               => None
+    }
+  }
+
+  /**
+   * Rewrite a fractional term to the form
+   * <code>(num / denom) * symbol + remainder</code>
+   * (where remainder does not contain the atomic term
+   * <code>symbol</code>) and determine the coefficient and the remainder
+   */
+  case class SymbolSum(symbol : ITerm) {
+    import IExpression._
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(AC, symbol.isInstanceOf[IVariable] ||
+                         symbol.isInstanceOf[IConstant])
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    /**
+     * Return <code>Some((num, denom, remainder))</code>, if the term
+     * could be decomposed as a sum.
+     */
+    def unapply(t : ITerm) : Option[(ITerm, ITerm, ITerm)] ={
+      val (num, denom, remainder) = decompose(t, ringOne, ringOne)
+      symbol match {
+        case IVariable(n)  if ContainsVariable(remainder, n) =>
+          None
+        case _ : IConstant if ContainsSymbol(remainder, symbol) =>
+          None
+        case _ =>
+          Some((num, denom, remainder))
+      }
+    }
+
+    private def decompose(t     : ITerm,
+                          num   : ITerm,
+                          denom : ITerm)
+                                : (ITerm, ITerm, ITerm) = t match {
+      case `symbol` =>
+        (num, denom, zero)
+      case IFunApp(`multWithRing`, Seq(num2, t)) => {
+        val (n, d, r) = decompose(t, ringMul(num, num2), denom)
+        (n, d, multWithRing(num2, r))
+      }
+      case IFunApp(`multWithFraction`, Seq(num2, denom2, t)) => {
+        val (n, d, r) = decompose(t, ringMul(num, num2), ringMul(denom, denom2))
+        (n, d, multWithFraction(num2, denom2, r))
+      }
+      case IFunApp(`addition`, Seq(a, b)) => {
+        val (na, da, ra) = decompose(a, num, denom)
+        val (nb, db, rb) = decompose(b, num, denom)
+        (ringPlus(ringMul(na, db), ringMul(nb, da)), ringMul(da, db),
+         addition(ra, rb))
+      }
+      case t => (ringZero, ringOne, t)
+    }
+  }
+
+  /**
+   * Rewrite an equation to the form <code>(num / denom) * symbol = remainder</code>
+   * (where remainder does not contain the atomic term
+   * <code>symbol</code>) and determine the coefficient and the remainder.
+   */
+  case class SymbolEquation(symbol : ITerm) {
+    import IExpression._
+
+    private val SSum = Fractions.this.SymbolSum(symbol)
+
+    /**
+     * Return <code>Some((num, denom, remainder))</code>, if the equation
+     * could be decomposed.
+     */
+    def unapply(f : IFormula) : Option[(ITerm, ITerm, ITerm)] = f match {
+      case Eq(left, right) => minus(left, right) match {
+        case SSum(num, denom, rem) => Some((ringMinus(num), denom, rem))
+        case _                     => None
+      }
+      case _ =>
+        None
     }
   }
 
