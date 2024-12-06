@@ -48,6 +48,7 @@ object Rationals
   with Field with RingWithIntConversions {
 
   import IExpression._
+  import IntegerRing.{int2ring => ringInt2Ring}
 
   private val ignoreQuantifiersFlag =
     new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
@@ -55,6 +56,9 @@ object Rationals
   ignoreQuantifiersFlag.value = Array(false)
 
   private def ignoreQuantifiers : Boolean = ignoreQuantifiersFlag.value(0)
+
+  private val ringOne      = IntegerRing.one
+  private val ringMinusOne = ringInt2Ring(-1)
 
   /**
    * Hack to enable other theories to use rationals even in axioms with
@@ -117,6 +121,102 @@ object Rationals
                              VariableShiftVisitor(s, 0, 2), v(0)) &
                   v(0) === denom() &
                   v(0) > 0)))
+
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  private def backtranslateAtoms(e : IExpression) : IExpression = e match {
+    case Eq(`denomT`, ITimes(coeff, t))
+      if !coeff.isZero && !termNeedsRewr(t) => {
+      t === Fraction(ringOne, coeff)
+    }
+    case Eq(ITimes(coeff1, `denomT`), ITimes(coeff2, t))
+      if !coeff2.isZero && !termNeedsRewr(t) => {
+      t === Fraction(coeff1, coeff2)
+    }
+    case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
+      if !coeff2.isZero && !termNeedsRewr(t) => {
+      t === Fraction(coeff1, coeff2)
+    }
+
+    case Eq(t1, t2) if termNeedsRewr(t1) || termNeedsRewr(t2) => {
+      val (s1, r1) = divByDenom(t1)
+      val (s2, r2) = divByDenom(t2)
+      if (r1 == r2)
+        s1 === s2
+      else
+        false
+    }
+    case EqZ(t) if termNeedsRewr(t) => {
+      val (s, r) = divByDenom(t)
+      if (r.isZero)
+        s === zero
+      else
+        false
+    }
+
+    case GeqZ(t) if termNeedsRewr(t) => {
+      val (s, r) = divByDenom(t)
+      r.signum match {
+        case -1 => lessThan(zero, s)
+        case 0  => lessThanOrEqual(zero, s)
+        case 1  => throw new Exception(
+                     "cannot back-translate rational inequality " + e)
+      }
+    }
+
+    case Eq(IFunApp(`multWithRing`, Seq(coeff, s : IVariable)), t)
+      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
+      s === multWithFraction(ringOne, coeff, t)
+    case Eq(t, IFunApp(`multWithRing`, Seq(coeff, s : IVariable)))
+      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
+      s === multWithFraction(ringOne, coeff, t)
+
+    case t => t
+  }
+
+  protected def termNeedsRewr(t : ITerm) : Boolean = {
+    import IExpression.Sort.:::
+    t match {
+      case IPlus(_ ::: `dom`, _)  => true
+      case IPlus(_, _ ::: `dom`)  => true
+      case ITimes(_, _ ::: `dom`) => true
+      case IPlus(s, t)            => termNeedsRewr(s) || termNeedsRewr(t)
+      case ITimes(_, s)           => termNeedsRewr(s)
+      case `denomT`               => true
+      case _                      => false
+    }
+  }
+
+  /**
+   * Divide each term of a sum by the <code>denom()</code> term, rewriting
+   * accordingly. Constant terms are dropped and their sum is returned
+   * as the second result.
+   */
+  def divByDenom(t : ITerm) : (ITerm, IdealInt) = {
+    t match {
+      case IPlus(t1, t2) => {
+        val (s1, r1) = divByDenom(t1)
+        val (s2, r2) = divByDenom(t2)
+        (addition(s1, s2), r1 + r2)
+      }
+      case ITimes(coeff, t1) => {
+        val (s1, r1) = divByDenom(t1)
+        (multWithRing(ringInt2Ring(coeff), s1), coeff * r1)
+      }
+      case `denomT` =>
+        (one, 0)
+      case IIntLit(value) =>
+        (zero, value)
+      case t =>
+        (t, 0)
+    }
+  }
+
+  override def postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ simplifiers ++ List(backtranslateAtoms _)
+
+  /////////////////////////////////////////////////////////////////////////////
 
   val RatDivZeroTheory =
     new DivZero("RatDivZero",
