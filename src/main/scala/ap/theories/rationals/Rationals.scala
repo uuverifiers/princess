@@ -80,9 +80,12 @@ object Rationals
 
   protected override
     def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d) match {
-      case (IIntLit(n), IIntLit(d)) => {
+      case (Const(n), Const(d)) => {
         val l = n gcd d
-        (IIntLit(n / l), IIntLit(d / l))
+        if (d.signum < 0)
+          (IIntLit(-n / l), IIntLit(-d / l))
+        else
+          (IIntLit(n / l), IIntLit(d / l))
       }
       case _ =>
         (n, d)
@@ -125,21 +128,68 @@ object Rationals
 
   /////////////////////////////////////////////////////////////////////////////
 
+  private object BackTranslator extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (t, subres) match {
+        case (_ : IEquation, Seq(t1 : ITerm, t2 : ITerm))
+            if termNeedsRewr(t1) || termNeedsRewr(t2) => {
+          val (s1, r1) = divByDenom(t1)
+          val (s2, r2) = divByDenom(t2)
+          if (r1 == r2)
+            s1 === s2
+          else
+            false
+        }
+        case (IIntFormula(IIntRelation.EqZero, _), Seq(t : ITerm))
+            if termNeedsRewr(t) => {
+          val (s, r) = divByDenom(t)
+          if (r.isZero)
+            s === zero
+          else
+            false
+        }
+        case (IIntFormula(IIntRelation.GeqZero, _), Seq(t : ITerm))
+            if termNeedsRewr(t) => {
+          val (s, r) = divByDenom(t)
+          r.signum match {
+            case -1 => lessThan(zero, s)
+            case 0  => lessThanOrEqual(zero, s)
+            case 1  => throw new Exception(
+                         "cannot back-translate rational inequality " +
+                         (t update subres))
+          }
+        }
+
+        case _ => t update subres
+      }
+  }
+
+  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
+    BackTranslator.visit(f, ()).asInstanceOf[IFormula]
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  private def simplifyRationals(e : IExpression) : IExpression = e match {
+    case e => e
+  }
+
+  override protected def simplifiers =
+    super.simplifiers ++ List(simplifyRationals _)
+
+  /////////////////////////////////////////////////////////////////////////////
+
       import IExpression.Sort.:::
 
   val Var0Eq = SymbolEquation(v(0, dom))
 
-  private def backtranslateAtoms(e : IExpression) : IExpression = e match {
-    case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) => {
-      println(e)
+  private def postSimplifyAtoms(e : IExpression) : IExpression = e match {
+    case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) =>
       e
-    }
 
     case Var0Eq(Const(num), Const(denom), remainder)
-      if !num.isZero && !denom.isZero => {
-      println((num, denom, remainder))
-      v(0, dom) === multWithFraction(-denom, num, remainder)
-    }
+      if !num.isZero && !denom.isZero =>
+      v(0, dom) === multWithFraction(denom, num, remainder)
 
     case Eq(`denomT`, ITimes(coeff, t))
       if !coeff.isZero && !termNeedsRewr(t) => {
@@ -152,32 +202,6 @@ object Rationals
     case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
       if !coeff2.isZero && !termNeedsRewr(t) => {
       t === Fraction(coeff1, coeff2)
-    }
-
-    case Eq(t1, t2) if termNeedsRewr(t1) || termNeedsRewr(t2) => {
-      val (s1, r1) = divByDenom(t1)
-      val (s2, r2) = divByDenom(t2)
-      if (r1 == r2)
-        s1 === s2
-      else
-        false
-    }
-    case EqZ(t) if termNeedsRewr(t) => {
-      val (s, r) = divByDenom(t)
-      if (r.isZero)
-        s === zero
-      else
-        false
-    }
-
-    case GeqZ(t) if termNeedsRewr(t) => {
-      val (s, r) = divByDenom(t)
-      r.signum match {
-        case -1 => lessThan(zero, s)
-        case 0  => lessThanOrEqual(zero, s)
-        case 1  => throw new Exception(
-                     "cannot back-translate rational inequality " + e)
-      }
     }
 
     /*
@@ -234,7 +258,7 @@ object Rationals
   }
 
   override def postSimplifiers : Seq[IExpression => IExpression] =
-    super.postSimplifiers ++ simplifiers ++ List(backtranslateAtoms _)
+    super.postSimplifiers ++ simplifiers ++ List(postSimplifyAtoms _)
 
   /////////////////////////////////////////////////////////////////////////////
 

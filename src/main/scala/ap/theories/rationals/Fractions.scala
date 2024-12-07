@@ -392,6 +392,21 @@ class Fractions(name            : String,
         if num == denom && isNonZeroRingTerm(denom) =>
         one
 
+      case Fraction(num, denom) => {
+        val (num2, denom2) = simplifyFraction(num, denom)
+        if (num2 != num || denom2 != denom)
+          Fraction(num2, denom2)
+        else
+          t
+      }
+      case IFunApp(`multWithFraction`, Seq(num, denom, s)) => {
+        val (num2, denom2) = simplifyFraction(num, denom)
+        if (num2 != num || denom2 != denom)
+          multWithFraction(num2, denom2, s)
+        else
+          t
+      }
+
       // Simplification rules for addition
       case IFunApp(`addition`, Seq(Embedded(num1), Embedded(num2))) =>
         Embedded(ringPlus(num1, num2))
@@ -405,6 +420,8 @@ class Fractions(name            : String,
         t
 
       // Simplification rules for multiplication
+      case IFunApp(`multiplication`, Seq(Embedded(num1), Embedded(num2))) =>
+        Embedded(ringMul(num1, num2))
       case IFunApp(`multiplication`, Seq(s, Embedded(t))) =>
         multWithRing(t, s)
       case IFunApp(`multiplication`, Seq(Embedded(t), s)) =>
