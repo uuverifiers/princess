@@ -64,7 +64,7 @@ class RatInterpolation extends Properties("RatInterpolation") {
 
       assert(??? == ProverStatus.Unsat)
       assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
-               "(< (/ 0 1) (+ z (* (- 1) x)))")
+               "(< x z)")
     }
 
     scope {
@@ -97,9 +97,8 @@ class RatInterpolation extends Properties("RatInterpolation") {
       !! (x === Rationals.Fraction(6, 5))
 
       assert(??? == ProverStatus.Unsat)
-//      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
-//        "")
-//      println(smtPP(getInterpolants(List(Set(1), Set(2)))(0)))
+      assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
+        "(or (or (or (or (or (not (<= (* (/ 5 6) x) x)) (not (= (/ 1 1) (* (/ 5 6) x)))) (or (not (<= (* (/ 5 6) x) x)) (not (= (/ 1 1) (* (/ 5 6) x))))) (or (not (< (* (/ 5 6) x) x)) (not (= (/ 1 1) (* (/ 5 6) x))))) (or (not (<= (* (/ 5 6) x) x)) (not (= (/ 1 1) (* (/ 5 6) x))))) (or (not (<= (* (/ 5 6) x) x)) (not (= (/ 1 1) (* (/ 5 6) x)))))")
     }
 
     scope {

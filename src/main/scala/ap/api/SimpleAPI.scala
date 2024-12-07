@@ -1705,6 +1705,16 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   /**
+   * Execute an SMT-LIB script. Symbols declared in the script will
+   * be added to the prover; however, if the prover already knows about
+   * symbols with the same name, they will be reused.
+   */
+  def execSMTLIB(cmds : String) : Unit = {
+    val reader = new java.io.BufferedReader (new java.io.StringReader(cmds))
+    execSMTLIB(reader)
+  }
+
+  /**
    * Extract the assertions in an SMT-LIB script.
    * Symbols declared in the script will
    * be added to the prover; however, if the prover already knows about

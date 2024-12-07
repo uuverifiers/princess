@@ -664,6 +664,8 @@ class OrderedFractions(name            : String,
                          lt => ringLt, leq => ringLeq}
   import Fractions.AC
 
+  private val ringMinusOne = ringInt2Ring(-1)
+
   /**
    * Less-than predicate.
    */
@@ -691,6 +693,34 @@ class OrderedFractions(name            : String,
         ringLt(s, t)
       case IAtom(`lessThanOrEqual`, Seq(Embedded(s), Embedded(t))) =>
         ringLeq(s, t)
+        
+      case IAtom(op@(`lessThan` | `lessThanOrEqual`),
+                 Seq(IFunApp(`addition`,
+                             Seq(IFunApp(`multWithRing`,
+                                         Seq(`ringMinusOne`, s)), t)),
+                     `zero`)) =>
+        op(t, s)
+      case IAtom(op@(`lessThan` | `lessThanOrEqual`),
+                 Seq(IFunApp(`addition`,
+                             Seq(t,
+                                 IFunApp(`multWithRing`,
+                                         Seq(`ringMinusOne`, s)))),
+                     `zero`)) =>
+        op(t, s)
+      case IAtom(op@(`lessThan` | `lessThanOrEqual`),
+                 Seq(`zero`,
+                     IFunApp(`addition`,
+                             Seq(IFunApp(`multWithRing`,
+                                         Seq(`ringMinusOne`, s)), t)))) =>
+        op(s, t)
+      case IAtom(op@(`lessThan` | `lessThanOrEqual`),
+                 Seq(`zero`,
+                     IFunApp(`addition`,
+                             Seq(t,
+                                 IFunApp(`multWithRing`,
+                                         Seq(`ringMinusOne`, s)))))) =>
+        op(s, t)
+
       case t => t
     }
 

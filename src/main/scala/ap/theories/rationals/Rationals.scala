@@ -153,11 +153,8 @@ object Rationals
             if termNeedsRewr(t) => {
           val (s, r) = divByDenom(t)
           r.signum match {
-            case -1 => lessThan(zero, s)
-            case 0  => lessThanOrEqual(zero, s)
-            case 1  => throw new Exception(
-                         "cannot back-translate rational inequality " +
-                         (expr update subres))
+            case -1    => lessThan(zero, s)
+            case 0 | 1 => lessThanOrEqual(zero, s)
           }
         }
 
