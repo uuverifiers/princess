@@ -383,6 +383,11 @@ class Fractions(name            : String,
   protected def isNonZeroRingTerm(t : ITerm) : Boolean = false
 
   // TODO: only simplify fractional atoms
+  private def simplifiableFraction(num : ITerm, denom : ITerm) : Boolean = {
+    val (num2, denom2) = simplifyFraction(num, denom)
+    num2 != num || denom2 != denom
+  }
+
   private def simplifyExpr(t : IExpression) : IExpression =
     t match {
       // Simplification rules for literals
@@ -392,19 +397,15 @@ class Fractions(name            : String,
         if num == denom && isNonZeroRingTerm(denom) =>
         one
 
-      case Fraction(num, denom) => {
+      case Fraction(num, denom)
+          if simplifiableFraction(num, denom) => {
         val (num2, denom2) = simplifyFraction(num, denom)
-        if (num2 != num || denom2 != denom)
-          Fraction(num2, denom2)
-        else
-          t
+        Fraction(num2, denom2)
       }
-      case IFunApp(`multWithFraction`, Seq(num, denom, s)) => {
+      case IFunApp(`multWithFraction`, Seq(num, denom, s))
+          if simplifiableFraction(num, denom) => {
         val (num2, denom2) = simplifyFraction(num, denom)
-        if (num2 != num || denom2 != denom)
-          multWithFraction(num2, denom2, s)
-        else
-          t
+        multWithFraction(num2, denom2, s)
       }
 
       // Simplification rules for addition

@@ -54,6 +54,8 @@ class RatInterpolation extends Properties("RatInterpolation") {
     val y = createConstant("y", Rationals.dom)
     val z = createConstant("z", Rationals.dom)
 
+// try {
+
     scope {
       setPartitionNumber(1)
       !! (Rationals.lt(x, y) & Rationals.lt(y, z))
@@ -74,7 +76,7 @@ class RatInterpolation extends Properties("RatInterpolation") {
 
       assert(??? == ProverStatus.Unsat)
       assert(smtPP(getInterpolants(List(Set(1), Set(2)))(0)) ==
-               "(= (/ 1 1) (+ (* (/ (- 1) 3) (+ z (* 2 x))) z))")
+               "(= (/ 1 1) (+ (+ (* (/ (- 1) 3) z) (* (/ (- 2) 3) x)) z))")
     }
 
     scope {
@@ -122,6 +124,9 @@ class RatInterpolation extends Properties("RatInterpolation") {
   //    println(getInterpolants(List(Set(1), Set(2))))
     }
 
+//  } catch {
+//    case t : Throwable => t.printStackTrace;  false
+//  }
     true
   }
 

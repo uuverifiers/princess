@@ -129,9 +129,9 @@ object Rationals
   /////////////////////////////////////////////////////////////////////////////
 
   private object BackTranslator extends CollectingVisitor[Unit, IExpression] {
-    def postVisit(t : IExpression, arg : Unit,
+    def postVisit(expr : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression =
-      (t, subres) match {
+      (expr, subres) match {
         case (_ : IEquation, Seq(t1 : ITerm, t2 : ITerm))
             if termNeedsRewr(t1) || termNeedsRewr(t2) => {
           val (s1, r1) = divByDenom(t1)
@@ -157,11 +157,11 @@ object Rationals
             case 0  => lessThanOrEqual(zero, s)
             case 1  => throw new Exception(
                          "cannot back-translate rational inequality " +
-                         (t update subres))
+                         (expr update subres))
           }
         }
 
-        case _ => t update subres
+        case _ => expr update subres
       }
   }
 
