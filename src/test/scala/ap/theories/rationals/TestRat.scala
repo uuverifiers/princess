@@ -58,7 +58,7 @@ Sat
 
 -- Test 2
 Sat
-{y -> Rat_frac(-99, 10), x -> Rat_frac(0, 1), Rat_denom -> 10}
+{y -> Rat_frac(-99, 10), x -> Rat_fromRing(0), Rat_denom -> 10}
 
 -- Test 3
 Sat
@@ -72,6 +72,7 @@ Valid
 -- Test 5
 Invalid
 {y -> Rat_frac(-3, 2), x -> Rat_frac(-3, 2), Rat_denom -> 2}
+Some(true)
 
 -- Test 6
 Sat
@@ -80,15 +81,17 @@ Rat_frac(-4, 3)
 
 -- Test 7
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_frac(5, 1), Rat_denom -> 2}
+{y -> Rat_frac(1, 2), x -> Rat_fromRing(5), Rat_denom -> 2}
+Some((/ 11 2))
+Some((/ 10 1))
 
 -- Test 8
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_frac(5, 1), Rat_denom -> 2}
+{y -> Rat_frac(1, 2), x -> Rat_fromRing(5), Rat_denom -> 2}
 
 -- Test 9
 Sat
-{y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
+{y -> Rat_fromRing(-1), x -> Rat_fromRing(-11), Rat_denom -> 1}
 
 -- Test 10
 Unsat
@@ -164,7 +167,9 @@ Unsat
       !! (x =/= zero)
       ?? (x =/= y)
       println(???)
-      println(partialModel)
+      val m = partialModel
+      println(m)
+      println(m.eval(times(5, x) === plus(times(7, y), int2ring(3))))
     }
 
     scope {
@@ -180,7 +185,10 @@ Unsat
       !! (y =/= zero & y =/= one)
       !! (div(x, y) === int2ring(10))
       println(???)
-      println(partialModel)
+      val m = partialModel
+      println(m)
+      println(m.evalToTerm(plus(x, y)).map(smtPP))
+      println(m.evalToTerm(div(x, y)).map(smtPP))
     }
 
     scope {

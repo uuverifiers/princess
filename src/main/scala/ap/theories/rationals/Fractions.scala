@@ -106,8 +106,7 @@ class Fractions(name            : String,
                                  allTerms : Set[(IdealInt, Sort)]) =
       for (p@(num, `dom`) <- allTerms;
            numTerm <- RingSort.decodeToTerm(num, assignment)) {
-        val (n, d) = simplifyFraction(numTerm, denomTerm)
-        assignment.put(p, IFunApp(frac, List(n, d)))
+        assignment.put(p, Fraction(numTerm, denomTerm))
       }
 
     override def augmentModelTermSet(
@@ -190,7 +189,7 @@ class Fractions(name            : String,
    * Extractor for fractions, where numerator and denominator
    * are expressions from the underlying ring.
    */
-  object Fraction {
+  protected object FracTerm {
     def apply(num : ITerm, denom : ITerm) : ITerm =
       IFunApp(frac, List(num, denom))
     def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
@@ -202,12 +201,33 @@ class Fractions(name            : String,
   /**
    * Extractor for ring elements embedded into the ring of fractions.
    */
-  object Embedded {
+  protected object RingCastTerm {
     def apply(value : ITerm) : ITerm =
       IFunApp(fromRing, List(value))
     def unapply(t : ITerm) : Option[ITerm] = t match {
       case IFunApp(`fromRing`, Seq(value)) => Some(value)
       case _                               => None
+    }
+  }
+
+  /**
+   * Object to construct and identify fractions, consisting of
+   * a numerator and a denominator. Fractions are internally represented
+   * using either the function <code>frac</code>, for proper fractions,
+   * or function <code>fromRing</code> for ring elements cast to a fraction.
+   */
+  object Fraction {
+    def apply(_num : ITerm, _denom : ITerm) : ITerm = {
+      val (num, denom) = simplifyFraction(_num, _denom)
+      denom match {
+        case `ringOne` => IFunApp(fromRing, List(num))
+        case _         => IFunApp(frac, List(num, denom))
+      }
+    }
+    def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
+      case FracTerm(num, denom) => Some((num, denom))
+      case RingCastTerm(value)  => Some((value, ringOne))
+      case _                    => None
     }
   }
 
@@ -391,16 +411,15 @@ class Fractions(name            : String,
   private def simplifyExpr(t : IExpression) : IExpression =
     t match {
       // Simplification rules for literals
-      case Fraction(num, `ringOne`) =>
-        Embedded(num)
-      case Fraction(num, denom)
+      case FracTerm(num, `ringOne`) =>
+        RingCastTerm(num)
+      case FracTerm(num, denom)
         if num == denom && isNonZeroRingTerm(denom) =>
         one
 
-      case Fraction(num, denom)
+      case FracTerm(num, denom)
           if simplifiableFraction(num, denom) => {
-        val (num2, denom2) = simplifyFraction(num, denom)
-        Fraction(num2, denom2)
+        Fraction(num, denom)
       }
       case IFunApp(`multWithFraction`, Seq(num, denom, s))
           if simplifiableFraction(num, denom) => {
@@ -409,10 +428,9 @@ class Fractions(name            : String,
       }
 
       // Simplification rules for addition
-      case IFunApp(`addition`, Seq(Embedded(num1), Embedded(num2))) =>
-        Embedded(ringPlus(num1, num2))
       case IFunApp(`addition`,
-                   Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
+                   Seq(Fraction(num1, denom1),
+                       Fraction(num2, denom2)))
         if denom1 == denom2 =>
         Fraction(ringPlus(num1, num2), denom1)
       case IFunApp(`addition`, Seq(t, `zero`)) =>
@@ -421,18 +439,16 @@ class Fractions(name            : String,
         t
 
       // Simplification rules for multiplication
-      case IFunApp(`multiplication`, Seq(Embedded(num1), Embedded(num2))) =>
-        Embedded(ringMul(num1, num2))
-      case IFunApp(`multiplication`, Seq(s, Embedded(t))) =>
+      case IFunApp(`multiplication`, Seq(RingCastTerm(num1), RingCastTerm(num2))) =>
+        RingCastTerm(ringMul(num1, num2))
+      case IFunApp(`multiplication`, Seq(s, RingCastTerm(t))) =>
         multWithRing(t, s)
-      case IFunApp(`multiplication`, Seq(Embedded(t), s)) =>
+      case IFunApp(`multiplication`, Seq(RingCastTerm(t), s)) =>
         multWithRing(t, s)
 
-      case IFunApp(`multiplication`,
-                   Seq(Fraction(num, denom), s)) =>
+      case IFunApp(`multiplication`, Seq(FracTerm(num, denom), s)) =>
         multWithFraction(num, denom, s)
-      case IFunApp(`multiplication`,
-                   Seq(s, Fraction(num, denom))) =>
+      case IFunApp(`multiplication`, Seq(s, FracTerm(num, denom))) =>
         multWithFraction(num, denom, s)
 
       case IFunApp(`multiplication`,
@@ -454,10 +470,8 @@ class Fractions(name            : String,
         t
       case IFunApp(`multWithRing`, Seq(`ringZero`, t)) =>
         zero
-      case IFunApp(`multWithRing`, Seq(s, Embedded(t))) =>
-        Embedded(ringMul(s, t))
       case IFunApp(`multWithRing`, Seq(s, Fraction(num, denom))) =>
-        Fraction(ringMul(s, num), denom)
+        FracTerm(ringMul(s, num), denom)
 
       case IFunApp(`multWithRing`,
                    Seq(t1, IFunApp(`multWithRing`, Seq(t2, s)))) =>
@@ -497,20 +511,10 @@ class Fractions(name            : String,
       case IFunApp(`division`,
                    Seq(Fraction(num1, denom1), Fraction(num2, denom2)))
         if isNonZeroRingTerm(denom2) =>
-        Fraction(ringMul(num1, denom2), ringMul(denom1, num2))
-      case IFunApp(`division`,
-                   Seq(Fraction(num1, denom1), Embedded(num2))) =>
-        Fraction(num1, ringMul(num2, denom1))
-      case IFunApp(`division`,
-                   Seq(Embedded(num1), Fraction(num2, denom2)))
+        FracTerm(ringMul(num1, denom2), ringMul(denom1, num2))
+      case IFunApp(`division`, Seq(num : ITerm, Fraction(num2, denom2)))
         if isNonZeroRingTerm(denom2) =>
-        Fraction(ringMul(num1, denom2), num2)
-      case IFunApp(`division`,
-                   Seq(Embedded(num), Embedded(denom))) =>
-        Fraction(num, denom)
-      case IFunApp(`division`,
-                   Seq(num : ITerm, Embedded(denom))) =>
-        multWithFraction(ringOne, denom, num)
+        multWithFraction(denom2, num2, num)
 
       // Arithmetic simplification
       case Eq(IFunApp(`addition`,
@@ -524,9 +528,9 @@ class Fractions(name            : String,
       case Eq(IFunApp(`addition`, Seq(s, t)), `zero`) =>
         s === multWithRing(ringMinusOne, t)
 
-      case Eq(Embedded(s), Embedded(t)) =>
+      case Eq(RingCastTerm(s), RingCastTerm(t)) =>
         s === t
-      case Eq(Fraction(num1, denom1), Fraction(num2, denom2))
+      case Eq(FracTerm(num1, denom1), FracTerm(num2, denom2))
         if isNonZeroRingTerm(denom1) && isNonZeroRingTerm(denom2) =>
         ringMul(num1, denom2) === ringMul(num2, denom1)
 
@@ -689,9 +693,9 @@ class OrderedFractions(name            : String,
 
   private def simplifyIneqs(t : IExpression) : IExpression =
     t match {
-      case IAtom(`lessThan`, Seq(Embedded(s), Embedded(t))) =>
+      case IAtom(`lessThan`, Seq(RingCastTerm(s), RingCastTerm(t))) =>
         ringLt(s, t)
-      case IAtom(`lessThanOrEqual`, Seq(Embedded(s), Embedded(t))) =>
+      case IAtom(`lessThanOrEqual`, Seq(RingCastTerm(s), RingCastTerm(t))) =>
         ringLeq(s, t)
         
       case IAtom(op@(`lessThan` | `lessThanOrEqual`),

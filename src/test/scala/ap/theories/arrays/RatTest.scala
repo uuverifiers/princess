@@ -45,12 +45,12 @@ class RatTest extends Properties("RatTest") with ExtraAssertions {
 
   val expectedOutput = """Sat
 x = 0
-v = store(const(Rat_frac(3, 1)), 2, Rat_frac(1, 1))
-w = store(const(Rat_frac(3, 1)), 2, Rat_frac(1, 1))
+v = store(const(Rat_fromRing(3)), 2, Rat_fromRing(1))
+w = store(const(Rat_fromRing(3)), 2, Rat_fromRing(1))
 Sat
 x = 0
-v = store(const(Rat_frac(3, 1)), 2, Rat_frac(1, 1))
-w = store(const(Rat_frac(4, 1)), 2, Rat_frac(2, 1))
+v = store(const(Rat_fromRing(3)), 2, Rat_fromRing(1))
+w = store(const(Rat_fromRing(4)), 2, Rat_fromRing(2))
 Unsat
 Valid
 Valid

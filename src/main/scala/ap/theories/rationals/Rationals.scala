@@ -103,7 +103,7 @@ object Rationals
          (num, den) <- (for (t <- denomStream take n)   yield (nthNum, t)) ++
                        (for (t <- numStream take (n+1)) yield (t, nthDenom));
          if (num gcd den) == IdealInt.ONE)
-    yield (frac(i(num), i(den)))
+    yield (Fraction(i(num), i(den)))
   })
 
   /**
@@ -125,6 +125,49 @@ object Rationals
                   v(0) === denom() &
                   v(0) > 0)))
 
+  /////////////////////////////////////////////////////////////////////////////
+
+  override def evalFun(f : IFunApp) : Option[ITerm] = f match {
+    case Fraction(_, _) =>
+      Some(f)
+    case IFunApp(`addition`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * denom2 + num2 * denom1, denom1 * denom2))
+    case IFunApp(`multiplication`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * num2, denom1 * denom2))
+    case IFunApp(`division`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * denom2, denom1 * num2))
+    case IFunApp(`multWithRing`,
+                 Seq(Const(coeff),
+                     Fraction(Const(num1), Const(denom1)))) =>
+      Some(Fraction(coeff * num1, denom1))
+    case IFunApp(`multWithFraction`,
+                 Seq(Const(num1), Const(denom1),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * num2, denom1 * denom2))
+    case _ =>
+      None
+  }
+
+  override def evalPred(p : IAtom) : Option[Boolean] = p match {
+    case IAtom(`lessThan`,
+               Seq(Fraction(Const(num1), Const(denom1)),
+                   Fraction(Const(num2), Const(denom2))))
+        if denom1.signum > 0 && denom2.signum > 0  =>
+      Some(num1 * denom2 < num2 * denom1)
+    case IAtom(`lessThanOrEqual`,
+               Seq(Fraction(Const(num1), Const(denom1)),
+                   Fraction(Const(num2), Const(denom2))))
+        if denom1.signum > 0 && denom2.signum > 0  =>
+      Some(num1 * denom2 <= num2 * denom1)
+    case _ =>
+      None
+  }
 
   /////////////////////////////////////////////////////////////////////////////
 
@@ -167,50 +210,34 @@ object Rationals
 
   /////////////////////////////////////////////////////////////////////////////
 
-  private def simplifyRationals(e : IExpression) : IExpression = e match {
-    case e => e
-  }
+  private val Var0Eq = SymbolEquation(v(0, dom))
 
-  override protected def simplifiers =
-    super.simplifiers ++ List(simplifyRationals _)
+  private def postSimplifyAtoms(e : IExpression) : IExpression = {
+    import IExpression.Sort.:::
 
-  /////////////////////////////////////////////////////////////////////////////
+    e match {
+      case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) =>
+        e
 
-      import IExpression.Sort.:::
+      case Var0Eq(Const(num), Const(denom), remainder)
+        if !num.isZero && !denom.isZero =>
+        v(0, dom) === multWithFraction(denom, num, remainder)
 
-  val Var0Eq = SymbolEquation(v(0, dom))
+      case Eq(`denomT`, ITimes(coeff, t))
+        if !coeff.isZero && !termNeedsRewr(t) => {
+        t === Fraction(ringOne, coeff)
+      }
+      case Eq(ITimes(coeff1, `denomT`), ITimes(coeff2, t))
+        if !coeff2.isZero && !termNeedsRewr(t) => {
+        t === Fraction(coeff1, coeff2)
+      }
+      case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
+        if !coeff2.isZero && !termNeedsRewr(t) => {
+        t === Fraction(coeff1, coeff2)
+      }
 
-  private def postSimplifyAtoms(e : IExpression) : IExpression = e match {
-    case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) =>
-      e
-
-    case Var0Eq(Const(num), Const(denom), remainder)
-      if !num.isZero && !denom.isZero =>
-      v(0, dom) === multWithFraction(denom, num, remainder)
-
-    case Eq(`denomT`, ITimes(coeff, t))
-      if !coeff.isZero && !termNeedsRewr(t) => {
-      t === Fraction(ringOne, coeff)
+      case t => t
     }
-    case Eq(ITimes(coeff1, `denomT`), ITimes(coeff2, t))
-      if !coeff2.isZero && !termNeedsRewr(t) => {
-      t === Fraction(coeff1, coeff2)
-    }
-    case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
-      if !coeff2.isZero && !termNeedsRewr(t) => {
-      t === Fraction(coeff1, coeff2)
-    }
-
-    /*
-    case Eq(IFunApp(`multWithRing`, Seq(coeff, s : IVariable)), t)
-      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
-      s === multWithFraction(ringOne, coeff, t)
-    case Eq(t, IFunApp(`multWithRing`, Seq(coeff, s : IVariable)))
-      if !t.isInstanceOf[IVariable] && isNonZeroRingTerm(coeff) =>
-      s === multWithFraction(ringOne, coeff, t)
-*/
-
-    case t => t
   }
 
   protected def termNeedsRewr(t : ITerm) : Boolean = {
