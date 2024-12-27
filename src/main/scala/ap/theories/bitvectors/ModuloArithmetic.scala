@@ -727,12 +727,22 @@ object ModuloArithmetic extends Theory {
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
     if (f.args forall (isLit _)) {
-      val sort = Sort sortOf f
-      val res = Preproc.visit(f, VisitorArg(None))
-      if (res.isConstant)
-        Some(IIntLit(res.lowerBound))
-      else
-        None
+      if (f.fun == mod_cast) {
+        // make sure that the value is in simplified form
+        import IExpression._
+        val IFunApp(_, Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) = f
+        if (lower <= value && value <= upper)
+          Some(f)
+        else
+          Some(mod_cast(lower, upper, evalModCast(lower, upper, value)))
+      } else {
+        val sort = (Sort sortOf f).asInstanceOf[ModSort]
+        val res = Preproc.visit(f, VisitorArg(None))
+        if (res.isConstant)
+          Some(cast2Sort(sort, res.lowerBound))
+        else
+          None
+      }
     } else {
       None
     }
