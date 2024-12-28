@@ -97,11 +97,10 @@ class Postprocessing(signature : Signature,
     apply(f, maskTheoryConjuncts = true, int2TermTranslation = true)
 
   def processInterpolant(f : Conjunction) :IFormula=
-    apply(f, simplify = true, int2TermTranslation = true,
-          simplifySplittingLimit = 20)
+    apply(f, simplify = true, simplifySplittingLimit = 20)
 
   def processConstraint(f : Conjunction) : IFormula=
-    apply(f, simplify = true, int2TermTranslation = true)
+    apply(f, simplify = true)
 
   private def filterNonTheoryParts(model : Conjunction) : Conjunction = {
     implicit val _ = model.order

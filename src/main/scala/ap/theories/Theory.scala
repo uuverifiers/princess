@@ -44,7 +44,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
-import ap.types.Sort
+import ap.types.{Sort, IntToTermTranslator}
 import ap.util.Debug
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
@@ -283,6 +283,15 @@ object Theory {
       })
   }
 
+  private val EMPTY_DECODER_CONTEXT =
+    new DefaultDecoderContext(Conjunction.TRUE)
+
+  private val EMPTY_INT_TO_TERM_TRANSLATOR =
+    new IntToTermTranslator()(EMPTY_DECODER_CONTEXT)
+  
+  private def decodeIntegers(t : IExpression) : IExpression =
+    EMPTY_INT_TO_TERM_TRANSLATOR.updateExpr(t)
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -477,7 +486,7 @@ trait Theory {
    * default, this list will only include the <code>evaluatingSimplifier</code>.
    */
   def postSimplifiers : Seq[IExpression => IExpression] =
-    List(evaluatingSimplifier _)
+    List(evaluatingSimplifier _, Theory.decodeIntegers _)
 
   /**
    * Optionally, a plugin for the reducer applied to formulas both before
