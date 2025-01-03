@@ -772,7 +772,6 @@ object SMTLineariser {
         case Rationals.fromRing       => Some(("/", "1"))
         case Rationals.addition       => Some(("+", ""))
         case Rationals.multiplication => Some(("*", ""))
-        case Rationals.multWithRing   => Some(("*", ""))
         case _                        => None
       }
       case Some(ModuloArithmetic) => fun match {
@@ -1164,6 +1163,10 @@ class SMTLineariser(benchmarkName     : String,
         TryAgain(arg, ctxt addParentOp ")")
       }
 
+      case IFunApp(Rationals.multWithRing, Seq(num, t)) =>
+        TryAgain(IFunApp(Rationals.multiplication,
+                         Seq(Rationals.Fraction(num, 1), t)),
+                 ctxt)
       case IFunApp(Rationals.multWithFraction, Seq(num, denom, t)) =>
         TryAgain(IFunApp(Rationals.multiplication,
                          Seq(Rationals.Fraction(num, denom), t)),

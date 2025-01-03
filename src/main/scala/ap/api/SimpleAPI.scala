@@ -1635,6 +1635,19 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   /**
+   * Run the formula preprocessor on a given formula. Normally, this happens
+   * automatically, this method is mostly intended for testing and debugging
+   * purposes.
+   */
+  def preprocessIFormula(f : IFormula) : IFormula = {
+    // flush to make sure that no old axioms are left in the
+    // function encoder
+    flushTodo
+    val fors = preprocessNoAxioms(f, currentOrder)
+    IExpression.or(fors)
+  }
+
+  /**
    * Create a reducer with the current settings.
    */
   def reduce : ReduceWithConjunction = reduceWithFormula(Conjunction.TRUE)
@@ -4251,8 +4264,8 @@ class SimpleAPI private (enableAssert        : Boolean,
               order,
               theoryCollector.theories)
 
-  private def toInternalNoAxioms(f : IFormula,
-                                 order : TermOrder) : Conjunction = {
+  private def preprocessNoAxioms(f : IFormula,
+                                 order : TermOrder) : Seq[IFormula] = {
     val sig = toSignature(order)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
@@ -4268,6 +4281,13 @@ class SimpleAPI private (enableAssert        : Boolean,
                     "adding them explicitly using addTheory(...)")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    fors
+  }
+
+  private def toInternalNoAxioms(f : IFormula,
+                                 order : TermOrder) : Conjunction = {
+    val fors =
+      preprocessNoAxioms(f, order)
     val formula = 
       Conjunction.conj(InputAbsy2Internal(
         IExpression.or(for (INamedPart(FormulaPart, f) <- fors.iterator)

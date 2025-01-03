@@ -171,6 +171,8 @@ object Rationals
 
   /////////////////////////////////////////////////////////////////////////////
 
+  // TODO: back-translation of interpolants or the results of QE needs more work
+
   private object BackTranslator extends CollectingVisitor[Unit, IExpression] {
     def postVisit(expr : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression =
@@ -205,8 +207,8 @@ object Rationals
       }
   }
 
-  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
-    BackTranslator.visit(f, ()).asInstanceOf[IFormula]
+//  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
+//    BackTranslator.visit(f, ()).asInstanceOf[IFormula]
 
   /////////////////////////////////////////////////////////////////////////////
 
@@ -282,7 +284,7 @@ object Rationals
   }
 
   override def postSimplifiers : Seq[IExpression => IExpression] =
-    super.postSimplifiers ++ simplifiers ++ List(postSimplifyAtoms _)
+    super.postSimplifiers ++ simplifiers // ++ List(postSimplifyAtoms _)
 
   /////////////////////////////////////////////////////////////////////////////
 
