@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -97,6 +97,11 @@ trait PseudoRing {
    * <code>num * s</code>
    */
   def times(num : IdealInt, s : ITerm) : ITerm = mul(int2ring(IIntLit(num)), s)
+
+  /**
+   * <code>num * s</code>, where <code>num</code> must be an integer term.
+   */
+  def times(num : ITerm, s : ITerm) : ITerm = mul(int2ring(num), s)
 
   /**
    * N-ary sums

@@ -31,11 +31,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.api
+package ap.theories
 
+  import ap.SimpleAPI
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ModuloArithmetic
   import ap.util.Debug
 
 import org.scalacheck.Properties
@@ -74,7 +74,7 @@ Sat
 24: 3
 25: Some(true)
 26: true
-27: 1
+27: mod_cast(0, 15, 1)
 28: y.\as[int] >= 2
 29: false
 """

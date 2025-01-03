@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,12 +62,16 @@ class Postprocessing(signature : Signature,
 
     var formula = f
 
-    if (maskTheoryConjuncts)
-      formula = filterNonTheoryParts(formula)
-
     formula = Theory.postprocess(formula, theories, order)
 
+    if (maskTheoryConjuncts)
+      formula = filterNonTheoryParts(formula)
     var iFormula = Internal2InputAbsy(formula, predTranslation)
+
+    if (int2TermTranslation) {
+      implicit val context = new Theory.DefaultDecoderContext(f)
+      iFormula = IntToTermTranslator(iFormula)
+    }
 
     iFormula = Theory.iPostprocess(iFormula, theories, signature)
 
@@ -82,11 +86,6 @@ class Postprocessing(signature : Signature,
       iFormula = simplifier(iFormula)
     }
 
-    if (int2TermTranslation) {
-      implicit val context = new Theory.DefaultDecoderContext(f)
-      iFormula = IntToTermTranslator(iFormula)
-    }
-
     iFormula
 
   }
@@ -98,11 +97,10 @@ class Postprocessing(signature : Signature,
     apply(f, maskTheoryConjuncts = true, int2TermTranslation = true)
 
   def processInterpolant(f : Conjunction) :IFormula=
-    apply(f, simplify = true, int2TermTranslation = true,
-          simplifySplittingLimit = 20)
+    apply(f, simplify = true, simplifySplittingLimit = 20)
 
   def processConstraint(f : Conjunction) : IFormula=
-    apply(f, simplify = true, int2TermTranslation = true)
+    apply(f, simplify = true)
 
   private def filterNonTheoryParts(model : Conjunction) : Conjunction = {
     implicit val order = model.order

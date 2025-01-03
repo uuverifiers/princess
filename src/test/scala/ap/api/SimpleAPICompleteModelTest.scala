@@ -101,10 +101,10 @@ Sat
 -- Evaluation with rationals
 Sat
 x = 1
-x = Rat_frac(1, 1)
-y = Rat_frac(0, 1)
+x = Rat_fromRing(1)
+y = Rat_fromRing(0)
 x/2 = Rat_frac(1, 2)
-x = Rat_frac(1, 1)
+x = Rat_fromRing(1)
 """
 
   property("SimpleAPICompleteModelTest") = checkOutput(expectedOutput) {

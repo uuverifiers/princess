@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -654,7 +654,7 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
       ((args.iterator zip sorts.iterator) map {
          case (d@IIntLit(value), NonNumeric(sort)) =>
            (sort asTerm value) match {
-             case Some(t) => {
+             case Some(t) if t != d => {
                changed = true
                t
              }
@@ -668,9 +668,7 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
     if (changed) newArgs else args
   }
 
-  def postVisit(t : IExpression, arg : Unit,
-                subres : Seq[IExpression]) : IExpression = {
-    val nt = t update subres
+  def updateExpr(nt : IExpression) : IExpression =
     nt match {
 
       case IFunApp(f : SortedIFunction, args) => {
@@ -685,20 +683,23 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
         if (newArgs eq args) nt else IAtom(p, newArgs)
       }
 
-      case Eq(NonNumericTerm(s, sSort), IIntLit(value)) =>
+      case Eq(NonNumericTerm(s, sSort), d@IIntLit(value)) =>
         (sSort asTerm value) match {
-          case Some(sd) => s === sd
-          case None => nt
+          case Some(sd) if sd != d => s === sd
+          case _ => nt
         }
 
-      case Eq(IIntLit(value), NonNumericTerm(s, sSort)) =>
+      case Eq(d@IIntLit(value), NonNumericTerm(s, sSort)) =>
         (sSort asTerm value) match {
-          case Some(sd) => s === sd
-          case None => nt
+          case Some(sd) if sd != d => s === sd
+          case _ => nt
         }
 
       case _ =>
         nt
     }
-  }
+
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[IExpression]) : IExpression =
+    updateExpr(t update subres)
 }

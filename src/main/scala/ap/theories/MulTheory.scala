@@ -146,7 +146,7 @@ trait MulTheory extends Theory {
    * by zero.
    */
   def eDivWithSpecialZero(num : ITerm, denom : ITerm) : ITerm =
-    DivZero.handleZero(eDiv _, DivZero.IntDivZero, 0, Sort.Integer)(num, denom)
+    DivZero.handleIntZero(eDiv _, DivZero.IntDivZero, Sort.Integer)(num, denom)
 
   /**
    * Euclidian remainder
@@ -173,7 +173,7 @@ trait MulTheory extends Theory {
    * by zero.
    */
   def eModWithSpecialZero(num : ITerm, denom : ITerm) : ITerm =
-    DivZero.handleZero(eMod _, DivZero.IntModZero, 0, Sort.Integer)(num, denom)
+    DivZero.handleIntZero(eMod _, DivZero.IntModZero, Sort.Integer)(num, denom)
 
   /**
    * Truncation division

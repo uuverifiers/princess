@@ -769,9 +769,11 @@ object SMTLineariser {
           }
         }
       case Some(Rationals) => fun match {
-        case Rationals.frac => Some(("/", ""))
-        case Rationals.int  => Some(("/", "1"))
-        case _              => None
+        case Rationals.frac           => Some(("/", ""))
+        case Rationals.fromRing       => Some(("/", "1"))
+        case Rationals.addition       => Some(("+", ""))
+        case Rationals.multiplication => Some(("*", ""))
+        case _                        => None
       }
       case Some(ModuloArithmetic) => fun match {
         case ModuloArithmetic.int_cast => Some(("bv2nat", ""))
@@ -797,6 +799,11 @@ object SMTLineariser {
     (TheoryRegistry lookupSymbol pred) match {
       case Some(t : SMTLinearisableTheory) =>
         t.pred2SMTString(pred)
+      case Some(Rationals) => pred match {
+        case Rationals.lessThan        => Some("<")
+        case Rationals.lessThanOrEqual => Some("<=")
+        case _                         => None
+      }
       case _ =>
         None
     }
@@ -1156,6 +1163,15 @@ class SMTLineariser(benchmarkName     : String,
         print("((_ zero_extend " + addWidth + ") ")
         TryAgain(arg, ctxt addParentOp ")")
       }
+
+      case IFunApp(Rationals.multWithRing, Seq(num, t)) =>
+        TryAgain(IFunApp(Rationals.multiplication,
+                         Seq(Rationals.Fraction(num, 1), t)),
+                 ctxt)
+      case IFunApp(Rationals.multWithFraction, Seq(num, denom, t)) =>
+        TryAgain(IFunApp(Rationals.multiplication,
+                         Seq(Rationals.Fraction(num, denom), t)),
+                 ctxt)
 
       //////////////////////////////////////////////////////////////////////////
 
