@@ -70,7 +70,7 @@ Valid
 Valid
 14 >= X & X >= 11
 Sat
-10
+16
 Unsat
 Unsat
 Unsat
@@ -78,9 +78,9 @@ Finished
 
 nonlinear.scala
 0: Sat
-{c1 -> 1, c0 -> 4}
+{c1 -> -1, c0 -> -4}
 1: Sat
-{c1 -> 3, c0 -> 3}
+{c1 -> 3, c0 -> 4}
 2: Unsat
 3: Invalid
 {c0 -> -1}
