@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2025 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -479,9 +479,9 @@ case class CoeffMonomial(coeff : IdealInt, monomial : Monomial)
     if (monomial.isEmpty)
       "" + coeff
     else
-      (if (coeff.intValue == 1)
+      (if (coeff.isOne)
         ""
-      else if (coeff.intValue == -1)
+      else if (coeff.isMinusOne)
         "-"
       else
         coeff) +

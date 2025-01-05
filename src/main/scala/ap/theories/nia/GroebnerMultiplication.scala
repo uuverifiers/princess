@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2025 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,7 +79,14 @@ object GroebnerMultiplication extends MulTheory {
   val RANDOMISE_VARIABLE_ORDER = true
 
   // Randomise the order in which the splitting cases are handled
-  val RANDOMISE_CASES          = false
+  val RANDOMISE_CASES          = true
+
+  // Maximum number of refinements accepted per variable during ICP before
+  // considering the variable as "unstable"
+  val PROPAGATION_UPDATE_LIMIT = 5
+
+  // Max size of intervals that are considered "small" during ICP
+  val SMALL_INTERVAL_BOUND = 100
 
   private val AC = Debug.AC_NIA
 
@@ -595,37 +602,33 @@ println(unprocessed)
 
       val intervalAtoms = new ArrayBuffer[(ArithConj, BitSet)]
 
-      for ((ct, i, (ul, uu, _), (l1, l2, _)) <- intervalSet.getIntervals) {
+      for ((ct, i, (l1, l2, _)) <- intervalSet.getStableUpdatedIntervals) {
 
-        if ((ul || uu) && i.lower == i.upper) {
+        if (i.lower == i.upper) {
           i.lower match {
             case IntervalVal(v) => intervalAtoms += ((ct === v, l1 | l2))
             case _ => // nothing
           }
         } else {
           // Generate inequalities according to intervals
-          if (ul) {
-            i.lower match {
-              case IntervalNegInf =>
-              case IntervalPosInf => {
-                intervalAtoms += ((ct > 0, l1))
-                intervalAtoms += ((ct < 0, l1))
-              }
-              case IntervalVal(v) =>
-                intervalAtoms += ((ct >= v, l1))
+          i.lower match {
+            case IntervalNegInf =>
+            case IntervalPosInf => {
+              intervalAtoms += ((ct > 0, l1))
+              intervalAtoms += ((ct < 0, l1))
             }
+            case IntervalVal(v) =>
+              intervalAtoms += ((ct >= v, l1))
           }
 
-          if (uu) {
-            i.upper match {
-              case IntervalNegInf => {
-                intervalAtoms += ((ct > 0, l2))
-                intervalAtoms += ((ct < 0, l2))
-              }
-              case IntervalVal(v) =>
-                intervalAtoms += ((ct <= v, l2))
-              case IntervalPosInf =>
+          i.upper match {
+            case IntervalNegInf => {
+              intervalAtoms += ((ct > 0, l2))
+              intervalAtoms += ((ct < 0, l2))
             }
+            case IntervalVal(v) =>
+              intervalAtoms += ((ct <= v, l2))
+            case IntervalPosInf =>
           }
         }
       }
@@ -1075,7 +1078,8 @@ println(unprocessed)
         def infinitySplit(intervalSet : IntervalSet,
                           targetSet : Set[ConstantTerm])
                          : Iterator[(Seq[ArithConj], String, BitSet,
-                                     Seq[Plugin.Action])] = {
+                                     Seq[Plugin.Action],
+                                     Boolean)] = {
           (intervalSet.getAllIntervals.iterator.collect {
             case (c, i, label) if ((targetSet contains c) &&
                                    i.lower == IntervalNegInf &&
@@ -1085,7 +1089,8 @@ println(unprocessed)
               (List(opt1.negate, opt2.negate),
                "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
                BitSet(),
-               splitTermAt(c, IdealInt.ZERO))
+               splitTermAt(c, IdealInt.ZERO),
+               true)
             }
           })
         }
@@ -1104,7 +1109,7 @@ println(unprocessed)
         def discreteSplit(intervalSet : IntervalSet,
                           targetSet : Seq[ConstantTerm])
                         : Iterator[(Seq[ArithConj], String, BitSet,
-                                    Seq[Plugin.Action])] = {
+                                    Seq[Plugin.Action], Boolean)] = {
           val ac = goal.facts.arithConj
 
           for (x <- targetSet.iterator;
@@ -1118,7 +1123,7 @@ println(unprocessed)
                    Iterator single ((options,
                                      "Discrete split: " + x + " in [" +
                                        ll + ", " + ul + "]",
-                                     label1 | label2, null))
+                                     label1 | label2, null, true))
                  }
                  case _ =>
                    Iterator.empty
@@ -1132,7 +1137,7 @@ println(unprocessed)
         def binarySplit(intervalSet : IntervalSet,
                         targetSet : Seq[ConstantTerm])
                       : Iterator[(Seq[ArithConj], String, BitSet,
-                                  Seq[Plugin.Action])] = {
+                                  Seq[Plugin.Action], Boolean)] = {
           val ac = goal.facts.arithConj
 
           for (x <- targetSet.iterator;
@@ -1146,7 +1151,7 @@ println(unprocessed)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                      "Interval split: " + x + " in [" +
                                        ll + ", " + ul + "] at " + mid,
-                                     BitSet(), splitTermAt(x, mid)))
+                                     BitSet(), splitTermAt(x, mid), true))
                  }
                  case (Interval(IntervalVal(ll), IntervalPosInf, _), _)
                      if ll.signum > 0 => {
@@ -1156,7 +1161,7 @@ println(unprocessed)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                      "Exp lowerbound split: " +
                                         opt1 + ", " + opt2,
-                                     BitSet(), splitTermAt(x, mid)))
+                                     BitSet(), splitTermAt(x, mid), false))
                  }
                  case (Interval(IntervalVal(ll), IntervalPosInf, _),
                        (label, _, _))
@@ -1165,7 +1170,7 @@ println(unprocessed)
                    val opt2 = ArithConj.conj(x > ll, order)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                      "LowerBound split: " + opt1 + ", " + opt2,
-                                     label, null))
+                                     label, null, false))
                  }
                  case (Interval(IntervalNegInf, IntervalVal(ul), _), _)
                      if ul.signum < 0 => {
@@ -1175,7 +1180,8 @@ println(unprocessed)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                      "Exp upperbound split: " +
                                         opt1 + ", " + opt2,
-                                     BitSet(), splitTermAt(x, mid, true)))
+                                     BitSet(), splitTermAt(x, mid, true),
+                                     false))
                  }
                  case (Interval(IntervalNegInf, IntervalVal(ul), _),
                        (_, label, _))
@@ -1184,7 +1190,7 @@ println(unprocessed)
                    val opt2 = ArithConj.conj(x < ul, order)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                      "UpperBound split: " + opt1 + ", " + opt2,
-                                     label, null))
+                                     label, null, false))
                  }
                  case (Interval(IntervalVal(_), IntervalPosInf, _), _) |
                       (Interval(IntervalNegInf, IntervalVal(_), _), _) => {
@@ -1193,7 +1199,8 @@ println(unprocessed)
                    Iterator single ((List(opt1.negate, opt2.negate),
                                     "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
                                     BitSet(),
-                                    splitTermAt(x, IdealInt.ZERO)))
+                                    splitTermAt(x, IdealInt.ZERO),
+                                    true))
                  }
                  case _ =>
                    Iterator.empty
@@ -1209,7 +1216,7 @@ println(unprocessed)
                        negeqs : ap.terfor.equations.NegEquationConj,
                        targetSet : Set[ConstantTerm])
                       : Iterator[(Seq[ArithConj], String, BitSet,
-                                 Seq[Plugin.Action])] =
+                                 Seq[Plugin.Action], Boolean)] =
           for (negeq <- negeqs.iterator;
                if (negeq.constants.size == 1);
                c = negeq.constants.iterator.next();
@@ -1220,17 +1227,17 @@ println(unprocessed)
           yield
             (List(opt1.negate, opt2.negate), "Negeq split on: " + negeq,
              null,
-             List(Plugin.SplitDisequality(negeq, List(), List())))
+             List(Plugin.SplitDisequality(negeq, List(), List())),
+             true)
   
         /**
          * Utilizes any gaps in an interval (i.e. x = [lb, -a] U [a, ub]) 
          *  and branches into two (i.e. x <= -a V x >= a)
-         *
          */
         def gapSplit(intervalSet : IntervalSet,
                      targetSet : Set[ConstantTerm])
                     : Iterator[(Seq[ArithConj], String, BitSet,
-                                Seq[Plugin.Action])] = {
+                                Seq[Plugin.Action], Boolean)] = {
           val gaps = intervalSet.getGaps
           (for ((term, interval, label) <- gaps.iterator;
                 if (targetSet contains term))
@@ -1239,7 +1246,7 @@ println(unprocessed)
             val opt2 = (term > interval.gap.get._2)
             (List(opt1.negate, opt2.negate),
              "Gap split on " + term + " using " + interval,
-             label, null)
+             label, null, true)
           })
         }
 
@@ -1248,7 +1255,6 @@ println(unprocessed)
         addFacts(goal.facts.arithConj)
 
         var contPropLoop = true
-        var lastAlternative : Seq[Plugin.Action] = null
         while (contPropLoop) {
           contPropLoop = false
 
@@ -1295,7 +1301,8 @@ println(unprocessed)
             })
 
           if (alternatives.hasNext) {
-            val s@(options, desc, label, actions) = alternatives.next()
+            val s@(options, desc, label, actions, canRandomise) =
+              alternatives.next()
 
             if (Param.PROOF_CONSTRUCTION(goal.settings)) {
               // just apply the split that we found
@@ -1307,6 +1314,8 @@ println(unprocessed)
                                          GroebnerMultiplication.this))
                 else
                   actions
+
+              // TODO: randomize
 
               val intActions =
                 filterActions(intervals2Actions(intervalSet, predicates, goal,
@@ -1323,10 +1332,10 @@ println(unprocessed)
               val optionsBuf = new ArrayBuffer[ArithConj]
               optionsBuf ++= options
 
-              if (RANDOMISE_CASES)
+              if (RANDOMISE_CASES && canRandomise)
                 Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(optionsBuf)
 
-              lastAlternative =
+              val alt =
                 List(Plugin.AddFormula(intervals2Formula(intervalSet,
                                                          predicates, goal)),
                      Plugin.SplitGoal(for (opt <- optionsBuf)
@@ -1334,9 +1343,9 @@ println(unprocessed)
 
 
               //-BEGIN-ASSERTION-/////////////////////////////////////////////
-              printActions(desc, lastAlternative)
+              printActions(desc, alt)
               //-END-ASSERTION-///////////////////////////////////////////////
-              return lastAlternative
+              return alt
 
 /*
             TODO: do we still need the below code?
@@ -1368,13 +1377,14 @@ println(unprocessed)
  */
             }
 
+  /*
           } else if (lastAlternative != null) {
 
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             printActions("Splitting", lastAlternative)
             //-END-ASSERTION-///////////////////////////////////////////////////
             return lastAlternative
-
+*/
           } else {
 
             val intActions =

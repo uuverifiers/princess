@@ -244,10 +244,10 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun b () Int 803)
-  (define-fun a () Int 137)
-  (define-fun n () Int 110011)
-  (define-fun w () String "110011")
+  (define-fun b () Int 274)
+  (define-fun a () Int 3212)
+  (define-fun n () Int 880088)
+  (define-fun w () String "880088")
 )
 Loading str-to-int5.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it

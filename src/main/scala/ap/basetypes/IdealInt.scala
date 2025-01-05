@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -887,6 +887,37 @@ final class IdealInt private (private val longStore : Long,
     }
 
     res
+  }
+
+  /**
+   * For a non-negative number <code>this</code>, return the greatest
+   * number <code>s</code> such that <code>s*s <= this</code>.
+   */
+  def sqrt : IdealInt = {
+    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, this.signum >= 0)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    if (this <= IdealInt.ONE)
+      return this
+
+    var lo = IdealInt.ZERO
+    var hi = this
+
+    while (!(hi - lo).isOne) {
+      val mid = (lo + hi) / 2
+      if (mid * mid <= this) {
+        lo = mid
+      } else {
+        hi = mid
+      }
+    }
+
+    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
+    Debug.assertPost(IdealInt.AC, lo * lo <= this && (lo + 1) * (lo + 1) > this)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    lo
   }
 
   /** Converts this <code>IdealInt</code> to an <tt>int</tt>. 

@@ -77,7 +77,10 @@ TESTS="existential.pri \
        bvashr2.smt2 \
        arith-extracts.pri \
        bvsrem-bug.smt2 \
-       reducer-bug.smt2"
+       reducer-bug.smt2 \
+       big-bv1.pri \
+       big-bv2.pri \
+       big-bv3.pri"
 
 $PRI "$@" $TESTS
 
