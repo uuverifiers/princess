@@ -539,6 +539,7 @@ trait IntervalStore {
   def getStableUpdated : (Interval, BitSet, BitSet, BitSet)
 }
 
+// TODO: optimize, do not store all intervals
 class BufferingIntervalStore(term          : ConstantTerm,
                              updateBound   : Int,
                              smallIntBound : IdealInt) extends IntervalStore {
