@@ -79,10 +79,16 @@ object GroebnerMultiplication extends MulTheory {
   val RANDOMISE_VARIABLE_ORDER = true
 
   // Randomise the order in which the splitting cases are handled
-  val RANDOMISE_CASES          = true
+  //val RANDOMISE_CASES = true
+  def RANDOMISE_CASES(goal : Goal) =
+    Param.NONLINEAR_SPLITTING_ORDER(goal.settings) ==
+      Param.NonLinearSplittingOrder.VarsCases
 
   // Use the IntValueEnumerator theory instead of the native splitter
-  val VALUE_ENUMERATOR         = false
+  val VALUE_ENUMERATOR = false
+  def VALUE_ENUMERATOR(goal : Goal) =
+    Param.NONLINEAR_SPLITTING(goal.settings) ==
+      Param.NonLinearSplitting.Spherical
 
   // Maximum number of refinements accepted per variable during ICP before
   // considering the variable as "unstable"
@@ -112,15 +118,12 @@ object GroebnerMultiplication extends MulTheory {
                   theories : Seq[Theory],
                   config : Theory.SatSoundnessConfig.Value) : Boolean = true
 
-  val valueEnumerator : Option[IntValueEnumTheory] =
-    if (VALUE_ENUMERATOR)
-      Some(new IntValueEnumTheory("GroebnerMultiplicationSplitter",
-                                  completeSplitBound = DISCRETE_SPLITTING_LIMIT,
-                                  randomiseValues = RANDOMISE_CASES))
-    else
-      None
+  val valueEnumerator : IntValueEnumTheory =
+      new IntValueEnumTheory("GroebnerMultiplicationValueEnumerator",
+                             completeSplitBound = DISCRETE_SPLITTING_LIMIT,
+                             randomiseValues = true)
 
-  override val dependencies = valueEnumerator.toSeq
+  override val dependencies = List(valueEnumerator)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -384,11 +387,11 @@ object GroebnerMultiplication extends MulTheory {
 
     // Do splitting
 
-    if (VALUE_ENUMERATOR) {
+    if (VALUE_ENUMERATOR(goal)) {
       val linearizer = simpleLinearizers(goal)
       val enumAtoms =
         goal.reduceWithFacts(
-          conj(linearizer.map(valueEnumerator.get.enumIntValuesOf(_, order))))
+          conj(linearizer.map(valueEnumerator.enumIntValuesOf(_, order))))
       if (enumAtoms.isTrue)
         List()
       else

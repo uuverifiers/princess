@@ -63,11 +63,11 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
 
     // Compute a minimal set of variables that in enough to linearise all
     // multiplication atoms
-    val MINIMAL_SPLITTING_SET =
-      Param.NONLINEAR_SPLITTING(goal.settings) match {
-        case Param.NonLinearSplitting.SignMinimal => true
-        case _                                    => false
-      }
+    val MINIMAL_SPLITTING_SET = false
+//      Param.NONLINEAR_SPLITTING(goal.settings) match {
+//        case Param.NonLinearSplitting.SignMinimal => true
+//        case _                                    => false
+//      }
 
     // Extract all predicates
     val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
@@ -175,15 +175,9 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
         negeqSplit(intervalSet,
                     goal.facts.arithConj.negativeEqs, splitConstSet) ++
         gapSplit(intervalSet, splitConstSet) ++
-        (Param.NONLINEAR_SPLITTING(goal.settings) match {
-          case Param.NonLinearSplitting.Sign |
-                Param.NonLinearSplitting.SignMinimal =>
-            infinitySplit(intervalSet, splitConstSet) ++
-            discreteSplit(intervalSet, splitConstSeq) ++
-            binarySplit(intervalSet, splitConstSeq)
-          case Param.NonLinearSplitting.Spherical =>
-            throw new Exception("sphericalSplit not enabled!")
-        })
+        infinitySplit(intervalSet, splitConstSet) ++
+        discreteSplit(intervalSet, splitConstSeq) ++
+        binarySplit(intervalSet, splitConstSeq)
 
       if (alternatives.hasNext) {
         val s@(options, desc, label, actions, canRandomise) =
@@ -217,7 +211,7 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
           val optionsBuf = new ArrayBuffer[ArithConj]
           optionsBuf ++= options
 
-          if (RANDOMISE_CASES && canRandomise)
+          if (canRandomise && RANDOMISE_CASES(goal))
             Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(optionsBuf)
 
           val alt =
