@@ -15,10 +15,10 @@
 4095 >= z & z >= 0 & 
 	81129638414606681695789005144063 >= a & a >= 0 & 
 	a[104:52] = b &  //extract siginificand
-	x[52:52] = 0.\as[bv[1]] &  //Normal number in havoc statement
+	x[52:52] = 1.\as[bv[1]] &  //Normal number in havoc statement
         
 	a[105:105] = 0.\as[bv[1]] &  // check if it needs normalization
-	a[52:52] = 0 &  // Round bit in rounding
+	a[52:52] = 1 &  // Round bit in rounding
 
 	z[10:0] = c & //extract exponent
 	d = a & 

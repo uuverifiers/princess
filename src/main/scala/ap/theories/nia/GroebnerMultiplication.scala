@@ -81,6 +81,9 @@ object GroebnerMultiplication extends MulTheory {
   // Randomise the order in which the splitting cases are handled
   val RANDOMISE_CASES          = true
 
+  // Use the IntValueEnumerator theory instead of the native splitter
+  val VALUE_ENUMERATOR         = false
+
   // Maximum number of refinements accepted per variable during ICP before
   // considering the variable as "unstable"
   val PROPAGATION_UPDATE_LIMIT = 5
@@ -108,6 +111,16 @@ object GroebnerMultiplication extends MulTheory {
   override def isSoundForSat(
                   theories : Seq[Theory],
                   config : Theory.SatSoundnessConfig.Value) : Boolean = true
+
+  val valueEnumerator : Option[IntValueEnumTheory] =
+    if (VALUE_ENUMERATOR)
+      Some(new IntValueEnumTheory("GroebnerMultiplicationSplitter",
+                                  completeSplitBound = DISCRETE_SPLITTING_LIMIT,
+                                  randomiseValues = RANDOMISE_CASES))
+    else
+      None
+
+  override val dependencies = valueEnumerator.toSeq
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -370,18 +383,29 @@ object GroebnerMultiplication extends MulTheory {
     }
 
     // Do splitting
-    if (calledFromSplitter)
-      return List()
 
-    val splitter = new Splitter(gbCache)
+    if (VALUE_ENUMERATOR) {
+      val linearizer = simpleLinearizers(goal)
+      val enumAtoms =
+        goal.reduceWithFacts(
+          conj(linearizer.map(valueEnumerator.get.enumIntValuesOf(_, order))))
+      if (enumAtoms.isTrue)
+        List()
+      else
+        List(Plugin.AddAxiom(List(), enumAtoms, this))
+    } else if (calledFromSplitter) {
+      List()
+    } else {
+      val splitter = new Splitter(gbCache)
 
-    gState match {
-      case Plugin.GoalState.Final =>
-        // Split directly!
-        removeFactsActions ::: (splitter handleGoal goal).toList
-      case _ =>
-        val scheduleAction = Plugin.ScheduleTask(splitter, 10)
-        removeFactsActions ::: List(scheduleAction)
+      gState match {
+        case Plugin.GoalState.Final =>
+          // Split directly!
+          removeFactsActions ::: (splitter handleGoal goal).toList
+        case _ =>
+          val scheduleAction = Plugin.ScheduleTask(splitter, 10)
+          removeFactsActions ::: List(scheduleAction)
+      }
     }
 
   }
@@ -745,6 +769,41 @@ object GroebnerMultiplication extends MulTheory {
                                    order   : TermOrder)
                                            : Seq[Plugin.Action] =
     actions filter (Plugin.isRelevantAxiomAction(_, order))
+
+  /**
+   * Find a set of constants that are sufficient to make all product
+   * constraints linear: assigning concrete values to the constants will
+   * make products become linear.
+   */
+  def simpleLinearizers(goal : Goal) : Set[ConstantTerm] = {
+    implicit val order =
+      goal.order
+    val predicates =
+      goal.facts.predConj.positiveLitsWithPred(_mul)
+    val predSet =
+      for (p <- predicates) yield (p(0).constants, p(1).constants)
+    val relevantConsts =
+      (for ((s, t) <- predSet.iterator; c <- s.iterator ++ t.iterator)
+        yield c).toSet
+
+    val allConsts = order.sort(relevantConsts)
+    val allConstsSet = new MHashSet[ConstantTerm]
+    allConstsSet ++= allConsts
+
+    def isLinear : Boolean =
+      predSet forall { case (s1, s2) => (s1 subsetOf allConstsSet) ||
+                                        (s2 subsetOf allConstsSet) }
+
+    if (isLinear)
+      // minimise the set of chosen constants (greedily)
+      for (c <- allConsts) {
+        allConstsSet -= c
+        if (!isLinear)
+          allConstsSet += c
+      }
+
+    allConstsSet.toSet
+  }
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   protected[nia] def printNIAgoal(t : String, goal : Goal) = if (debug) {
