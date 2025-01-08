@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -210,8 +210,12 @@ object GlobalSettings {
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
         case ValueOpt("mulSplitting", "sign") =>
           Param.NONLINEAR_SPLITTING.set(settings, Param.NonLinearSplitting.Sign)
-        case ValueOpt("mulSplitting", "signMinimal") =>
-          Param.NONLINEAR_SPLITTING.set(settings, Param.NonLinearSplitting.SignMinimal)
+        case ValueOpt("mulSplitting", "spherical") =>
+          Param.NONLINEAR_SPLITTING.set(settings, Param.NonLinearSplitting.Spherical)
+        case ValueOpt("mulRandomization", "vars") =>
+          Param.NONLINEAR_SPLITTING_ORDER.set(settings, Param.NonLinearSplittingOrder.Vars)
+        case ValueOpt("mulRandomization", "varsCases") =>
+          Param.NONLINEAR_SPLITTING_ORDER.set(settings, Param.NonLinearSplittingOrder.VarsCases)
         case ValueOpt("adtMeasure", "size") =>
           Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.Size)
         case ValueOpt("adtMeasure", "relDepth") =>
@@ -289,6 +293,7 @@ object GlobalSettings {
          Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
+         Param.NONLINEAR_SPLITTING_ORDER,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED,
          Param.PORTFOLIO_THREAD_NUM, Param.INLINE_SIZE_LIMIT,
          Param.WARM_UP)
@@ -312,6 +317,7 @@ object GoalSettings {
                        Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
+                       Param.NONLINEAR_SPLITTING_ORDER,
                        Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS,
                        Param.MODEL_GENERATION, Param.LOG_LEVEL)
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -414,12 +414,21 @@ object Param {
   }
 
   object NonLinearSplitting extends Enumeration {
-    val Spherical, Sign, SignMinimal = Value
+    val Spherical, Sign = Value
   }
 
   case object NONLINEAR_SPLITTING extends Param {
     type Value = NonLinearSplitting.Value
     val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
+  }
+
+  object NonLinearSplittingOrder extends Enumeration {
+    val Vars, VarsCases = Value
+  }
+
+  case object NONLINEAR_SPLITTING_ORDER extends Param {
+    type Value = NonLinearSplittingOrder.Value
+    val defau : NonLinearSplittingOrder.Value = NonLinearSplittingOrder.VarsCases
   }
 
   case object PREDICATE_MATCH_CONFIG extends Param {

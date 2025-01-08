@@ -76,18 +76,18 @@ Some(true)
 
 -- Test 6
 Sat
-{x -> Rat_frac(-4, 3), Rat_denom -> 9}
-Rat_frac(-4, 3)
+{x -> Rat_frac(4, 3), Rat_denom -> 18}
+Rat_frac(4, 3)
 
 -- Test 7
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_fromRing(5), Rat_denom -> 2}
-Some((/ 11 2))
+{y -> Rat_fromRing(-1), x -> Rat_fromRing(-10), Rat_denom -> 1}
+Some((/ (- 11) 1))
 Some((/ 10 1))
 
 -- Test 8
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_fromRing(5), Rat_denom -> 2}
+{y -> Rat_frac(2, 3), x -> Rat_frac(20, 3), Rat_denom -> 3}
 
 -- Test 9
 Sat
