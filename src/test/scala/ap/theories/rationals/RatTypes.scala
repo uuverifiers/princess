@@ -87,6 +87,13 @@ class RatTypes extends Properties("RatTypes") {
         assertEquals(Sort.sortOf(f2), Rat)
       }
 
+      scope {
+        val a = createConstant("a", Rat)
+        val b = Rationals.int2ring(0)
+        val f1 = Rationals.mul(a, b)
+        assertEquals(Sort.sortOf(f1), Rat)
+      }
+
       true
     }
 
