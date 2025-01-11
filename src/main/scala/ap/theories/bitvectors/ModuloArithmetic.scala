@@ -727,7 +727,7 @@ object ModuloArithmetic extends Theory {
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
     if (f.args forall (isLit _)) {
-      if (f.fun == mod_cast) {
+      if (f.fun == mod_cast && isLit(f)) {
         // make sure that the value is in simplified form
         import IExpression._
         val IFunApp(_, Seq(IIntLit(lower), IIntLit(upper), IIntLit(value))) = f
