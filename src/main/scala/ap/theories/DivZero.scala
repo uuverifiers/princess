@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2022-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,17 +58,19 @@ object DivZero {
    */
   val IntModZero = IntDivZeroTheory.functions(1)
 
-  def handleZero(normalOp : (ITerm, ITerm) => ITerm,
-                 zeroFun  : IFunction,
-                 zero     : ITerm,
-                 sort     : Sort)
-                (num : ITerm, denom : ITerm) : ITerm = {
-    import IExpression._
+  import IExpression._
 
+  def handleZero(normalOp  : (ITerm, ITerm) => ITerm,
+                 zeroFun   : IFunction,
+                 zero      : ITerm,
+                 isZero    : ITerm => Boolean,
+                 isNonZero : ITerm => Boolean,
+                 sort      : Sort)
+                (num : ITerm, denom : ITerm) : ITerm =
     denom match {
-      case Const(IdealInt.ZERO) =>
+      case d if isZero(d) =>
         zeroFun(num)
-      case Const(_) =>
+      case d if isNonZero(d) =>
         normalOp(num, denom)
       case SimpleTerm(_) if isSimpleTerm(num) =>
         ite(denom === zero, zeroFun(num), normalOp(num, denom))
@@ -86,7 +88,15 @@ object DivZero {
                          )))
       }
     }
-  }
+
+  def handleIntZero(normalOp  : (ITerm, ITerm) => ITerm,
+                    zeroFun   : IFunction,
+                    sort      : Sort)
+                   (num : ITerm, denom : ITerm) : ITerm =
+    handleZero(normalOp, zeroFun, 0,
+               { case Const(IdealInt.ZERO) => true; case _ => false },
+               { case Const(n) if !n.isZero => true; case _ => false },
+               sort)(num, denom)
 
 }
 

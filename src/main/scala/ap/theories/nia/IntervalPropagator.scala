@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2025 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,10 +64,10 @@ object IntervalPropagator {
  * Simple class to derive interval bounds for the constants in a
  * proof goal
  */
-class IntervalPropagator private (goal : Goal,
-                                  ordering : MonomialOrdering,
-                                  simplifiedGB : Basis,         // might be null
-                                  compatibleOrder : Boolean,
+class IntervalPropagator private (goal                    : Goal,
+                                  ordering                : MonomialOrdering,
+                                  simplifiedGB            : Basis,// maybe null
+                                  compatibleOrder         : Boolean,
                                   alwaysCreateIntervalSet : Boolean) {
 
   import GroebnerMultiplication._mul

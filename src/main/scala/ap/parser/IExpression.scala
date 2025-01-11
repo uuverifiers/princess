@@ -955,9 +955,12 @@ object IExpression {
     def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
       val (coeff, remainder) = decompose(t, 1)
       symbol match {
-        case _ : IVariable | _ : IConstant
-          if (ContainsSymbol(remainder, symbol)) => None
-        case _ => Some(coeff, remainder)
+        case IVariable(n)  if ContainsVariable(remainder, n) =>
+          None
+        case _ : IConstant if ContainsSymbol(remainder, symbol) =>
+          None
+        case _ =>
+          Some(coeff, remainder)
       }
     }
 

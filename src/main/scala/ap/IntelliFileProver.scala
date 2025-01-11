@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,20 +69,22 @@ class IntelliFileProver(reader   : java.io.Reader,
   // are only theories used for which we can also reason about the
   // negated formula?
   private lazy val onlyCompleteTheories = rawSignature.theories forall {
-    case ap.types.TypeTheory             => true
-    case _ : ap.theories.MulTheory       => true
-    case ap.theories.ModuloArithmetic    => posUnitResolution
+    case ap.types.TypeTheory                => true
+    case _ : ap.theories.MulTheory          => true
+    case _ : ap.theories.IntValueEnumTheory => true
+    case ap.theories.ModuloArithmetic       => posUnitResolution
     // strictly speaking, only works for guarded formulas in ADT ... (TODO!)
-    case _ : ap.theories.ADT             => posUnitResolution
-    case _                               => false
+    case _ : ap.theories.ADT                => posUnitResolution
+    case _                                  => false
   }
 
   // only theories for which quantifier elimination is implemented?
   private lazy val onlyQEEnabledTheories = rawSignature.theories forall {
-    case ap.types.TypeTheory             => true
-    case _ : ap.theories.MulTheory       => true
-    case ap.theories.ModuloArithmetic    => posUnitResolution
-    case _                               => false
+    case ap.types.TypeTheory                => true
+    case _ : ap.theories.MulTheory          => true
+    case _ : ap.theories.IntValueEnumTheory => true
+    case ap.theories.ModuloArithmetic       => posUnitResolution
+    case _                                  => false
   }
 
   // is the problem free of uninterpreted Boolean variables?

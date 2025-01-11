@@ -218,6 +218,7 @@ object VariableSortInferenceVisitor
           // nothing
         case oldSort if oldSort != effectiveSort => {
           val newSort = (oldSort, effectiveSort) match {
+            // TODO: remove this hack
             case (s : Heap.AddressSort, Sort.Integer) => s
             case (Sort.Integer, s : Heap.AddressSort) => s
             case _ =>

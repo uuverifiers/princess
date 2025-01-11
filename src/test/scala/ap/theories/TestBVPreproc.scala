@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,44 +31,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.util
+package ap.theories
 
-import ap.DialogUtil
+import ap.SimpleAPI
+import SimpleAPI.ProverStatus
+import ap.parser._
+import ap.util.Debug
 
 import org.scalacheck.Properties
+import ap.util.Prop._
 
-object Prop {
+// Bit-vector preprocessing
+class TestBVPreproc extends Properties("TestBVPreproc") {
 
-  def assertEquals(a : Any, b : Any) : Unit =
-    assert(a == b)
+  property("bvand/bvadd") = {
+    Debug enableAllAssertions true
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      import IExpression._
+      import ModuloArithmetic._
 
-  def assertEquals(msg : String, a : Any, b : Any) : Unit =
-    assert(a == b, msg)
+      addTheory(ModuloArithmetic)
 
-  def assertTrue(b : Boolean) : Unit =
-    assert(b)
+      val x = createConstant("x", UnsignedBVSort(32))
+      val y = createConstant("y", UnsignedBVSort(32))
+      val f = bv_and(32, x, bv_add(32, bv(32, 4), bv(32, 10))) === y
+      val g = bv_add(32, x, bv_add(32, bv(32, 10), y)) === x
 
-  def assertTrue(msg : String, b : Boolean) : Unit =
-    assert(b, msg)
-
-}
-
-trait ExtraAssertions extends Properties {
-
-  def checkOutput(expected : String)(comp : => Unit) : Boolean = {
-    val output = DialogUtil.asString(comp)
-    if (output == expected) {
-      true
-    } else if (expected == "") {
-      println(output)
-      false
-    } else {
-      for (((exp, seen), line) <-
-             (expected.linesIterator zip output.linesIterator).zipWithIndex) {
-        if (exp != seen)
-          Console.err.println(f"${name}:${line}: ${seen}")
-      }
-      false
+      f.toString ==
+        "(bv_and(32, x, bv_add(32, mod_cast(0, 4294967295, 4), mod_cast(0, 4294967295, 10))) = y)" &&
+      preprocessIFormula(f).toString ==
+        """\part[formula] ALL bv[32]. ALL ALL ALL (!bv_extract(0, 0, _3[bv[32]], _2) | (!bv_extract(3, 1, _3[bv[32]], _1) | (!bv_extract(31, 4, _3[bv[32]], _0) | (ALL ALL (!bv_extract(3, 1, _1, _0) | (((!(_1 = x) | !(_4 = 0)) | !(_3 = _0)) | !(_2 = 0))) | (_3[bv[32]] = y)))))""" &&
+      g.toString ==
+        "(bv_add(32, x, bv_add(32, mod_cast(0, 4294967295, 10), y)) = x)" &&
+      preprocessIFormula(g).toString ==
+        """\part[formula] ALL (!mod_cast(0, 4294967295, (x + (10 + y)), _0) | (_0 = x))"""
     }
   }
 

@@ -113,6 +113,7 @@ object Debug {
   case object AC_STRING                           extends ASSERTION_CATEGORY
   case object AC_SEQUENCE                         extends ASSERTION_CATEGORY
   case object AC_VALUE_ENUMERATOR                 extends ASSERTION_CATEGORY
+  case object AC_RATIONAL                         extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true

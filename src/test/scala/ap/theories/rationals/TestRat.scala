@@ -44,21 +44,21 @@ class TestRat extends Properties("TestRat") with ExtraAssertions {
 
   val expectedOutput = """
 -- Printing Literals
-Rat_int(0)
-Rat_int(1)
+Rat_fromRing(0)
+Rat_fromRing(1)
 (/ 0 1)
 (/ 1 1)
 (/ 42 1)
 (/ 1 2)
 
 -- Test 1
-Rat_frac(1, 12)
+Rat_mul(Rat_frac(1, 3), Rat_frac(1, 4))
 Sat
 {x -> Rat_frac(1, 12), Rat_denom -> 12}
 
 -- Test 2
 Sat
-{y -> Rat_frac(-99, 10), x -> Rat_frac(0, 1), Rat_denom -> 10}
+{y -> Rat_frac(-99, 10), x -> Rat_fromRing(0), Rat_denom -> 10}
 
 -- Test 3
 Sat
@@ -72,23 +72,32 @@ Valid
 -- Test 5
 Invalid
 {y -> Rat_frac(-3, 2), x -> Rat_frac(-3, 2), Rat_denom -> 2}
+Some(true)
 
 -- Test 6
 Sat
-{x -> Rat_frac(-4, 3), Rat_denom -> 9}
-Rat_frac(-4, 3)
+{x -> Rat_frac(4, 3), Rat_denom -> 18}
+Rat_frac(4, 3)
 
 -- Test 7
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_frac(5, 1), Rat_denom -> 2}
+{y -> Rat_fromRing(-1), x -> Rat_fromRing(-10), Rat_denom -> 1}
+Some((/ (- 11) 1))
+Some((/ 10 1))
 
 -- Test 8
 Sat
-{y -> Rat_frac(1, 2), x -> Rat_frac(5, 1), Rat_denom -> 2}
+{y -> Rat_frac(2, 3), x -> Rat_frac(20, 3), Rat_denom -> 3}
 
 -- Test 9
 Sat
-{y -> Rat_frac(-1, 1), x -> Rat_frac(-11, 1), Rat_denom -> 1}
+{y -> Rat_fromRing(-1), x -> Rat_fromRing(-11), Rat_denom -> 1}
+
+-- Test 10
+Unsat
+
+-- Test 11
+Unsat
 """
 
   def part(str : String) = {
@@ -158,7 +167,9 @@ Sat
       !! (x =/= zero)
       ?? (x =/= y)
       println(???)
-      println(partialModel)
+      val m = partialModel
+      println(m)
+      println(m.eval(times(5, x) === plus(times(7, y), int2ring(3))))
     }
 
     scope {
@@ -174,7 +185,10 @@ Sat
       !! (y =/= zero & y =/= one)
       !! (div(x, y) === int2ring(10))
       println(???)
-      println(partialModel)
+      val m = partialModel
+      println(m)
+      println(m.evalToTerm(plus(x, y)).map(smtPP))
+      println(m.evalToTerm(div(x, y)).map(smtPP))
     }
 
     scope {
@@ -192,6 +206,20 @@ Sat
       !! (lt(x, zero))
       println(???)
       println(partialModel)
+    }
+
+    scope {
+      part("Test 10")
+      // Division is defined as a partial function, therefore the
+      // following equation is not satisfiable
+      !! (x === div(int2ring(1), int2ring(0)))
+      println(???)
+    }
+
+    scope {
+      part("Test 11")
+      !! (x === div(int2ring(1), div(int2ring(2), int2ring(0))))
+      println(???)
     }
   }
   }

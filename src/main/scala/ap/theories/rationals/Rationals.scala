@@ -43,10 +43,12 @@ import ap.algebra.{Ring, RingWithDivision, IntegerRing, Field, OrderedRing,
 /**
  * The theory and field of rational numbers.
  */
-object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
-                 with Field with OrderedRing with RingWithIntConversions {
+object Rationals
+  extends OrderedFractions("Rat", IntegerRing, IExpression.v(0) > 0)
+  with Field with RingWithIntConversions {
 
   import IExpression._
+  import IntegerRing.{int2ring => ringInt2Ring}
 
   private val ignoreQuantifiersFlag =
     new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
@@ -54,6 +56,9 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
   ignoreQuantifiersFlag.value = Array(false)
 
   private def ignoreQuantifiers : Boolean = ignoreQuantifiersFlag.value(0)
+
+  private val ringOne      = IntegerRing.one
+  private val ringMinusOne = ringInt2Ring(-1)
 
   /**
    * Hack to enable other theories to use rationals even in axioms with
@@ -75,9 +80,12 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
 
   protected override
     def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d) match {
-      case (IIntLit(n), IIntLit(d)) => {
+      case (Const(n), Const(d)) => {
         val l = n gcd d
-        (IIntLit(n / l), IIntLit(d / l))
+        if (d.signum < 0)
+          (IIntLit(-n / l), IIntLit(-d / l))
+        else
+          (IIntLit(n / l), IIntLit(d / l))
       }
       case _ =>
         (n, d)
@@ -95,30 +103,8 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
          (num, den) <- (for (t <- denomStream take n)   yield (nthNum, t)) ++
                        (for (t <- numStream take (n+1)) yield (t, nthDenom));
          if (num gcd den) == IdealInt.ONE)
-    yield (frac(i(num), i(den)))
+    yield (Fraction(i(num), i(den)))
   })
-
-  def lt(s : ITerm, t : ITerm) : IFormula = (s, t) match {
-    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
-      s < t
-    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
-      0 < t
-    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
-      s < 0
-    case (s, t) =>
-      s < t
-  }
-
-  def leq(s : ITerm, t : ITerm) : IFormula = (s, t) match {
-    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
-      s <= t
-    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
-      0 <= t
-    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
-      s <= 0
-    case (s, t) =>
-      s <= t
-  }
 
   /**
    * Conversion of a rational term to an integer term, the
@@ -139,9 +125,178 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
                   v(0) === denom() &
                   v(0) > 0)))
 
+  /////////////////////////////////////////////////////////////////////////////
+
+  override def evalFun(f : IFunApp) : Option[ITerm] = f match {
+    case Fraction(_, _) =>
+      Some(f)
+    case IFunApp(`addition`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * denom2 + num2 * denom1, denom1 * denom2))
+    case IFunApp(`multiplication`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * num2, denom1 * denom2))
+    case IFunApp(`division`,
+                 Seq(Fraction(Const(num1), Const(denom1)),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * denom2, denom1 * num2))
+    case IFunApp(`multWithRing`,
+                 Seq(Const(coeff),
+                     Fraction(Const(num1), Const(denom1)))) =>
+      Some(Fraction(coeff * num1, denom1))
+    case IFunApp(`multWithFraction`,
+                 Seq(Const(num1), Const(denom1),
+                     Fraction(Const(num2), Const(denom2)))) =>
+      Some(Fraction(num1 * num2, denom1 * denom2))
+    case _ =>
+      None
+  }
+
+  override def evalPred(p : IAtom) : Option[Boolean] = p match {
+    case IAtom(`lessThan`,
+               Seq(Fraction(Const(num1), Const(denom1)),
+                   Fraction(Const(num2), Const(denom2))))
+        if denom1.signum > 0 && denom2.signum > 0  =>
+      Some(num1 * denom2 < num2 * denom1)
+    case IAtom(`lessThanOrEqual`,
+               Seq(Fraction(Const(num1), Const(denom1)),
+                   Fraction(Const(num2), Const(denom2))))
+        if denom1.signum > 0 && denom2.signum > 0  =>
+      Some(num1 * denom2 <= num2 * denom1)
+    case _ =>
+      None
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  // TODO: back-translation of interpolants or the results of QE needs more work
+
+  private object BackTranslator extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(expr : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
+      (expr, subres) match {
+        case (_ : IEquation, Seq(t1 : ITerm, t2 : ITerm))
+            if termNeedsRewr(t1) || termNeedsRewr(t2) => {
+          val (s1, r1) = divByDenom(t1)
+          val (s2, r2) = divByDenom(t2)
+          if (r1 == r2)
+            s1 === s2
+          else
+            false
+        }
+        case (IIntFormula(IIntRelation.EqZero, _), Seq(t : ITerm))
+            if termNeedsRewr(t) => {
+          val (s, r) = divByDenom(t)
+          if (r.isZero)
+            s === zero
+          else
+            false
+        }
+        case (IIntFormula(IIntRelation.GeqZero, _), Seq(t : ITerm))
+            if termNeedsRewr(t) => {
+          val (s, r) = divByDenom(t)
+          r.signum match {
+            case -1    => lessThan(zero, s)
+            case 0 | 1 => lessThanOrEqual(zero, s)
+          }
+        }
+
+        case _ => expr update subres
+      }
+  }
+
+//  override def iPostprocess(f : IFormula, signature : Signature) : IFormula =
+//    BackTranslator.visit(f, ()).asInstanceOf[IFormula]
+
+  /////////////////////////////////////////////////////////////////////////////
+
+  private val Var0Eq = SymbolEquation(v(0, dom))
+
+  private def postSimplifyAtoms(e : IExpression) : IExpression = {
+    import IExpression.Sort.:::
+
+    e match {
+      case Eq(ISortedVariable(0, `dom`), t) if !ContainsVariable(t, 0) =>
+        e
+
+      case Var0Eq(Const(num), Const(denom), remainder)
+        if !num.isZero && !denom.isZero =>
+        v(0, dom) === multWithFraction(denom, num, remainder)
+
+      case Eq(`denomT`, ITimes(coeff, t))
+        if !coeff.isZero && !termNeedsRewr(t) => {
+        t === Fraction(ringOne, coeff)
+      }
+      case Eq(ITimes(coeff1, `denomT`), ITimes(coeff2, t))
+        if !coeff2.isZero && !termNeedsRewr(t) => {
+        t === Fraction(coeff1, coeff2)
+      }
+      case Eq(ITimes(coeff2, t), ITimes(coeff1, `denomT`))
+        if !coeff2.isZero && !termNeedsRewr(t) => {
+        t === Fraction(coeff1, coeff2)
+      }
+
+      case t => t
+    }
+  }
+
+  protected def termNeedsRewr(t : ITerm) : Boolean = {
+    import IExpression.Sort.:::
+    t match {
+      case IPlus(_ ::: `dom`, _)  => true
+      case IPlus(_, _ ::: `dom`)  => true
+      case ITimes(_, _ ::: `dom`) => true
+      case IPlus(s, t)            => termNeedsRewr(s) || termNeedsRewr(t)
+      case ITimes(_, s)           => termNeedsRewr(s)
+      case `denomT`               => true
+      case _                      => false
+    }
+  }
+
+  /**
+   * Divide each term of a sum by the <code>denom()</code> term, rewriting
+   * accordingly. Constant terms are dropped and their sum is returned
+   * as the second result.
+   */
+  def divByDenom(t : ITerm) : (ITerm, IdealInt) = {
+    t match {
+      // TODO: add multiplication
+      case IPlus(t1, t2) => {
+        val (s1, r1) = divByDenom(t1)
+        val (s2, r2) = divByDenom(t2)
+        (addition(s1, s2), r1 + r2)
+      }
+      case ITimes(coeff, t1) => {
+        val (s1, r1) = divByDenom(t1)
+        (multWithRing(ringInt2Ring(coeff), s1), coeff * r1)
+      }
+      case `denomT` =>
+        (one, 0)
+      case IIntLit(value) =>
+        (zero, value)
+      case IVariable(n) =>
+        (v(n, dom), 0)
+      case t =>
+        (t, 0)
+    }
+  }
+
+  override def postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ simplifiers // ++ List(postSimplifyAtoms _)
+
+  /////////////////////////////////////////////////////////////////////////////
+
   val RatDivZeroTheory =
     new DivZero("RatDivZero",
                 List(("ratDivZero", Rationals.dom)))
+
+  protected override def isNonZeroRingTerm(t : ITerm) : Boolean =
+    t match {
+      case Const(n) if !n.isZero => true
+      case _                     => false
+    }
 
   /**
    * Uninterpreted function representing the SMT-LIB rational division
@@ -153,6 +308,11 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
    * Division, assuming SMT-LIB semantics for division by zero.
    */
   def divWithSpecialZero(s : ITerm, t : ITerm) : ITerm =
-    DivZero.handleZero(div _, RatDivZero, zero, dom)(s, t)
+    DivZero.handleZero(div _, RatDivZero, zero,
+                       { case `zero` => true; case _ => false },
+                       { case IFunApp(`fromRing`, Seq(Const(n)))
+                              if !n.isZero => true
+                         case _ => false },
+                       dom)(s, t)
 }
 

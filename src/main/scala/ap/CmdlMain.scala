@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2024-03-22"
+  val version = "unstable"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -190,12 +190,15 @@ object CmdlMain {
     println()
     println("Theory options")
     println("--------------")
-    println(" -mulProcedure=val         Handling of nonlinear integer formulae")
+    println(" -mulProcedure=val         Handling of NIA formulae")
     println("                             bitShift: shift-and-add axiom")
     println("                             native:   built-in theory solver       (default)")
-    println(" -mulSplitting=val         Splitting in nonlinear integer formulae")
-    println("                             sign:        +/-/interval splitting    (default)")
-    println("                             signMinimal: +/-/interval, minimal var set")
+    println(" -mulSplitting=val         Splitting in NIA formulae")
+    println("                             sign:       +/-/interval splitting     (default)")
+    println("                             spherical:  fair value enumeration")
+    println(" -mulRandomization=val     Randomization when splitting in NIA formulae")
+    println("                             vars:       pick variables randomly")
+    println("                             varsCases:  variables + cases randomly (default)")
     println(" -adtMeasure=val           Measure to ensure acyclicity of ADTs")
     println("                             relDepth: relative depth of terms")
     println("                             size:     size of terms                (default)")

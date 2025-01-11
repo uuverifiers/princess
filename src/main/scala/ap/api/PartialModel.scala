@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@ package ap.api
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.theories.{ADT, TheoryRegistry}
+import ap.theories.bitvectors.ModuloArithmetic
 
   /**
    * Class representing (usually partial) models of formulas computed
@@ -99,6 +100,9 @@ import ap.theories.{ADT, TheoryRegistry}
           Some(IdealInt.ZERO)
         case ADT.BoolADT.False =>
           Some(IdealInt.ONE)
+        case IFunApp(ModuloArithmetic.mod_cast,
+                     Seq(Const(lower), Const(upper), Const(value))) =>
+          Some(ModuloArithmetic.evalModCast(lower, upper, value))
         case t@IFunApp(f, _) =>
           // check whether some theory can turn the term into an int
           for (theory <- TheoryRegistry lookupSymbol f;
