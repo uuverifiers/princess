@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -685,7 +685,11 @@ object ModuloArithmetic extends Theory {
     zero_extend
   )
 
+  private val functionsSet : Set[IFunction] = functions.toSet
+
   val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
+
+  private val otherPredsSet : Set[Predicate] = otherPreds.toSet
 
   val (predicates, preAxioms, order, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions, extraPredicates = otherPreds)
@@ -726,7 +730,7 @@ object ModuloArithmetic extends Theory {
     ModPostprocessor(f)
 
   override def evalFun(f : IFunApp) : Option[ITerm] =
-    if (f.args forall (isLit _)) {
+    if ((functionsSet contains f.fun) && (f.args forall (isLit _))) {
       if (f.fun == mod_cast && isLit(f)) {
         // make sure that the value is in simplified form
         import IExpression._
@@ -748,7 +752,7 @@ object ModuloArithmetic extends Theory {
     }
 
   override def evalPred(a : IAtom) : Option[Boolean] =
-    if (a.args forall (isLit _)) {
+    if ((otherPredsSet contains a.pred) && (a.args forall (isLit _))) {
       Preproc.visit(a, VisitorArg(None)).res match {
         case IBoolLit(v) => Some(v)
         case _           => None
