@@ -85,7 +85,7 @@ object GroebnerMultiplication extends MulTheory {
       Param.NonLinearSplittingOrder.VarsCases
 
   // Use the IntValueEnumerator theory instead of the native splitter
-  val VALUE_ENUMERATOR = false
+  // val VALUE_ENUMERATOR = false
   def VALUE_ENUMERATOR(goal : Goal) =
     Param.NONLINEAR_SPLITTING(goal.settings) ==
       Param.NonLinearSplitting.Spherical
