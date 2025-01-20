@@ -1108,11 +1108,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         val resType = translateSort(cmd.sort_)
         
         // parse the definition of the function
-        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
-
-        if (bodyType != resType)
-          throw new Parser2InputAbsy.TranslationException(
-              "Body of function definition has wrong type")
+        val body = translateFunctionDefBody(cmd.term_, resType)
 
         // pop the variables from the environment
         for (_ <- PlainRange(argNum)) env.popVar
@@ -1152,11 +1148,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         val resType = translateSort(cmd.sort_)
         
         // parse the definition of the definition
-        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
-
-        if (bodyType != resType)
-          throw new Parser2InputAbsy.TranslationException(
-              "Body of constant definition has wrong type")
+        val body = translateFunctionDefBody(cmd.term_, resType)
 
         // use a real function (TODO: better introduce just a constant?)
         val f = MonoSortedIFunction(name, List(), resType.toSort, true, false)
@@ -1203,11 +1195,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
           prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
         
         // parse the definition of the function
-        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
-
-        if (bodyType != resType)
-          throw new Parser2InputAbsy.TranslationException(
-              "Body of function definition has wrong type")
+        val body = translateFunctionDefBody(cmd.term_, resType)
 
         // pop the variables from the environment
         for (_ <- PlainRange(argNum)) env.popVar
@@ -1246,11 +1234,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
             val sig = sigc.asInstanceOf[FunSignature]
             val argNum = pushVariables(sig.listesortedvarc_)
             val resType = translateSort(sig.sort_)
-
-            val body@(_, bodyType) = translateTerm(bodyExpr, 0)
-            if (bodyType != resType)
-              throw new Parser2InputAbsy.TranslationException(
-                "Body of function definition has wrong type")
+            val body = translateFunctionDefBody(bodyExpr, resType)
             
             // pop the variables from the environment
             for (_ <- PlainRange(argNum)) env.popVar
@@ -3050,6 +3034,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private def translateFunctionDefBody(t            : Term,
+                                       expectedType : SMTType)
+                                                    : (IExpression, SMTType) =
+    if (expectedType == realType) {
+      (asRealTerm("define-fun", t), realType)
+    } else {
+      val (body, bodyType) = translateTerm(t, 0)
+
+      if (bodyType != expectedType)
+        throw new Parser2InputAbsy.TranslationException(
+          "Body of function definition has wrong type")
+
+      (body, bodyType)
+    }
 
   private def asRealTerm(op : String, t : Term) : ITerm =
     asRealTerm(op, translateTerm(t, 0))
