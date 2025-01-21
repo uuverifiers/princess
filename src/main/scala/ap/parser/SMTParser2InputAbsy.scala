@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without

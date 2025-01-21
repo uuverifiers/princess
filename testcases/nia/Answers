@@ -398,6 +398,26 @@ INVALID
 
 Countermodel:
 x9 = 3 & x8 = 9 & x7 = 5 & x6 = 2 & x5 = 8 & x4 = 6 & x3 = 4 & x2 = 7 & x1 = 1
+Loading factorisationBug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun var9 () Int 6)
+  (define-fun var8 () Int 36)
+  (define-fun var7 () Int (- 6))
+  (define-fun var6 () Int (- 36))
+  (define-fun var5 () Int 6)
+  (define-fun var4 () Int 0)
+  (define-fun var3 () Int 36)
+  (define-fun var2 () Int 36)
+  (define-fun var1 () Int 0)
+  (define-fun var0 () Int 6)
+  (define-fun skoS () Int 6)
+  (define-fun skoA () Int 0)
+  (define-fun skoT () Int (- 6))
+)
 Loading nonLinInEqExample2.pri ...
 Preprocessing ...
 Constructing countermodel ...
