@@ -18,7 +18,8 @@ TESTS="simple0.smt2 \
        pd_no_op_accs.induction.smt2 \
        arrays.smt2 \
        arrays2.smt2 \
-       adt.smt2"
+       adt.smt2 \
+       define-fun.smt2"
 
 $PRI "$@" $TESTS
 
