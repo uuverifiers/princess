@@ -97,7 +97,7 @@ object GroebnerMultiplication extends MulTheory {
   // Max size of intervals that are considered "small" during ICP
   val SMALL_INTERVAL_BOUND = 100
 
-  private val AC = Debug.AC_NIA
+  protected[nia] val AC = Debug.AC_NIA
 
   val mul        = new IFunction("mul", 2, true, false)
   val _mul       = new Predicate("mul", 3)
@@ -341,12 +341,14 @@ object GroebnerMultiplication extends MulTheory {
               label2Assumptions(simplifiedGB labelFor p)
             val remainingPoly =
               p / CoeffMonomial(IdealInt.ONE, factor)
-            val factorisation =
-              disjFor(List(polynomialToAtom(remainingPoly)) ++
-                      (for (v <- factor.variables) yield (v === 0)))
-            actions = Plugin.AddAxiom(assumptions,
-                                      factorisation,
-                                      GroebnerMultiplication.this) :: actions
+            if (remainingPoly.isLinear) {
+              val factorisation =
+                disjFor(List(polynomialToAtom(remainingPoly)) ++
+                        (for (v <- factor.variables) yield (v === 0)))
+              actions = Plugin.AddAxiom(assumptions,
+                                        factorisation,
+                                        GroebnerMultiplication.this) :: actions
+            }
           }
         }
 

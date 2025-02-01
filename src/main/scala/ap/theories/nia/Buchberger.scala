@@ -45,6 +45,7 @@ import ap.util.{Timeout, Seqs, Debug, LRUCache, IdealRange}
 import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer, LinkedHashSet}
 
 object Buchberger {
+  import GroebnerMultiplication.AC
 
   /**
    * Conversion functions
@@ -186,6 +187,9 @@ println(unprocessed)
   def polynomialToAtom(p : Polynomial)
                       (implicit order : TermOrder) : Conjunction = {
     def termToLc(t : CoeffMonomial) : LinearCombination = {
+      //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
+      Debug.assertInt(AC, t.m.isLinear)
+      //-END-ASSERTION-////////////////////////////////////////////////////////
       if (t.m.pairs == Nil)
         t.c
       else

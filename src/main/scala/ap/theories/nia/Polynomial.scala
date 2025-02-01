@@ -390,30 +390,23 @@ case class Monomial(val pairs : Monomial.PairList)
     Monomial(intersectLists(this.pairs, that.pairs))
   }
 
-  def divisors : List[Monomial] = {
-    def genDivisors(list : PairList) : List[PairList] = {
-      if (list.isEmpty) {
-        List[PairList](List())
-      } else {
-        val (k, v) = list.head
-        val rest = genDivisors(list.tail)
-        (for 
-          (i <- 0 to v.intValue;
-          r <- rest)
-        yield
-        {
-          if (i == 0)
-            r
-          else
-            (k, i) :: r
-        }).toList
-      }
-    }
+  def divisorNum =
+    pairs.toIterator.map(p => p._2 + 1).product
 
-    for (kv <- genDivisors(this.pairs))
-      yield
-        Monomial(kv)
+  def divisorsIterator : Iterator[Monomial] = {
+    def genDivisors(list : PairList) : Iterator[PairList] =
+      list match {
+        case List() =>
+          Iterator(List())
+        case (k, v) :: rest => {
+          for (m <- genDivisors(rest); i <- (0 to v).iterator)
+          yield (if (i == 0) m else ((k, i) :: m))
+        }
+      }
+    genDivisors(this.pairs).map(Monomial(_))
   }
+
+  def divisors : Seq[Monomial] = divisorsIterator.toVector
 
   def *(that : Monomial) : Monomial =
     Monomial(mulLists(this.pairs, that.pairs))
@@ -864,16 +857,32 @@ class Basis(implicit val ordering : MonomialOrdering) {
       get
   }
 
+  def getReducers(poly : Polynomial) : Iterator[Polynomial] =
+    getReducers(poly.lm)
+
+  def getReducers(mono : Monomial) : Iterator[Polynomial] = {
+    if (mono.order >= 10 || mono.divisorNum*2 > this.polyMap.size) {
+      // then it is probably faster to just try the polynomials one by one
+      for ((mon, ps) <- this.polyMap.iterator;
+           if mono isDividedBy mon;
+           p <- ps)
+      yield p
+    } else {
+      // then it is probably faster to compute the divisors of the leading
+      // monomial, and use them to look up polynomials 
+      for (divMon <- mono.divisorsIterator;
+           p <- this.polyMap.getOrElse(divMon, List()).iterator)
+      yield p
+    }
+  }
+
   // Returns poly reduced with respect to this basis
   def reducePolynomial(poly : Polynomial,
                        label : BitSet) : (Polynomial, BitSet) = {
     if (poly.isZero)
       return (poly, label)
 
-    val reducers =
-      for (divMon <- poly.lm.divisors.sorted.iterator;
-           p <- this.polyMap.getOrElse(divMon, List()).iterator)
-      yield p
+    val reducers = getReducers(poly)
 
     if (reducers.hasNext) {
       val reducer = reducers.next()
@@ -896,11 +905,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
     if (poly.isZero)
       return (poly, label)
 
-    val reducers =
-      for (divMon <- poly.lm.divisors.sorted.iterator;
-           p <- this.polyMap.getOrElse(divMon, List()).iterator ++
-                andAlso.polyMap.getOrElse(divMon, List()).iterator)
-      yield p
+    val reducers = this.getReducers(poly) ++ andAlso.getReducers(poly)
 
     if (reducers.hasNext) {
       val reducer = reducers.next()
@@ -970,10 +975,7 @@ class Basis(implicit val ordering : MonomialOrdering) {
       var usedLabels = nextLabel
 
       val simpPoly = nextPoly simplifyBy { m => {
-        val reducers =
-          for (divMon <- m.divisors.sorted.iterator;
-               p <- newBasis.polyMap.getOrElse(divMon, List()).iterator)
-          yield p
+        val reducers = newBasis.getReducers(m)
         if (reducers.hasNext) {
           val reducer = reducers.next()
           usedLabels = usedLabels | (newBasis labelFor reducer)
