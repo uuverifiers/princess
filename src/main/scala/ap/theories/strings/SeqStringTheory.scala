@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -570,7 +570,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         re_++(re_derivative_help(c, re), re_*(re)))) &
     CharSort.all(c => RegexSort.all(re =>          // re.opt
       re_derivative_help(c, re_opt(re)) ~~>
-        re_opt(re_derivative_help(c, re)))) &
+        re_derivative_help(c, re))) &
     CharSort.all(c => RegexSort.all(re =>          // re.comp
       re_derivative_help(c, re_comp(re)) ~~>
         re_comp(re_derivative_help(c, re))))
@@ -683,8 +683,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Visitor called during pre-processing to eliminate symbols
-   * <code>str, str_len</code>
+   * Visitor called during pre-processing.
    */
   private object Preproc extends ContextAwareVisitor[Unit, IExpression] {
     import IExpression._
