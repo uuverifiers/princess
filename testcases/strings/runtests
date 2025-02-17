@@ -44,7 +44,8 @@ TESTS="simple-cycle.smt2 \
        str-in-re-2.smt2 \
        str-in-re-3.smt2 \
        str-from-int.smt2 \
-       str-from-int-2.smt2"
+       str-from-int-2.smt2 \
+       re-opt.smt2"
 
 $PRI "$@" $TESTS
 
