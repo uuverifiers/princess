@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.theories
+
 import ap._
 import ap.parser._
 import ap.theories._
@@ -39,7 +41,13 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{Term, TerForConvenience}
 import ap.proof.goal.Goal
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
+
+class TheoryTest2 extends Properties("TheoryTest2") with ExtraAssertions {
 
 /**
  * Extremely naive implementation of a theory of non-linear integer arithmetic.
@@ -146,6 +154,14 @@ object MulTheory extends Theory {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+  val expectedOutput = """Unsat
+Inconclusive
+{c -> 3, b -> 2, a -> 1, mul(2, 1) -> 3, mul(1, 2) -> 3}
+Unsat
+Unsat
+"""
+
+    property("TheoryTest2") = checkOutput(expectedOutput) {
 SimpleAPI.withProver(enableAssert = true) { p =>
   import p._
   import IExpression._
@@ -181,4 +197,5 @@ SimpleAPI.withProver(enableAssert = true) { p =>
     println(???)
   }
 
+}}
 }
