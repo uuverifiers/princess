@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "unstable"
+  val version = "2025-03-29"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -68,7 +68,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println()
-    println("(c) Philipp Rümmer, 2009-2024")
+    println("(c) Philipp Rümmer, 2009-2025")
     println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
     println("              Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
