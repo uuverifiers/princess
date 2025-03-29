@@ -76,7 +76,7 @@ Valid
     import p._
 
     val x, y, z = createConstant(StringSort)
-    implicit val _ = decoderContext
+    implicit val ctxt = decoderContext
 
     scope {
       !! (x === "abc")

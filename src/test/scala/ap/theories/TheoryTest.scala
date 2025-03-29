@@ -49,7 +49,7 @@ SimpleAPI.withProver(enableAssert = true) { p =>
 
   val ar = SimpleArray(2)
   val a, b, c = createConstant
-  implicit val _ = decoderContext
+  implicit val ctxt = decoderContext
 
   scope {
     !! (b === ar.store(a, 0, 1, 2))

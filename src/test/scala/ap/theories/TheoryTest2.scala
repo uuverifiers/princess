@@ -133,7 +133,7 @@ object MulTheory extends Theory {
       // product
 
       import TerForConvenience._
-      implicit val _ = goal.order
+      implicit val o = goal.order
 
       val eqs =
         conj(for ((_, names) <- productNames.iterator;
