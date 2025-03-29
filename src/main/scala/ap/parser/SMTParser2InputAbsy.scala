@@ -2946,24 +2946,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                           resultType : scala.Option[SMTType] = None)
                          : (IExpression, SMTType) =
     lookupSym(id) match {
-      case Environment.Predicate(pred, _, _) => {
-        checkArgNumLazy(printer print sym, pred.arity, args)
-        (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
+      case Environment.Predicate(pred, _, funType) => {
+        (IAtom(pred, translateCastUnintArgs(printer print sym, args, funType)),
          SMTBool)
       }
       
-      case Environment.Function(fun, SMTFunctionType(_, resultType)) => {
-        checkArgNumLazy(printer print sym, fun.arity, args)
+      case Environment.Function(fun, funType@SMTFunctionType(_, resultType)) => {
+        val translatedArgs =
+          translateCastUnintArgs(printer print sym, args, funType)
         (functionDefs get fun) match {
-          case Some((body, t)) => {
-            var translatedArgs = List[ITerm]()
-            for (a <- args)
-              translatedArgs = asTerm(translateTerm(a, 0)) :: translatedArgs
-            (VariableSubstVisitor(body, (translatedArgs, 0)), t)
-          }
+          case Some((body, t)) =>
+            (VariableSubstVisitor(body, (translatedArgs.reverse.toList, 0)), t)
           case None =>
-            (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
-             resultType)
+            (IFunApp(fun, translatedArgs), resultType)
         }
       }
 
@@ -3010,7 +3005,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
             checkArgNumLazy(printer print sym, fun.arity, args)
             (functionDefs get fun) match {
               case Some((body, t)) =>
-                (VariableSubstVisitor(body, (argTerms.toList, 0)), t)
+                (VariableSubstVisitor(body, (argTerms.reverse.toList, 0)), t)
               case None =>
                 (IFunApp(fun, argTerms), resultType)
             }
@@ -3023,6 +3018,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       case r =>
         throw new TranslationException("did not expect " + r)
     }
+
+  private def translateCastUnintArgs(op      : => String,
+                                     args    : Seq[Term],
+                                     funType : SMTFunctionType) : Seq[ITerm] = {
+    val SMTFunctionType(argumentTypes, resultType) = funType
+    checkArgNumLazy(op, argumentTypes.size, args)
+    (for ((t, typ) <- args.iterator zip argumentTypes.iterator) yield typ match {
+       case SMTReal(_) => asRealTerm(op, t)
+       case _          => asTerm(translateTerm(t, 0))
+     }).toVector
+  }
 
   private def translateExtraTheoryOp(sym      : SymbolRef,
                                      args     : Seq[Term],
@@ -3050,10 +3056,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (body, bodyType)
     }
 
-  private def asRealTerm(op : String, t : Term) : ITerm =
+  private def asRealTerm(op : => String, t : Term) : ITerm =
     asRealTerm(op, translateTerm(t, 0))
 
-  private def asRealTerm(op : String,
+  private def asRealTerm(op : => String,
                          expr : (IExpression, SMTType)) : ITerm = expr match {
     case (expr : ITerm, SMTReal(_)) =>
       expr
