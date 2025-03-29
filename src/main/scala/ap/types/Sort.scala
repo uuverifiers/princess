@@ -212,21 +212,23 @@ object Sort {
    * @see ap.theories.ADT.BoolADT
    * @see Bool
    */
-  object MultipleValueBool extends ProxySort(Integer) {
+  object MultipleValueBool extends ProxySort(Integer) with Theory.TheorySort {
     override val name : String = "MultipleValueBool"
+
+    val theory = ap.theories.ADT.BoolADT
 
     /**
      * Term representing the Boolean value <code>true</code>,
      * and mapped to integer <code>0</code>.
      */
-    val True = ap.theories.ADT.BoolADT.True
+    val True = theory.True
 
     /**
      * Term representing the Boolean value <code>false</code>,
      * and mapped to integer <code>1</code>. (But note that every non-zero
      * number is interpreted as <code>false</code>).
      */
-    val False = ap.theories.ADT.BoolADT.False
+    val False = theory.False
 
     /**
      * Construct a tester for <code>true</code>.
