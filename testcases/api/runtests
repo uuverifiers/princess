@@ -19,15 +19,13 @@ for testname in $TESTS; do
 done
 
 TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
-       getConstraint-bug.scala TheoryTest.scala TheoryTest2.scala \
-       TheoryTest3.scala TypeTests.scala nonlinear.scala \
+       getConstraint-bug.scala TypeTests.scala nonlinear.scala \
        nonlinearInterpolation.scala division.scala \
        deadlock.scala exception.scala incremental.scala \
        divmodprint.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \
-       TestStrings.scala \
        simplifier-bug.scala project-bug.scala \
        printBooleanTerm.scala TestFunctionRange.scala"
 

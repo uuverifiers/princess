@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+package ap.theories
+
 import ap._
 import ap.parser._
 import ap.theories._
@@ -39,7 +41,13 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{Term, TerForConvenience, TermOrder}
 import ap.terfor.preds.Atom
 import ap.proof.goal.Goal
+import SimpleAPI.ProverStatus
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class TheoryTest3 extends Properties("TheoryTest3") {
 
 /**
  * Simple theory implementing associativity of a function symbol f.
@@ -70,9 +78,6 @@ object ATheory extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
   val plugin = Some(new Plugin {
-    // not used
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
-
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val fAtoms = goal.facts.predConj.positiveLitsWithPred(_f)
 
@@ -102,6 +107,7 @@ object ATheory extends Theory {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+    property("TheoryTest3") =
 SimpleAPI.withProver(enableAssert = true) { p =>
   import p._
   import IExpression._
@@ -116,7 +122,8 @@ SimpleAPI.withProver(enableAssert = true) { p =>
 
     !! (left >= a)
     !! (right < a)
-    println(???)
+    ??? == ProverStatus.Unsat
   }
 
+}
 }
