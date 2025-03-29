@@ -9,6 +9,7 @@ TESTS="simple0.smt2 \
        simple2c.smt2 \
        casts.smt2 \
        casts3.smt2 \
+       casts4.smt2 \
        realList.smt2 \
        quantifiers.smt2 \
        quantifiers2.smt2 \
