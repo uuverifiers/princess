@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,15 +33,39 @@
 
 // Some simple API tests for strings
 
-//package ap.theories.strings
+package ap.theories.strings
 
-//object TestStrings extends App {
   import ap.SimpleAPI
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.strings.SeqStringTheory
   import ap.util.Debug
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class TestStrings extends Properties("TestStrings") with ExtraAssertions {
+
+    val expectedOutput = """Sat
+x = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_empty)))
+x = "abc"
+Sat
+y = str_empty
+z = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_cons(mod_cast(0, 255, 120), str_cons(mod_cast(0, 255, 121), str_cons(mod_cast(0, 255, 122), str_empty))))))
+z = "abcxyz"
+Sat
+y = str_cons(mod_cast(0, 255, 122), str_empty)
+z = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_cons(mod_cast(0, 255, 122), str_cons(mod_cast(0, 255, 120), str_cons(mod_cast(0, 255, 121), str_cons(mod_cast(0, 255, 122), str_empty)))))))
+z = "abczxyz"
+Unsat
+Sat
+x = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty))
+y = str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_cons(mod_cast(0, 255, 0), str_empty)))))
+Valid
+"""
+
+  property("TestStrings") = checkOutput(expectedOutput) {
+  
   Debug enableAllAssertions true
 
   val stringTheory = SeqStringTheory(256)
@@ -52,7 +76,7 @@
     import p._
 
     val x, y, z = createConstant(StringSort)
-    implicit val _ = decoderContext
+    implicit val ctxt = decoderContext
 
     scope {
       !! (x === "abc")
@@ -95,5 +119,6 @@
       println(???)
     }
   }
+  }
 
-//}
+}
