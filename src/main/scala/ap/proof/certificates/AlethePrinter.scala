@@ -40,6 +40,7 @@ import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   VariableSortInferenceVisitor, TPTPTParser}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.{TermOrder, Term}
+import ap.basetypes.IdealInt
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack}
@@ -108,6 +109,10 @@ class AlethePrinter(
   import CertificatePrettyPrinter._
   import AlethePrinter._
   import PartName.{predefNames, predefNamesSet}
+  import formulaPrinter.{for2String, term2String, partName2String}
+
+  private def number2String(n : IdealInt) : String =
+    term2String(LinearCombination(n))
 
   def apply(dagCertificate : Seq[Certificate],
             initialFormulas : Map[PartName, CertFormula]) : Unit = {
@@ -134,7 +139,7 @@ class AlethePrinter(
           case PartName.NO_NAME         => "input"
           case PartName.FUNCTION_AXIOMS => "function-axioms"
           case PartName.THEORY_AXIOMS   => "theory-axioms"
-          case _                        => formulaPrinter.partName2String(name)
+          case _                        => partName2String(name)
         }
         introduceFormulaThroughAssumption(initialFormulas(name), label)
       }
@@ -147,7 +152,7 @@ class AlethePrinter(
         println("; --------------------------------------------")
         printlnPrefBreaking("",
                             (unusedNames filterNot PartName.predefNamesSet)
-                              .map(formulaPrinter.partName2String _)
+                              .map(partName2String _)
                               .mkString(", "))
         pop
       }
@@ -271,12 +276,12 @@ class AlethePrinter(
   private def introduceFormula(f : CertFormula, label : String = "") : Unit =
     if (label == "") {
       printlnPrefBreaking("  (" + formulaCounter + ")  ",
-                          formulaPrinter for2String f)
+                          for2String(f))
       formulaLabel.put(f, "" + formulaCounter)
       formulaCounter = formulaCounter + 1
     } else {
       printlnPref("  (" + label + ")")
-      printlnPrefBreaking("  ", formulaPrinter for2String f)
+      printlnPrefBreaking("  ", for2String(f))
       formulaLabel.put(f, label)
       printPref
     }
@@ -288,7 +293,7 @@ class AlethePrinter(
                            useCl      : Boolean = true) : Unit = {
     val formulasString =
       (for ((f, neg) <- formulas;
-            fString = formulaPrinter for2String f)
+            fString = for2String(f))
        yield (if (neg) f"(not $fString)" else fString)).mkString(" ")
     val line =
       f"($cmd $label " +
@@ -327,10 +332,11 @@ class AlethePrinter(
   }
 
   private def introduceFormulaThroughResolution(
-                        ruleName        : String,
-                        assumedFormulas : Iterable[CertFormula],
-                        f               : CertFormula,
-                        label           : String = "") : Unit = {
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                f               : CertFormula,
+                label           : String = "",
+                extraAttributes : Seq[(String, String)] = List()) : Unit = {
     // we first introduce a tautological clause, and then use resolution
     // to derive what we want
 
@@ -339,7 +345,7 @@ class AlethePrinter(
 
     printCommand("step", interLabel,
                  List((f, false)) ++ assumedFormulas.map((_, true)),
-                 List(("rule", ruleName)))
+                 List(("rule", ruleName)) ++ extraAttributes)
     val attributes1 =
       if (assumedFormulas.isEmpty)
         List()
@@ -457,8 +463,7 @@ class AlethePrinter(
 
     case cert : CutCertificate => {
       printlnPref
-      printlnPref("CUT: with " +
-                  (formulaPrinter for2String cert.cutFormula) + ":")
+      printlnPref("CUT: with " + for2String(cert.cutFormula) + ":")
       printCases(cert)
     }
 
@@ -588,7 +593,7 @@ class AlethePrinter(
         printlnPrefBreaking("GROUND_INST: ",
                     "instantiating " +  l(quantifiedFormula) + " with " +
                     ((for (t <- instanceTerms.reverse)
-                     yield (formulaPrinter term2String t)) mkString ", ") +
+                     yield term2String(t)) mkString ", ") +
                     (if (!dischargedAtoms.isEmpty)
                        ", simplifying with " + l(dischargedAtoms)
                      else
@@ -613,7 +618,15 @@ class AlethePrinter(
                                              inf.providedFormulas,
                                              nextAssumedFormulas,
                                              childOrder)
-      case _ : CombineInequalitiesInference | _ : SimpInference =>
+      case CombineInequalitiesInference(leftCoeff, _, rightCoeff, _, _, _) =>
+        // TODO: use correct argument order
+        introduceFormulaThroughResolution(
+          "la_generic",
+          inf.assumedFormulas,
+          inf.providedFormulas.head,
+          extraAttributes =
+            List(("args", f"(${number2String(leftCoeff)} ${number2String(leftCoeff)})")))
+      case _ : SimpInference =>
         introduceFormulaThroughResolution("lia_generic",
                                           inf.assumedFormulas,
                                           inf.providedFormulas.head)
@@ -631,6 +644,5 @@ class AlethePrinter(
                           case 1 => " implies:"
                           case _ => " imply:"
                          }))
-
 
 }
