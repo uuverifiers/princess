@@ -219,7 +219,7 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
     case Param.ProofConstructionOptions.IfInterpolating =>
       !rawInterpolantSpecs.isEmpty ||
       Param.COMPUTE_UNSAT_CORE(settings) ||
-      Param.PRINT_CERTIFICATE(settings) ||
+      Param.PRINT_CERTIFICATE(settings) != Param.CertificateOutput.None ||
       Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
   }
 

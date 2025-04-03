@@ -137,9 +137,12 @@ object Param {
     val defau : String = ""
   }
   
+  object CertificateOutput extends Enumeration {
+    val None, Princess, Alethe = Value
+  }
   case object PRINT_CERTIFICATE extends Param {
-    type Value = Boolean
-    val defau : Boolean = false
+    type Value = CertificateOutput.Value
+    val defau : CertificateOutput.Value = CertificateOutput.None
   }
   
   object ConstraintSimplifierOptions extends Enumeration {

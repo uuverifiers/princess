@@ -45,101 +45,68 @@ import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack}
 import scala.util.Sorting
 
-object CertificatePrettyPrinter {
-
-  abstract class FormulaPrinter(predTranslation : Map[Predicate, IFunction]) {
-    private val translator = new Internal2InputAbsy(predTranslation)
-    protected def translate(f : CertFormula) =
-      Transform2NNF(VariableSortInferenceVisitor(translator(f.toFormula)))
-    protected def translate(lc : LinearCombination) =
-      translator(lc)
-    protected def translate(t : Term) =
-      translator(t)
-
-    def for2String(f : CertFormula) : String
-    def term2String(t : LinearCombination) : String
-    def partName2String(pn : PartName) : String
-  }
-
-  class PrincessFormulaPrinter(predTranslation : Map[Predicate, IFunction])
-        extends FormulaPrinter(predTranslation) {
-
-    def for2String(f : CertFormula) : String = DialogUtil.asString {
-        f match {
-          // TODO: print equations without arithmetic operations when possible
-          case CertInequality(lc) => {
-            PrincessLineariser printExpression translate(lc)
-            print(" >= 0")
-          }
-          case CertEquation(lc) => {
-            PrincessLineariser printExpression translate(lc)
-            print(" = 0")
-          }
-          case CertNegEquation(lc) => {
-            PrincessLineariser printExpression translate(lc)
-            print(" != 0")
-          }
-          case f =>
-            PrincessLineariser printExpression translate(f)
-        }
-    }
-
-    def term2String(t : LinearCombination) : String = DialogUtil.asString {
-      PrincessLineariser printExpression translate(t)
-    }
-
-    def partName2String(pn : PartName) : String =
-      pn.toString
-
-  }
-
-  class TPTPFormulaPrinter(predTranslation : Map[Predicate, IFunction])
-        extends FormulaPrinter(predTranslation) {
-    private val lin = new TPTPLineariser("")
-
-    def for2String(f : CertFormula) : String = DialogUtil.asString {
-      lin printFormula translate(f)
-    }
-
-    def term2String(t : LinearCombination) : String = DialogUtil.asString {
-      lin printTerm translate(t)
-    }
-
-    def partName2String(pn : PartName) : String =
-      pn match {
-        case TPTPTParser.ConjecturePartName(n) => n
-        case pn                                => pn.toString
-      }
-  }
-
-  class SMTLIBFormulaPrinter(predTranslation : Map[Predicate, IFunction])
-        extends FormulaPrinter(predTranslation) {
-    def for2String(f : CertFormula) : String =
-      ap.DialogUtil.asString {
-        SMTLineariser applyNoPrettyBitvectors translate(f)
-      }
-
-    def term2String(t : LinearCombination) : String =
-      ap.DialogUtil.asString {
-        SMTLineariser applyNoPrettyBitvectors translate(t)
-      }
-
-    def partName2String(pn : PartName) : String =
-      pn.toString
-  }
-
+object AlethePrinter {
   private val LINE_WIDTH = 80
 
   private val NUMERIC_LABEL = """\(([0-9]+)\)""".r
 
+  class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
+        extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
+    def for2String(f : CertFormula) : String =
+      ap.DialogUtil.asString {
+        f match {
+          case CertInequality(lc) => {
+            print("(<= 0 ")
+            printLC(lc)
+            print(")")
+          }
+          case CertEquation(LinearCombination.Difference(left, right)) => {
+            print("(= ")
+            printTerm(left)
+            print(" ")
+            printTerm(right)
+            print(")")
+          }
+          case CertEquation(lc) => {
+            print("(= 0 ")
+            printLC(lc)
+            print(")")
+          }
+          case CertNegEquation(LinearCombination.Difference(left, right)) => {
+            print("(not (= ")
+            printTerm(left)
+            print(" ")
+            printTerm(right)
+            print("))")
+          }
+          case CertNegEquation(lc) => {
+            print("(not (= 0 ")
+            printLC(lc)
+            print("))")
+          }
+          case f =>
+            SMTLineariser applyNoPrettyBitvectors translate(f)
+        }
+      }
+
+    private def printTerm(t : Term) : Unit =
+      SMTLineariser applyNoPrettyBitvectors translate(t)
+    private def printLC(lc : LinearCombination) : Unit =
+      SMTLineariser applyNoPrettyBitvectors translate(lc)
+
+    def term2String(t : LinearCombination) : String =
+      ap.DialogUtil.asString { printLC(t) }
+
+    def partName2String(pn : PartName) : String =
+      pn.toString
+  }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-class CertificatePrettyPrinter(
+class AlethePrinter(
         formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
 
   import CertificatePrettyPrinter._
+  import AlethePrinter._
   import PartName.{predefNames, predefNamesSet}
 
   def apply(dagCertificate : Seq[Certificate],
@@ -156,8 +123,8 @@ class CertificatePrettyPrinter(
       name => assumedFormulas contains initialFormulas(name)
     }
 
-    println("Assumptions after simplification:")
-    println("---------------------------------")
+    println("; Assumptions after simplification:")
+    println("; ---------------------------------")
 
     push
     try {
@@ -169,32 +136,34 @@ class CertificatePrettyPrinter(
           case PartName.THEORY_AXIOMS   => "theory-axioms"
           case _                        => formulaPrinter.partName2String(name)
         }
-        introduceFormula(initialFormulas(name), label)
+        introduceFormulaThroughAssumption(initialFormulas(name), label)
       }
 
       if (!(unusedNames forall PartName.predefNamesSet)) {
         println()
-        println("Further assumptions not needed in the proof:")
-        println("--------------------------------------------")
+        push
+        addPrefix("; ")
+        println("; Further assumptions not needed in the proof:")
+        println("; --------------------------------------------")
         printlnPrefBreaking("",
                             (unusedNames filterNot PartName.predefNamesSet)
                               .map(formulaPrinter.partName2String _)
                               .mkString(", "))
+        pop
       }
 
       println()
-      println("Those formulas are unsatisfiable:")
-      println("---------------------------------")
+      println("; Those formulas are unsatisfiable:")
+      println("; ---------------------------------")
 
       println()
-      println("Begin of proof")
-      addPrefix("| ")
+      println("; Begin of proof")
       printCertificate(dagCertificate.last)
       printlnPref
     } finally {
       reset
     }
-    println("End of proof")
+    println("; End of proof")
 
     for (id <- (certificateNum - 2) to 0 by -1) {
       val cert = dagCertificate(id)
@@ -312,6 +281,77 @@ class CertificatePrettyPrinter(
       printPref
     }
 
+  private def printCommand(cmd        : String,
+                           label      : String,
+                           formulas   : Seq[(CertFormula, Boolean)],
+                           attributes : Seq[(String, String)],
+                           useCl      : Boolean = true) : Unit = {
+    val formulasString =
+      (for ((f, neg) <- formulas;
+            fString = formulaPrinter for2String f)
+       yield (if (neg) f"(not $fString)" else fString)).mkString(" ")
+    val line =
+      f"($cmd $label " +
+      (if (useCl) f"(cl $formulasString)" else formulasString) +
+      (for ((a, b) <- attributes) yield f" :$a $b").mkString("") +
+      ")"
+    printlnPrefBreaking("", line)
+  }
+
+  private def introduceFormulaThroughAssumption(
+                        f               : CertFormula,
+                        label           : String = "") : Unit = {
+    val finalLabel = if (label == "") freshLabel() else label
+    printCommand("assume", finalLabel, List((f, false)), List(), useCl = false)
+    formulaLabel.put(f, finalLabel)
+  }
+
+  private def introduceFormulaThroughStep(
+                        ruleName        : String,
+                        assumedFormulas : Iterable[CertFormula],
+                        f               : Option[CertFormula],
+                        label           : String = "") : Unit = {
+    val finalLabel = if (label == "") freshLabel() else label
+
+    val attributes1 =
+      if (assumedFormulas.isEmpty)
+        List()
+      else
+        List(("premises", f"(${l(assumedFormulas)})"))
+    val attributes2 : List[(String, String)] =
+      List(("rule", ruleName)) ++ attributes1
+    printCommand("step", finalLabel, f.toSeq.map((_, false)), attributes2)
+    
+    for (g <- f)
+      formulaLabel.put(g, finalLabel)
+  }
+
+  private def introduceFormulaThroughResolution(
+                        ruleName        : String,
+                        assumedFormulas : Iterable[CertFormula],
+                        f               : CertFormula,
+                        label           : String = "") : Unit = {
+    // we first introduce a tautological clause, and then use resolution
+    // to derive what we want
+
+    val interLabel = freshLabel()
+    val finalLabel = if (label == "") freshLabel() else label
+
+    printCommand("step", interLabel,
+                 List((f, false)) ++ assumedFormulas.map((_, true)),
+                 List(("rule", ruleName)))
+    val attributes1 =
+      if (assumedFormulas.isEmpty)
+        List()
+      else
+        List(("premises", f"(${l(assumedFormulas)} $interLabel)"))
+    val attributes2 : List[(String, String)] =
+      List(("rule", "resolution")) ++ attributes1
+    printCommand("step", finalLabel, List((f, false)), attributes2)
+    
+    formulaLabel.put(f, finalLabel)
+  }
+
   private def introduceFormulaIfNeeded
                 (f : CertFormula, assumedFormulas : Set[CertFormula]) : Unit = {
     if (!(formulaLabel contains f) && (assumedFormulas contains f))
@@ -337,13 +377,41 @@ class CertificatePrettyPrinter(
     for (f <- neededFors) introduceFormula(f)
   }
 
-  private def l(f : CertFormula) : String = "(" + formulaLabel(f) + ")"
+  private def introduceFormulasThroughStepIfNeeded
+                (ruleName            : String,
+                 assumedFormulas     : Iterable[CertFormula],
+                 fs                  : Iterable[CertFormula],
+                 assumedNextFormulas : Set[CertFormula],
+                 order               : TermOrder) : Unit = {
+    var neededFors = 
+      (for (f <- fs.iterator;
+            if (!(formulaLabel contains f) && (assumedNextFormulas contains f)))
+       yield f).toArray
+
+    // if possible (and necessary), sort the list of formulas
+    if (neededFors.size > 1 &&
+        (neededFors forall (order isSortingOf _))) {
+      implicit val o = CertFormula certFormulaOrdering order
+      Sorting stableSort neededFors
+    }
+
+    for (f <- neededFors)
+      introduceFormulaThroughStep(ruleName, assumedFormulas, Some(f))
+  }
+
+  private def freshLabel() : String = {
+    val r = "t" + formulaCounter
+    formulaCounter = formulaCounter + 1
+    r
+  }
+
+  private def l(f : CertFormula) : String = formulaLabel(f)
 
   private def l(fs : Iterable[CertFormula]) : String =
     ((fs.toSeq map (l(_))).sortBy {
-      case NUMERIC_LABEL(num) => "(" + ("0" * (9 - num.size)) + num + ")"
+      case NUMERIC_LABEL(num) => ("0" * (9 - num.size)) + num
       case label => label
-    }) mkString ", "
+    }) mkString " "
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -415,6 +483,15 @@ class CertificatePrettyPrinter(
       printCases(cert)
     }
 
+    case CloseCertificate(fors, _)
+           if fors.size == 1 &&
+              fors.iterator.next.isInstanceOf[CertInequality] => {
+      printlnPref
+      introduceFormulaThroughStep("comp_simplify",
+                                  cert.localAssumedFormulas,
+                                  None)
+    }
+
     case cert : CloseCertificate => {
       printlnPref
       printlnPrefBreaking("CLOSE: ",
@@ -481,17 +558,17 @@ class CertificatePrettyPrinter(
 
     inf match {
       case _ : AlphaInference =>
-        printRewritingRule("ALPHA", inf)
+        //printRewritingRule("ALPHA", inf)
       case _ : ReducePredInference | _ : ReduceInference =>
         printRewritingRule("REDUCE", inf)
       case _ : SimpInference =>
-        printRewritingRule("SIMP", inf)
+        //printRewritingRule("SIMP", inf)
       case _ : PredUnifyInference =>
         printRewritingRule("PRED_UNIFY", inf)
       case _ : CombineEquationsInference =>
         printRewritingRule("COMBINE_EQS", inf)
       case _ : CombineInequalitiesInference =>
-        printRewritingRule("COMBINE_INEQS", inf)
+        //printRewritingRule("COMBINE_INEQS", inf)
       case _ : DirectStrengthenInference =>
         printRewritingRule("STRENGTHEN", inf)
       case _ : AntiSymmetryInference =>
@@ -523,9 +600,27 @@ class CertificatePrettyPrinter(
                     " defined by:")
     }
 
-    introduceFormulasIfNeeded(inf.providedFormulas,
-                              nextAssumedFormulas,
-                              childOrder)
+    val ruleName =
+      inf match {
+        case _ : AlphaInference => "and"
+        case _ => ""
+      }
+
+    inf match {
+      case _ : AlphaInference =>
+        introduceFormulasThroughStepIfNeeded("and",
+                                             inf.assumedFormulas,
+                                             inf.providedFormulas,
+                                             nextAssumedFormulas,
+                                             childOrder)
+      case _ : CombineInequalitiesInference | _ : SimpInference =>
+        introduceFormulaThroughResolution("lia_generic",
+                                          inf.assumedFormulas,
+                                          inf.providedFormulas.head)
+      case _ =>
+        println(f"Not handled: $inf")
+    }
+        
   }
 
   private def printRewritingRule(name : String, inf : BranchInference) : Unit =
@@ -536,5 +631,6 @@ class CertificatePrettyPrinter(
                           case 1 => " implies:"
                           case _ => " imply:"
                          }))
+
 
 }

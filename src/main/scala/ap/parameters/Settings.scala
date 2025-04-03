@@ -92,7 +92,13 @@ object GlobalSettings {
         case ValueOpt("printTPTP", value) =>
           Param.PRINT_TPTP_FILE.set(settings, value)
         case Opt("printProof", value) =>
-          Param.PRINT_CERTIFICATE.set(settings, value)
+          Param.PRINT_CERTIFICATE.set(settings,
+            if (value) Param.CertificateOutput.Princess
+            else       Param.CertificateOutput.None)
+        case Opt("printAletheProof", value) =>
+          Param.PRINT_CERTIFICATE.set(settings,
+            if (value) Param.CertificateOutput.Alethe
+            else       Param.CertificateOutput.None)
         case ValueOpt("printDOT", value) =>
           Param.PRINT_DOT_CERTIFICATE_FILE.set(settings, value)
         case Opt("assert", value) =>

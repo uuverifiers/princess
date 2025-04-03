@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2023      Amanda Stjerna <amanda.stjerna@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -2422,10 +2422,10 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
 
     DialogUtil asString {
-      CmdlMain.doPrintTextCertificate(currentCertificate,
-                                      formulaParts.toMap,
-                                      functionEnc.predTranslation.toMap,
-                                      format)
+      CmdlMain.doPrintPrincessCertificate(currentCertificate,
+                                          formulaParts.toMap,
+                                          functionEnc.predTranslation.toMap,
+                                          format)
     }
   }
 

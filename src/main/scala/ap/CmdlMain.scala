@@ -37,7 +37,7 @@ import ap.proof.ConstraintSimplifier
 import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser,
                               DagCertificateConverter, CertificatePrettyPrinter,
-                              CertFormula}
+                              CertFormula, AlethePrinter}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
@@ -100,6 +100,7 @@ object CmdlMain {
     println(" [+-]model                 Compute models or countermodels          (default: -)")
     println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
     println(" [+-]printProof            Output the constructed proof             (default: -)")
+    println(" [+-]printAletheProof      Output the constructed proof in Alethe   (default: -)")
     println(" [+-]mostGeneralConstraint Derive a most general constraint         (default: -)")
     println("                           (quantifier elimination for PA formulae) (default: -)")
     println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
@@ -310,25 +311,31 @@ object CmdlMain {
               "}")
     }
 
-    if (Param.PRINT_CERTIFICATE(settings))
-      printTextCertificate(cert, settings, prover)
+    Param.PRINT_CERTIFICATE(settings) match {
+      case Param.CertificateOutput.Princess =>
+        printPrincessCertificate(cert, settings, prover)
+      case Param.CertificateOutput.Alethe =>
+        printAletheCertificate(cert, settings, prover)        
+      case Param.CertificateOutput.None =>
+        // nothing
+    }
 
     if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "")
       printDOTCertificate(cert, settings)
   }
 
-  private def printTextCertificate(cert : Certificate,
-                                   settings : GlobalSettings,
-                                   prover : Prover)
-                                 (implicit format : Param.InputFormat.Value) = {
+  private def printPrincessCertificate(cert : Certificate,
+                                       settings : GlobalSettings,
+                                       prover : Prover)
+                        (implicit format : Param.InputFormat.Value) = {
     println()
-    doPrintTextCertificate(cert,
-                           prover.getFormulaParts,
-                           prover.getPredTranslation,
-                           format)
+    doPrintPrincessCertificate(cert,
+                               prover.getFormulaParts,
+                               prover.getPredTranslation,
+                               format)
   }
 
-  protected[ap] def doPrintTextCertificate(
+  protected[ap] def doPrintPrincessCertificate(
                       cert : Certificate,
                       rawFormulaParts : Map[PartName, Conjunction],
                       predTranslation : Map[Predicate, IFunction],
@@ -362,6 +369,34 @@ object CmdlMain {
 
     if (format == Param.InputFormat.TPTP)
       println("% SZS output end Proof for theBenchmark")
+  }
+
+  private def printAletheCertificate(cert : Certificate,
+                                     settings : GlobalSettings,
+                                     prover : Prover) = {
+    println()
+    doPrintAletheCertificate(cert,
+                             prover.getFormulaParts,
+                             prover.getPredTranslation)
+  }
+
+  protected[ap] def doPrintAletheCertificate(
+                      cert : Certificate,
+                      rawFormulaParts : Map[PartName, Conjunction],
+                      predTranslation : Map[Predicate, IFunction]) : Unit = {
+    val formulaParts = rawFormulaParts mapValues {
+      f => CertFormula(f.negate)
+    }
+    val dagCert = DagCertificateConverter(cert)
+
+    val formulaPrinter =
+      new AlethePrinter.AletheFormulaPrinter (
+        predTranslation
+      )
+
+    val printer = new AlethePrinter(formulaPrinter)
+
+    printer(dagCert, formulaParts)
   }
 
   private def printDOTCertificate(cert : Certificate,
@@ -508,7 +543,7 @@ object CmdlMain {
               
           val needProof =
             Param.COMPUTE_UNSAT_CORE(settings) ||
-            Param.PRINT_CERTIFICATE(settings) ||
+            Param.PRINT_CERTIFICATE(settings) !=Param.CertificateOutput.None ||
             Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
 
           val args =
