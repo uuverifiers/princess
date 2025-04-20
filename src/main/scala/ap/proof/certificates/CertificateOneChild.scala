@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -600,9 +600,10 @@ object CombineInequalitiesInference {
 }
 
 /**
- * Inference corresponding to a series of applications of the reduce rule: form
- * the linear combination of a sequence of equations. The result is implicitly
- * made primitive (divided by common coefficients) and rounded
+ * Inference that introduces a positive linear combination of two inequalities.
+ * The input inequalities are <code>leftInEq</code> and <code>rightInEq</code>,
+ * which are multiplied by <code>leftCoeff</code> and <code>rightCoeff</code>,
+ * respectively, and then added up.
  */
 case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : CertInequality,
                                         rightCoeff : IdealInt, rightInEq : CertInequality,
