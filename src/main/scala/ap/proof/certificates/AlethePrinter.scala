@@ -39,6 +39,7 @@ import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   Internal2InputAbsy, IFunction, Transform2NNF,
                   VariableSortInferenceVisitor, TPTPTParser}
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{TermOrder, Term}
 import ap.basetypes.IdealInt
 
@@ -85,9 +86,29 @@ object AlethePrinter {
             printLC(lc)
             print("))")
           }
+          case CertCompoundFormula(c) => {
+            print(for2StringRec(c))
+          }
           case f =>
             SMTLineariser applyNoPrettyBitvectors translate(f)
         }
+      }
+
+    private def for2StringRec(c : Conjunction) : String =
+      if (c.isTrue) {
+        "true"
+      } else if (c.isFalse) {
+        "false"
+      } else if (c.isNegatedConjunction) {
+        f"(not ${for2StringRec(c.negatedConjs.head)})"
+      } else {
+        // TODO: predicates
+        "(and " +
+        ((c.arithConj.positiveEqs.map(CertEquation(_)) ++
+          c.arithConj.negativeEqs.map(CertNegEquation(_)) ++
+          c.arithConj.inEqs.map(CertInequality(_))).map(for2String _) ++
+         c.negatedConjs.map(for2StringRec _).map(x => f"(not $x)"))
+         .mkString(" ") + ")"
       }
 
     private def printTerm(t : Term) : Unit =
@@ -312,20 +333,20 @@ class AlethePrinter(
   }
 
   private def introduceFormulaThroughStep(
-                        ruleName        : String,
-                        assumedFormulas : Iterable[CertFormula],
-                        f               : Option[CertFormula],
-                        label           : String = "") : Unit = {
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                f               : Option[CertFormula],
+                label           : String = "",
+                extraAttributes : Seq[(String, String)] = List()) : Unit = {
     val finalLabel = if (label == "") freshLabel() else label
 
-    val attributes1 =
-      if (assumedFormulas.isEmpty)
-        List()
-      else
-        List(("premises", f"(${l(assumedFormulas)})"))
-    val attributes2 : List[(String, String)] =
-      List(("rule", ruleName)) ++ attributes1
-    printCommand("step", finalLabel, f.toSeq.map((_, false)), attributes2)
+    val attributes =
+      List(("rule", ruleName)) ++
+      (if (assumedFormulas.isEmpty) List()
+       else List(("premises", f"(${l(assumedFormulas)})"))) ++
+      extraAttributes
+
+    printCommand("step", finalLabel, f.toSeq.map((_, false)), attributes)
     
     for (g <- f)
       formulaLabel.put(g, finalLabel)
@@ -336,7 +357,8 @@ class AlethePrinter(
                 assumedFormulas : Iterable[CertFormula],
                 f               : CertFormula,
                 label           : String = "",
-                extraAttributes : Seq[(String, String)] = List()) : Unit = {
+                extraAttributes : Seq[(String, String)] = List())
+                                : Unit = {
     // we first introduce a tautological clause, and then use resolution
     // to derive what we want
 
@@ -346,14 +368,12 @@ class AlethePrinter(
     printCommand("step", interLabel,
                  List((f, false)) ++ assumedFormulas.map((_, true)),
                  List(("rule", ruleName)) ++ extraAttributes)
-    val attributes1 =
-      if (assumedFormulas.isEmpty)
-        List()
-      else
-        List(("premises", f"(${l(assumedFormulas)} $interLabel)"))
-    val attributes2 : List[(String, String)] =
-      List(("rule", "resolution")) ++ attributes1
-    printCommand("step", finalLabel, List((f, false)), attributes2)
+
+    val attributes =
+      List(("rule", "resolution")) ++
+      (if (assumedFormulas.isEmpty) List()
+      else List(("premises", f"(${l(assumedFormulas)} $interLabel)")))
+    printCommand("step", finalLabel, List((f, false)), attributes)
     
     formulaLabel.put(f, finalLabel)
   }
@@ -388,7 +408,9 @@ class AlethePrinter(
                  assumedFormulas     : Iterable[CertFormula],
                  fs                  : Iterable[CertFormula],
                  assumedNextFormulas : Set[CertFormula],
-                 order               : TermOrder) : Unit = {
+                 order               : TermOrder,
+                 argComputer         : Option[CertFormula => String] = None)
+                                     : Unit = {
     var neededFors = 
       (for (f <- fs.iterator;
             if (!(formulaLabel contains f) && (assumedNextFormulas contains f)))
@@ -401,8 +423,12 @@ class AlethePrinter(
       Sorting stableSort neededFors
     }
 
-    for (f <- neededFors)
-      introduceFormulaThroughStep(ruleName, assumedFormulas, Some(f))
+    for (f <- neededFors) {
+      val args =
+        for (comp <- argComputer.toSeq) yield ("arg", comp(f))
+      introduceFormulaThroughStep(ruleName, assumedFormulas, Some(f),
+                                  extraAttributes = args)
+    }
   }
 
   private def freshLabel() : String = {
@@ -612,12 +638,38 @@ class AlethePrinter(
       }
 
     inf match {
-      case _ : AlphaInference =>
+      case _ : AlphaInference => {
+        val CertCompoundFormula(c) = inf.assumedFormulas.head
+        val ac = c.arithConj
+        def opt(n : Int) = if (n == -1) None else Some(n)
+
+        val argComp =
+          (f : CertFormula) => {
+            val idx =
+              f match {
+                case CertEquation(lc) =>
+                  opt(ac.positiveEqs.indexOf(lc))
+                case CertNegEquation(lc) =>
+                  for (n <- opt(ac.negativeEqs.indexOf(lc)))
+                  yield n + ac.positiveEqs.size
+                case CertInequality(lc) =>
+                  for (n <- opt(ac.inEqs.indexOf(lc)))
+                  yield n + ac.positiveEqs.size + ac.negativeEqs.size
+                // TODO: predicates, negations, compound formulas
+              }
+            idx match {
+              case Some(n) => f"($n)"
+              case None => "()"
+            }
+          }
+
         introduceFormulasThroughStepIfNeeded("and",
                                              inf.assumedFormulas,
                                              inf.providedFormulas,
                                              nextAssumedFormulas,
-                                             childOrder)
+                                             childOrder,
+                                             argComputer = Some(argComp))
+      }
       case CombineInequalitiesInference(leftCoeff, _, rightCoeff, _, _, _) =>
         // TODO: use correct argument order
         introduceFormulaThroughResolution(
@@ -625,11 +677,14 @@ class AlethePrinter(
           inf.assumedFormulas,
           inf.providedFormulas.head,
           extraAttributes =
-            List(("args", f"(${number2String(leftCoeff)} ${number2String(leftCoeff)})")))
-      case _ : SimpInference =>
-        introduceFormulaThroughResolution("lia_generic",
+            List(("args",
+                  f"(1 ${number2String(leftCoeff)} ${number2String(rightCoeff)})")))
+      case inf : SimpInference =>
+        introduceFormulaThroughResolution("la_generic",
                                           inf.assumedFormulas,
-                                          inf.providedFormulas.head)
+                                          inf.providedFormulas.head,
+                                          extraAttributes =
+                                            List(("args", f"(${inf.factor} 1)")))
       case _ =>
         println(f"Not handled: $inf")
     }
