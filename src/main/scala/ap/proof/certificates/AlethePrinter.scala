@@ -312,16 +312,45 @@ class AlethePrinter(
                            formulas   : Seq[(CertFormula, Boolean)],
                            attributes : Seq[(String, String)],
                            useCl      : Boolean = true) : Unit = {
-    val formulasString =
-      (for ((f, neg) <- formulas;
-            fString = for2String(f))
-       yield (if (neg) f"(not $fString)" else fString)).mkString(" ")
+    val formulasStr =
+      for ((f, neg) <- formulas; fString = for2String(f))
+      yield (if (neg) f"(not $fString)" else fString)
+    printCommandStr(cmd, label, formulasStr, attributes, useCl)
+  }
+
+  private def printCommandStr(cmd        : String,
+                              label      : String,
+                              formulas   : Seq[String],
+                              attributes : Seq[(String, String)],
+                              useCl      : Boolean = true) : Unit = {
+    val formulasString = formulas.mkString(" ")
     val line =
       f"($cmd $label " +
       (if (useCl) f"(cl $formulasString)" else formulasString) +
       (for ((a, b) <- attributes) yield f" :$a $b").mkString("") +
       ")"
     printlnPrefBreaking("", line)
+  }
+
+  private def step(formulas   : Seq[String],
+                   attributes : (String, String)*) : String = {
+    val l = freshLabel()
+    printCommandStr("step", l, formulas, attributes)
+    l
+  }
+
+  private def closeByEqv(formula : CertFormula,
+                         rule    : String) : Unit = {
+    val formulaLabel = l(formula)
+    val forStr = for2String(formula)
+    val eqvForStr = s"(= $forStr false)"
+    val l1 = step(List(eqvForStr), ("rule", rule))
+    val l2 = step(List(s"(not $eqvForStr)", s"(not $forStr)", "false"),
+                  ("rule", "equiv_pos2"))
+    val l3 = step(List("(not false)"), ("rule", "false"))
+    val l4 = step(List(),
+                  ("rule", "resolution"),
+                  ("premises", s"($formulaLabel $l1 $l2 $l3)"))
   }
 
   private def introduceFormulaThroughAssumption(
@@ -518,9 +547,7 @@ class AlethePrinter(
            if fors.size == 1 &&
               fors.iterator.next.isInstanceOf[CertInequality] => {
       printlnPref
-      introduceFormulaThroughStep("comp_simplify",
-                                  cert.localAssumedFormulas,
-                                  None)
+      closeByEqv(fors.iterator.next, "comp_simplify")
     }
 
     case cert : CloseCertificate => {
