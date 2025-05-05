@@ -2623,8 +2623,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (translateStringFun(stringTheory.str_replaceallre, args,
                           List(stringType, regexType, stringType)), stringType)
 
-    case PlainSymbol("str.is-digit") =>
+    case PlainSymbol("char.is_digit") =>
       translateStringPred(stringTheory.char_is_digit, args, List(charType))
+    case PlainSymbol("str.is_digit") =>
+      translateStringPred(stringTheory.str_is_digit, args, List(stringType))
 
     case PlainSymbol("re.+") =>
       (translateStringFun(stringTheory.re_+, args,
