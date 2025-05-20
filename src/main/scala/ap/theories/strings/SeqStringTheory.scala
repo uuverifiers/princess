@@ -861,16 +861,6 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           val shiftedA = VariableShiftSubst(0, 1, order)(a)
           exists(1, shiftedA & _adtSize(List(shiftedA(1), l(v(0)))))
         }
-        /*
-        case `char_is_digit` => {
-          (a(0) >= 0x0030) & (a(0) <= 0x0039)
-        }
-        case `str_is_digit` => {
-          val shiftedA = VariableShiftSubst(0, 1, order)(a)
-          exists(1, (shiftedA(0) === _str_cons(v(0), _str_empty())) &
-                    (v(0) >= 0x0030) & (v(0) <= 0x0039))
-        }
-        */
         case _ =>
           a
       }
