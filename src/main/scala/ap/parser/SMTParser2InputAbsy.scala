@@ -2786,6 +2786,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (seqType.theory.seq_update(argTerms : _*), seqType)
     }
 
+    // seq.write can be encoded in terms of seq.update
+    case PlainSymbol("seq.write") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.write", args,
+                         t => List(t, SMTInteger, t.elementType))
+      (seqType.theory.seq_update(argTerms(0), argTerms(1),
+                                 seqType.theory.seq_unit(argTerms(2))),
+       seqType)
+    }
+
     case PlainSymbol("seq.contains") => {
       val (argTerms, seqType) =
         translateSeqArgs("seq.contains", args, t => List(t, t))
