@@ -454,7 +454,7 @@ class AlethePrinter(
 
     for (f <- neededFors) {
       val args =
-        for (comp <- argComputer.toSeq) yield ("arg", comp(f))
+        for (comp <- argComputer.toSeq) yield ("args", comp(f))
       introduceFormulaThroughStep(ruleName, assumedFormulas, Some(f),
                                   extraAttributes = args)
     }
