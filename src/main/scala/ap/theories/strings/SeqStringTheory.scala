@@ -758,6 +758,14 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           case _ =>
             t update subres
         }
+      case IAtom(`char_is_digit`, _) => {
+        val t = subres(0).asInstanceOf[ITerm]
+        (t >= 0x0030) & (t <= 0x0039)
+      }
+      case IAtom(`str_is_digit`, _) => {
+        val t = subres(0).asInstanceOf[ITerm]
+        (adtSize(t) === 2) & (str_head(t) >= 0x0030) & (str_head(t) <= 0x0039)
+      }
       case t =>
         t update subres
     }

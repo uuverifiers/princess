@@ -2379,21 +2379,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
        SMTBitVec(width + digits))
     }
 
-    case PlainSymbol("bv2nat") | IndexedSymbol("bv2nat", _) => {
-      checkArgNum("bv2nat", 1, args)
+    case PlainSymbol("bv2nat") | IndexedSymbol("bv2nat", _) |
+         PlainSymbol("ubv_to_int") => {
+      checkArgNum("ubv_to_int", 1, args)
       val a0@(_, type0) = translateTerm(args(0), 0)
-      extractBVWidth("bv2nat", type0, args(0))
+      extractBVWidth("ubv_to_int", type0, args(0))
       (asTerm(a0), SMTInteger)
     }
 
-    case PlainSymbol("bv2int") | IndexedSymbol("bv2int", _) => {
-      checkArgNum("bv2int", 1, args)
+    case PlainSymbol("bv2int") | IndexedSymbol("bv2int", _) |
+         PlainSymbol("sbv_to_int") => {
+      checkArgNum("sbv_to_int", 1, args)
       val a0@(_, type0) = translateTerm(args(0), 0)
-      val width0 = extractBVWidth("bv2int", type0, args(0))
+      val width0 = extractBVWidth("sbv_to_int", type0, args(0))
       (ModuloArithmetic.cast2SignedBV(width0, asTerm(a0)), SMTInteger)
     }
 
-    case NumIndexedSymbol1(op@("nat2bv" | "int2bv"), IdealInt(digits)) => {
+    case NumIndexedSymbol1(op@("nat2bv" | "int2bv" | "int_to_bv"),
+                           IdealInt(digits)) => {
       checkArgNum(op, 1, args)
       (ModuloArithmetic.cast2UnsignedBV(digits,
                                         asTerm(translateTerm(args(0), 0))),
@@ -2622,8 +2625,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (translateStringFun(stringTheory.str_replaceallre, args,
                           List(stringType, regexType, stringType)), stringType)
 
-    case PlainSymbol("str.is-digit") =>
+    case PlainSymbol("char.is_digit") =>
       translateStringPred(stringTheory.char_is_digit, args, List(charType))
+    case PlainSymbol("str.is_digit") =>
+      translateStringPred(stringTheory.str_is_digit, args, List(stringType))
 
     case PlainSymbol("re.+") =>
       (translateStringFun(stringTheory.re_+, args,
@@ -2778,6 +2783,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       val (argTerms, seqType) =
         translateSeqArgs("seq.update", args, t => List(t, SMTInteger, t))
       (seqType.theory.seq_update(argTerms : _*), seqType)
+    }
+
+    // seq.write can be encoded in terms of seq.update
+    case PlainSymbol("seq.write") => {
+      val (argTerms, seqType) =
+        translateSeqArgs("seq.write", args,
+                         t => List(t, SMTInteger, t.elementType))
+      (seqType.theory.seq_update(argTerms(0), argTerms(1),
+                                 seqType.theory.seq_unit(argTerms(2))),
+       seqType)
     }
 
     case PlainSymbol("seq.contains") => {

@@ -80,7 +80,8 @@ TESTS="existential.pri \
        reducer-bug.smt2 \
        big-bv1.pri \
        big-bv2.pri \
-       big-bv3.pri"
+       big-bv3.pri \
+       conversions.smt2"
 
 $PRI "$@" $TESTS
 

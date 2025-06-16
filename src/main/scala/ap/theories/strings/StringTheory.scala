@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -193,6 +193,8 @@ trait StringTheory extends Theory {
   // Conversion between strings and numbers in decimal notation
   val str_to_int     : IFunction    // StringSort -> Int
   val int_to_str     : IFunction    // Int -> StringSort
+
+  val str_is_digit   : Predicate    // StringSort -> Boolean
 
   val str_<=         : Predicate    // StringSort x StringSort -> Boolean
   val str_<          : Predicate    // StringSort x StringSort -> Boolean

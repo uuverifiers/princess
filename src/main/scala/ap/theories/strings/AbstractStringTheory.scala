@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -88,6 +88,9 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("str_to_int", List(SSo), Integer, true, false)
   val int_to_str =
     new MonoSortedIFunction("int_to_str", List(Integer), SSo, true, false)
+
+  val str_is_digit =
+    new MonoSortedPredicate("str_is_digit", List(SSo))
 
   val str_<= =
     new MonoSortedPredicate("str_<=", List(SSo, SSo))
@@ -177,7 +180,7 @@ abstract class AbstractStringTheory extends StringTheory {
          re_union, re_inter, re_diff, re_*, re_+, re_opt, re_comp, re_loop)
 
   protected def predefPredicates =
-    List(char_is_digit, str_<=, str_<, str_prefixof,
+    List(char_is_digit, str_is_digit, str_<=, str_<, str_prefixof,
          str_suffixof, str_contains, str_in_re)
 
   private lazy val predFunMap =
