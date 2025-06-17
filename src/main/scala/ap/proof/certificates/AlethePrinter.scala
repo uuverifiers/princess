@@ -34,13 +34,13 @@
 package ap.proof.certificates;
 
 import ap.DialogUtil
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Atom, Predicate}
 import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   Internal2InputAbsy, IFunction, Transform2NNF,
                   VariableSortInferenceVisitor, TPTPTParser}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.conjunctions.Conjunction
-import ap.terfor.{TermOrder, Term}
+import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.{TermOrder, Term, OneTerm, VariableTerm, ConstantTerm}
 import ap.basetypes.IdealInt
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
@@ -54,70 +54,170 @@ object AlethePrinter {
 
   class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
+
     def for2String(f : CertFormula) : String =
-      ap.DialogUtil.asString {
+      ap.DialogUtil.asString { printFor(f, List()) }
+
+    def printFor(f         : CertFormula,
+                 variables : List[String]) : Unit =
         f match {
           case CertInequality(lc) => {
             print("(<= 0 ")
-            printLC(lc)
+            printLC(lc, variables)
             print(")")
           }
           case CertEquation(LinearCombination.Difference(left, right)) => {
             print("(= ")
-            printTerm(left)
+            printTerm(left, variables)
             print(" ")
-            printTerm(right)
+            printTerm(right, variables)
             print(")")
           }
           case CertEquation(lc) => {
             print("(= 0 ")
-            printLC(lc)
+            printLC(lc, variables)
             print(")")
           }
           case CertNegEquation(LinearCombination.Difference(left, right)) => {
             print("(not (= ")
-            printTerm(left)
+            printTerm(left, variables)
             print(" ")
-            printTerm(right)
+            printTerm(right, variables)
             print("))")
           }
           case CertNegEquation(lc) => {
             print("(not (= 0 ")
-            printLC(lc)
+            printLC(lc, variables)
             print("))")
           }
-          case CertCompoundFormula(c) => {
-            print(for2StringRec(c))
+          case CertPredLiteral(false, atom) => {
+            printAtom(atom, variables)
           }
-          case f =>
-            SMTLineariser applyNoPrettyBitvectors translate(f)
+          case CertPredLiteral(true, atom) => {
+            print("(not ")
+            printAtom(atom, variables)
+            print(")")
+          }
+          case CertCompoundFormula(c) => {
+            printForRec(c, variables)
+          }
+        }
+
+    private def printTerm(t : Term, variables : List[String]) : Unit =
+      t match {
+        case OneTerm =>
+          print("1")
+        case VariableTerm(ind) =>
+          print(variables(ind))
+        case c : ConstantTerm =>
+          print(SMTLineariser.quoteIdentifier(c.name))
+        case lc : LinearCombination =>
+          printLC(lc, variables)
+      }
+
+    private def printLC(lc : LinearCombination,
+                        variables : List[String]) : Unit =
+      lc.size match {
+        case 0 =>
+          print("0")
+        case 1 =>
+          printOneLC(lc.leadingCoeff, lc.leadingTerm, variables)
+        case _ => {
+          print("(+")
+          for ((coeff, t) <- lc.iterator) {
+            print(" ")
+            printOneLC(coeff, t, variables)
+          }
+          print(")")
         }
       }
 
-    private def for2StringRec(c : Conjunction) : String =
-      if (c.isTrue) {
-        "true"
-      } else if (c.isFalse) {
-        "false"
-      } else if (c.isNegatedConjunction) {
-        f"(not ${for2StringRec(c.negatedConjs.head)})"
+    private def printOneLC(coeff : IdealInt, t : Term,
+                           variables : List[String]) : Unit =
+      if (coeff.isOne) {
+        printTerm(t, variables)
+      } else if (t == OneTerm) {
+        print(SMTLineariser.toSMTExpr(coeff))
       } else {
-        // TODO: predicates
-        "(and " +
-        ((c.arithConj.positiveEqs.map(CertEquation(_)) ++
-          c.arithConj.negativeEqs.map(CertNegEquation(_)) ++
-          c.arithConj.inEqs.map(CertInequality(_))).map(for2String _) ++
-         c.negatedConjs.map(for2StringRec _).map(x => f"(not $x)"))
-         .mkString(" ") + ")"
+        print("(* ")
+        print(SMTLineariser.toSMTExpr(coeff))
+        print(" ")
+        printTerm(t, variables)
+        print(")")
       }
 
-    private def printTerm(t : Term) : Unit =
-      SMTLineariser applyNoPrettyBitvectors translate(t)
-    private def printLC(lc : LinearCombination) : Unit =
-      SMTLineariser applyNoPrettyBitvectors translate(lc)
+    private def printAtom(a : Atom, variables : List[String]) : Unit =
+      if (a.size == 0) {
+        print(SMTLineariser.quoteIdentifier(a.pred.name))
+      } else {
+        print(f"(${SMTLineariser.quoteIdentifier(a.pred.name)}")
+        for (t <- a) {
+          print(" ")
+          printLC(t, variables)
+        }
+        print(")")
+      }
+
+    private def printForRec(c         : Conjunction,
+                            variables : List[String]) : Unit =
+      if (c.isTrue) {
+        print("true")
+      } else if (c.isFalse) {
+        print("false")
+      } else if (c.isNegatedConjunction) {
+        print("(not ")
+        printForRec(c.negatedConjs.head, variables)
+        print(")")
+      } else {
+        // TODO: handle case where no "and" is needed
+
+        val N = variables.size
+
+        var newVars = variables
+        for ((q, n) <- c.quans.reverse.zipWithIndex) {
+          val varName = "$v" + (n + N)
+          newVars = varName :: newVars
+          q match {
+            case Quantifier.ALL => print("(forall ((")
+            case Quantifier.EX  => print("(exists ((")
+          }
+          print(varName)
+          print(")) ")
+        }
+
+        print("(and")
+        for (lc <- c.arithConj.positiveEqs) {
+          print(" ")
+          printFor(CertEquation(lc), newVars)
+        }
+        for (lc <- c.arithConj.positiveEqs) {
+          print(" ")
+          printFor(CertNegEquation(lc), newVars)
+        }
+        for (lc <- c.arithConj.inEqs) {
+          print(" ")
+          printFor(CertInequality(lc), newVars)
+        }
+        for (a <- c.predConj.positiveLits) {
+          print(" ")
+          printFor(CertPredLiteral(false, a), newVars)
+        }
+        for (a <- c.predConj.negativeLits) {
+          print(" ")
+          printFor(CertPredLiteral(true, a), newVars)
+        }
+        for (d <- c.negatedConjs) {
+          print(" (not ")
+          printForRec(d, newVars)
+          print(")")
+        }
+        print(")")
+
+        print(")" * c.quans.size)
+      }
 
     def term2String(t : LinearCombination) : String =
-      ap.DialogUtil.asString { printLC(t) }
+      ap.DialogUtil.asString { printLC(t, List()) }
 
     def partName2String(pn : PartName) : String =
       pn.toString

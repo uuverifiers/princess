@@ -1708,6 +1708,49 @@ class SimpleAPI private (enableAssert        : Boolean,
   private val parserSettings = otherSettings.toParserSettings
 
   /**
+   * Parse an input file in the Princess input format
+   * (<code>.pri</code>) and return the formula, the specified
+   * interpolants, and the signature specified in the file. All
+   * symbols will also be added to this prover.
+   */
+  def extractPriInput(input : String) :
+      (IFormula, List[IInterpolantSpec], Signature) = {
+    val reader = new java.io.BufferedReader (new java.io.StringReader(input))
+    extractPriInput(reader)
+  }
+
+  /**
+   * Parse an input file in the Princess input format
+   * (<code>.pri</code>) and return the formula, the specified
+   * interpolants, and the signature specified in the file. All
+   * symbols will also be added to this prover.
+   */
+  def extractPriInput(input : java.io.Reader) :
+      (IFormula, List[IInterpolantSpec], Signature) = {
+
+    val parser = ApParser2InputAbsy(parserSettings)
+    val p@(formula, _, signature) = parser(input)
+
+    if (!signature.universalConstants.isEmpty)
+      throw new SimpleAPIException(
+        "SimpleAPI cannot handle universal constants in .pri file yet")
+
+    val order = signature.order
+
+    addTheories(signature.theories)
+
+    addConstantsRaw(order.sort(signature.existentialConstants))
+    makeExistentialRaw(signature.existentialConstants)
+    addConstantsRaw(order.sort(signature.nullaryFunctions))
+    addRelations(order.sortPreds(order.orderedPredicates))
+
+    for (f <- FunctionCollector(formula).toSeq.sortBy(_.name))
+      addFunction(f)
+
+    p
+  }
+
+  /**
    * Execute an SMT-LIB script. Symbols declared in the script will
    * be added to the prover; however, if the prover already knows about
    * symbols with the same name, they will be reused.
@@ -2400,6 +2443,48 @@ class SimpleAPI private (enableAssert        : Boolean,
                          ProverStatus.Valid) contains getStatusHelp(false)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    val formulaParts = constructFormulaParts(partNames)
+
+    DialogUtil asString {
+      CmdlMain.doPrintPrincessCertificate(currentCertificate,
+                                          formulaParts,
+                                          functionEnc.predTranslation.toMap,
+                                          format)
+    }
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce a certificate in the Alethe format.
+   */
+  def aletheCertificateAsString(partNames : Map[Int, PartName] =
+                                  Map()) : String = {
+    doDumpSMT {
+      println("(get-proof)")
+    }
+    doDumpScala {
+      println(
+        "println(\"" + getScalaNum +
+                 ": \" + aletheCertificateAsString()")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val formulaParts = constructFormulaParts(partNames)
+
+    DialogUtil asString {
+      CmdlMain.doPrintAletheCertificate(currentCertificate,
+                                        formulaParts,
+                                        functionEnc.predTranslation.toMap)
+    }
+  }
+
+  private def constructFormulaParts(partNames : Map[Int, PartName]) = {
     val formulaParts = new MHashMap[PartName, Conjunction]
     for (((f, n), num) <- formulaeInProver.iterator.zipWithIndex) {
       val name = (partNames get n) match {
@@ -2421,12 +2506,7 @@ class SimpleAPI private (enableAssert        : Boolean,
       formulaParts.put(name, f)
     }
 
-    DialogUtil asString {
-      CmdlMain.doPrintPrincessCertificate(currentCertificate,
-                                          formulaParts.toMap,
-                                          functionEnc.predTranslation.toMap,
-                                          format)
-    }
+    formulaParts.toMap
   }
 
   /**
