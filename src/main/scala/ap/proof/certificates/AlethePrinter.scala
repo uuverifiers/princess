@@ -169,9 +169,8 @@ object AlethePrinter {
         printForRec(c.negatedConjs.head, variables)
         print(")")
       } else {
-        // TODO: handle case where no "and" is needed
-
         val N = variables.size
+        val needsAnd = c.size > 1
 
         var newVars = variables
         for ((q, n) <- c.quans.reverse.zipWithIndex) {
@@ -185,7 +184,8 @@ object AlethePrinter {
           print(")) ")
         }
 
-        print("(and")
+        if (needsAnd)
+          print("(and")
         for (lc <- c.arithConj.positiveEqs) {
           print(" ")
           printFor(CertEquation(lc), newVars)
@@ -211,7 +211,8 @@ object AlethePrinter {
           printForRec(d, newVars)
           print(")")
         }
-        print(")")
+        if (needsAnd)
+          print(")")
 
         print(")" * c.quans.size)
       }
@@ -501,7 +502,7 @@ class AlethePrinter(
     val attributes =
       List(("rule", "resolution")) ++
       (if (assumedFormulas.isEmpty) List()
-      else List(("premises", f"(${l(assumedFormulas)} $interLabel)")))
+       else List(("premises", f"(${l(assumedFormulas)} $interLabel)")))
     printCommand("step", finalLabel, List((f, false)), attributes)
     
     formulaLabel.put(f, finalLabel)
@@ -768,6 +769,7 @@ class AlethePrinter(
       case _ : AlphaInference => {
         val CertCompoundFormula(c) = inf.assumedFormulas.head
         val ac = c.arithConj
+        val pc = c.predConj
         def opt(n : Int) = if (n == -1) None else Some(n)
 
         val argComp =
@@ -782,7 +784,15 @@ class AlethePrinter(
                 case CertInequality(lc) =>
                   for (n <- opt(ac.inEqs.indexOf(lc)))
                   yield n + ac.positiveEqs.size + ac.negativeEqs.size
-                // TODO: predicates, negations, compound formulas
+                case CertPredLiteral(false, a) =>
+                  for (n <- opt(pc.positiveLits.indexOf(a)))
+                  yield n + ac.size
+                case CertPredLiteral(true, a) =>
+                  for (n <- opt(pc.negativeLits.indexOf(a)))
+                  yield n + ac.size + pc.positiveLits.size
+                case CertCompoundFormula(d) =>
+                  for (n <- opt(c.negatedConjs.indexOf(!d)))
+                  yield n + ac.size + pc.size
               }
             idx match {
               case Some(n) => f"($n)"
@@ -812,6 +822,15 @@ class AlethePrinter(
                                           inf.providedFormulas.head,
                                           extraAttributes =
                                             List(("args", f"(${inf.factor} 1)")))
+      case GroundInstInference(quantifiedFormula, instanceTerms,
+                               _, dischargedAtoms, result, order) => {
+        // TODO: must make simplification of the instantiated formula explicit
+        val instantiatedFor =
+          quantifiedFormula.toConj.instantiate(instanceTerms)(order)
+        introduceFormulaThroughResolution("forall_inst",
+                                          List(quantifiedFormula),
+                                          CertFormula(instantiatedFor))
+      }
       case _ =>
         println(f"Not handled: $inf")
     }

@@ -56,7 +56,7 @@ object CmdlMain {
    * Flag to enable stack traces being fully printed, for problems
    * specified on the command line.
    */
-  var stackTraces = false
+  var stackTraces = true
 
   def printGreeting = {
     println("________       _____")                                 
