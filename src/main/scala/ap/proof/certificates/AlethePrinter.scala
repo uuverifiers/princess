@@ -99,7 +99,7 @@ object AlethePrinter {
             print(")")
           }
           case CertCompoundFormula(c) => {
-            printForRec(c, variables)
+            printForRec(c, variables, false)
           }
         }
 
@@ -159,57 +159,67 @@ object AlethePrinter {
       }
 
     private def printForRec(c         : Conjunction,
-                            variables : List[String]) : Unit =
-      if (c.isTrue) {
+                            variables : List[String],
+                            negated   : Boolean) : Unit =
+      if (if (negated) c.isFalse else c.isTrue) {
         print("true")
-      } else if (c.isFalse) {
+      } else if (if (negated) c.isTrue else c.isFalse) {
         print("false")
       } else if (c.isNegatedConjunction) {
-        print("(not ")
-        printForRec(c.negatedConjs.head, variables)
-        print(")")
+        printForRec(c.negatedConjs.head, variables, !negated)
       } else {
         val N = variables.size
         val needsAnd = c.size > 1
 
+        // TODO: group blocks of quantifiers
         var newVars = variables
         for ((q, n) <- c.quans.reverse.zipWithIndex) {
           val varName = "$v" + (n + N)
           newVars = varName :: newVars
-          q match {
-            case Quantifier.ALL => print("(forall ((")
-            case Quantifier.EX  => print("(exists ((")
-          }
-          print(varName)
+          if ((q == Quantifier.ALL) != negated)
+            print("(forall ((")
+          else
+            print("(exists ((")
+          print(f"$varName Int")  // TODO
           print(")) ")
         }
 
-        if (needsAnd)
-          print("(and")
+        if (needsAnd) {
+          if (negated)
+            print("(or")
+          else
+            print("(and")
+        }
+
         for (lc <- c.arithConj.positiveEqs) {
           print(" ")
-          printFor(CertEquation(lc), newVars)
+          printFor(if (negated) CertNegEquation(lc) else CertEquation(lc),
+                   newVars)
         }
-        for (lc <- c.arithConj.positiveEqs) {
+        for (lc <- c.arithConj.negativeEqs) {
           print(" ")
-          printFor(CertNegEquation(lc), newVars)
+          printFor(if (negated) CertEquation(lc) else CertNegEquation(lc),
+                   newVars)
         }
+
         for (lc <- c.arithConj.inEqs) {
           print(" ")
-          printFor(CertInequality(lc), newVars)
+          printFor(if (negated) !CertInequality(lc) else CertInequality(lc),
+                   newVars)
         }
+
         for (a <- c.predConj.positiveLits) {
           print(" ")
-          printFor(CertPredLiteral(false, a), newVars)
+          printFor(CertPredLiteral(negated, a), newVars)
         }
         for (a <- c.predConj.negativeLits) {
           print(" ")
-          printFor(CertPredLiteral(true, a), newVars)
+          printFor(CertPredLiteral(!negated, a), newVars)
         }
+
         for (d <- c.negatedConjs) {
-          print(" (not ")
-          printForRec(d, newVars)
-          print(")")
+          print(" ")
+          printForRec(d, newVars, !negated)
         }
         if (needsAnd)
           print(")")
@@ -454,6 +464,31 @@ class AlethePrinter(
                   ("premises", s"($formulaLabel $l1 $l2 $l3)"))
   }
 
+  private def disjunctionToClause(disjunction : CertFormula) : String =
+    disjunction match {
+      case CertCompoundFormula(f) if f.isNegatedConjunction => {
+        val subfors = f.negatedConjs.head.iterator
+                       .map(g => CertFormula(!g)).toList
+        step(subfors.map(for2String(_)),
+             ("rule", "or"), ("premises", f"(${formulaLabel(disjunction)})"))
+      }
+      case f =>
+        formulaLabel(f)
+    }
+
+  private def resolveDisjunction(disjunction   : CertFormula,
+                                 otherFormulas : Seq[CertFormula],
+                                 result        : CertFormula) : String = {
+    assert(result.toConj.size <= 1) // TODO
+    val l1 = disjunctionToClause(disjunction)
+    val l2 =
+      step(if (result.isFalse) List() else List(for2String(result)),
+           ("rule", "resolution"),
+           ("premises", f"(${l(otherFormulas)} $l1)"))        
+    formulaLabel.put(result, l2)
+    l2
+  }
+
   private def introduceFormulaThroughAssumption(
                         f               : CertFormula,
                         label           : String = "") : Unit = {
@@ -488,7 +523,7 @@ class AlethePrinter(
                 f               : CertFormula,
                 label           : String = "",
                 extraAttributes : Seq[(String, String)] = List())
-                                : Unit = {
+                                : String = {
     // we first introduce a tautological clause, and then use resolution
     // to derive what we want
 
@@ -501,11 +536,11 @@ class AlethePrinter(
 
     val attributes =
       List(("rule", "resolution")) ++
-      (if (assumedFormulas.isEmpty) List()
-       else List(("premises", f"(${l(assumedFormulas)} $interLabel)")))
+      List(("premises", f"(${l(assumedFormulas)} $interLabel)"))
     printCommand("step", finalLabel, List((f, false)), attributes)
     
     formulaLabel.put(f, finalLabel)
+    finalLabel
   }
 
   private def introduceFormulaIfNeeded
@@ -651,6 +686,13 @@ class AlethePrinter(
       closeByEqv(fors.iterator.next, "comp_simplify")
     }
 
+    case CloseCertificate(fors, _)
+           if fors.size == 1 && fors.iterator.next.isFalse => {
+      // in this case, we assume that we have already derived an
+      // empty clause, there is nothing left to do
+      printlnPref
+    }
+
     case cert : CloseCertificate => {
       printlnPref
       printlnPrefBreaking("CLOSE: ",
@@ -744,7 +786,7 @@ class AlethePrinter(
                     (newConstants mkString ", ") + " gives:")
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, _, _) =>
-        printlnPrefBreaking("GROUND_INST: ",
+/*        printlnPrefBreaking("GROUND_INST: ",
                     "instantiating " +  l(quantifiedFormula) + " with " +
                     ((for (t <- instanceTerms.reverse)
                      yield term2String(t)) mkString ", ") +
@@ -752,7 +794,7 @@ class AlethePrinter(
                        ", simplifying with " + l(dischargedAtoms)
                      else
                        "") +
-                    " gives:")
+                    " gives:") */
       case ColumnReduceInference(_, newSymbol, definingEq, _, _) =>
         printlnPrefBreaking("COL_REDUCE: ",
                     "introducing fresh symbol " + newSymbol +
@@ -807,6 +849,7 @@ class AlethePrinter(
                                              childOrder,
                                              argComputer = Some(argComp))
       }
+
       case CombineInequalitiesInference(leftCoeff, _, rightCoeff, _, _, _) =>
         // TODO: use correct argument order
         introduceFormulaThroughResolution(
@@ -816,20 +859,24 @@ class AlethePrinter(
           extraAttributes =
             List(("args",
                   f"(1 ${number2String(leftCoeff)} ${number2String(rightCoeff)})")))
+
       case inf : SimpInference =>
         introduceFormulaThroughResolution("la_generic",
                                           inf.assumedFormulas,
                                           inf.providedFormulas.head,
                                           extraAttributes =
                                             List(("args", f"(${inf.factor} 1)")))
+
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, result, order) => {
-        // TODO: must make simplification of the instantiated formula explicit
-        val instantiatedFor =
-          quantifiedFormula.toConj.instantiate(instanceTerms)(order)
-        introduceFormulaThroughResolution("forall_inst",
-                                          List(quantifiedFormula),
-                                          CertFormula(instantiatedFor))
+        // TODO: make simplification of the instantiated formula explicit?
+        val instFor =
+          CertFormula(quantifiedFormula.toConj.instantiate(instanceTerms)(order))
+        val l1 = introduceFormulaThroughResolution("forall_inst",
+                                                   List(quantifiedFormula),
+                                                   instFor /* ,    TODO
+                                                   extraAttributes = List(("args", "")) */)
+        resolveDisjunction(instFor, dischargedAtoms, result)
       }
       case _ =>
         println(f"Not handled: $inf")
