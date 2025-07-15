@@ -418,26 +418,54 @@ class AlethePrinter(
       printPref
     }
 
+  /**
+   * Apply standard rules to a new formula. Among others, every disjunction
+   * will be turned into a clause, and <code>false</code> is rewritten to an
+   * empty clause. The method will return the new formula label.
+   */
+  private def postprocessFormula(formula : CertFormula,
+                                 label : String) : String =
+    formula match {
+      case CertCompoundFormula(f) if f.isNegatedConjunction => {
+        disjunctionToClause(formula)
+      }
+      case f if f.isFalse => {
+        val l1 = step(List("(not false)"), ("rule", "false"))
+        val l2 = step(List(),
+                      ("rule", "resolution"),
+                      ("premises", s"($label $l1)"))
+        l2
+      }
+      case _ =>
+        label
+    }
+
   private def printCommand(cmd        : String,
                            label      : String,
                            formulas   : Seq[(CertFormula, Boolean)],
                            attributes : Seq[(String, String)],
-                           useCl      : Boolean = true) : Unit = {
+                           useCl      : Boolean = true,
+                           useOr      : Boolean = false) : Unit = {
     val formulasStr =
       for ((f, neg) <- formulas; fString = for2String(f))
       yield (if (neg) f"(not $fString)" else fString)
-    printCommandStr(cmd, label, formulasStr, attributes, useCl)
+    printCommandStr(cmd, label, formulasStr, attributes, useCl, useOr)
   }
 
   private def printCommandStr(cmd        : String,
                               label      : String,
                               formulas   : Seq[String],
                               attributes : Seq[(String, String)],
-                              useCl      : Boolean = true) : Unit = {
-    val formulasString = formulas.mkString(" ")
+                              useCl      : Boolean = true,
+                              useOr      : Boolean = false) : Unit = {
+    val formulasString =
+      formulas.mkString(" ")
+    val formulasString2 =
+      if (useOr) f"(or $formulasString)" else formulasString
+    val formulasString3 =
+      if (useCl) f"(cl $formulasString2)" else formulasString2
     val line =
-      f"($cmd $label " +
-      (if (useCl) f"(cl $formulasString)" else formulasString) +
+      f"($cmd $label $formulasString3" +
       (for ((a, b) <- attributes) yield f" :$a $b").mkString("") +
       ")"
     printlnPrefBreaking("", line)
@@ -447,6 +475,13 @@ class AlethePrinter(
                    attributes : (String, String)*) : String = {
     val l = freshLabel()
     printCommandStr("step", l, formulas, attributes)
+    l
+  }
+
+  private def stepCertFor(formulas   : Seq[CertFormula],
+                          attributes : (String, String)*) : String = {
+    val l = freshLabel()
+    printCommandStr("step", l, formulas.map(for2String(_)), attributes)
     l
   }
 
@@ -464,29 +499,36 @@ class AlethePrinter(
                   ("premises", s"($formulaLabel $l1 $l2 $l3)"))
   }
 
+  private def asClause(formula : CertFormula) : Seq[CertFormula] =
+    formula match {
+      case formula if formula.isFalse =>
+        List()
+      case CertCompoundFormula(f) if f.isNegatedConjunction =>
+        f.negatedConjs.head.iterator.map(g => CertFormula(!g)).toVector
+      case formula =>
+        List(formula)
+    }
+
   private def disjunctionToClause(disjunction : CertFormula) : String =
     disjunction match {
       case CertCompoundFormula(f) if f.isNegatedConjunction => {
-        val subfors = f.negatedConjs.head.iterator
-                       .map(g => CertFormula(!g)).toList
-        step(subfors.map(for2String(_)),
-             ("rule", "or"), ("premises", f"(${formulaLabel(disjunction)})"))
+        stepCertFor(asClause(disjunction),
+                    ("rule", "or"),
+                    ("premises", f"(${formulaLabel(disjunction)})"))
       }
       case f =>
         formulaLabel(f)
     }
 
-  private def resolveDisjunction(disjunction   : CertFormula,
-                                 otherFormulas : Seq[CertFormula],
-                                 result        : CertFormula) : String = {
-    assert(result.toConj.size <= 1) // TODO
-    val l1 = disjunctionToClause(disjunction)
-    val l2 =
-      step(if (result.isFalse) List() else List(for2String(result)),
-           ("rule", "resolution"),
-           ("premises", f"(${l(otherFormulas)} $l1)"))        
-    formulaLabel.put(result, l2)
-    l2
+  private def hyperResolution(nucleus   : CertFormula,
+                              electrons : Seq[CertFormula],
+                              result    : CertFormula) : String = {
+    val l1 =
+      stepCertFor(asClause(result),
+                  ("rule", "resolution"),
+                  ("premises", f"(${l(electrons)} ${l(nucleus)})"))
+    formulaLabel.put(result, l1)
+    l1
   }
 
   private def introduceFormulaThroughAssumption(
@@ -518,28 +560,50 @@ class AlethePrinter(
   }
 
   private def introduceFormulaThroughResolution(
-                ruleName        : String,
-                assumedFormulas : Iterable[CertFormula],
-                f               : CertFormula,
-                label           : String = "",
-                extraAttributes : Seq[(String, String)] = List())
-                                : String = {
+                ruleName          : String,
+                assumedFormulas   : Iterable[CertFormula],
+                introducedFormula : CertFormula,
+                label             : String = "",
+                extraAttributes   : Seq[(String, String)] = List(),
+                swapOrder         : Boolean = false,
+                useOr             : Boolean = false)
+                                  : String = {
     // we first introduce a tautological clause, and then use resolution
     // to derive what we want
 
     val interLabel = freshLabel()
-    val finalLabel = if (label == "") freshLabel() else label
+    val formulaSeq =
+      if (swapOrder)
+        assumedFormulas.toSeq.map((_, true)) ++ List((introducedFormula, false))
+      else
+        List((introducedFormula, false)) ++ assumedFormulas.toSeq.map((_, true))
 
     printCommand("step", interLabel,
-                 List((f, false)) ++ assumedFormulas.map((_, true)),
-                 List(("rule", ruleName)) ++ extraAttributes)
+                 formulaSeq,
+                 List(("rule", ruleName)) ++ extraAttributes,
+                 useOr = useOr)
+
+    val interLabel2 =
+      if (useOr) {
+        val l = freshLabel()
+        printCommand("step", l,
+                     formulaSeq,
+                     List(("rule", "or"),
+                          ("premises", f"($interLabel)")))
+        l
+      } else {
+        interLabel
+      }
+
+    val finalLabel = if (label == "") freshLabel() else label
 
     val attributes =
       List(("rule", "resolution")) ++
-      List(("premises", f"(${l(assumedFormulas)} $interLabel)"))
-    printCommand("step", finalLabel, List((f, false)), attributes)
+      List(("premises", f"(${l(assumedFormulas)} $interLabel2)"))
+    printCommand("step", finalLabel,
+                 List((introducedFormula, false)), attributes)
     
-    formulaLabel.put(f, finalLabel)
+    formulaLabel.put(introducedFormula, finalLabel)
     finalLabel
   }
 
@@ -690,7 +754,6 @@ class AlethePrinter(
            if fors.size == 1 && fors.iterator.next.isFalse => {
       // in this case, we assume that we have already derived an
       // empty clause, there is nothing left to do
-      printlnPref
     }
 
     case cert : CloseCertificate => {
@@ -872,11 +935,18 @@ class AlethePrinter(
         // TODO: make simplification of the instantiated formula explicit?
         val instFor =
           CertFormula(quantifiedFormula.toConj.instantiate(instanceTerms)(order))
-        val l1 = introduceFormulaThroughResolution("forall_inst",
-                                                   List(quantifiedFormula),
-                                                   instFor /* ,    TODO
-                                                   extraAttributes = List(("args", "")) */)
-        resolveDisjunction(instFor, dischargedAtoms, result)
+        val terms =
+          "(" + instanceTerms.map(term2String).mkString(" ") + ")"
+        val l1 =
+          introduceFormulaThroughResolution("forall_inst",
+                                            List(quantifiedFormula),
+                                            instFor,
+                                            swapOrder = true,
+                                            useOr = true,
+                                            extraAttributes = List(("args", terms)))
+        val l2 =
+          disjunctionToClause(instFor)
+        hyperResolution(instFor, dischargedAtoms, result)
       }
       case _ =>
         println(f"Not handled: $inf")
