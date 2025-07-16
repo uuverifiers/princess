@@ -46,6 +46,7 @@ import ap.basetypes.IdealInt
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack}
 import scala.util.Sorting
+import java.security.cert.CertificateFactory
 
 object AlethePrinter {
   private val LINE_WIDTH = 80
@@ -717,7 +718,9 @@ class AlethePrinter(
       printlnPref
       printlnPref("; BETA: splitting " +
                   l(cert.localAssumedFormulas) + " gives:")
-      val labels = printCases(cert)
+      val labels =
+        printCases(cert,
+                   Some(List(List(cert.leftFormula), List(cert.rightFormula))))
       printlnPref
       step(List(),
            ("rule", "resolution"),
@@ -790,14 +793,20 @@ class AlethePrinter(
     }
   }
 
-  private def printCases(cert : Certificate) : Seq[String] = {
+  private def printCases(
+         cert        : Certificate,
+         assumptions : Option[Seq[Seq[CertFormula]]] = None) : Seq[String] = {
     val subproofLabels =
     for ((subCert, num) <- cert.subCertificates.zipWithIndex) yield {
       val endLabel = freshLabel()
       push
 
       implicit val o = CertFormula certFormulaOrdering subCert.order
-      val assumptions = cert.localProvidedFormulas(num).toSeq.sorted
+      val branchAssumptions =
+        assumptions match {
+          case Some(a) => a(num)
+          case None    => cert.localProvidedFormulas(num).toSeq.sorted
+        }
 
       try {
         printlnPref
@@ -806,7 +815,7 @@ class AlethePrinter(
         addPrefix("  ")
         printlnPref
 
-        for (f <- assumptions)
+        for (f <- branchAssumptions)
           introduceFormulaThroughAssumption(f)
 
         printCertificate(subCert)
@@ -817,7 +826,7 @@ class AlethePrinter(
       }
 
       printCommand("step", endLabel,
-                   assumptions.map((_, true)),
+                   branchAssumptions.map((_, true)),
                    List(("rule", "subproof")))
       endLabel
     }
