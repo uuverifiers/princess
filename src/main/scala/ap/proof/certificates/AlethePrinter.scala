@@ -424,21 +424,27 @@ class AlethePrinter(
    * empty clause. The method will return the new formula label.
    */
   private def postprocessFormula(formula : CertFormula,
-                                 label : String) : String =
-    formula match {
-      case CertCompoundFormula(f) if f.isNegatedConjunction => {
-        disjunctionToClause(formula)
+                                 label : String) : String = {
+    val label2 =
+      formula match {
+        case CertCompoundFormula(f) if f.isNegatedConjunction =>
+          disjunctionToClause(formula, label)
+        case f if f.isFalse => {
+          val l1 = step(List("(not false)"), ("rule", "false"))
+          step(List(), ("rule", "resolution"), ("premises", s"($label $l1)"))
+        }
+        case _ =>
+          label
       }
-      case f if f.isFalse => {
-        val l1 = step(List("(not false)"), ("rule", "false"))
-        val l2 = step(List(),
-                      ("rule", "resolution"),
-                      ("premises", s"($label $l1)"))
-        l2
-      }
-      case _ =>
-        label
-    }
+    formulaLabel.put(formula, label2)
+    label2
+  }
+
+  private def printCommand(cmd  : String,
+                           args : Seq[String]) : Unit = {
+    val line = f"(${(cmd +: args).mkString(" ")})"
+    printlnPrefBreaking("", line)
+  }
 
   private def printCommand(cmd        : String,
                            label      : String,
@@ -464,11 +470,9 @@ class AlethePrinter(
       if (useOr) f"(or $formulasString)" else formulasString
     val formulasString3 =
       if (useCl) f"(cl $formulasString2)" else formulasString2
-    val line =
-      f"($cmd $label $formulasString3" +
-      (for ((a, b) <- attributes) yield f" :$a $b").mkString("") +
-      ")"
-    printlnPrefBreaking("", line)
+    printCommand(cmd,
+                 List(label, formulasString3) ++
+                 (for ((a, b) <- attributes; x <- List(f":$a", b)) yield x))
   }
 
   private def step(formulas   : Seq[String],
@@ -509,15 +513,16 @@ class AlethePrinter(
         List(formula)
     }
 
-  private def disjunctionToClause(disjunction : CertFormula) : String =
+  private def disjunctionToClause(disjunction : CertFormula,
+                                  label       : String) : String =
     disjunction match {
       case CertCompoundFormula(f) if f.isNegatedConjunction => {
         stepCertFor(asClause(disjunction),
                     ("rule", "or"),
-                    ("premises", f"(${formulaLabel(disjunction)})"))
+                    ("premises", f"($label)"))
       }
       case f =>
-        formulaLabel(f)
+        label
     }
 
   private def hyperResolution(nucleus   : CertFormula,
@@ -536,16 +541,15 @@ class AlethePrinter(
                         label           : String = "") : Unit = {
     val finalLabel = if (label == "") freshLabel() else label
     printCommand("assume", finalLabel, List((f, false)), List(), useCl = false)
-    formulaLabel.put(f, finalLabel)
+    postprocessFormula(f, finalLabel)
   }
 
   private def introduceFormulaThroughStep(
                 ruleName        : String,
                 assumedFormulas : Iterable[CertFormula],
-                f               : Option[CertFormula],
-                label           : String = "",
+                newFormula      : Option[CertFormula],
                 extraAttributes : Seq[(String, String)] = List()) : Unit = {
-    val finalLabel = if (label == "") freshLabel() else label
+    val l1 = freshLabel()
 
     val attributes =
       List(("rule", ruleName)) ++
@@ -553,10 +557,10 @@ class AlethePrinter(
        else List(("premises", f"(${l(assumedFormulas)})"))) ++
       extraAttributes
 
-    printCommand("step", finalLabel, f.toSeq.map((_, false)), attributes)
+    printCommand("step", l1, newFormula.toSeq.map((_, false)), attributes)
     
-    for (g <- f)
-      formulaLabel.put(g, finalLabel)
+    for (g <- newFormula)
+      postprocessFormula(g, l1)
   }
 
   private def introduceFormulaThroughResolution(
@@ -711,9 +715,13 @@ class AlethePrinter(
 
     case cert : BetaCertificate => {
       printlnPref
-      printlnPref("BETA: splitting " +
+      printlnPref("; BETA: splitting " +
                   l(cert.localAssumedFormulas) + " gives:")
-      printCases(cert)
+      val labels = printCases(cert)
+      printlnPref
+      step(List(),
+           ("rule", "resolution"),
+           ("premises", f"(${l(cert.localAssumedFormulas)} ${labels.mkString(" ")})"))
     }
 
     case cert : CutCertificate => {
@@ -751,6 +759,13 @@ class AlethePrinter(
     }
 
     case CloseCertificate(fors, _)
+           if fors.size == 1 &&
+              fors.iterator.next.isInstanceOf[CertEquation] => {
+      printlnPref
+      closeByEqv(fors.iterator.next, "eq_simplify")
+    }
+
+    case CloseCertificate(fors, _)
            if fors.size == 1 && fors.iterator.next.isFalse => {
       // in this case, we assume that we have already derived an
       // empty clause, there is nothing left to do
@@ -775,26 +790,39 @@ class AlethePrinter(
     }
   }
 
-  private def printCases(cert : Certificate) : Unit = {
-    var num = 0
-    printlnPref
-    for (subCert <- cert.subCertificates) {
+  private def printCases(cert : Certificate) : Seq[String] = {
+    val subproofLabels =
+    for ((subCert, num) <- cert.subCertificates.zipWithIndex) yield {
+      val endLabel = freshLabel()
       push
+
+      implicit val o = CertFormula certFormulaOrdering subCert.order
+      val assumptions = cert.localProvidedFormulas(num).toSeq.sorted
+
       try {
-        printlnPref("Case " + (num + 1) + ":")
-        addPrefix("| ")
         printlnPref
-        introduceFormulasIfNeeded(cert localProvidedFormulas num,
-                                  subCert.assumedFormulas,
-                                  subCert.order)
+        printlnPref("; Case " + (num + 1) + ":")
+        printCommand("anchor", List(":step", endLabel))
+        addPrefix("  ")
+        printlnPref
+
+        for (f <- assumptions)
+          introduceFormulaThroughAssumption(f)
+
         printCertificate(subCert)
+
         printlnPref
       } finally {
         pop
       }
-      num = num + 1
+
+      printCommand("step", endLabel,
+                   assumptions.map((_, true)),
+                   List(("rule", "subproof")))
+      endLabel
     }
-    printlnPref("End of split")
+
+    subproofLabels
   }
 
   private def computeAssumptions(infs : List[BranchInference],
@@ -830,7 +858,7 @@ class AlethePrinter(
       case _ : PredUnifyInference =>
         printRewritingRule("PRED_UNIFY", inf)
       case _ : CombineEquationsInference =>
-        printRewritingRule("COMBINE_EQS", inf)
+        //printRewritingRule("COMBINE_EQS", inf)
       case _ : CombineInequalitiesInference =>
         //printRewritingRule("COMBINE_INEQS", inf)
       case _ : DirectStrengthenInference =>
@@ -923,6 +951,17 @@ class AlethePrinter(
             List(("args",
                   f"(1 ${number2String(leftCoeff)} ${number2String(rightCoeff)})")))
 
+      case CombineEquationsInference(equations, _, _) => {
+        val (coeffs, eqs) = equations.unzip
+        introduceFormulaThroughResolution(
+          "la_generic",
+          eqs,
+          inf.providedFormulas.head,
+          extraAttributes =
+            List(("args",
+                  f"(1 ${coeffs.map(number2String(_)).mkString(" ")})")))
+      }
+
       case inf : SimpInference =>
         introduceFormulaThroughResolution("la_generic",
                                           inf.assumedFormulas,
@@ -945,7 +984,7 @@ class AlethePrinter(
                                             useOr = true,
                                             extraAttributes = List(("args", terms)))
         val l2 =
-          disjunctionToClause(instFor)
+          disjunctionToClause(instFor, l1)
         hyperResolution(instFor, dischargedAtoms, result)
       }
       case _ =>
