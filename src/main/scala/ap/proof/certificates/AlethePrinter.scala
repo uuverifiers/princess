@@ -718,13 +718,22 @@ class AlethePrinter(
       printlnPref
       printlnPref("; BETA: splitting " +
                   l(cert.localAssumedFormulas) + " gives:")
-      val labels =
-        printCases(cert,
-                   Some(List(List(cert.leftFormula), List(cert.rightFormula))))
+
+      val l1 = printSubproof(cert.subCertificates(0), List(cert.leftFormula))
+
+      // TODO: add the formula to the formulaLabel map, at least in some cases
+
       printlnPref
-      step(List(),
-           ("rule", "resolution"),
-           ("premises", f"(${l(cert.localAssumedFormulas)} ${labels.mkString(" ")})"))
+
+      printlnPref("; splitting " +
+                  l(cert.localAssumedFormulas) + ", second case:")
+      val l2 =
+        stepCertFor(asClause(cert.rightFormula),
+                    ("rule", "resolution"),
+                    ("premises", f"(${l(cert.localAssumedFormulas)} $l1)"))
+      formulaLabel.put(cert.rightFormula, l2)
+
+      printCertificate(cert.subCertificates(1))
     }
 
     case cert : CutCertificate => {
@@ -798,9 +807,6 @@ class AlethePrinter(
          assumptions : Option[Seq[Seq[CertFormula]]] = None) : Seq[String] = {
     val subproofLabels =
     for ((subCert, num) <- cert.subCertificates.zipWithIndex) yield {
-      val endLabel = freshLabel()
-      push
-
       implicit val o = CertFormula certFormulaOrdering subCert.order
       val branchAssumptions =
         assumptions match {
@@ -808,30 +814,38 @@ class AlethePrinter(
           case None    => cert.localProvidedFormulas(num).toSeq.sorted
         }
 
-      try {
-        printlnPref
-        printlnPref("; Case " + (num + 1) + ":")
-        printCommand("anchor", List(":step", endLabel))
-        addPrefix("  ")
-        printlnPref
-
-        for (f <- branchAssumptions)
-          introduceFormulaThroughAssumption(f)
-
-        printCertificate(subCert)
-
-        printlnPref
-      } finally {
-        pop
-      }
-
-      printCommand("step", endLabel,
-                   branchAssumptions.map((_, true)),
-                   List(("rule", "subproof")))
-      endLabel
+      printSubproof(subCert, branchAssumptions)
     }
 
     subproofLabels
+  }
+
+  private def printSubproof(subCert     : Certificate,
+                            assumptions : Seq[CertFormula]) : String = {
+    val endLabel = freshLabel()
+    push
+
+    implicit val o = CertFormula certFormulaOrdering subCert.order
+
+    try {
+      printCommand("anchor", List(":step", endLabel))
+      addPrefix("  ")
+      printlnPref
+
+      for (f <- assumptions)
+        introduceFormulaThroughAssumption(f)
+
+      printCertificate(subCert)
+
+      printlnPref
+    } finally {
+      pop
+    }
+
+    printCommand("step", endLabel,
+                 assumptions.map((_, true)),
+                 List(("rule", "subproof")))
+    endLabel
   }
 
   private def computeAssumptions(infs : List[BranchInference],
