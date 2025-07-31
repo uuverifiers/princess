@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,19 +33,55 @@
 
 // Unit tests for bit-vectors
 
-//package ap.theories
+package ap.theories.bitvectors
 
-//object TestModuloArithmetic extends App {
   import ap.SimpleAPI
   import SimpleAPI.ProverStatus
   import ap.parser._
-  import ap.theories.ModuloArithmetic
   import ap.util.Debug
 
-  Debug enableAllAssertions true
+import org.scalacheck.Properties
+import ap.util.Prop._
+import ap.util.ExtraAssertions
 
+class TestModuloArithmetic extends Properties("TestModuloArithmetic") with ExtraAssertions {
+
+  val expectedOutput = """Test 1
+Sat
+{b2 -> mod_cast(0, 255, 0), b1 -> mod_cast(0, 255, 13)}
+b1 = mod_cast(0, 255, 13)
+Test 2
+Sat
+{w2 -> mod_cast(0, 4294967295, 0), w1 -> mod_cast(0, 4294967295, 13)}
+Test 3
+Sat
+h1 = mod_cast(0, 65535, 11007)
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 6
+Valid
+Test 7
+Unsat
+Vector((x = mod_cast(0, 1, 1)), (y = mod_cast(0, 1, 1)))
+Test 8
+\exists bv[2] v0; bv_mul(2, x, v0) = 1.\as[bv[2]]
+x = 1.\as[bv[2]] | x.\as[int] >= 3
+Valid
+Test 9
+Unsat
+Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 254), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
+Test 10
+(b != 0.\as[bv[8]] | a != 255.\as[bv[8]]) & (a != 255.\as[bv[8]] | b.\as[int] >= 245 | 0 >= b.\as[int]) & (b.\as[int] - a.\as[int] >= 2 | 244 >= b.\as[int])
+"""
+
+  property("main") = checkOutput(expectedOutput) {
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
+
+    Debug enableAllAssertions true
 
     def expect[A](x : A, expected : A) : A = {
       assert(x == expected, "expected: " + expected + ", got: " + x)
@@ -171,5 +207,5 @@
 
       println(pp(projectEx(a < bvadd(b, c) & c > bv(width, 10), Set(a, b))))
     }
-  }
-//}
+  }}
+}
