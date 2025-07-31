@@ -53,9 +53,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun i1 () Int 1)
+  (define-fun i1 () Int (- 1))
   (define-fun i0 () Int 0)
-  (define-fun a1 () (Seq Element) (seq.cons Element!12 (as seq.empty (Seq Element))))
+  (define-fun a1 () (Seq Element) (seq.cons Element!16 (as seq.empty (Seq Element))))
 )
 Loading simple.smt2 ...
 unsat
