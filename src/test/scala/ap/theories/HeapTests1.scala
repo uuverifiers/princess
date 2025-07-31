@@ -1,11 +1,49 @@
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
+ *
+ * Copyright (C) 2025 Philipp Ruemmer, Zafer Esen
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package ap.theories
+
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.parameters.Param.InputFormat
 import ap.types._
 import ap.parser._
-import ap.theories.{ADT, Heap}
 import ap.util.Debug
 
+import org.scalacheck.Properties
+import ap.util.Prop._
+
+object HeapTests {
 class PrincessTester (p : SimpleAPI) {
   import p._
 
@@ -13,6 +51,7 @@ class PrincessTester (p : SimpleAPI) {
 
   private def expect[A](x : A, expected : A) : (A, Boolean) = {
     println(x)
+    assert(x == expected)
     (x, x == expected)
   }
 
@@ -91,9 +130,11 @@ class PrincessTester (p : SimpleAPI) {
     }
   }
 }
+}
 
+class HeapTests1 extends Properties("HeapTests1") {
+  import HeapTests._
 
-object HeapTests1 extends App {
   Debug enableAllAssertions true
 
   val NullObjName = "NullObj"
@@ -130,6 +171,7 @@ object HeapTests1 extends App {
   import IExpression.toFunApplier
   val defObj = defObjCtr()
 
+  property("main") = Console.withOut(ap.CmdlMain.NullStream) {
   SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
     import heap._
@@ -472,5 +514,6 @@ object HeapTests1 extends App {
         batchWrite(batchWrite(h, r, o1), r, o))
     )
 
-  }
+    true
+  }}
 }
