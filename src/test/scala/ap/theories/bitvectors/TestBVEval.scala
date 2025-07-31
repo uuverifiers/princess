@@ -31,8 +31,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.bitvectors
 
+  import ap.theories.ADT
   import ap.SimpleAPI
   import SimpleAPI.ProverStatus
   import ap.parser._

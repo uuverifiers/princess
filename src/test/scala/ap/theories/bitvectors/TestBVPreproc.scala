@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.bitvectors
 
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
@@ -41,25 +41,31 @@ import ap.util.Debug
 import org.scalacheck.Properties
 import ap.util.Prop._
 
-class BVPrinting extends Properties("BVPrinting") {
+// Bit-vector preprocessing
+class TestBVPreproc extends Properties("TestBVPreproc") {
 
-  property("concat") = {
+  property("bvand/bvadd") = {
     Debug enableAllAssertions true
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       import IExpression._
       import ModuloArithmetic._
 
-      val x = createConstant("x", UnsignedBVSort(16))
-      val y = createConstant("y", UnsignedBVSort(16))
-      val z = createConstant("z", UnsignedBVSort(16))
-      val u = createConstant("u", UnsignedBVSort(32))
+      addTheory(ModuloArithmetic)
 
-      assert(smtPP(bvadd(x, y) === z) == "(= (bvadd x y) z)")
-      assert(smtPP(concat(x, y) === u) == "(= (concat x y) u)")
-      assert(smtPP(extract(15, 8, u) === x) == "(= ((_ extract 15 8) u) x)")
+      val x = createConstant("x", UnsignedBVSort(32))
+      val y = createConstant("y", UnsignedBVSort(32))
+      val f = bv_and(32, x, bv_add(32, bv(32, 4), bv(32, 10))) === y
+      val g = bv_add(32, x, bv_add(32, bv(32, 10), y)) === x
 
-      true
+      f.toString ==
+        "(bv_and(32, x, bv_add(32, mod_cast(0, 4294967295, 4), mod_cast(0, 4294967295, 10))) = y)" &&
+      preprocessIFormula(f).toString ==
+        """\part[formula] ALL bv[32]. ALL ALL ALL (!bv_extract(0, 0, _3[bv[32]], _2) | (!bv_extract(3, 1, _3[bv[32]], _1) | (!bv_extract(31, 4, _3[bv[32]], _0) | (ALL ALL (!bv_extract(3, 1, _1, _0) | (((!(_1 = x) | !(_4 = 0)) | !(_3 = _0)) | !(_2 = 0))) | (_3[bv[32]] = y)))))""" &&
+      g.toString ==
+        "(bv_add(32, x, bv_add(32, mod_cast(0, 4294967295, 10), y)) = x)" &&
+      preprocessIFormula(g).toString ==
+        """\part[formula] ALL (!mod_cast(0, 4294967295, (x + (10 + y)), _0) | (_0 = x))"""
     }
   }
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,58 +31,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Test of the different scoping methods
+package ap.theories.bitvectors
 
-//package ap
+import ap.SimpleAPI
+import SimpleAPI.ProverStatus
+import ap.parser._
+import ap.util.Debug
 
-//object TestFrame extends App {
-  import ap.SimpleAPI
-  import SimpleAPI.ProverStatus
-  import ap.parser._
-  import IExpression._
-  import ap.util.Debug
+import org.scalacheck.Properties
+import ap.util.Prop._
 
-  Debug enableAllAssertions true
+class BVPrinting extends Properties("BVPrinting") {
 
-  SimpleAPI.withProver(enableAssert = true) { p =>
-    import p._
+  property("concat") = {
+    Debug enableAllAssertions true
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      import IExpression._
+      import ModuloArithmetic._
 
-    def expect[A](x : A, expected : A) : A = {
-      assert(x == expected, "expected: " + expected + ", got: " + x)
-      x
-    }
+      val x = createConstant("x", UnsignedBVSort(16))
+      val y = createConstant("y", UnsignedBVSort(16))
+      val z = createConstant("z", UnsignedBVSort(16))
+      val u = createConstant("u", UnsignedBVSort(32))
 
-    scope {
-      val x = createConstant("x")
-      val y = createConstant("y")
+      assert(smtPP(bvadd(x, y) === z) == "(= (bvadd x y) z)")
+      assert(smtPP(concat(x, y) === u) == "(= (concat x y) u)")
+      assert(smtPP(extract(15, 8, u) === x) == "(= ((_ extract 15 8) u) x)")
 
-      !! (x > y)
-      println(expect(???, ProverStatus.Sat))
-
-      scope {
-        !! (x < y)
-        println(expect(???, ProverStatus.Unsat))
-      }
-
-      scope(resetFormulas = true) {
-        !! (x < y)
-        println(expect(???, ProverStatus.Sat))
-      }
-
-      val f = createFunction("f", List(Sort.Integer), Sort.Integer)
-      scope(resetFormulas = true) {
-        !! (f(x) < 0)
-        !! (all(a => f(a) > a))
-        !! (y > 10)
-        println(expect(???, ProverStatus.Inconclusive))
-        !! (x > y)
-        println(expect(???, ProverStatus.Unsat))
-      }     
-
-      // check whether asserted formulas can get in the way of
-      // quantifier elimination (they shouldn't!)
-      !! (x === 42)
-      println(pp(simplify(ex(z => (y < z) & (z < x)))))
+      true
     }
   }
-//}
+
+}
