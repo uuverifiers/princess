@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 
 package ap.theories
 
+import ap.Signature
 import ap.parser._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
@@ -335,13 +336,26 @@ object ADT {
    */
   def createRecordType(name : String, fields : Seq[(String, Sort)])
                     : (Sort, IFunction, IndexedSeq[IFunction]) = {
+    val (a, b, c, _) = createRecordType2(name, fields)
+    (a, b, c)
+  }
+
+  /**
+   * Create an ADT that implements a record type, and return the
+   * corresponding sort, the constructor symbol, the selectors, and update
+   * functions.
+   */
+  def createRecordType2(name : String, fields : Seq[(String, Sort)])
+                    : (Sort, IFunction, IndexedSeq[IFunction],
+                       IndexedSeq[IFunction]) = {
     val ctorArgs =
       (for ((n, s) <- fields.iterator) yield (n, ADT.OtherSort(s))).toIndexedSeq
     val adt =
       new ADT (List(name),
                List((name, ADT.CtorSignature(ctorArgs, ADT.ADTSort(0)))),
                ADT.TermMeasure.RelDepth)
-    (adt.sorts.head, adt.constructors.head, adt.selectors.head.toIndexedSeq)
+    (adt.sorts.head, adt.constructors.head, adt.selectors.head.toIndexedSeq,
+     adt.updators.head.toIndexedSeq)
   }
 
   /**
@@ -380,6 +394,8 @@ object ADT {
    * The extractor will produce the adt, and the index of the constructor.
    */
   object Constructor {
+    def apply(adt : ADT, num : Int) =
+      adt.constructors(num)
     def unapply(fun : IFunction) : Option[(ADT, Int)] =
       (TheoryRegistry lookupSymbol fun) match {
         case Some(t : ADT) =>
@@ -395,6 +411,8 @@ object ADT {
    * and the index of the selected constructor argument.
    */
   object Selector {
+    def apply(adt : ADT, ctorIndex : Int, argIndex : Int) =
+      adt.selectors(ctorIndex)(argIndex)
     def unapply(fun : IFunction) : Option[(ADT, Int, Int)] =
       (TheoryRegistry lookupSymbol fun) match {
         case Some(t : ADT) =>
@@ -405,10 +423,29 @@ object ADT {
   }
 
   /**
+   * Extractor recognising the updators of any ADT theory.
+   * The extractor will produce the adt, the index of the constructor,
+   * and the index of the selected constructor argument.
+   */
+  object Updator {
+    def apply(adt : ADT, ctorIndex : Int, argIndex : Int) =
+      adt.updators(ctorIndex)(argIndex)
+    def unapply(fun : IFunction) : Option[(ADT, Int, Int)] =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : ADT) =>
+          for ((num1, num2) <- t.updators2Index get fun)
+          yield (t, num1, num2)
+        case _ => None
+      }
+  }
+
+  /**
    * Extractor recognising the <code>X_ctor</code> functions of
    * any ADT theory.
    */
   object CtorId {
+    def apply(adt : ADT, sortIndex : Int) =
+      adt.ctorIds(sortIndex)
     def unapply(fun : IFunction) : Option[(ADT, Int)] =
       (TheoryRegistry lookupSymbol fun) match {
         case Some(t : ADT) => (t.ctorIds indexOf fun) match {
@@ -424,6 +461,8 @@ object ADT {
    * any ADT theory.
    */
   object TermSize {
+    def apply(adt : ADT, sortIndex : Int) =
+      adt.termSize(sortIndex)
     def unapply(fun : IFunction) : Option[(ADT, Int)] =
       (TheoryRegistry lookupSymbol fun) match {
         case Some(t : ADT) if t.termSize != null =>
@@ -913,6 +952,24 @@ class ADT (sortNames      : Seq[String],
      yield (sel -> (ind1, ind2))).toMap
 
   /**
+   * The update functions of the ADT. Updators reflect the selectors
+   * and update the value of one specific field of a constructor term.
+   */
+  val updators : IndexedSeq[Seq[MonoSortedIFunction]] =
+    (for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
+       for (((name, _), argSort) <- sig.arguments zip argSorts)
+       yield new MonoSortedIFunction("update-" + name,
+                                     List(sorts(sig.result.num), argSort),
+                                     sorts(sig.result.num),
+                                     true, false)
+     }).toIndexedSeq
+
+  private val updators2Index : Map[IFunction, (Int, Int)] =
+    (for ((upds, ind1) <- updators.iterator.zipWithIndex;
+          (upd, ind2) <- upds.iterator.zipWithIndex)
+     yield (upd -> (ind1, ind2))).toMap
+
+  /**
    * Function symbols representing the index of the head symbol of a
    * constructor term
    */
@@ -1010,6 +1067,12 @@ class ADT (sortNames      : Seq[String],
                    Seq(IFunApp(Constructor(`adt`, ctorNum2), ctorArgs)))
         if ctorNum1 == ctorNum2 =>
         Some(ctorArgs(selNum))
+      case IFunApp(Updator(`adt`, ctorNum1, selNum),
+                   Seq(IFunApp(Constructor(`adt`, ctorNum2), ctorArgs),
+                       updatedValue))
+        if ctorNum1 == ctorNum2 =>
+        Some(IFunApp(Constructor(adt, ctorNum2),
+                     ctorArgs.updated(selNum, updatedValue)))
       case IFunApp(CtorId(`adt`, sortNum),
                    Seq(IFunApp(Constructor(`adt`, ctorNum), _)))
         if ctorSignatures(ctorNum)._2.result.num == sortNum =>
@@ -1041,7 +1104,7 @@ class ADT (sortNames      : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
 
   val functions: Seq[ap.parser.IFunction] =
-    constructors ++ selectors.flatten ++ ctorIds ++
+    constructors ++ selectors.flatten ++ updators.flatten ++ ctorIds ++
     (measure match { case ADT.TermMeasure.RelDepth => termDepth;
                      case ADT.TermMeasure.Size =>     termSize })
 
@@ -1179,6 +1242,48 @@ class ADT (sortNames      : Seq[String],
   if (measure == ADT.TermMeasure.Size)
     for ((p, i) <- termSizePreds.iterator.zipWithIndex)
       adtPreds.put(p, ADTTermSizePred(i))
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Visitor called during pre-processing.
+   */
+  private object Preproc extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = (t, subres) match{
+      case (IFunApp(updator, _), Seq(ctorTerm : ITerm, updatedValue : ITerm))
+          if updators2Index.contains(updator) => {
+        val (ctorNum, selNum) = updators2Index(updator)
+        val ctor              = constructors(ctorNum)
+        val ctorSels          = selectors(ctorNum)
+        val sort              = ctor.resSort
+
+        val shiftedCtorTerm   = shiftVars(ctorTerm, 0, 2)
+        val shiftedUpdValue   = shiftVars(updatedValue, 0, 2)
+
+        val newCtorArgs =
+          for ((sel, n) <- ctorSels.zipWithIndex) yield n match {
+            case `selNum` => shiftedUpdValue
+            case n        => IFunApp(sel, List(v(0, sort)))
+          }
+        sort.eps(sort.ex(
+          (v(0, sort) === shiftedCtorTerm) & (v(1, sort) === IFunApp(ctor, newCtorArgs))
+        ))
+      }
+
+      case _ =>
+        t update subres
+    }
+  }
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                         : (IFormula, Signature) = {
+    val f1 = Preproc.visit(f, ()).asInstanceOf[IFormula]
+    (f1, signature)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
