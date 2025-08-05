@@ -775,7 +775,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
                          : (IFormula, Signature) = {
     val f1 = Preproc.visit(f, Context(())).asInstanceOf[IFormula]
     val f2 = Rewriter.rewrite(f1, iPreprocRewriteVal).asInstanceOf[IFormula]
-    (f1, signature)
+    (f2, signature)
   }
 
   private def iPreprocRewriteFun(t : IExpression) : IExpression = t match {
