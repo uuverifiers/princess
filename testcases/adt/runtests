@@ -8,7 +8,8 @@ TESTS="datatype.smt2 datatype4b.smt2 datatype4c.smt2 \
        datatype6.smt2 datatype6b.smt2 \
        cvc-datatype-1.smt2 adt-model-bug.smt2 quoted-datatype.smt2 \
        polymorphicList.smt2 polymorphicList2.smt2 polymorphicList3.smt2 \
-       polymorphicPairs.smt2 emptyPar.smt2 only-exists.smt2 update.smt2"
+       polymorphicPairs.smt2 emptyPar.smt2 only-exists.smt2 update.smt2 \
+       nested.smt2"
 
 $PRI "$@" -adtMeasure=size $TESTS
 
