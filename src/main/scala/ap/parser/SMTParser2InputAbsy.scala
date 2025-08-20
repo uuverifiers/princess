@@ -3765,7 +3765,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                     val t =
                       (boundSorts get selSortName) match {
                         case Some(t) => t
-                        case None    => translateSort(selDecl.sort_)
+                        case None    =>
+                          try {
+                            translateSort(selDecl.sort_)
+                          } catch {
+                            case t : Exception =>
+                              throw new Parser2InputAbsy.TranslationException(
+                                f"Declaration of selector $selName failed: ${t.getMessage}")
+                          }
                       }
                     (ADT.OtherSort(t.toSort), t)
                   }
