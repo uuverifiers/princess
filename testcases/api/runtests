@@ -10,12 +10,11 @@ RUNOPTIONS="-cp `pwd`/../../bin:."
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
 TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
-       getConstraint-bug.scala TypeTests.scala nonlinear.scala \
-       nonlinearInterpolation.scala division.scala \
+       getConstraint-bug.scala nonlinear.scala \
+       nonlinearInterpolation.scala \
        deadlock.scala exception.scala incremental.scala \
        divmodprint.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
-       TreeInterpolation.scala \
        dnfTest.scala dnfTest2.scala dnfTest3.scala \
        simplifier-bug.scala project-bug.scala \
        printBooleanTerm.scala"

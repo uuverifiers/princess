@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,14 +35,27 @@
 // formula was asserted repeatedly in a tree interpolation problem,
 // sometimes incorrect interpolants were returned.
 
-//package ap;
+package ap.api
 
-import ap.SimpleAPI
 import ap.parser._
 import ap.basetypes.Tree
 
-//object TreeIntTest {
-//  def main(args: Array[String]) =
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class TreeInterpolation extends Properties("TreeInterpolation") with ExtraAssertions {
+
+  val expectedOutput = """Unsat
+List(1, 3, 5, 10, 20, 40)
+false
+   (d = 0)
+      (b = 1)
+      ((1 + (d + -1 * c)) = 0)
+   (e = 5)
+"""
+  
+  property("main") = checkOutput(expectedOutput) {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       import IExpression._
@@ -97,5 +110,5 @@ import ap.basetypes.Tree
                        Tree(Set(2, 20), List())
                   )),
                   Tree(Set(4, 40), List())))).prettyPrint
-  }
-//}
+  }}
+}

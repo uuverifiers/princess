@@ -27,33 +27,6 @@ getConstraint-bug.scala
 39: Valid
 40: true
 
-TypeTests.scala
-Starting
-\exists int v0, v1; v1 = x + v0
-Sat
-\exists nat v0; v0 = x
-Sat
-\forall nat v0; x = v0
-Unsat
-\exists nat v0; x = y + v0 <-> x >= y
-Valid
-\exists int[0, 9] v0; v0 - x >= 1
-\exists int[0, 9] v0; v0 - x >= 1
-8 >= x
-Valid
-Unsat
-x1 = x2
-Unsat
-Valid
-Valid
-14 >= X & X >= 11
-Sat
-16
-Unsat
-Unsat
-Unsat
-Finished
-
 nonlinear.scala
 0: Sat
 {c1 -> -1, c0 -> -4}
@@ -68,17 +41,6 @@ nonlinear.scala
 nonlinearInterpolation.scala
 Unsat
 Vector(!(c1 = 3))
-
-division.scala
-0: Sat
-{c0 -> 8}
-1: Sat
-{c0 -> 7}
-2: Invalid
-{c0 -> -4}
-3: Invalid
-{c1 -> 2, c0 -> 1}
-4: Valid
 
 deadlock.scala
 starting
@@ -130,15 +92,6 @@ Sat
 
 variable-names-bug.scala
 0: Sat
-
-TreeInterpolation.scala
-Unsat
-List(1, 3, 5, 10, 20, 40)
-false
-   (d = 0)
-      (b = 1)
-      ((1 + (d + -1 * c)) = 0)
-   (e = 5)
 
 dnfTest.scala
 List((P1 != 0), (P0 != 0), (P4 = 0), (P3 = 0), (P2 = 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P11 != 0 & P6 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P11 = 0 & P6 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P11 != 0 & P6 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P11 = 0 & P6 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P10 != 0 & P7 != 0 & P5 != 0), (P6 != 0 & P7 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P11 != 0 & P6 != 0 & P5 != 0))
