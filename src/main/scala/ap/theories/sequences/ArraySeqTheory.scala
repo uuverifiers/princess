@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2023-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,7 +66,8 @@ object ArraySeqTheory {
 
 }
 
-class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory {
+class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory
+                                             with SMTLinearisableTheory {
 
   import ArraySeqTheory.AC
 
@@ -354,6 +355,34 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory {
 //    println("after: " + res)
     (res, signature)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def postSimplify(t : IExpression) : IExpression = {
+    import IExpression._
+    import arrayTheory.{select, store, const}
+
+    t match {
+      case IFunApp(`seqSize`, args) =>
+        IFunApp(seq_len, args)
+      case IFunApp(`select`, Seq(IFunApp(`seqContents`, Seq(s)), idx)) =>
+        // TODO: correctly check bounds?
+        IFunApp(seq_nth, Seq(s, idx))
+      case t =>
+        t
+    }
+  }
+
+  override def postSimplifiers : Seq[IExpression => IExpression] =
+    super.postSimplifiers ++ List(postSimplify _)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def fun2SMTString(f : IFunction) : Option[String] =
+    f match {
+      case `seq_len` | `seqSize` => Some("seq.len")
+      case _ => None
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
