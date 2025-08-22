@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import ap.theories._
+package ap.theories
+
 import ap.{Signature, SimpleAPI}
 import ap.parser._
 import ap.proof.goal.Goal
@@ -41,61 +42,65 @@ import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.Conjunction
 
+import org.scalacheck.Properties
+import ap.util.Prop._
+
 /**
  * A simple theory of a function f that only produces non-negative values.
  * The instantiation of this axiom is implemented using a
  * <code>SaturationProcedure</code>.
  */
-object SimpleTheory extends Theory {
+class TestSaturationProcedure extends Properties("TestSaturationProcedure") {
+  object SimpleTheory extends Theory {
 
-  val f = new IFunction("f", 1, true, false)
-  val functions = List(f)
+    val f = new IFunction("f", 1, true, false)
+    val functions = List(f)
 
-  val (predicates, axioms, _, functionTranslation) =
-    Theory.genAxioms(theoryFunctions = functions)
-  val Seq(_f) = predicates
-  val totalityAxioms = Conjunction.TRUE
+    val (predicates, axioms, _, functionTranslation) =
+      Theory.genAxioms(theoryFunctions = functions)
+    val Seq(_f) = predicates
+    val totalityAxioms = Conjunction.TRUE
 
-  val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
-  val triggerRelevantFunctions : Set[IFunction] = Set()
-  val functionalPredicates = predicates.toSet
-  val functionPredicateMapping = List(f -> _f)
+    val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
+    val triggerRelevantFunctions : Set[IFunction] = Set()
+    val functionalPredicates = predicates.toSet
+    val functionPredicateMapping = List(f -> _f)
 
-  def plugin = None
-  
-  /**
-   * Saturate: add instances of the axiom that the result of f is non-negative
-   */
-  object PosSaturator extends SaturationProcedure("f_pos") {
-    type ApplicationPoint = Atom
-
-    def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] =
-      goal.facts.predConj.positiveLitsWithPred(_f).iterator
-
-    def applicationPriority(goal : Goal, p : ApplicationPoint) : Int =
-      p(1).size
+    def plugin = None
     
-    def handleApplicationPoint(goal : Goal, fAtom : Atom) : Seq[Plugin.Action]=
-      if (goal.facts.predConj.positiveLitsAsSet contains fAtom) {
-        import TerForConvenience._
-        implicit val order = goal.order
-        List(Plugin.AddAxiom(List(fAtom), fAtom(1) >= 0, SimpleTheory.this))
-      } else {
-        List()
-      }
+    /**
+     * Saturate: add instances of the axiom that the result of f is non-negative
+     */
+    object PosSaturator extends SaturationProcedure("f_pos") {
+      type ApplicationPoint = Atom
+
+      def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] =
+        goal.facts.predConj.positiveLitsWithPred(_f).iterator
+
+      def applicationPriority(goal : Goal, p : ApplicationPoint) : Int =
+        p(1).size
+      
+      def handleApplicationPoint(goal : Goal, fAtom : Atom) : Seq[Plugin.Action]=
+        if (goal.facts.predConj.positiveLitsAsSet contains fAtom) {
+          import TerForConvenience._
+          implicit val order = goal.order
+          List(Plugin.AddAxiom(List(fAtom), fAtom(1) >= 0, SimpleTheory.this))
+        } else {
+          List()
+        }
+    }
+
+    override val dependencies = List(PosSaturator)
+
+    TheoryRegistry register this
+
   }
 
-  override val dependencies = List(PosSaturator)
-
-  TheoryRegistry register this
-
-}
-
-object TestSaturationProcedure extends App {
-
+  property("main") =
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
     import IExpression._
+    import SimpleAPI.ProverStatus
 
     addTheory(SimpleTheory)
 
@@ -108,14 +113,14 @@ object TestSaturationProcedure extends App {
     scope {
       !! (f(c) + f(d) + f(e) <= 1)
       ?? (f(d) <= 1)
-      println(???) // Valid
+      assert(??? == ProverStatus.Valid)
     }
 
     scope {
       !! (f(f(d)) === 2)
       !! (f(d) <= 0)
       !! (d === 0)
-      println(???) // Unsat
+      ??? == ProverStatus.Unsat
     }
   }
 

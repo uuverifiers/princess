@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,36 +31,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.api
 
-import ap.SimpleAPI
-import SimpleAPI.ProverStatus
+// A test case corresponding to onlyUnitResolution/adt-totality.pri.
+// Previously, this input led to non-termination, because the totality axiom
+// for f did not include range constraints about the function result.
+
 import ap.parser._
-import ap.util.Debug
 
 import org.scalacheck.Properties
 import ap.util.Prop._
 
-class BVPrinting extends Properties("BVPrinting") {
+class TestFunctionRange extends Properties("TestFunctionRange") {
+  property("main") =
+SimpleAPI.withProver(enableAssert = true, genTotalityAxioms = true) { p =>
+import p._
+import IExpression._
+import SimpleAPI.ProverStatus
 
-  property("concat") = {
-    Debug enableAllAssertions true
-    SimpleAPI.withProver(enableAssert = true) { p =>
-      import p._
-      import IExpression._
-      import ModuloArithmetic._
+val s : Sort = 0 to 1
+val f = createFunction("f", List(s), s)
 
-      val x = createConstant("x", UnsignedBVSort(16))
-      val y = createConstant("y", UnsignedBVSort(16))
-      val z = createConstant("z", UnsignedBVSort(16))
-      val u = createConstant("u", UnsignedBVSort(32))
+!! (s.all(x => f(x) =/= x))
+?? (s.ex(x => f(x) === 1))
 
-      assert(smtPP(bvadd(x, y) === z) == "(= (bvadd x y) z)")
-      assert(smtPP(concat(x, y) === u) == "(= (concat x y) u)")
-      assert(smtPP(extract(15, 8, u) === x) == "(= ((_ extract 15 8) u) x)")
-
-      true
-    }
-  }
-
+??? == ProverStatus.Valid
+}
 }

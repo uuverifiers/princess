@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -621,8 +621,8 @@ class UniformSubstVisitor(subst : CMap[Predicate, IFormula])
 /**
  * Visitor to replace occurrences of one expression with another expression.
  */
-object ExpressionReplacingVisitor
-       extends CollectingVisitor[(IExpression, IExpression), IExpression] {
+class GenExpressionReplacingVisitor(simplify : Boolean)
+      extends CollectingVisitor[(IExpression, IExpression), IExpression] {
 
   def apply(f : IFormula,
             replaced : IExpression, replaceWith : IExpression) =
@@ -649,7 +649,11 @@ object ExpressionReplacingVisitor
   def postVisit(t : IExpression,
                 arg : (IExpression, IExpression),
                 subres : Seq[IExpression]) : IExpression = {
-    val res = t update subres
+    val res =
+      if (simplify)
+        IExpression.updateAndSimplifyLazily(t, subres)
+      else
+        t.update(subres)
     if (res == arg._1)
       arg._2
     else
@@ -658,6 +662,18 @@ object ExpressionReplacingVisitor
 
 }
 
+/**
+ * Visitor to replace occurrences of one expression with another expression.
+ */
+object ExpressionReplacingVisitor
+  extends GenExpressionReplacingVisitor(false)
+
+/**
+ * Visitor to replace occurrences of one expression with another expression.
+ * This version of the visitor also simplifies expressions after replacement.
+ */
+object SimplifyingExpressionReplacingVisitor
+  extends GenExpressionReplacingVisitor(true)
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,12 +33,45 @@
 
 // Unit tests for types and sorts
 
+package ap.api
+
 import ap.parser._
-import ap.SimpleAPI
 import ap.util.Debug
 
-//object TypeTests extends App {
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
 
+class TypeTests extends Properties("TypeTests") with ExtraAssertions {
+
+  val expectedOutput = """Starting
+\exists int v0, v1; v1 = x + v0
+Sat
+\exists nat v0; v0 = x
+Sat
+\forall nat v0; x = v0
+Unsat
+\exists nat v0; x = y + v0 <-> x >= y
+Valid
+\exists int[0, 9] v0; v0 - x >= 1
+\exists int[0, 9] v0; v0 - x >= 1
+8 >= x
+Valid
+Unsat
+x1 = x2
+Unsat
+Valid
+Valid
+14 >= X & X >= 11
+Sat
+16
+Unsat
+Unsat
+Unsat
+Finished
+"""
+  
+  property("main") = checkOutput(expectedOutput) {
   Debug enableAllAssertions true
 
   val p = SimpleAPI(genTotalityAxioms = true, enableAssert = true)
@@ -142,4 +175,4 @@ import ap.util.Debug
 
   println("Finished")
 
-// }
+}}

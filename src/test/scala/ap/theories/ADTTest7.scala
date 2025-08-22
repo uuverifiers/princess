@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,58 +31,71 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Test of the different scoping methods
+package ap.theories
 
-//package ap
+import ap.SimpleAPI
+import SimpleAPI.ProverStatus
+import ap.parser._
+import ADT._
+import ap.types.Sort
+import ap.util.Debug
 
-//object TestFrame extends App {
-  import ap.SimpleAPI
-  import SimpleAPI.ProverStatus
-  import ap.parser._
-  import IExpression._
-  import ap.util.Debug
+import org.scalacheck.Properties
+import ap.util.Prop._
+
+class ADTTest7 extends Properties("ADTTest7") {
+
+  property("ADTTest7") = {
 
   Debug enableAllAssertions true
 
+  val (storeSort, store, Seq(x, y, z), Seq(upd_x, upd_y, upd_z)) =
+    ADT.createRecordType2("Store",
+                          List(("x", Sort.Integer),
+                               ("y", Sort.Integer),
+                               ("z", Sort.Integer)))
+
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
+    import IExpression._
 
-    def expect[A](x : A, expected : A) : A = {
-      assert(x == expected, "expected: " + expected + ", got: " + x)
-      x
+    val c = createConstant("c", storeSort)
+    val d = createConstant("d", storeSort)
+
+    !! (x(c) > 10)
+    !! (y(c) < 100)
+    !! (y(c) === z(c))
+    !! (d === upd_x(c, 5))
+
+    assert(??? == ProverStatus.Sat)
+
+    scope {
+      ?? (x(c) > 10)
+      assert(??? == ProverStatus.Valid)
     }
 
     scope {
-      val x = createConstant("x")
-      val y = createConstant("y")
-
-      !! (x > y)
-      println(expect(???, ProverStatus.Sat))
-
-      scope {
-        !! (x < y)
-        println(expect(???, ProverStatus.Unsat))
-      }
-
-      scope(resetFormulas = true) {
-        !! (x < y)
-        println(expect(???, ProverStatus.Sat))
-      }
-
-      val f = createFunction("f", List(Sort.Integer), Sort.Integer)
-      scope(resetFormulas = true) {
-        !! (f(x) < 0)
-        !! (all(a => f(a) > a))
-        !! (y > 10)
-        println(expect(???, ProverStatus.Inconclusive))
-        !! (x > y)
-        println(expect(???, ProverStatus.Unsat))
-      }     
-
-      // check whether asserted formulas can get in the way of
-      // quantifier elimination (they shouldn't!)
-      !! (x === 42)
-      println(pp(simplify(ex(z => (y < z) & (z < x)))))
+      ?? (y(d) < 100)
+      assert(??? == ProverStatus.Valid)
     }
+
+    scope {
+      ?? (x(d) === 5)
+      assert(??? == ProverStatus.Valid)
+    }
+
+    scope {
+      ?? (x(d) > 10)
+      assert(??? == ProverStatus.Invalid)
+    }
+
+    scope {
+      ?? (y(d) === z(d))
+      assert(??? == ProverStatus.Valid)
+    }
+
+    true
   }
-//}
+
+}
+}

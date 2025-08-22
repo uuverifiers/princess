@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,71 +31,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit test for tree interpolation functionality. Previously, when a
-// formula was asserted repeatedly in a tree interpolation problem,
-// sometimes incorrect interpolants were returned.
-
-//package ap;
+package ap.theories.bitvectors
 
 import ap.SimpleAPI
+import SimpleAPI.ProverStatus
 import ap.parser._
-import ap.basetypes.Tree
+import ap.util.Debug
 
-//object TreeIntTest {
-//  def main(args: Array[String]) =
+import org.scalacheck.Properties
+import ap.util.Prop._
+
+class BVPrinting extends Properties("BVPrinting") {
+
+  property("concat") = {
+    Debug enableAllAssertions true
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       import IExpression._
+      import ModuloArithmetic._
 
-      setConstructProofs(true)
+      val x = createConstant("x", UnsignedBVSort(16))
+      val y = createConstant("y", UnsignedBVSort(16))
+      val z = createConstant("z", UnsignedBVSort(16))
+      val u = createConstant("u", UnsignedBVSort(32))
 
-      val a = createConstant("a")
-      val b = createConstant("b")
-      val c = createConstant("c")
-      val d = createConstant("d")
-      val e = createConstant("e")
+      assert(smtPP(bvadd(x, y) === z) == "(= (bvadd x y) z)")
+      assert(smtPP(concat(x, y) === u) == "(= (concat x y) u)")
+      assert(smtPP(extract(15, 8, u) === x) == "(= ((_ extract 15 8) u) x)")
 
-      val A =  a === 1
-      val B =  a === b
-      val R1 = b === c
-      val C =  c === d + 1
-      val R2 = d === e
-      val D =  e === 5
-
-      setPartitionNumber(1)
-      !! (A)
-
-      setPartitionNumber(10)
-      !! (B)
-
-      setPartitionNumber(2)
-      !! (A)
-
-      setPartitionNumber(20)
-      !! (C)
-
-      setPartitionNumber(3)
-      !! (R1)
-
-      setPartitionNumber(4)
-      !! (A)
-
-      setPartitionNumber(40)
-      !! (D)
-
-      setPartitionNumber(5)
-      !! (R2)
-
-      println(???)
-
-      println(getUnsatCore.toList.sorted)
-
-      getTreeInterpolant(
-        Tree(Set(5),
-             List(Tree(Set(3), List(
-                       Tree(Set(1, 10), List()),
-                       Tree(Set(2, 20), List())
-                  )),
-                  Tree(Set(4, 40), List())))).prettyPrint
+      true
+    }
   }
-//}
+
+}

@@ -2485,6 +2485,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       // TODO: does this work correctly for quoted identifiers?
       unintFunApp("is-" + ctorName, sym, args, polarity)
 
+    case IndexedSymbol("update-field", selName) =>
+      // TODO: does this work correctly for quoted identifiers?
+      unintFunApp("update-" + selName, sym, args, polarity)
+
     ////////////////////////////////////////////////////////////////////////////
     // String operations
 
@@ -3760,7 +3764,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                     val t =
                       (boundSorts get selSortName) match {
                         case Some(t) => t
-                        case None    => translateSort(selDecl.sort_)
+                        case None    =>
+                          try {
+                            translateSort(selDecl.sort_)
+                          } catch {
+                            case t : Exception =>
+                              throw new Parser2InputAbsy.TranslationException(
+                                f"Declaration of selector $selName failed: ${t.getMessage}")
+                          }
                       }
                     (ADT.OtherSort(t.toSort), t)
                   }
@@ -3785,7 +3796,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def addADTToEnv(datatype : ADT) : Unit = {
+  // TODO: merge the following two functions
+  
+  private def addHeapADTToEnv(datatype : ADT) : Unit = {
     val smtDataTypes =
       for (n <- datatype.sorts.indices) yield SMTADT(datatype, n)
 
@@ -3811,6 +3824,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
          (f, arg) <-
            sels.iterator zip smtType.arguments.iterator) {
       env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
+    }
+
+    for ((upds, smtType) <-
+           datatype.updators.iterator zip smtCtorFunctionTypes.iterator;
+         (f, argType) <-
+           upds.iterator zip smtType.arguments.iterator) {
+      val resType = smtType.result
+      env.addFunction(f, SMTFunctionType(List(resType, argType), resType))
     }
 
     // generate the is- queries as inlined functions
@@ -3872,6 +3893,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
             env.addFunction(f, typ)
         }
 
+        for ((upds, smtType) <-
+               datatype.updators.iterator zip smtCtorFunctionTypes.iterator;
+             (f, argType) <-
+               upds.iterator zip smtType.arguments.iterator) {
+          val resType = smtType.result
+          val typ = SMTFunctionType(List(resType, argType), resType)
+          if (overloaded)
+            env.addOverloadedFunction(f, typ)
+          else
+            env.addFunction(f, typ)
+        }
+
         // generate the is- queries as inlined functions
         for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
              ctorIdFun = datatype ctorIds adtNum;
@@ -3912,7 +3945,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     // todo: how to avoid passing heapADTs here, it is really out of place...
     def defObjCtor(objectCtors : Seq[MonoSortedIFunction],
                    heapADTs    : ADT) : ITerm = {
-      addADTToEnv(heapADTs)
+      addHeapADTToEnv(heapADTs)
       asTerm(translateTerm(defaultObjectTerm, -1))
     }
 

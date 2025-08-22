@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,42 +31,84 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+// Unit test for tree interpolation functionality. Previously, when a
+// formula was asserted repeatedly in a tree interpolation problem,
+// sometimes incorrect interpolants were returned.
 
-import ap.SimpleAPI
-import SimpleAPI.ProverStatus
+package ap.api
+
 import ap.parser._
-import ap.util.Debug
+import ap.basetypes.Tree
 
 import org.scalacheck.Properties
+import ap.util.ExtraAssertions
 import ap.util.Prop._
 
-// Bit-vector preprocessing
-class TestBVPreproc extends Properties("TestBVPreproc") {
+class TreeInterpolation extends Properties("TreeInterpolation") with ExtraAssertions {
 
-  property("bvand/bvadd") = {
-    Debug enableAllAssertions true
+  val expectedOutput = """Unsat
+List(1, 3, 5, 10, 20, 40)
+false
+   (d = 0)
+      (b = 1)
+      ((1 + (d + -1 * c)) = 0)
+   (e = 5)
+"""
+  
+  property("main") = checkOutput(expectedOutput) {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       import IExpression._
-      import ModuloArithmetic._
 
-      addTheory(ModuloArithmetic)
+      setConstructProofs(true)
 
-      val x = createConstant("x", UnsignedBVSort(32))
-      val y = createConstant("y", UnsignedBVSort(32))
-      val f = bv_and(32, x, bv_add(32, bv(32, 4), bv(32, 10))) === y
-      val g = bv_add(32, x, bv_add(32, bv(32, 10), y)) === x
+      val a = createConstant("a")
+      val b = createConstant("b")
+      val c = createConstant("c")
+      val d = createConstant("d")
+      val e = createConstant("e")
 
-      f.toString ==
-        "(bv_and(32, x, bv_add(32, mod_cast(0, 4294967295, 4), mod_cast(0, 4294967295, 10))) = y)" &&
-      preprocessIFormula(f).toString ==
-        """\part[formula] ALL bv[32]. ALL ALL ALL (!bv_extract(0, 0, _3[bv[32]], _2) | (!bv_extract(3, 1, _3[bv[32]], _1) | (!bv_extract(31, 4, _3[bv[32]], _0) | (ALL ALL (!bv_extract(3, 1, _1, _0) | (((!(_1 = x) | !(_4 = 0)) | !(_3 = _0)) | !(_2 = 0))) | (_3[bv[32]] = y)))))""" &&
-      g.toString ==
-        "(bv_add(32, x, bv_add(32, mod_cast(0, 4294967295, 10), y)) = x)" &&
-      preprocessIFormula(g).toString ==
-        """\part[formula] ALL (!mod_cast(0, 4294967295, (x + (10 + y)), _0) | (_0 = x))"""
-    }
-  }
+      val A =  a === 1
+      val B =  a === b
+      val R1 = b === c
+      val C =  c === d + 1
+      val R2 = d === e
+      val D =  e === 5
 
+      setPartitionNumber(1)
+      !! (A)
+
+      setPartitionNumber(10)
+      !! (B)
+
+      setPartitionNumber(2)
+      !! (A)
+
+      setPartitionNumber(20)
+      !! (C)
+
+      setPartitionNumber(3)
+      !! (R1)
+
+      setPartitionNumber(4)
+      !! (A)
+
+      setPartitionNumber(40)
+      !! (D)
+
+      setPartitionNumber(5)
+      !! (R2)
+
+      println(???)
+
+      println(getUnsatCore.toList.sorted)
+
+      getTreeInterpolant(
+        Tree(Set(5),
+             List(Tree(Set(3), List(
+                       Tree(Set(1, 10), List()),
+                       Tree(Set(2, 20), List())
+                  )),
+                  Tree(Set(4, 40), List())))).prettyPrint
+  }}
 }
