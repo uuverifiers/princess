@@ -144,7 +144,7 @@ val predicates2Cert = """; Assumptions after simplification:
       (not (p 13)) (p 14))) :rule or :premises (t4))
 (step t6 (cl (or (not (p 13)) (p 14))) :rule resolution :premises (t3 t5))
 (step t7 (cl (not (p 13)) (p 14)) :rule or :premises (t6))
-(step t8 (cl (p 14)) :rule resolution :premises (t2 t6))
+(step t8 (cl (p 14)) :rule resolution :premises (t2 t7))
 
 (step t9 (cl (or (not (forall (($v0 Int))  (or (not (p $v0)) (p (+ $v0 1)))))
       (or (not (p 14)) (p 15)))) :rule forall_inst :args (14))
@@ -152,7 +152,7 @@ val predicates2Cert = """; Assumptions after simplification:
       (not (p 14)) (p 15))) :rule or :premises (t9))
 (step t11 (cl (or (not (p 14)) (p 15))) :rule resolution :premises (t3 t10))
 (step t12 (cl (not (p 14)) (p 15)) :rule or :premises (t11))
-(step t13 (cl (p 15)) :rule resolution :premises (t8 t11))
+(step t13 (cl (p 15)) :rule resolution :premises (t8 t12))
 
 (step t14 (cl (or (not (forall (($v0 Int))  (or (not (p $v0)) (p (+ $v0 1)))))
       (or (not (p 15)) (p 16)))) :rule forall_inst :args (15))
@@ -160,7 +160,7 @@ val predicates2Cert = """; Assumptions after simplification:
       (not (p 15)) (p 16))) :rule or :premises (t14))
 (step t16 (cl (or (not (p 15)) (p 16))) :rule resolution :premises (t3 t15))
 (step t17 (cl (not (p 15)) (p 16)) :rule or :premises (t16))
-(step t18 (cl (p 16)) :rule resolution :premises (t13 t16))
+(step t18 (cl (p 16)) :rule resolution :premises (t13 t17))
 
 (step t19 (cl (or (not (forall (($v0 Int))  (or (not (p $v0)) (p (+ $v0 1)))))
       (or (not (p 16)) (p 17)))) :rule forall_inst :args (16))
@@ -168,7 +168,7 @@ val predicates2Cert = """; Assumptions after simplification:
       (not (p 16)) (p 17))) :rule or :premises (t19))
 (step t21 (cl (or (not (p 16)) (p 17))) :rule resolution :premises (t3 t20))
 (step t22 (cl (not (p 16)) (p 17)) :rule or :premises (t21))
-(step t23 (cl ) :rule resolution :premises (t1 t18 t21))
+(step t23 (cl ) :rule resolution :premises (t1 t18 t22))
 
 ; End of proof
 """

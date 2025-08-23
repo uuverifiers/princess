@@ -526,13 +526,13 @@ class AlethePrinter(
         label
     }
 
-  private def hyperResolution(nucleus   : CertFormula,
+  private def hyperResolution(nucleus   : String,
                               electrons : Seq[CertFormula],
                               result    : CertFormula) : String = {
     val l1 =
       stepCertFor(asClause(result),
                   ("rule", "resolution"),
-                  ("premises", f"(${l(electrons)} ${l(nucleus)})"))
+                  ("premises", f"(${l(electrons)} $nucleus)"))
     formulaLabel.put(result, l1)
     l1
   }
@@ -1008,7 +1008,7 @@ class AlethePrinter(
                                             extraAttributes = List(("args", terms)))
         val l2 =
           disjunctionToClause(instFor, l1)
-        hyperResolution(instFor, dischargedAtoms, result)
+        hyperResolution(l2, dischargedAtoms, result)
       }
       case _ =>
         println(f"Not handled: $inf")
