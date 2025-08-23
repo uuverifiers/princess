@@ -982,7 +982,7 @@ class AlethePrinter(
           inf.providedFormulas.head,
           extraAttributes =
             List(("args",
-                  f"(1 ${coeffs.map(number2String(_)).mkString(" ")})")))
+                  f"((- 1) ${coeffs.map(number2String(_)).mkString(" ")})")))
       }
 
       case inf : SimpInference =>
