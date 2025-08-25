@@ -27,7 +27,7 @@ TESTS="columnRed.pri cryptarithm.pri \
        bv-interpolation-4.smt2 bv-interpolation-5.pri bv-interpolation-6.smt2 \
        bv-interpolation-8.pri sorts.pri quadraticInEq6-interpolation.pri \
        sequences1.smt2 sequences2.smt2 sequences3.smt2 sequences4.smt2 \
-       sequences5.smt2 sequences6.smt2"
+       sequences5.smt2 sequences6.smt2 sequences7.smt2"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 

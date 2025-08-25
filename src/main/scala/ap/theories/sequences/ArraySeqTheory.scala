@@ -368,6 +368,12 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory
       case IFunApp(`select`, Seq(IFunApp(`seqContents`, Seq(s)), idx)) =>
         // TODO: correctly check bounds?
         IFunApp(seq_nth, Seq(s, idx))
+      case IFunApp(`seqPair`, Seq(_, Const(IdealInt.ZERO))) =>
+        IFunApp(seq_empty, Seq())
+      case IFunApp(`seqPair`,
+                   Seq(IFunApp(`store`, Seq(_, Const(IdealInt.ZERO), value)),
+                       Const(IdealInt.ONE))) =>
+        IFunApp(seq_unit, Seq(value))
       case t =>
         t
     }
@@ -380,8 +386,12 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory
 
   override def fun2SMTString(f : IFunction) : Option[String] =
     f match {
-      case `seq_len` | `seqSize` => Some("seq.len")
-      case _ => None
+      case `seq_len` | `seqSize` =>
+        Some("seq.len")
+      case `seq_empty` =>
+        Some(f"(as seq.empty ${SMTLineariser.sort2SMTString(SeqSort)})")
+      case f =>
+        Some(f.name.replace("seq_", "seq."))
     }
 
   //////////////////////////////////////////////////////////////////////////////
