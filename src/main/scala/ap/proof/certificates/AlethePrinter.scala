@@ -526,6 +526,11 @@ class AlethePrinter(
         label
     }
 
+  private def hyperResolution(nucleus   : CertFormula,
+                              electrons : Seq[CertFormula],
+                              result    : CertFormula) : String =
+    hyperResolution(l(nucleus), electrons, result)
+
   private def hyperResolution(nucleus   : String,
                               electrons : Seq[CertFormula],
                               result    : CertFormula) : String = {
@@ -715,24 +720,34 @@ class AlethePrinter(
     }
 
     case cert : BetaCertificate => {
-      printlnPref
-      printlnPref("; BETA: splitting " +
-                  l(cert.localAssumedFormulas) + " gives:")
-
-      val l1 = printSubproof(cert.subCertificates(0), List(cert.leftFormula))
-
-      // TODO: add the formula to the formulaLabel map, at least in some cases
-
-      printlnPref
-
-      printlnPref("; splitting " +
-                  l(cert.localAssumedFormulas) + ", second case:")
       val l2 =
-        stepCertFor(asClause(cert.rightFormula),
-                    ("rule", "resolution"),
-                    ("premises", f"(${l(cert.localAssumedFormulas)} $l1)"))
-      formulaLabel.put(cert.rightFormula, l2)
+        if (formulaLabel.contains(!cert.leftFormula)) {
+          stepCertFor(
+            asClause(cert.rightFormula),
+            ("rule", "resolution"),
+            ("premises",
+             f"(${l(cert.localAssumedFormulas)} ${l(!cert.leftFormula)})"))
+        } else {
+          printlnPref
+          printlnPref("; BETA: splitting " +
+                      l(cert.localAssumedFormulas) + " gives:")
 
+          val l1 =
+            printSubproof(cert.subCertificates(0), List(cert.leftFormula))
+
+          if (cert.lemma)
+            formulaLabel.put(!cert.leftFormula, l1)
+
+          printlnPref
+          printlnPref("; splitting " +
+                      l(cert.localAssumedFormulas) + ", second case:")
+
+          stepCertFor(asClause(cert.rightFormula),
+                      ("rule", "resolution"),
+                      ("premises", f"(${l(cert.localAssumedFormulas)} $l1)"))
+        }
+
+      formulaLabel.put(cert.rightFormula, l2)
       printCertificate(cert.subCertificates(1))
     }
 
@@ -879,7 +894,7 @@ class AlethePrinter(
       case _ : SimpInference =>
         //printRewritingRule("SIMP", inf)
       case _ : PredUnifyInference =>
-        printRewritingRule("PRED_UNIFY", inf)
+        //printRewritingRule("PRED_UNIFY", inf)
       case _ : CombineEquationsInference =>
         //printRewritingRule("COMBINE_EQS", inf)
       case _ : CombineInequalitiesInference =>
@@ -963,6 +978,11 @@ class AlethePrinter(
                                              childOrder,
                                              argComputer = Some(argComp))
       }
+
+      case PredUnifyInference(left, right, result, _) if left == right =>
+        hyperResolution(CertPredLiteral(false, left),
+                        List(CertPredLiteral(true, left)),
+                        !result)
 
       case CombineInequalitiesInference(leftCoeff, _, rightCoeff, _, _, _) =>
         // TODO: use correct argument order

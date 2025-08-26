@@ -173,6 +173,156 @@ val predicates2Cert = """; Assumptions after simplification:
 ; End of proof
 """
 
+val predicates4 = """\predicates {
+  p; q; r;  
+}
+
+\problem {
+  (p() -> q()) & ( !p() -> r())
+<->
+  (p() & q()) | (!p() & r())
+}
+"""
+
+val predicates4Cert = """; Assumptions after simplification:
+; ---------------------------------
+
+(assume input_0 (or (and (or (not r) p) (or (not q) (not p)) (or (not p) q) (or
+        r p)) (and (or (and r (not p)) (and q p)) (or (and p (not q)) (and (not
+            r) (not p))))))
+(step t1 (cl (and (or (not r) p) (or (not q) (not p)) (or (not p) q) (or r p))
+    (and (or (and r (not p)) (and q p)) (or (and p (not q)) (and (not r) (not
+            p))))) :rule or :premises (input_0))
+
+; Those formulas are unsatisfiable:
+; ---------------------------------
+
+; Begin of proof
+
+; BETA: splitting t1 gives:
+(anchor :step t2)
+  
+  (assume t3 (and (or (not r) p) (or (not q) (not p)) (or (not p) q) (or r p)))
+  
+  (step t4 (cl (or r p)) :rule and :premises (t3) :args (3))
+  (step t5 (cl r p) :rule or :premises (t4))
+  (step t6 (cl (or (not p) q)) :rule and :premises (t3) :args (2))
+  (step t7 (cl (not p) q) :rule or :premises (t6))
+  (step t8 (cl (or (not q) (not p))) :rule and :premises (t3) :args (1))
+  (step t9 (cl (not q) (not p)) :rule or :premises (t8))
+  (step t10 (cl (or (not r) p)) :rule and :premises (t3) :args (0))
+  (step t11 (cl (not r) p) :rule or :premises (t10))
+  
+  ; BETA: splitting t5 gives:
+  (anchor :step t12)
+    
+    (assume t13 r)
+    (step t14 (cl p) :rule resolution :premises (t11 t13))
+    
+    ; BETA: splitting t9 gives:
+    (anchor :step t15)
+      
+      (assume t16 (not q))
+      (step t17 (cl q) :rule resolution :premises (t7 t14))
+      
+      (step t18 (cl ) :rule resolution :premises (t16 t17))
+      
+    (step t15 (cl (not (not q))) :rule subproof)
+    
+    ; splitting t9, second case:
+    (step t19 (cl (not p)) :rule resolution :premises (t9 t15))
+    
+    (step t20 (cl ) :rule resolution :premises (t19 t14))
+    
+  (step t12 (cl (not r)) :rule subproof)
+  
+  ; splitting t5, second case:
+  (step t21 (cl p) :rule resolution :premises (t5 t12))
+  
+  ; BETA: splitting t9 gives:
+  (anchor :step t22)
+    
+    (assume t23 (not q))
+    (step t24 (cl q) :rule resolution :premises (t7 t21))
+    
+    (step t25 (cl ) :rule resolution :premises (t23 t24))
+    
+  (step t22 (cl (not (not q))) :rule subproof)
+  
+  ; splitting t9, second case:
+  (step t26 (cl (not p)) :rule resolution :premises (t9 t22))
+  
+  (step t27 (cl ) :rule resolution :premises (t26 t21))
+  
+(step t2 (cl (not (and (or (not r) p) (or (not q) (not p)) (or (not p) q) (or r
+          p)))) :rule subproof)
+
+; splitting t1, second case:
+(step t28 (cl (and (or (and r (not p)) (and q p)) (or (and p (not q)) (and (not
+            r) (not p))))) :rule resolution :premises (t1 t2))
+
+(step t29 (cl (or (and p (not q)) (and (not r) (not p)))) :rule and :premises
+  (t28) :args (1))
+(step t30 (cl (and p (not q)) (and (not r) (not p))) :rule or :premises (t29))
+(step t31 (cl (or (and r (not p)) (and q p))) :rule and :premises (t28) :args
+  (0))
+(step t32 (cl (and r (not p)) (and q p)) :rule or :premises (t31))
+
+; BETA: splitting t30 gives:
+(anchor :step t33)
+  
+  (assume t34 (and p (not q)))
+  
+  (step t35 (cl (not q)) :rule and :premises (t34) :args (1))
+  (step t36 (cl p) :rule and :premises (t34) :args (0))
+  
+  ; BETA: splitting t32 gives:
+  (anchor :step t37)
+    
+    (assume t38 (and r (not p)))
+    
+    (step t39 (cl (not p)) :rule and :premises (t38) :args (1))
+    
+    (step t40 (cl ) :rule resolution :premises (t39 t36))
+    
+  (step t37 (cl (not (and r (not p)))) :rule subproof)
+  
+  ; splitting t32, second case:
+  (step t41 (cl (and q p)) :rule resolution :premises (t32 t37))
+  
+  (step t42 (cl q) :rule and :premises (t41) :args (0))
+  
+  (step t43 (cl ) :rule resolution :premises (t35 t42))
+  
+(step t33 (cl (not (and p (not q)))) :rule subproof)
+
+; splitting t30, second case:
+(step t44 (cl (and (not r) (not p))) :rule resolution :premises (t30 t33))
+
+(step t45 (cl (not p)) :rule and :premises (t44) :args (1))
+(step t46 (cl (not r)) :rule and :premises (t44) :args (0))
+
+; BETA: splitting t32 gives:
+(anchor :step t47)
+  
+  (assume t48 (and r (not p)))
+  
+  (step t49 (cl r) :rule and :premises (t48) :args (0))
+  
+  (step t50 (cl ) :rule resolution :premises (t46 t49))
+  
+(step t47 (cl (not (and r (not p)))) :rule subproof)
+
+; splitting t32, second case:
+(step t51 (cl (and q p)) :rule resolution :premises (t32 t47))
+
+(step t52 (cl p) :rule and :premises (t51) :args (1))
+
+(step t53 (cl ) :rule resolution :premises (t45 t52))
+
+; End of proof
+"""
+
 val disj = """\functions {
 
   int x, y;
@@ -308,46 +458,32 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   import TestAlethePrinter._
 
-  property("inequalities5") = {
+  def checkProof(input : String, cert : String) : Boolean =
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
 
       setConstructProofs(true)
 
-      val (f, _, _) = extractPriInput(inequalities5)
+      val (f, _, _) = extractPriInput(input)
       ?? (f)
 
-      ??? == ProverStatus.Valid &&
-      aletheCertificateAsString() == inequalities5Cert
-    }
-  }
-
-  property("predicates2") = {
-    SimpleAPI.withProver(enableAssert = true) { p =>
-      import p._
-
-      setConstructProofs(true)
-
-      val (f, _, _) = extractPriInput(predicates2)
-      ?? (f)
+//      ???
+//      println(aletheCertificateAsString())
 
       ??? == ProverStatus.Valid &&
-      aletheCertificateAsString() == predicates2Cert
+      aletheCertificateAsString() == cert
     }
-  }
 
-  property("disj") = {
-    SimpleAPI.withProver(enableAssert = true) { p =>
-      import p._
+  property("inequalities5") =
+    checkProof(inequalities5, inequalities5Cert)
 
-      setConstructProofs(true)
+  property("predicates2") =
+    checkProof(predicates2, predicates2Cert)
 
-      val (f, _, _) = extractPriInput(disj)
-      ?? (f)
+  property("predicate4") =
+    checkProof(predicates4, predicates4Cert)
 
-      ??? == ProverStatus.Valid &&
-      aletheCertificateAsString() == disjCert
-    }
-  }
+  property("disj") =
+    checkProof(disj, disjCert)
 
 }
