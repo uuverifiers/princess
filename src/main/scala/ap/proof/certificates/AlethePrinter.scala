@@ -542,9 +542,16 @@ class AlethePrinter(
     l1
   }
 
+  private def hyperResolutionStr(nucleus   : String,
+                                 electrons : Seq[String],
+                                 result    : String) : String =
+    step(List(result),
+         ("rule", "resolution"),
+         ("premises", f"(${electrons.mkString(" ")} $nucleus)"))
+
   private def introduceFormulaThroughAssumption(
                         f               : CertFormula,
-                        label           : String = "") : Unit = {
+                        label           : String = "") : String = {
     val finalLabel = if (label == "") freshLabel() else label
     printCommand("assume", finalLabel, List((f, false)), List(), useCl = false)
     postprocessFormula(f, finalLabel)
@@ -835,33 +842,38 @@ class AlethePrinter(
     subproofLabels
   }
 
-  private def printSubproof(subCert     : Certificate,
-                            assumptions : Seq[CertFormula]) : String = {
+  /**
+   * Derive the clause <code>!f1, !f2, ..., !fn</code>, reasoning
+   * by contradiction. <code>result</code> is the sequence
+   * <code>f1, f2, ..., fn</code>, <code>subproof</code> the steps
+   * to derive a contradiction from those formulas.
+   */
+  private def byContradiction(result : Seq[CertFormula])
+                             (subproof : Seq[String] => Unit) : String = {
     val endLabel = freshLabel()
     push
-
-    implicit val o = CertFormula certFormulaOrdering subCert.order
 
     try {
       printCommand("anchor", List(":step", endLabel))
       addPrefix("  ")
       printlnPref
 
-      for (f <- assumptions)
-        introduceFormulaThroughAssumption(f)
-
-      printCertificate(subCert)
+      val assumptions = result.map(introduceFormulaThroughAssumption(_))
+      subproof(assumptions)
 
       printlnPref
     } finally {
       pop
     }
 
-    printCommand("step", endLabel,
-                 assumptions.map((_, true)),
+    printCommand("step", endLabel, result.map((_, true)),
                  List(("rule", "subproof")))
     endLabel
   }
+
+  private def printSubproof(subCert     : Certificate,
+                            assumptions : Seq[CertFormula]) : String =
+    byContradiction(assumptions){ _ => printCertificate(subCert) }
 
   private def computeAssumptions(infs : List[BranchInference],
                                  childAssumptions : Set[CertFormula])
@@ -979,10 +991,37 @@ class AlethePrinter(
                                              argComputer = Some(argComp))
       }
 
-      case PredUnifyInference(left, right, result, _) if left == right =>
+      case PredUnifyInference(left, right, result, _)
+        if left == right =>
         hyperResolution(CertPredLiteral(false, left),
                         List(CertPredLiteral(true, left)),
                         !result)
+
+      case PredUnifyInference(left, right, result, _) => {
+        val leftCF = CertPredLiteral(false, left)
+        val rightCF = CertPredLiteral(false, right)
+        val l10 =
+          byContradiction(List(result)) {
+            // TODO: handle multiple equations
+            case Seq(l1) => {
+              assert(left.pred.arity == 1)
+              val termEq = s"(= ${term2String(left(0))} ${term2String(right(0))})"
+              // TODO: sometimes coefficient -1?
+              val l2 = step(List(s"(not ${for2String(result)})", termEq),
+                            ("rule", "la_generic"), ("args", "(1 1)"))
+              val l3 = hyperResolutionStr(l2, List(l1), termEq)
+              val leftStr = for2String(leftCF)
+              val rightStr = for2String(rightCF)
+              val eqvForStr = s"(= $leftStr $rightStr)"
+              val l4 = step(List(eqvForStr),
+                            ("rule", "cong"), ("premises", s"($l3)"))
+              val l5 = step(List(s"(not $eqvForStr)", s"(not $leftStr)", rightStr),
+                            ("rule", "equiv_pos2"))
+              hyperResolutionStr(l5, List(l4, l(leftCF), l(!rightCF)), "")
+            }
+          }
+        formulaLabel.put(!result, l10)
+      }
 
       case CombineInequalitiesInference(leftCoeff, _, rightCoeff, _, _, _) =>
         // TODO: use correct argument order
