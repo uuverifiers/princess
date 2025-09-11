@@ -31,8 +31,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.heaps
 
+import ap.theories.ADT
 import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.parameters.Param.InputFormat

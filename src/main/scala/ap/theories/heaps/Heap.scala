@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2023 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.theories
+package ap.theories.heaps
 
+import ap.theories.{Theory, ADT, TheoryRegistry}
 import ap.basetypes._
 import ap.parser.IExpression.Predicate
 import ap.parser._
@@ -41,7 +42,8 @@ import ap.theories.ADT.ADTProxySort
 import ap.types._
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MMap, Set => MSet}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MMap,
+                                 Set => MSet}
 import scala.collection.{mutable, Map => GMap}
 
 object Heap {
