@@ -46,6 +46,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap, DivZero}
+import ap.theories.heaps.IHeap
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.sequences.{SeqTheory, SeqTheoryBuilder}
 import ap.theories.rationals.Rationals
@@ -3695,7 +3696,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     addressSortName : String,
                                     resultSortNum : Int,
                                     constructorDecls : Seq[ConstructorDeclC])
-  : (Seq[(String, Heap.CtorSignature)], Seq[Seq[SMTType]]) =
+  : (Seq[(String, IHeap.CtorSignature)], Seq[Seq[SMTType]]) =
     (for (ctor <- constructorDecls) yield ctor match {
       case ctorDecl : ConstructorDecl => {
         val ctorName = asString(ctorDecl.symbol_)
@@ -3711,33 +3712,33 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                   selDecl.sort_ match {
                     case s : IdentSort
                       if asString(s.identifier_) == addressSortName =>
-                      (Heap.AddressCtor, SMTHeapAddress(null))
+                      (IHeap.AddrSort, SMTHeapAddress(null))
                     case s : IdentSort
                       if asString(s.identifier_) ==
                         (addressSortName + Heap.addressRangeSuffix) =>
                       // todo: -2 is to signal setupADT that this is an addressRange,
                       //  can be fixed by declaring fixed heap ADTs first
-                      (Heap.AddressRangeCtor, SMTADT(null, -2))
+                      (IHeap.AddrRangeSort, SMTADT(null, -2))
                     case _ => val t = translateSort(selDecl.sort_)
-                      (Heap.OtherSort(t.toSort), t)
+                      (IHeap.OtherSort(t.toSort), t)
                   }
                 }
                 case ind =>
                   // we don't have the actual ADT yet, so just put
                   // null for the moment
-                  (Heap.ADTSort(ind), SMTADT(null, ind))
+                  (IHeap.ADTSort(ind), SMTADT(null, ind))
               }
 
             ((selName, adtSort), smtSort)
           }).unzip
 
-        ((ctorName, Heap.CtorSignature(adtArgs, Heap.ADTSort(resultSortNum))),
+        ((ctorName, IHeap.CtorSignature(adtArgs, IHeap.ADTSort(resultSortNum))),
           smtArgs)
       }
 
       case ctorDecl : NullConstructorDecl =>
         ((asString(ctorDecl.symbol_),
-          Heap.CtorSignature(List(), Heap.ADTSort(resultSortNum))),
+          IHeap.CtorSignature(List(), IHeap.ADTSort(resultSortNum))),
           List())
     }).unzip
 
@@ -3925,7 +3926,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
   private def setupHeap(heapSortName : String, addressSortName : String,
                         objectSortName : String, adtSortNames : Seq[String],
-                        allCtors : Seq[(Seq[(String, Heap.CtorSignature)],
+                        allCtors : Seq[(Seq[(String, IHeap.CtorSignature)],
                          Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
@@ -3936,7 +3937,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       adtSortNames.indexOf(objectSortName) match {
         case -1 => throw new Parser2InputAbsy.TranslationException(
           "Could not find " + objectSortName + " among the given sorts.")
-        case n => (Heap.ADTSort(n), n)
+        case n => (IHeap.ADTSort(n), n)
       }
 
     // This gets called during the heap theory construction, before the actual

@@ -47,15 +47,8 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MMap,
 import scala.collection.{mutable, Map => GMap}
 
 object Heap {
-  private val AC = Debug.AC_ADT
-  abstract sealed class CtorArgSort
-  case class ADTSort(num : Int)       extends CtorArgSort
-  case class OtherSort(sort : Sort)   extends CtorArgSort
-  case object AddressCtor             extends CtorArgSort
-  case object AddressRangeCtor        extends CtorArgSort
-  case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
-                           result : ADTSort)
-
+  private val AC = Debug.AC_HEAP
+  
   // addressRange sort name: addressName + addressRangeSuffix
   val addressRangeSuffix = "Range"
 
@@ -417,6 +410,11 @@ object Heap {
 }
 
 /**
+ * defaultObjectCtor is called from the theory (before it is completely
+ * initialised), and it passes back the theory ADTs for adding to environment
+ * (e.g. as done in SMTParser2InputAbsy), and also the actual constructors
+ * for the ctorSignatures, so the defObj term can be built using those.
+ *
  * @param heapSortName
  * @param addressSortName
  * @param objectSort
@@ -424,23 +422,22 @@ object Heap {
  * @param ctorSignatures
  */
 class Heap(heapSortName : String, addressSortName : String,
-           objectSort : Heap.ADTSort, sortNames : Seq[String],
-           ctorSignatures : Seq[(String, Heap.CtorSignature)],
+           objectSort : IHeap.ADTSort, sortNames : Seq[String],
+           ctorSignatures : Seq[(String, IHeap.CtorSignature)],
            defaultObjectCtor : (Seq[MonoSortedIFunction], ADT) => ITerm)
-// defaultObjectCtor is called from the theory (before it is completely
-// initialised), and it passes back the theory ADTs for adding to environment
-// (e.g. as done in SMTParser2InputAbsy), and also the actual constructors
-// for the ctorSignatures, so the defObj term can be built using those.
-    extends SMTLinearisableTheory {
+    extends IHeap with SMTLinearisableTheory {
+
   import Heap._
+  import IHeap._
+
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AC,
     ctorSignatures forall {
       case (_, sig) =>
         ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
-          case Heap.ADTSort(id) => id >= 0 && id < sortNames.size
+          case ADTSort(id) => id >= 0 && id < sortNames.size
           case _ : OtherSort => true
-          case Heap.AddressCtor | Heap.AddressRangeCtor => true
+          case AddrSort | AddrRangeSort => true
         }
     })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -465,11 +462,11 @@ class Heap(heapSortName : String, addressSortName : String,
     s match {
       case t : ADTSort      => ADT.ADTSort(t.num)
       case t : OtherSort    => ADT.OtherSort(t.sort)
-      case AddressCtor      => ADT.OtherSort(AddressSort)
-      case AddressRangeCtor => ADT.ADTSort(addressRangeSortId)
+      case AddrSort         => ADT.OtherSort(AddressSort)
+      case AddrRangeSort    => ADT.ADTSort(addressRangeSortId)
     }
 
-  private implicit def HeapSortToADTSort(l : Seq[(String, Heap.CtorSignature)]):
+  private implicit def HeapSortToADTSort(l : Seq[(String, CtorSignature)]):
   Seq[(String, ADT.CtorSignature)] = {
     for (s <- l) yield (s._1, ADT.CtorSignature(
       for (arg <- s._2.arguments) yield (arg._1, HeapSortToADTSort(arg._2)),
@@ -509,7 +506,7 @@ class Heap(heapSortName : String, addressSortName : String,
   )
 
   val userSortNames : Seq[String] = sortNames
-  val userCtorSignatures : Seq[(String, Heap.CtorSignature)] = ctorSignatures
+  val userCtorSignatures : Seq[(String, CtorSignature)] = ctorSignatures
   val adtCtorSignatures = HeapSortToADTSort(userCtorSignatures)
 
   // We must avoid circular dependencies, therefore the ADT is
@@ -531,6 +528,7 @@ class Heap(heapSortName : String, addressSortName : String,
 
   val ObjectSort : Sort = heapADTs.sorts(objectSortId)
   val userADTSorts = heapADTs.sorts.take(sortNames.size)
+
   private val userADTIndsCtorsAndSels = // : Map[Sort, Seq[MonoSortedIFunction]] =
     (for ((sort, ind) <- userADTSorts.zipWithIndex) yield {
       for (id <- heapADTs.ctorIdsPerSort(ind)) yield {
@@ -539,6 +537,13 @@ class Heap(heapSortName : String, addressSortName : String,
     }).flatten.sortBy(triplet => triplet._1).unzip3
   val userADTCtors : Seq[MonoSortedIFunction] = userADTIndsCtorsAndSels._2
   val userADTSels : Seq[Seq[MonoSortedIFunction]] = userADTIndsCtorsAndSels._3
+
+  val userHeapSorts = userADTSorts
+  def hasUserHeapCtor(t : ITerm, id : Int) : IFormula = heapADTs.hasCtor(t, id)
+  val userHeapConstructors = heapADTs.constructors.take(userADTCtors.size)
+  val userHeapSelectors = heapADTs.selectors.take(userADTCtors.size)
+  val userHeapUpdators = heapADTs.updators.take(userADTCtors.size)
+  val userHeapCtorSignatures = ctorSignatures
 
   private val theoryADTSorts = heapADTs.sorts.drop(sortNames.size)
   private val theoryADTCtors = heapADTs.constructors.drop(userADTCtors.size)
@@ -559,11 +564,24 @@ class Heap(heapSortName : String, addressSortName : String,
   val addrRangeStart    = theoryADTSels(addressRangeSortId-sortNames.size)(0)
   val addrRangeSize     = theoryADTSels(addressRangeSortId-sortNames.size)(1)
 
+  val addressRangeSize = addrRangeSize
+
+  val AddressRangeSort   = addressRangeSort
+  val AllocResSort       = allocResSort
+  val BatchAllocResSort  = batchAllocResSort
+  val allocResAddr       = newAddr
+  val allocResHeap       = newHeap
+  val batchAllocResAddr  = newAddrRange
+  val batchAllocResHeap  = newBatchHeap
+
   val nth = new MonoSortedIFunction("nth" + addressRangeSortName,
     List(addressRangeSort, Sort.Nat), AddressSort,
     false, false)
   val within = new MonoSortedPredicate("within",
     List(addressRangeSort, AddressSort))
+
+  val addressRangeNth = nth
+  val addressRangeWithin = within
 
   /** Returns whether (an ADT) sort is declared as part of this theory. */
   def containsADTSort(sort : Sort): Boolean = theoryADTSorts.contains(sort)
@@ -635,9 +653,11 @@ class Heap(heapSortName : String, addressSortName : String,
     ObjectSort, false, false)
   val write = new MonoSortedIFunction("write",
     List(HeapSort, AddressSort, ObjectSort), HeapSort, false, false)
-  val isAlloc = new MonoSortedPredicate("valid", List(HeapSort, AddressSort))
   val nullAddr = new MonoSortedIFunction("null" + addressSortName,
     List(), AddressSort, false, false)
+
+  val valid = new MonoSortedPredicate("valid", List(HeapSort, AddressSort))
+  override val isAlloc = valid
 
   /**
    * Helper function to write to ADT fields.
@@ -748,6 +768,9 @@ class Heap(heapSortName : String, addressSortName : String,
   val predefPredicates = List(isAlloc, within)
 
   val _defObj : ITerm = defaultObjectCtor(userADTCtors, heapADTs)
+
+  val defaultObject = _defObj
+
   private def _isAlloc(h: ITerm , p: ITerm) : IFormula = {
     import IExpression._
     counter(h) >= p & p > 0

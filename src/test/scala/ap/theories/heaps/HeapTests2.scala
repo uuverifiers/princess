@@ -132,23 +132,24 @@ class PrincessTesterXXX (p : SimpleAPI) {
 
 class HeapTests2 extends Properties("HeapTests2") {
   import HeapTests._
+  import IHeap._
 
   Debug enableAllAssertions true
 
   val NullObjName = "NullObj"
-  val ObjSort = Heap.ADTSort(0)
-  val StructSSort = Heap.ADTSort(1)
+  val ObjSort = ADTSort(0)
+  val StructSSort = ADTSort(1)
   val heap = new Heap("heap", "addr", ObjSort,
     List("HeapObject", "struct_S"), List(
-      ("WrappedInt", Heap.CtorSignature(List(("getInt",
-        Heap.OtherSort(Sort.Integer))), ObjSort)),
-      ("WrappedS", Heap.CtorSignature(List(("getS", StructSSort)), ObjSort)),
-      ("WrappedNode", Heap.CtorSignature(List(("getNode", StructSSort)), ObjSort)),
-      ("struct_S", Heap.CtorSignature(List(("x", Heap.OtherSort(Sort.Integer))),
+      ("WrappedInt", CtorSignature(List(("getInt",
+        OtherSort(Sort.Integer))), ObjSort)),
+      ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
+      ("WrappedNode", CtorSignature(List(("getNode", StructSSort)), ObjSort)),
+      ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
         StructSSort)),
-      ("struct_Node", Heap.CtorSignature(List(("R", Heap.AddressCtor)),
+      ("struct_Node", CtorSignature(List(("R", AddrSort)),
         StructSSort)),
-      ("defObj", Heap.CtorSignature(List(), ObjSort))),
+      ("defObj", CtorSignature(List(), ObjSort))),
     defObjCtor)
 
   def defObjCtor(objectCtors : Seq[IFunction],
