@@ -284,35 +284,46 @@ class ArrayHeap(heapSortName         : String,
   val addressRangeWithin =
     new MonoSortedPredicate("addressRangeWithin", List(ARSo, ASo))
 
-  val batchAllocHelp =
-    new MonoSortedIFunction("batchAllocHelp",
+  val storeRange =
+    new MonoSortedIFunction("storeRange",
                             List(ArraySort, Integer, Integer, OSo),
                             ArraySort, true, true)
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // TODO: this way of handling batchAlloc is quite inefficient, introduce
-  // better proof rules
-
   val allAxioms : IFormula = {
     import IExpression._
-    import arrayTheory.store
+    import arrayTheory.{select, store}
 
-    ArraySort.all((heapAr, resultAr) =>
+    // TODO: the first axiom ensures bidirectional propagation and is needed
+    // for completeness, but is also very inefficient. Implement this axiom
+    // using a plugin instead?
+
+/*    ArraySort.all((heapAr, resultAr) =>
       Integer.all((start, end) =>
         ObjectSort.all(obj =>
           ITrigger(
-            List(batchAllocHelp(heapAr, start, end, obj)),
-            (resultAr === batchAllocHelp(heapAr, start, end, obj)) ==>
+            List(storeRange(heapAr, start, end, obj)),
+            (resultAr === storeRange(heapAr, start, end, obj)) ==>
             ite(start < end,
                 resultAr ===
-                  store(batchAllocHelp(heapAr, start + 1, end, obj), start, obj),
-                resultAr === heapAr)))))
+                  store(storeRange(heapAr, start + 1, end, obj), start, obj),
+                resultAr === heapAr))))) & */
+    //
+    ArraySort.all((heapAr) =>
+      Integer.all((start, end, ind) =>
+        ObjectSort.all((obj, result) =>
+          ITrigger(
+            List(select(storeRange(heapAr, start, end, obj), ind)),
+            (result ===
+              select(storeRange(heapAr, start, end, obj), ind)) ==>
+            (result ===
+              ite((start <= ind) & (ind < end), obj, select(heapAr, ind)))))))
   }
 
   val functions =
     List(emptyHeap, alloc, batchAlloc, read, write, batchWrite, addressRangeNth,
-         batchAllocHelp)
+         storeRange)
   val predefPredicates =
     List(valid, addressRangeWithin)
 
@@ -373,7 +384,7 @@ class ArrayHeap(heapSortName         : String,
         withEps(heap, AllocResSort, (cont, size) =>
 	  batchAllocResPair(
             heapPair(
-              batchAllocHelp(cont, size + 1, size + 1 + num, obj), size + num),
+              storeRange(cont, size + 1, size + 1 + num, obj), size + num),
 	    addressRange(size + 1, num)))
       }
       case IFunApp(`addressRangeNth`, _) => {

@@ -53,47 +53,39 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   val NullObjName = "NullObj"
   val ObjSort = ADTSort(0)
 
-  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
-    import IExpression.toFunApplier
-    objectCtors.last()
+  def createArrayHeap : IHeap = {
+      def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
+      import IExpression.toFunApplier
+      objectCtors.last()
+      }
+
+    new ArrayHeap(
+      "heap", "addr", "addrRange", ObjSort,
+      List("HeapObject"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor)
   }
 
-  def defObjCtor2(objectCtors : Seq[IFunction], adt : ADT) : ITerm = {
-    import IExpression.toFunApplier
-    objectCtors.last()
+  def createNativeHeap : IHeap = {
+    def defObjCtor2(objectCtors : Seq[IFunction], adt : ADT) : ITerm = {
+      import IExpression.toFunApplier
+      objectCtors.last()
+    }
+
+    new Heap(
+      "heap", "addr", ObjSort,
+      List("HeapObject"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor2)
   }
-
-  val heap = new ArrayHeap(
-    "heap", "addr", "addrRange", ObjSort,
-    List("HeapObject"), List(
-      ("WrappedInt", CtorSignature(List(("getInt",
-        OtherSort(Sort.Integer))), ObjSort)),
-      ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-      ("defObj", CtorSignature(List(), ObjSort))),
-    defObjCtor)
-
-/*
-  val heap = new Heap(
-    "heap", "addr", ObjSort,
-    List("HeapObject", "struct_S"), List(
-      ("WrappedInt", CtorSignature(List(("getInt",
-        OtherSort(Sort.Integer))), ObjSort)),
-      ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
-      ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-      ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
-        StructSSort)),
-      ("defObj", CtorSignature(List(), ObjSort))),
-    defObjCtor2)
-*/
-
-  val Seq(wrappedInt,
-          wrappedAddr,
-          defObjCtr) = heap.userHeapConstructors
-  val Seq(Seq(getInt),
-          Seq(getAddr), _*) = heap.userHeapSelectors
 
   import IExpression.toFunApplier
-  val defObj = defObjCtr()
 
   val N = 10
 
@@ -107,9 +99,13 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   }
 
   property("writes") = Console.withOut(ap.CmdlMain.NullStream) {
-  SimpleAPI.withProver(enableAssert = false) { pr : SimpleAPI =>
-    import heap._
+  SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
+
+    val heap = createArrayHeap
+    import heap._
+
+    val wrappedInt = heap.userHeapConstructors.head
 
     val hs = createConstants(N, HeapSort)
     val hs2 = createConstants(N, HeapSort)
@@ -121,59 +117,50 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
             hs(n) === allocResHeap(alloc(hs(n-1), wrappedInt(n))))
     }
 
-    val h = hs.last
-
-    measureTime("Check 1") {
-      println(???)
-    }
-
-    measureTime("Updating heap") {
-      !! (hs2(0) === h)
-      for (n <- 1 until N)
-        !! (hs2(n) === write(hs2(n-1), as(n),
-	                     wrappedInt(getInt(read(hs2(n-1), as(n))) + 1)))
-    }
-
-    val h2 = hs2.last
-    
-    measureTime("Check 2") {
-      println(???)
-    }
-
-    measureTime("Conjecture") {
-      ?? (getInt(read(h2, as(1))) > 0)
-    }
-
-    measureTime("Check 3") {
-      println(???)
-    }
+    checkHeap(heap, pr, hs.last, as)
 
     true
   }}
 
   property("batchAlloc") = Console.withOut(ap.CmdlMain.NullStream) {
-  SimpleAPI.withProver(enableAssert = false) { pr : SimpleAPI =>
-    import heap._
+  SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
+
+    val heap = createArrayHeap
+    import heap._
+
+    val wrappedInt = heap.userHeapConstructors.head
 
     val h0 = createConstant("h0", HeapSort)
     val h = createConstant("h", HeapSort)
-    val hs2 = createConstants(N, HeapSort)
     val ar = createConstant("ar", AddressRangeSort)
-
-    def as(n : ITerm) = addressRangeNth(ar, n)
 
     measureTime("Allocation") {
       !! (h === batchAllocResHeap(batchAlloc(h0, wrappedInt(1), N + 1)))
       !! (ar === batchAllocResAddr(batchAlloc(h0, wrappedInt(1), N + 1)))
     }
 
+    checkHeap(heap, pr, h, addressRangeNth(ar, _))
+
+    true
+  }}
+
+  def checkHeap(heap : IHeap, pr : SimpleAPI,
+                initHeap : ITerm, as : Int => ITerm) : Unit = {
+    import heap._
+    import pr._
+
+    val wrappedInt = heap.userHeapConstructors.head
+    val Seq(getInt) = heap.userHeapSelectors.head
+
+    val hs2 = createConstants(N, HeapSort)
+
     measureTime("Check 1") {
       println(???)
     }
 
     measureTime("Updating heap") {
-      !! (hs2(0) === h)
+      !! (hs2(0) === initHeap)
       for (n <- 1 until N)
         !! (hs2(n) === write(hs2(n-1), as(n),
 	                     wrappedInt(getInt(read(hs2(n-1), as(n))) + 1)))
@@ -192,8 +179,6 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
     measureTime("Check 3") {
       println(???)
     }
-
-    true
-  }}
+  }
 
 }
