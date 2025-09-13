@@ -131,6 +131,16 @@ class PrincessTester (p : SimpleAPI) {
     }
   }
 }
+
+  def measureTime[A](msg: String)(comp : => A) : A = {
+    print(f"$msg: ")
+    val start = System.currentTimeMillis
+    val res : A = comp
+    val stop = System.currentTimeMillis
+    println(f"${stop - start}ms")
+    res
+  }
+
 }
 
 class HeapTests1 extends Properties("HeapTests1") {

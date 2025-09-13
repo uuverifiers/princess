@@ -38,10 +38,15 @@ import ap.basetypes.IdealInt
 import ap.theories.{Theory, TheoryRegistry, ADT, ExtArray}
 import ap.types.{Sort, MonoSortedIFunction, MonoSortedPredicate, ProxySort}
 import ap.parser._
+import ap.terfor.{ConstantTerm, TerForConvenience}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination
+import ap.proof.goal.Goal
+import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
 import scala.collection.{Map => GMap}
+import scala.collection.mutable.{HashSet => MHashSet}
 
 object ArrayHeap {
 
@@ -146,7 +151,10 @@ class ArrayHeap(heapSortName         : String,
   /**
    * Arrays used to represent heap contents.
    */
-  val arrayTheory = new ExtArray(List(Nat1), ObjectSort)
+  val arrayTheory =
+    new ExtArray(List(Nat1), ObjectSort) {
+      override def equalityPropagationEnabled = false
+    }
 
   val ArraySort = arrayTheory.sort
 
@@ -186,6 +194,8 @@ class ArrayHeap(heapSortName         : String,
   val Seq(Seq(heapContents,      heapSize),
           Seq(allocResHeap,      allocResAddr),
 	  Seq(batchAllocResHeap, batchAllocResAddr)) = offHeapADT.selectors
+
+  private val _heapPair = offHeapADT.constructorPreds.head
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -288,6 +298,8 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("storeRange",
                             List(ArraySort, Integer, Integer, OSo),
                             ArraySort, true, true)
+  val distinctHeaps =
+    new MonoSortedPredicate("distinctHeaps", List(HSo, HSo))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -318,28 +330,87 @@ class ArrayHeap(heapSortName         : String,
             (result ===
               select(storeRange(heapAr, start, end, obj), ind)) ==>
             (result ===
-              ite((start <= ind) & (ind < end), obj, select(heapAr, ind)))))))
+              ite((start <= ind) & (ind < end), obj, select(heapAr, ind))))))) &
+    //
+    HeapSort.all((heap1, heap2) =>
+      distinctHeaps(heap1, heap2) ==>
+        ((heapSize(heap1) =/= heapSize(heap2)) |
+         Integer.ex(ind =>
+           (0 < ind) & (ind <= heapSize(heap1)) &
+           (select(heapContents(heap1), ind) =/=
+            select(heapContents(heap2), ind))))
+    )
   }
 
   val functions =
     List(emptyHeap, alloc, batchAlloc, read, write, batchWrite, addressRangeNth,
          storeRange)
   val predefPredicates =
-    List(valid, addressRangeWithin)
+    List(valid, addressRangeWithin, distinctHeaps)
 
-  val (funPredicates, axioms, _, funPredMap) =
+  val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
                      theoryAxioms    = allAxioms,
-                     otherTheories   = dependencies)
-  val predicates = predefPredicates ++ funPredicates
+                     otherTheories   = dependencies,
+                     extraPredicates = predefPredicates)
 
-  val functionPredicateMapping = functions zip funPredicates
-  val functionalPredicates = funPredicates.toSet
+  val functionPredicateMapping =
+    for (f <- functions) yield (f -> funPredMap(f))
+  val functionalPredicates =
+    (functions map funPredMap).toSet
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[IFunction] = Set()
 
-  def plugin = None
+  private val pluginObj = new Plugin {
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+      goalState(goal) match {
+        case Plugin.GoalState.Eager =>
+          List()
+        case Plugin.GoalState.Intermediate =>
+          expandExtensionality(goal)
+        case Plugin.GoalState.Final =>
+          List()
+      }
+  }
+
+  def plugin = Some(pluginObj)
+
+  /**
+   * The extensionality axiom is implemented by rewriting negated
+   * equations about heaps.
+   */
+  private def expandExtensionality(goal : Goal) : Seq[Plugin.Action] = {
+    val facts = goal.facts
+
+    if (!facts.arithConj.negativeEqs.isTrue) {
+      val predConj   = facts.predConj
+      val heapConsts = new MHashSet[ConstantTerm]
+
+      for (a <- predConj.positiveLitsWithPred(_heapPair))
+        heapConsts ++= a.last.constants
+
+      if (!heapConsts.isEmpty) {
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val eqs =
+          Plugin.findDistinctConstants(heapConsts.toSet, goal)
+
+        for ((c, d) <- eqs;
+             axiom <- List(
+               Plugin.AddAxiom(List(c =/= d),
+                               distinctHeaps(List(l(c), l(d))),
+                               ArrayHeap.this),
+               Plugin.RemoveFacts(c =/= d)
+             )) yield axiom
+      } else {
+        List()
+      }
+    } else {
+      List()
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

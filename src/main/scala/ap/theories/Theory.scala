@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,9 +71,8 @@ object Theory {
                 Map[IFunction, IExpression.Predicate]) = {
     import IExpression._
 
-    var currentOrder = preOrder extendPred extraPredicates
-
     val knownTheories = new LinkedHashSet[Theory]
+    var currentOrder = preOrder
 
     def addTheory(t : Theory) : Unit =
       if (knownTheories add t) {
@@ -85,6 +84,8 @@ object Theory {
 
     for (t <- otherTheories)
       addTheory(t)
+
+    currentOrder = currentOrder extendPred extraPredicates
 
     for (f <- theoryFunctions) {
       val (_, o) =

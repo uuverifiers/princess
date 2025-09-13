@@ -47,6 +47,7 @@ import ap.util.Prop._
 
 class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   import IHeap._
+  import HeapTests.measureTime
 
   Debug enableAllAssertions false
 
@@ -54,10 +55,10 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   val ObjSort = ADTSort(0)
 
   def createArrayHeap : IHeap = {
-      def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
+    def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
       import IExpression.toFunApplier
       objectCtors.last()
-      }
+    }
 
     new ArrayHeap(
       "heap", "addr", "addrRange", ObjSort,
@@ -88,15 +89,6 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   import IExpression.toFunApplier
 
   val N = 10
-
-  def measureTime[A](msg: String)(comp : => A) : A = {
-    print(f"$msg: ")
-    val start = System.currentTimeMillis
-    val res : A = comp
-    val stop = System.currentTimeMillis
-    println(f"${stop - start}ms")
-    res
-  }
 
   property("writes") = Console.withOut(ap.CmdlMain.NullStream) {
   SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
