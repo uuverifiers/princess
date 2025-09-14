@@ -61,6 +61,9 @@ object ArrayHeap {
 
 /**
  * A theory of heaps implemented using arrays.
+ *
+ * At the moment, extensionality and the batch operations are not fully
+ * implemented yet.
  */
 class ArrayHeap(heapSortName         : String,
                 addressSortName      : String,
@@ -112,7 +115,7 @@ class ArrayHeap(heapSortName         : String,
       List(("null" + addressSortName,
             ADT.CtorSignature(List(),
 	                      ADT.ADTSort(addressSortId))),
-	   (addressSortName + "_nth",
+	   ("nth" + addressSortName,
             ADT.CtorSignature(List((addressSortName + "_ord", ONat1)),
 	                      ADT.ADTSort(addressSortId))),
            (addressRangeSortName + "_ctor",
@@ -169,17 +172,17 @@ class ArrayHeap(heapSortName         : String,
 
     val ctors =
       List((b("ctor"),
-	    CtorSignature(List((b("contents"),     OtherSort(ArraySort)),
-			       (b("size"),         OtherSort(Nat))),
+	    CtorSignature(List((b("contents"), OtherSort(ArraySort)),
+			       (b("size"), OtherSort(Nat))),
 		          ADTSort(0))),
            (b("allocRes_ctor"),
-	    CtorSignature(List((b("allocResHeap"), ADTSort(0)),
-			       (b("allocResAddr"), OtherSort(AddressSort))),
+	    CtorSignature(List(("new" + heapSortName, ADTSort(0)),
+			       ("new" + addressSortName, OtherSort(AddressSort))),
 		          ADTSort(1))),
 	   (b("batchAllocRes_ctor"),
-	    CtorSignature(List((b("batchAllocResHeap"), ADTSort(0)),
-			       (b("batchAllocResAddr"),
-			                          OtherSort(AddressRangeSort))),
+	    CtorSignature(List(("newBatch" + heapSortName, ADTSort(0)),
+			       ("new" + addressRangeSortName,
+			        OtherSort(AddressRangeSort))),
 		          ADTSort(2))))
 
     new ADT(List(heapSortName, b("allocRes"), b("batchAllocRes")), ctors)
@@ -273,10 +276,10 @@ class ArrayHeap(heapSortName         : String,
   private val ASo     = AddressSort
   private val ARSo    = AddressRangeSort
   private val AResSo  = AllocResSort
-  private val BAResSo = AllocResSort
+  private val BAResSo = BatchAllocResSort
 
   val emptyHeap =
-    new MonoSortedIFunction("emptyHeap", List(), HSo, true, false)
+    new MonoSortedIFunction("empty" + heapSortName, List(), HSo, true, false)
   val alloc =
     new MonoSortedIFunction("alloc", List(HSo, OSo), AResSo, true, false)
   val batchAlloc =

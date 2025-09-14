@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2023-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2023-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ import ap.theories.sequences.SeqTheory
 import ap.theories.arrays.{ExtArray, SimpleArray}
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
+import ap.theories.heaps.IHeap
 import ap.types.UninterpretedSortTheory
 
 /**
@@ -66,7 +67,7 @@ object SMTTypes {
     def toSMTLIBString = "Int"
   }
 
-  case class  SMTReal(sort : Sort)                extends SMTType {
+  case class  SMTReal(sort : Sort)                 extends SMTType {
     def toSort = sort
     def toSMTLIBString = "Real"
   }
@@ -116,16 +117,40 @@ object SMTTypes {
     }
   }
 
-  case class SMTHeap(heap : Heap) extends SMTType {
+  case class SMTHeap(heap : IHeap)                  extends SMTType {
     def toSort = heap.HeapSort
-    override def toString = heap.HeapSort.name
-    def toSMTLIBString = heap.HeapSort.name
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddress(heap : Heap) extends SMTType {
+  case class SMTHeapAddress(heap : IHeap)           extends SMTType {
     def toSort = heap.AddressSort
-    override def toString = heap.AddressSort.name
-    def toSMTLIBString = heap.AddressSort.name
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
+  }
+
+  case class SMTHeapAddressRange(heap : IHeap)      extends SMTType {
+    def toSort = heap.AddressRangeSort
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
+  }
+
+  case class SMTHeapAllocRes(heap : IHeap)          extends SMTType {
+    def toSort = heap.AllocResSort
+    override def toString = toSort.name
+    def toSMTLIBString = toSort.name
+  }
+
+  case class SMTHeapBatchAllocRes(heap : IHeap)     extends SMTType {
+    def toSort = heap.BatchAllocResSort
+    override def toString = toSort.name
+    def toSMTLIBString = toSort.name
+  }
+
+  case class SMTHeapADT(heap : IHeap, sortNum : Int) extends SMTType {
+    def toSort = heap.userHeapSorts(sortNum)
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(this.toString)
   }
 
   case class SMTUnint(sort : Sort)                extends SMTType {

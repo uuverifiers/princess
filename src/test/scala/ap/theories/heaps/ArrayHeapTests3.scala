@@ -54,6 +54,16 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   val NullObjName = "NullObj"
   val ObjSort = ADTSort(0)
 
+  val sorts =
+    List("HeapObject")
+
+  val ctors =
+    List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("defObj", CtorSignature(List(), ObjSort)))
+
   def createArrayHeap : IHeap = {
     def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
       import IExpression.toFunApplier
@@ -61,13 +71,7 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
     }
 
     new ArrayHeap(
-      "heap", "addr", "addrRange", ObjSort,
-      List("HeapObject"), List(
-        ("WrappedInt", CtorSignature(List(("getInt",
-          OtherSort(Sort.Integer))), ObjSort)),
-        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-        ("defObj", CtorSignature(List(), ObjSort))),
-      defObjCtor)
+      "heap", "addr", "addrRange", ObjSort, sorts, ctors, defObjCtor)
   }
 
   def createNativeHeap : IHeap = {
@@ -77,13 +81,7 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
     }
 
     new Heap(
-      "heap", "addr", ObjSort,
-      List("HeapObject"), List(
-        ("WrappedInt", CtorSignature(List(("getInt",
-          OtherSort(Sort.Integer))), ObjSort)),
-        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-        ("defObj", CtorSignature(List(), ObjSort))),
-      defObjCtor2)
+      "heap", "addr", ObjSort, List("HeapObject"), ctors, defObjCtor2)
   }
 
   import IExpression.toFunApplier

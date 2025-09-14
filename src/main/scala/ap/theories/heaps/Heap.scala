@@ -63,7 +63,7 @@ object Heap {
     override def decodeToTerm(
                  d : IdealInt,
                  assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
-      Some(heapTheory.nthAddr(d.intValue))
+      Some(heapTheory.nthAddr(d.intValue))   // TODO: correctly use nullAddr!
 
     override lazy val individuals : Stream[ITerm] =
       for (t <- Sort.Nat.individuals) yield heapTheory.nthAddr(t)

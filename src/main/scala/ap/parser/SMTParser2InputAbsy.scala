@@ -3927,7 +3927,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   private def setupHeap(heapSortName : String, addressSortName : String,
                         objectSortName : String, adtSortNames : Seq[String],
                         allCtors : Seq[(Seq[(String, IHeap.CtorSignature)],
-                         Seq[Seq[SMTType]])],
+                                        Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
     val adtCtors = (allCtors map (_._1)).flatten
@@ -3946,16 +3946,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     // todo: how to avoid passing heapADTs here, it is really out of place...
     def defObjCtor(objectCtors : Seq[MonoSortedIFunction],
                    heapADTs    : ADT) : ITerm = {
-      addHeapADTToEnv(heapADTs)
-      asTerm(translateTerm(defaultObjectTerm, -1))
+      translateDefaultObjectTerm(defaultObjectTerm, objectCtors)
     }
 
-    val heap = new Heap(heapSortName, addressSortName, objectSort,
-      adtSortNames, adtCtors, defObjCtor)
+    val heap : IHeap =
+      new Heap(heapSortName, addressSortName, objectSort,
+               adtSortNames, adtCtors, defObjCtor)
 
-    // Add the remaining heap sorts to the environment
-    env.addSort(addressSortName, SMTHeapAddress(heap))
-    env.addSort(heapSortName, SMTHeap(heap))
+    // Add the heap sorts to the environment
+    env.addSort(heap.HeapSort.name, SMTHeap(heap))
+    env.addSort(heap.AddressSort.name, SMTHeapAddress(heap))
+    env.addSort(heap.AddressRangeSort.name, SMTHeapAddressRange(heap))
+              // TODO: correct name?
+    env.addSort(heap.AllocResSort.name, SMTHeapAllocRes(heap))
+              // TODO: correct name?
+    env.addSort(heap.BatchAllocResSort.name, SMTHeapBatchAllocRes(heap))
+    for ((s, n) <- heap.userHeapSorts.zipWithIndex)
+      env.addSort(s.name, SMTHeapADT(heap, n))
 
     // Add heap functions to the environment
 
@@ -3963,6 +3970,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     // directly in symApp: alloc, batchAlloc, read, write, batchWrite,
     //     and predicates: valid, within
 
+    env.addFunction(heap.emptyHeap,
+      SMTFunctionType(List(), SMTHeap(heap)))
+    env.addFunction(heap.nullAddr,
+      SMTFunctionType(List(), SMTHeapAddress(heap)))
+    env.addFunction(heap.nthAddr, // TODO: only accept literals as argument
+      SMTFunctionType(List(SMTInteger), SMTHeapAddress(heap)))
+    env.addFunction(heap.allocResHeap,
+      SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeap(heap)))
+    env.addFunction(heap.allocResAddr,
+      SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeapAddress(heap)))
+
+/*
     for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.allocAddr,
                      heap.nullAddr,  heap.counter, heap.nthAddr,
                      heap.batchAllocHeap, heap.batchAllocAddrRange, heap.nth)) {
@@ -3971,18 +3990,36 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       env.addFunction(fun, SMTFunctionType(smtArgSorts,
                              SMTLineariser.sort2SMTType(fun.resSort)._1))
     }
-
+*/
     addTheory(heap)
   }
+
+  private def translateDefaultObjectTerm(
+                t           : Term,
+                objectCtors : Seq[MonoSortedIFunction]) : ITerm = {
+    val ctorIndexes =
+      (objectCtors.iterator.map(f => f.name -> f)).toMap
+
+    def translate(t : Term) : ITerm =
+      t match {
+        case t : NullaryTerm
+            if ctorIndexes.contains(printer print t.symbolref_) =>
+          IFunApp(ctorIndexes(printer print t.symbolref_), List())
+        // TODO: further cases
+      }
+ 
+    translate(t)
+  }
+
   // extracts the heap theory given a sequence of terms, and possibly the heap
   // term if it is in the arguments (as the head)
-  protected def extractHeap(args : Seq[Term]) :
-    scala.Option[(scala.Option[ITerm], Heap)] =
+  protected def extractHeap(args : Seq[Term])
+                : scala.Option[(scala.Option[ITerm], Heap)] =
     args match {
       case Seq(arg0, _*) => {
         val p@(t, s) = translateTerm(arg0, 0)
         s match {
-          case SMTHeap(heapTheory)  => Some((Some(asTerm(p)), heapTheory))
+          case SMTHeap(heapTheory)  => Some((Some(asTerm(p)), heapTheory.asInstanceOf[Heap]))
           case SMTADT(adt, sortNum) => // if this is one of the heapADTs
             adt.sorts(sortNum) match {
               case Heap.HeapSortExtractor(heap) =>
