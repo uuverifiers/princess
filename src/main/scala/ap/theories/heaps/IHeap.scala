@@ -99,7 +99,8 @@ trait IHeap extends Theory {
   val AddressRangeSort : Sort
 
   /**
-   * Sort of objects stored on the heap.
+   * Sort of objects stored on the heap. This sort is one of the elements
+   * of <code>userHeapSorts</code>.
    */
   val ObjectSort : Sort
 
@@ -117,6 +118,12 @@ trait IHeap extends Theory {
    * Sorts declared as part of the heap ADT.
    */
   val userHeapSorts : IndexedSeq[Sort]
+
+  /**
+   * The index of the <code>ObjectSort</code> among the
+   * <code>userHeapSorts</code>.
+   */
+  lazy val objectSortIndex : Int = userHeapSorts indexOf ObjectSort
 
   /**
    * User-specified constructor declarations.
@@ -216,8 +223,8 @@ trait IHeap extends Theory {
    * A function to enumerate the addresses that can be used on this heap.
    * <code>nthAddr(1)</code> is the address returned by the first call to
    * <code>alloc</code>, <code>nthAddr(2)</code> the second address, etc.
-   *
-   * TODO: how to handle 0 and negative values uniformly?
+   * Applying the function to zero or to negative values should be treated
+   * as a synonym for <code>nullAddr</code>.
    */
   val nthAddr : IFunction               // Nat1 -> Address
 

@@ -982,6 +982,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
         val heapSortName = asString(cmd.identifier_1)
         val addressSortName = asString(cmd.identifier_2)
+        val addressRangeSortName = addressSortName + Heap.addressRangeSuffix
         val objectSortName = asString(cmd.identifier_3)
 
         val ADTSortNames =
@@ -1002,8 +1003,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                 throw new Parser2InputAbsy.TranslationException(
                   "Polymorphic algebraic data-types are not supported yet")
             }
-            translateHeapCtorList(ADTSortNames, addressSortName, sortNum,
-              decl.listconstructordeclc_)
+            translateHeapCtorList(ADTSortNames,
+                                  addressSortName, addressRangeSortName,
+                                  sortNum,
+                                  decl.listconstructordeclc_)
           }
 
         setupHeap(heapSortName, addressSortName, objectSortName, ADTSortNames,
@@ -2848,12 +2851,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
     case PlainSymbol(name@"alloc") =>
       translateHeapFun(
+        0,
         _.alloc,
         args,
-        heap => List(objectType(heap)),
-        heap => SMTADT(heap.heapADTs, heap.HeapADTSortId.allocResSortId.id)).
-      getOrElse(unintFunApp(name, sym, args, polarity))
-
+        heap => List(SMTHeap(heap),
+                     SMTHeapADT(heap, heap.objectSortIndex)),
+        heap => SMTHeapAllocRes(heap))
+/*
     case PlainSymbol(name@"batchAlloc") =>
       translateHeapFun(_.batchAlloc,
         args,
@@ -2861,21 +2865,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         heap => SMTADT(heap.heapADTs,
                        heap.HeapADTSortId.batchAllocResSortId.id)).getOrElse(
         unintFunApp(name, sym, args, polarity))
-
+*/
     case PlainSymbol(name@"read") =>
-      translateHeapFun(_.read,
+      translateHeapFun(0,
+                       _.read,
                        args,
-                       heap => List(SMTHeapAddress(heap)),
-                       objectType(_)).getOrElse(
-      unintFunApp(name, sym, args, polarity))
+                       heap => List(SMTHeap(heap), SMTHeapAddress(heap)),
+                       heap => SMTHeapADT(heap, heap.objectSortIndex))
 
     case PlainSymbol(name@"write") =>
-      translateHeapFun(_.write,
+      translateHeapFun(0,
+                       _.write,
                        args,
-                       heap => List(SMTHeapAddress(heap), objectType(heap)),
-                       SMTHeap(_)).getOrElse(
-      unintFunApp(name, sym, args, polarity))
-
+                       heap => List(SMTHeap(heap), SMTHeapAddress(heap),
+                                    SMTHeapADT(heap, heap.objectSortIndex)),
+                       SMTHeap(_))
+/*
     case PlainSymbol(name@"batchWrite") =>
       translateHeapFun(
           _.batchWrite,
@@ -2901,7 +2906,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         case None =>
           unintFunApp(name, sym, args, polarity)
       }
-
+*/
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment, and symbols from extra theories
 
@@ -3692,12 +3697,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   }
 
   //////////////////////////////////////////////////////////////////////////////
-// todo: this is too redundant with translateDataCtorList, need to refactor
-  private def translateHeapCtorList(sortNames : Seq[String],
-                                    addressSortName : String,
-                                    resultSortNum : Int,
-                                    constructorDecls : Seq[ConstructorDeclC])
-  : (Seq[(String, IHeap.CtorSignature)], Seq[Seq[SMTType]]) =
+
+  private def translateHeapCtorList(sortNames            : Seq[String],
+                                    addressSortName      : String,
+                                    addressRangeSortName : String,
+                                    resultSortNum        : Int,
+                                    constructorDecls     : Seq[ConstructorDeclC])
+                                 : (Seq[(String, IHeap.CtorSignature)],
+                                    Seq[Seq[SMTType]]) =
     (for (ctor <- constructorDecls) yield ctor match {
       case ctorDecl : ConstructorDecl => {
         val ctorName = asString(ctorDecl.symbol_)
@@ -3706,50 +3713,49 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
           (for (s <- ctorDecl.listselectordeclc_) yield {
             val selDecl = s.asInstanceOf[SelectorDecl]
             val selName = asString(selDecl.symbol_)
+            val selSortName = asString(selDecl.sort_)
 
             val (adtSort, smtSort : SMTType) =
-              (sortNames indexOf asString(selDecl.sort_)) match {
+              (sortNames indexOf selSortName) match {
                 case -1 => {
-                  selDecl.sort_ match {
-                    case s : IdentSort
-                      if asString(s.identifier_) == addressSortName =>
+                  selSortName match {
+                    case `addressSortName` =>
                       (IHeap.AddrSort, SMTHeapAddress(null))
-                    case s : IdentSort
-                      if asString(s.identifier_) ==
-                        (addressSortName + Heap.addressRangeSuffix) =>
-                      // todo: -2 is to signal setupADT that this is an addressRange,
-                      //  can be fixed by declaring fixed heap ADTs first
-                      (IHeap.AddrRangeSort, SMTADT(null, -2))
-                    case _ => val t = translateSort(selDecl.sort_)
+                    case `addressRangeSortName` =>
+                      (IHeap.AddrRangeSort, SMTHeapAddressRange(null))
+                    case _ => {
+                      val t = translateSort(selDecl.sort_)
                       (IHeap.OtherSort(t.toSort), t)
+                    }
                   }
                 }
                 case ind =>
-                  // we don't have the actual ADT yet, so just put
+                  // we don't have the actual heap yet, so just put
                   // null for the moment
-                  (IHeap.ADTSort(ind), SMTADT(null, ind))
+                  (IHeap.ADTSort(ind), SMTHeapADT(null, ind))
               }
 
             ((selName, adtSort), smtSort)
           }).unzip
 
         ((ctorName, IHeap.CtorSignature(adtArgs, IHeap.ADTSort(resultSortNum))),
-          smtArgs)
+         smtArgs)
       }
 
       case ctorDecl : NullConstructorDecl =>
         ((asString(ctorDecl.symbol_),
           IHeap.CtorSignature(List(), IHeap.ADTSort(resultSortNum))),
-          List())
+         List())
     }).unzip
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def translateDataCtorList(sortNames : Seq[String],
-                                    resultSortNum : Int,
+  private def translateDataCtorList(sortNames        : Seq[String],
+                                    resultSortNum    : Int,
                                     constructorDecls : Seq[ConstructorDeclC],
-                                    boundSorts : Map[String, SMTType] = Map())
-                : (Seq[(String, ADT.CtorSignature)], Seq[Seq[SMTType]]) =
+                                    boundSorts       : Map[String, SMTType] = Map())
+                                 : (Seq[(String, ADT.CtorSignature)],
+                                    Seq[Seq[SMTType]]) =
     (for (ctor <- constructorDecls) yield ctor match {
        case ctorDecl : ConstructorDecl => {
          val ctorName = asString(ctorDecl.symbol_)
@@ -3854,73 +3860,73 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                        allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
                                        Seq[Seq[SMTType]])],
                        overloaded : Boolean = false) : Unit = {
-        val adtCtors = (allCtors map (_._1)).flatten
-        val datatype =
-          new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
+    val adtCtors = (allCtors map (_._1)).flatten
+    val datatype =
+      new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
 
-        val smtDataTypes =
-          for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
+    val smtDataTypes =
+      for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
 
-        // add types to environment
-        for (t <- smtDataTypes)
-          env.addSort(t.toString, t)
+    // add types to environment
+    for (t <- smtDataTypes)
+      env.addSort(t.toString, t)
 
-        // add adt symbols to the environment
-        val smtCtorFunctionTypes =
-          for (((_, args), num) <- allCtors.zipWithIndex;
-               args2 <- args.iterator;
-               cleanedArgs = for (t <- args2) yield t match {
-                 case SMTADT(null, -2) => smtDataTypes.last // todo: this signals the AddrRange ADT, which must always be the last type, find better solution!
-                 case SMTADT(null, n) => smtDataTypes(n)
-                 case t => t
-               })
-          yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
+    // add adt symbols to the environment
+    val smtCtorFunctionTypes =
+      for (((_, args), num) <- allCtors.zipWithIndex;
+            args2 <- args.iterator;
+            cleanedArgs = for (t <- args2) yield t match {
+              case SMTADT(null, -2) => smtDataTypes.last // todo: this signals the AddrRange ADT, which must always be the last type, find better solution!
+              case SMTADT(null, n) => smtDataTypes(n)
+              case t => t
+            })
+      yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
 
-        for ((f, smtType) <-
-             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator) {
-          if (overloaded)
-            env.addOverloadedFunction(f, smtType)
-          else
-            env.addFunction(f, smtType)
-        }
+    for ((f, smtType) <-
+          datatype.constructors.iterator zip smtCtorFunctionTypes.iterator) {
+      if (overloaded)
+        env.addOverloadedFunction(f, smtType)
+      else
+        env.addFunction(f, smtType)
+    }
 
-        for ((sels, smtType) <-
-               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
-             (f, arg) <-
-               sels.iterator zip smtType.arguments.iterator) {
-          val typ = SMTFunctionType(List(smtType.result), arg)
-          if (overloaded)
-            env.addOverloadedFunction(f, typ)
-          else
-            env.addFunction(f, typ)
-        }
+    for ((sels, smtType) <-
+            datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+          (f, arg) <-
+            sels.iterator zip smtType.arguments.iterator) {
+      val typ = SMTFunctionType(List(smtType.result), arg)
+      if (overloaded)
+        env.addOverloadedFunction(f, typ)
+      else
+        env.addFunction(f, typ)
+    }
 
-        for ((upds, smtType) <-
-               datatype.updators.iterator zip smtCtorFunctionTypes.iterator;
-             (f, argType) <-
-               upds.iterator zip smtType.arguments.iterator) {
-          val resType = smtType.result
-          val typ = SMTFunctionType(List(resType, argType), resType)
-          if (overloaded)
-            env.addOverloadedFunction(f, typ)
-          else
-            env.addFunction(f, typ)
-        }
+    for ((upds, smtType) <-
+            datatype.updators.iterator zip smtCtorFunctionTypes.iterator;
+          (f, argType) <-
+            upds.iterator zip smtType.arguments.iterator) {
+      val resType = smtType.result
+      val typ = SMTFunctionType(List(resType, argType), resType)
+      if (overloaded)
+        env.addOverloadedFunction(f, typ)
+      else
+        env.addFunction(f, typ)
+    }
 
-        // generate the is- queries as inlined functions
-        for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
-             ctorIdFun = datatype ctorIds adtNum;
-             ctorIdTerm = ctorIdFun(v(0));
-             ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
-          val query = new IFunction("is-" + name, 1, true, true)
-          val typ = SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool)
-          if (overloaded)
-            env.addOverloadedFunction(query, typ)
-          else
-            env.addFunction(query, typ)
-          val body = ctorIdTerm === ctorNum
-          functionDefs = functionDefs + (query -> (body, SMTBool))
-        }
+    // generate the is- queries as inlined functions
+    for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+          ctorIdFun = datatype ctorIds adtNum;
+          ctorIdTerm = ctorIdFun(v(0));
+          ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+      val query = new IFunction("is-" + name, 1, true, true)
+      val typ = SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool)
+      if (overloaded)
+        env.addOverloadedFunction(query, typ)
+      else
+        env.addFunction(query, typ)
+      val body = ctorIdTerm === ctorNum
+      functionDefs = functionDefs + (query -> (body, SMTBool))
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -3958,12 +3964,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     env.addSort(heap.HeapSort.name, SMTHeap(heap))
     env.addSort(heap.AddressSort.name, SMTHeapAddress(heap))
     env.addSort(heap.AddressRangeSort.name, SMTHeapAddressRange(heap))
-              // TODO: correct name?
-    env.addSort(heap.AllocResSort.name, SMTHeapAllocRes(heap))
-              // TODO: correct name?
-    env.addSort(heap.BatchAllocResSort.name, SMTHeapBatchAllocRes(heap))
-    for ((s, n) <- heap.userHeapSorts.zipWithIndex)
-      env.addSort(s.name, SMTHeapADT(heap, n))
+    env.addSort(heap.AllocResSort.name, SMTHeapAllocRes(heap))               // TODO: correct name?
+    env.addSort(heap.BatchAllocResSort.name, SMTHeapBatchAllocRes(heap))     // TODO: correct name?
+
+    val smtDataTypes =
+      for (n <- 0 until adtSortNames.size) yield SMTHeapADT(heap, n)
+
+    for ((s, t) <- heap.userHeapSorts zip smtDataTypes)
+      env.addSort(s.name, t)
 
     // Add heap functions to the environment
 
@@ -3981,6 +3989,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeap(heap)))
     env.addFunction(heap.allocResAddr,
       SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeapAddress(heap)))
+
+    // add ADT symbols to the environment
+    val smtCtorFunctionTypes =
+      for (((_, args), num) <- allCtors.zipWithIndex;
+            args2 <- args.iterator;
+            cleanedArgs = for (t <- args2) yield t match {
+              case SMTHeapADT(null, n) => smtDataTypes(n)
+              case t => t
+            })
+      yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
+
+    for ((f, smtType) <-
+          heap.userHeapConstructors.iterator zip smtCtorFunctionTypes.iterator)
+      env.addFunction(f, smtType)
+
+    for ((sels, smtType) <-
+            heap.userHeapSelectors.iterator zip smtCtorFunctionTypes.iterator;
+          (f, arg) <-
+            sels.iterator zip smtType.arguments.iterator) {
+      val typ = SMTFunctionType(List(smtType.result), arg)
+      env.addFunction(f, typ)
+    }
+
+    // generate the is- queries as inlined functions
+    /*
+    for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+          ctorIdFun = datatype ctorIds adtNum;
+          ctorIdTerm = ctorIdFun(v(0));
+          ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+      val query = new IFunction("is-" + name, 1, true, true)
+      val typ = SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool)
+      env.addFunction(query, typ)
+      val body = ctorIdTerm === ctorNum
+      functionDefs = functionDefs + (query -> (body, SMTBool))
+    }
+*/
+    // TODO: updators
 
 /*
     for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.allocAddr,
@@ -4015,7 +4060,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   // extracts the heap theory given a sequence of terms, and possibly the heap
   // term if it is in the arguments (as the head)
   protected def extractHeap(args : Seq[Term])
-                : scala.Option[(scala.Option[ITerm], Heap)] =
+                : scala.Option[(scala.Option[ITerm], IHeap)] =
     args match {
       case Seq(arg0, _*) => {
         val p@(t, s) = translateTerm(arg0, 0)
@@ -4033,11 +4078,26 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       case _ => None
     }
 
-  protected def translateHeapFun(funF      : Heap => IFunction,
+  protected def translateHeapFun(heapInd   : Int,
+                                 funF      : IHeap => IFunction,
                                  args      : Seq[Term],
-                                 argTypesF : Heap => Seq[SMTType],
-                                 resTypeF  : Heap => SMTType)
-                               : scala.Option[(IExpression, SMTType)] =
+                                 argTypesF : IHeap => Seq[SMTType],
+                                 resTypeF  : IHeap => SMTType)
+                               : (IExpression, SMTType) = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    val heapArg   = transArgs(heapInd)
+    val SMTHeap(heapTheory) = heapArg._2
+    val fun       = funF(heapTheory)
+    val argTypes  = argTypesF(heapTheory)
+
+    if (argTypes != (transArgs map (_._2)))
+      throw new TranslationException(
+        fun.name + " cannot be applied to arguments of type " +
+        (transArgs.map(_._2).mkString(", ")))
+
+    (IFunApp(fun, transArgs map (asTerm(_))), resTypeF(heapTheory))
+  }
+  /*
     for ((Some(heapTerm), heapTheory) <- extractHeap(args)) yield {
       val fun       = funF(heapTheory)
       val argTypes  = argTypesF(heapTheory)
@@ -4052,8 +4112,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (IFunApp(fun, List(heapTerm) ++ (transArgs map (asTerm(_)))),
        resTypeF(heapTheory))
     }
+    */
 
-  protected def objectType(heapTheory : Heap) : SMTType =
+  protected def objectType(heapTheory : IHeap) : SMTType =
     SMTLineariser.sort2SMTType(heapTheory.ObjectSort)._1
 
   //////////////////////////////////////////////////////////////////////////////
