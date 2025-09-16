@@ -625,6 +625,16 @@ unsat
 (
   (= (seq.nth s 0) 1)
 )
+Loading sequences7.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 90), simplifying (175), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 6) (seq.len m)))
+  (and (<= 0 (+ (- 6) (seq.len m))) (or (and (= (seq.unit (seq.nth m 0)) (as seq.empty (Seq List))) (<= 0 (+ 1 (* (- 1) (seq.len l))))) (and (<= 0 (+ (- 2) (seq.len l))) (= (seq.unit (seq.nth l 1)) (seq.unit (seq.nth m 0))))))
+)
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
