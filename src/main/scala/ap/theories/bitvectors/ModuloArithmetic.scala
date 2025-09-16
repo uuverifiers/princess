@@ -740,12 +740,16 @@ object ModuloArithmetic extends Theory {
         else
           Some(mod_cast(lower, upper, evalModCast(lower, upper, value)))
       } else {
-        val sort = (Sort sortOf f).asInstanceOf[ModSort]
         val res = Preproc.visit(f, VisitorArg(None))
-        if (res.isConstant)
-          Some(cast2Sort(sort, res.lowerBound))
-        else
+        if (res.isConstant) {
+          (Sort sortOf f) match {
+            case sort : ModSort => Some(cast2Sort(sort, res.lowerBound))
+            case Sort.Integer   => Some(res.lowerBound)
+            case _              => None
+          }
+        } else {
           None
+        }
       }
     } else {
       None
