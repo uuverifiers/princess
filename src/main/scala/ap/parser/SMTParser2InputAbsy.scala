@@ -2385,7 +2385,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       checkArgNum("ubv_to_int", 1, args)
       val a0@(_, type0) = translateTerm(args(0), 0)
       extractBVWidth("ubv_to_int", type0, args(0))
-      (asTerm(a0), SMTInteger)
+      (ModuloArithmetic.cast2Int(asTerm(a0)), SMTInteger)
     }
 
     case PlainSymbol("bv2int") | IndexedSymbol("bv2int", _) |
@@ -2393,7 +2393,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       checkArgNum("sbv_to_int", 1, args)
       val a0@(_, type0) = translateTerm(args(0), 0)
       val width0 = extractBVWidth("sbv_to_int", type0, args(0))
-      (ModuloArithmetic.cast2SignedBV(width0, asTerm(a0)), SMTInteger)
+      (ModuloArithmetic.cast2Int(
+         ModuloArithmetic.cast2SignedBV(width0, asTerm(a0))), SMTInteger)
     }
 
     case NumIndexedSymbol1(op@("nat2bv" | "int2bv" | "int_to_bv"),
