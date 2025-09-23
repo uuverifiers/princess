@@ -186,7 +186,10 @@ class ArrayHeap(heapSortName         : String,
 			                                  OtherSort(AddressRangeSort))),
 		                  ADTSort(2))))
 
-    new ADT(List(heapSortName, b("allocRes"), b("batchAllocRes")), ctors)
+    new ADT(List(heapSortName,
+                 "AllocRes" + heapSortName,
+                 "BatchAllocRes" + heapSortName),
+            ctors)
   }
 
   val rawHeapSort       = offHeapADT.sorts(0)
@@ -206,7 +209,7 @@ class ArrayHeap(heapSortName         : String,
   /**
    * The sort of heaps.
    */
-  object HeapSort extends ProxySort(rawHeapSort) {
+  object HeapSort extends ProxySort(rawHeapSort) with Theory.TheorySort {
     import IExpression._
 
 /*
@@ -261,6 +264,8 @@ class ArrayHeap(heapSortName         : String,
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       assignment get (d, this)
+
+    val theory = ArrayHeap.this
   }
 
   private val emptyHeapTerm = {
@@ -542,5 +547,6 @@ class ArrayHeap(heapSortName         : String,
 
   override def toString = name
   TheoryRegistry register this
+  IHeap register this
 
 }

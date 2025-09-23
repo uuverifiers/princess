@@ -39,6 +39,8 @@ import ap.theories.Theory
 import ap.parser.{IFunction, ITerm, IFormula, IExpression}
 import IExpression.Predicate
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 /**
  * Companion object for the trait implemented by the different heap theories.
  */
@@ -75,6 +77,32 @@ object IHeap {
    */
   case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
                            result : ADTSort)
+
+  // General convention is that addressRange sort name is
+  // addressName + addressRangeSuffix
+  val AddressRangeSuffix = "Range"
+
+  /**
+   * Extractor to recognise any sort related to a heap theory.
+   * This includes the sorts for heaps and addresses, address ranges,
+   * user defined ADT sorts, etc.
+   */
+  object HeapRelatedSort {
+    def unapply(s : Sort) : Option[IHeap] = synchronized { heapSorts get s }
+  }
+
+  private val heapSorts = new MHashMap[Sort, IHeap]
+
+  def register(t : IHeap) : Unit = synchronized {
+    heapSorts.put(t.HeapSort,          t)
+    heapSorts.put(t.AddressSort,       t)
+    heapSorts.put(t.AddressRangeSort,  t)
+    heapSorts.put(t.AllocResSort,      t)
+    heapSorts.put(t.BatchAllocResSort, t)
+
+    for (s <- t.userHeapSorts)
+      heapSorts.put(s, t)
+  }
 
 }
 

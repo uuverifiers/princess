@@ -22,6 +22,7 @@
 (assert (= ARH (alloc emptyHeap (WrappedInt 10))))
 (assert (= H (newHeap ARH)))
 (assert (= A (newAddr ARH)))
-(assert (not (and (is-WrappedInt (read H A)) (= (getInt (read H A)) 10))))
 
-(check-sat) ; should be unsat
+(check-sat) ; should be sat
+(get-model)
+

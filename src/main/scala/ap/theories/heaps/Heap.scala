@@ -49,9 +49,6 @@ import scala.collection.{mutable, Map => GMap}
 object Heap {
   private val AC = Debug.AC_HEAP
   
-  // addressRange sort name: addressName + addressRangeSuffix
-  val addressRangeSuffix = "Range"
-
   class HeapException(m : String) extends Exception(m)
 
   class AddressSort(sortName : String,
@@ -422,6 +419,7 @@ object Heap {
  * @param ctorSignatures
  */
 class Heap(heapSortName : String, addressSortName : String,
+           addressRangeSortName : String,
            objectSort : IHeap.ADTSort, sortNames : Seq[String],
            ctorSignatures : Seq[(String, IHeap.CtorSignature)],
            defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
@@ -483,7 +481,6 @@ class Heap(heapSortName : String, addressSortName : String,
     ADT.ADTSort(allocResSortId))
 
   /** Create AddressRange ADT returned by batchAlloc: start x size */
-  private val addressRangeSortName = addressSortName + addressRangeSuffix
   private val addressRangeCtorSignature = ADT.CtorSignature(
     List((addressRangeSortName + "Start", ADT.OtherSort(AddressSort)),
       (addressRangeSortName + "Size", ADT.OtherSort(Sort.Nat))),
@@ -1282,6 +1279,7 @@ class Heap(heapSortName : String, addressSortName : String,
   //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
+  IHeap register this
   override def toString = "HeapTheory"
 
   import IBinJunctor._

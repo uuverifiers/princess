@@ -75,7 +75,7 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
 
   def createNativeHeap : IHeap =
     new Heap(
-      "heap", "addr", ObjSort, List("HeapObject"), ctors, defObjCtor)
+      "heap", "addr", "addrRange", ObjSort, List("HeapObject"), ctors, defObjCtor)
 
   import IExpression.toFunApplier
 

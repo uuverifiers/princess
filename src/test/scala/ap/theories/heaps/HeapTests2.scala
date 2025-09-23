@@ -139,7 +139,7 @@ class HeapTests2 extends Properties("HeapTests2") {
   val NullObjName = "NullObj"
   val ObjSort = ADTSort(0)
   val StructSSort = ADTSort(1)
-  val heap = new Heap("heap", "addr", ObjSort,
+  val heap = new Heap("heap", "addr", "addrRange", ObjSort,
     List("HeapObject", "struct_S"), List(
       ("WrappedInt", CtorSignature(List(("getInt",
         OtherSort(Sort.Integer))), ObjSort)),

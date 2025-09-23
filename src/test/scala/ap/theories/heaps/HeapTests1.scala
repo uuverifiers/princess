@@ -158,7 +158,7 @@ class HeapTests1 extends Properties("HeapTests1") {
     objectCtors.last()
   }
 
-  val heap = new Heap("heap", "addr", ObjSort,
+  val heap = new Heap("heap", "addr", "addrRange", ObjSort,
     List("HeapObject", "struct_S"), List(
       ("WrappedInt", CtorSignature(List(("getInt",
         OtherSort(Sort.Integer))), ObjSort)),

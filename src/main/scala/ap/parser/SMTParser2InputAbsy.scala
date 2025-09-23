@@ -45,8 +45,8 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
-import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, Heap, DivZero}
-import ap.theories.heaps.IHeap
+import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, DivZero}
+import ap.theories.heaps.{IHeap, Heap, ArrayHeap}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.sequences.{SeqTheory, SeqTheoryBuilder}
 import ap.theories.rationals.Rationals
@@ -982,7 +982,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
         val heapSortName = asString(cmd.identifier_1)
         val addressSortName = asString(cmd.identifier_2)
-        val addressRangeSortName = addressSortName + Heap.addressRangeSuffix
+        val addressRangeSortName = addressSortName + IHeap.AddressRangeSuffix
         val objectSortName = asString(cmd.identifier_3)
 
         val ADTSortNames =
@@ -1009,8 +1009,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                   decl.listconstructordeclc_)
           }
 
-        setupHeap(heapSortName, addressSortName, objectSortName, ADTSortNames,
-                  allCtors, cmd.term_)
+        setupHeap(heapSortName, addressSortName, addressRangeSortName,
+                  objectSortName, ADTSortNames, allCtors, cmd.term_)
 
         success
       }
@@ -3940,6 +3940,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   //////////////////////////////////////////////////////////////////////////////
 
   private def setupHeap(heapSortName : String, addressSortName : String,
+                        addressRangeSortName : String,
                         objectSortName : String, adtSortNames : Seq[String],
                         allCtors : Seq[(Seq[(String, IHeap.CtorSignature)],
                                         Seq[Seq[SMTType]])],
@@ -3961,15 +3962,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       translateDefaultObjectTerm(defaultObjectTerm, objectCtors)
 
     val heap : IHeap =
-      new Heap(heapSortName, addressSortName, objectSort,
-               adtSortNames, adtCtors, defObjCtor)
+      Param.HEAP_THEORY(settings) match {
+        case Param.HeapTheory.Native =>
+          new Heap(heapSortName, addressSortName, addressRangeSortName,
+                   objectSort, adtSortNames, adtCtors, defObjCtor _)
+        case Param.HeapTheory.Array =>
+          new ArrayHeap(heapSortName, addressSortName, addressRangeSortName,
+                        objectSort, adtSortNames, adtCtors, defObjCtor _)
+      }
 
     // Add the heap sorts to the environment
-    env.addSort(heap.HeapSort.name, SMTHeap(heap))
-    env.addSort(heap.AddressSort.name, SMTHeapAddress(heap))
-    env.addSort(heap.AddressRangeSort.name, SMTHeapAddressRange(heap))
-    env.addSort(heap.AllocResSort.name, SMTHeapAllocRes(heap))               // TODO: correct name?
-    env.addSort(heap.BatchAllocResSort.name, SMTHeapBatchAllocRes(heap))     // TODO: correct name?
+    env.addSort(heapSortName,                   SMTHeap(heap))
+    env.addSort(addressSortName,                SMTHeapAddress(heap))
+    env.addSort(addressRangeSortName,           SMTHeapAddressRange(heap))
+    env.addSort("AllocRes"      + heapSortName, SMTHeapAllocRes(heap))
+    env.addSort("BatchAllocRes" + heapSortName, SMTHeapBatchAllocRes(heap))
 
     val smtDataTypes =
       for (n <- 0 until adtSortNames.size) yield SMTHeapADT(heap, n)
