@@ -4002,6 +4002,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeapAddress(heap)))
 
     // add ADT symbols to the environment
+
     val smtCtorFunctionTypes =
       for (((_, args), num) <- allCtors.zipWithIndex;
             args2 <- args.iterator;
@@ -4050,6 +4051,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
            upds.iterator zip smtType.arguments.iterator) {
       val resType = smtType.result
       env.addFunction(f, SMTFunctionType(List(resType, argType), resType))
+    }
+
+    // define allocAddr and allocHeap as inlined functions
+
+    {
+      val allocHeap = new IFunction("alloc" + heapSortName, 2, true, true)
+      val allocAddr = new IFunction("alloc" + addressSortName, 2, true, true)
+
+      val argTypes = List(SMTHeap(heap), smtDataTypes(heap.objectSortIndex))
+      val allocHeapType = SMTFunctionType(argTypes, SMTHeap(heap))
+      val allocAddrType = SMTFunctionType(argTypes, SMTHeapAddress(heap))
+
+      env.addFunction(allocHeap, allocHeapType)
+      env.addFunction(allocAddr, allocAddrType)
+
+      val allocHeapBody = heap.allocResHeap(heap.alloc(v(1), v(0)))
+      val allocAddrBody = heap.allocResAddr(heap.alloc(v(1), v(0)))
+      functionDefs =
+        functionDefs + (allocHeap -> (allocHeapBody, SMTHeap(heap)))
+      functionDefs =
+        functionDefs + (allocAddr -> (allocAddrBody, SMTHeapAddress(heap)))
     }
 
     addTheory(heap)

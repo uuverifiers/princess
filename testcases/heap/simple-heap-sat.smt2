@@ -14,14 +14,12 @@
   )
 ))
 
-(declare-const H Heap)
+(declare-const H1 Heap)
+(declare-const H2 Heap)
 (declare-const A Addr)
 
-(declare-const ARH AllocResHeap)
-
-(assert (= ARH (alloc emptyHeap (WrappedInt 10))))
-(assert (= H (newHeap ARH)))
-(assert (= A (newAddr ARH)))
+(assert (= H1 (newHeap (alloc emptyHeap (WrappedInt 10)))))
+(assert (= H2 (newHeap (alloc H1 (Wrappedsimple (simple 42))))))
 
 (check-sat) ; should be sat
 (get-model)

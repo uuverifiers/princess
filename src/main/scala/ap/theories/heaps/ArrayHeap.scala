@@ -46,7 +46,8 @@ import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
 import scala.collection.{Map => GMap}
-import scala.collection.mutable.{HashSet => MHashSet}
+import scala.collection.mutable.{HashSet => MHashSet, Map => MMap, Set => MSet,
+                                 ArrayBuffer}
 
 object ArrayHeap {
 
@@ -204,6 +205,11 @@ class ArrayHeap(heapSortName         : String,
 
   private val _heapPair = offHeapADT.constructorPreds.head
 
+  private val emptyHeapTerm = {
+    import IExpression._
+    heapPair(emptyArray, 0)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -212,25 +218,24 @@ class ArrayHeap(heapSortName         : String,
   object HeapSort extends ProxySort(rawHeapSort) with Theory.TheorySort {
     import IExpression._
 
-/*
     override def individuals : Stream[ITerm] = elementLists
 
     private lazy val elementLists : Stream[ITerm] =
-      seq_empty() #::
-      (for (tail <- elementLists; t <- ElementSort.individuals)
-       yield seq_cons(t, tail))
+      emptyHeap() #::
+      (for (heap <- elementLists; obj <- ObjectSort.individuals)
+       yield allocResHeap(alloc(heap, obj)))
 
     override def augmentModelTermSet(
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      pairSort.augmentModelTermSet(model, terms, allTerms, definedTerms)
+      rawHeapSort.augmentModelTermSet(model, terms, allTerms, definedTerms)
 
       val toRemove = new ArrayBuffer[(IdealInt, Sort)]
 
-      for ((oldkey@(id, `pairSort`),
-            IFunApp(`seqPair`,
+      for ((oldkey@(id, `rawHeapSort`),
+            IFunApp(`heapPair`,
                     Seq(contents, IIntLit(IdealInt(sizeInt))))) <- terms) {
         val contentsAr = new Array[ITerm] (sizeInt)
 
@@ -239,8 +244,8 @@ class ArrayHeap(heapSortName         : String,
         while (cont) t match {
           case IFunApp(ExtArray.Store(_), Seq(t2, IIntLit(IdealInt(p)), v)) => {
             t = t2
-            if (0 <= p && p < contentsAr.size)
-              contentsAr(p) = v
+            if (1 <= p && p <= contentsAr.size)
+              contentsAr(p - 1) = v
           }
           case IFunApp(ExtArray.Const(_), Seq(v)) => {
             for (n <- 0 until contentsAr.size)
@@ -251,7 +256,8 @@ class ArrayHeap(heapSortName         : String,
         }
 
         val constrTerm =
-          contentsAr.foldRight(seq_empty())(seq_cons(_, _))
+          contentsAr.foldLeft(emptyHeap()) {
+            case (heap, obj) => allocResHeap(alloc(heap, obj)) }
 
         terms.put((id, this), constrTerm)
         toRemove += oldkey
@@ -259,18 +265,13 @@ class ArrayHeap(heapSortName         : String,
 
       terms --= toRemove
     }
-*/
+
     override def decodeToTerm(
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       assignment get (d, this)
 
     val theory = ArrayHeap.this
-  }
-
-  private val emptyHeapTerm = {
-    import IExpression._
-    heapPair(emptyArray, 0)
   }
 
   override val dependencies = List(offHeapADT, arrayTheory, onHeapADT)
