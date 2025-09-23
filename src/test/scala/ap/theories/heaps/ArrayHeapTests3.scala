@@ -64,25 +64,18 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
         ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
         ("defObj", CtorSignature(List(), ObjSort)))
 
-  def createArrayHeap : IHeap = {
-    def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
       import IExpression.toFunApplier
       objectCtors.last()
     }
 
+  def createArrayHeap : IHeap =
     new ArrayHeap(
       "heap", "addr", "addrRange", ObjSort, sorts, ctors, defObjCtor)
-  }
 
-  def createNativeHeap : IHeap = {
-    def defObjCtor2(objectCtors : Seq[IFunction], adt : ADT) : ITerm = {
-      import IExpression.toFunApplier
-      objectCtors.last()
-    }
-
+  def createNativeHeap : IHeap =
     new Heap(
-      "heap", "addr", ObjSort, List("HeapObject"), ctors, defObjCtor2)
-  }
+      "heap", "addr", ObjSort, List("HeapObject"), ctors, defObjCtor)
 
   import IExpression.toFunApplier
 

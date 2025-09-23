@@ -354,6 +354,14 @@ object Param {
     val defau : String = "ap.theories.sequences.ArraySeqTheory"
   }
 
+  object HeapTheory extends Enumeration {
+    val Native, Array = Value
+  }
+  case object HEAP_THEORY extends Param {
+    type Value = HeapTheory.Value
+    val defau : HeapTheory.Value = HeapTheory.Native
+  }
+
   /**
    * Accept an extended set of escape sequences in strings:
    * \\, \x, \a, \b, \f, \n, \r, \t, \v. Without this option,

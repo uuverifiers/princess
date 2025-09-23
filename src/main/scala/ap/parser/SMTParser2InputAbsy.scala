@@ -2829,6 +2829,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
+/*
     case PlainSymbol(name@"valid") =>
       extractHeap(args) match {
         case Some((Some(heapTerm), heapTheory)) => {
@@ -2848,6 +2849,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         case _ =>
           unintFunApp(name, sym, args, polarity)
       }
+*/
 
     case PlainSymbol(name@"alloc") =>
       translateHeapFun(
@@ -3823,9 +3825,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       SMTFunctionType(smtArgSorts.toList, smtDataTypes(adtNum))
     }
 
+    // constructors
+
     for ((f, smtType) <-
            datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
       env.addFunction(f, smtType)
+
+    // selectors
 
     for ((sels, smtType) <-
            datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
@@ -3833,6 +3839,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
            sels.iterator zip smtType.arguments.iterator) {
       env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
     }
+
+    // updators
 
     for ((upds, smtType) <-
            datatype.updators.iterator zip smtCtorFunctionTypes.iterator;
@@ -3948,13 +3956,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       }
 
     // This gets called during the heap theory construction, before the actual
-    // construction is complete; so we need to add the heap ADT sorts to the env
-    // to be able to construct the defaultObjectTerm.
-    // todo: how to avoid passing heapADTs here, it is really out of place...
-    def defObjCtor(objectCtors : Seq[MonoSortedIFunction],
-                   heapADTs    : ADT) : ITerm = {
+    // construction is complete.
+    def defObjCtor(objectCtors : Seq[MonoSortedIFunction]) : ITerm =
       translateDefaultObjectTerm(defaultObjectTerm, objectCtors)
-    }
 
     val heap : IHeap =
       new Heap(heapSortName, addressSortName, objectSort,
@@ -4000,9 +4004,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
             })
       yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
 
+    // constructors
+
     for ((f, smtType) <-
           heap.userHeapConstructors.iterator zip smtCtorFunctionTypes.iterator)
       env.addFunction(f, smtType)
+
+    // selectors
 
     for ((sels, smtType) <-
             heap.userHeapSelectors.iterator zip smtCtorFunctionTypes.iterator;
@@ -4013,30 +4021,30 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     }
 
     // generate the is- queries as inlined functions
-    /*
-    for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
-          ctorIdFun = datatype ctorIds adtNum;
-          ctorIdTerm = ctorIdFun(v(0));
-          ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+
+    val ctorsWithId =
+      (for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+            (name, _) <- ctors.iterator)
+       yield (name, adtNum)).zipWithIndex.toVector
+
+    for (((name, adtNum), ctorNum) <- ctorsWithId) {
       val query = new IFunction("is-" + name, 1, true, true)
       val typ = SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool)
       env.addFunction(query, typ)
-      val body = ctorIdTerm === ctorNum
+      val body = heap.hasUserHeapCtor(v(0), ctorNum)
       functionDefs = functionDefs + (query -> (body, SMTBool))
     }
-*/
-    // TODO: updators
 
-/*
-    for (fun <- List(heap.emptyHeap, heap.allocHeap, heap.allocAddr,
-                     heap.nullAddr,  heap.counter, heap.nthAddr,
-                     heap.batchAllocHeap, heap.batchAllocAddrRange, heap.nth)) {
-      val smtArgSorts = (for (arg <- fun.argSorts) yield
-        SMTLineariser.sort2SMTType(arg)._1).toList
-      env.addFunction(fun, SMTFunctionType(smtArgSorts,
-                             SMTLineariser.sort2SMTType(fun.resSort)._1))
+    // updators
+
+    for ((upds, smtType) <-
+           heap.userHeapUpdators.iterator zip smtCtorFunctionTypes.iterator;
+         (f, argType) <-
+           upds.iterator zip smtType.arguments.iterator) {
+      val resType = smtType.result
+      env.addFunction(f, SMTFunctionType(List(resType, argType), resType))
     }
-*/
+
     addTheory(heap)
   }
 

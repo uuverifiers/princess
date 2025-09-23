@@ -424,7 +424,7 @@ object Heap {
 class Heap(heapSortName : String, addressSortName : String,
            objectSort : IHeap.ADTSort, sortNames : Seq[String],
            ctorSignatures : Seq[(String, IHeap.CtorSignature)],
-           defaultObjectCtor : (Seq[MonoSortedIFunction], ADT) => ITerm)
+           defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
     extends IHeap with SMTLinearisableTheory {
 
   import Heap._
@@ -767,7 +767,7 @@ class Heap(heapSortName : String, addressSortName : String,
                        batchWrite)
   val predefPredicates = List(isAlloc, within)
 
-  val _defObj : ITerm = defaultObjectCtor(userADTCtors, heapADTs)
+  val _defObj : ITerm = defaultObjectCtor(userADTCtors)
 
   val defaultObject = _defObj
 

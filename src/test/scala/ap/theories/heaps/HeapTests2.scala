@@ -152,8 +152,7 @@ class HeapTests2 extends Properties("HeapTests2") {
       ("defObj", CtorSignature(List(), ObjSort))),
     defObjCtor)
 
-  def defObjCtor(objectCtors : Seq[IFunction],
-                 heapADTs : ADT) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
     import IExpression.toFunApplier
     objectCtors.last()
   }

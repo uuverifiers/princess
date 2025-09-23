@@ -153,8 +153,7 @@ class HeapTests1 extends Properties("HeapTests1") {
   val ObjSort = ADTSort(0)
   val StructSSort = ADTSort(1)
 
-  def defObjCtor(objectCtors : Seq[IFunction],
-                 heapADTs : ADT) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
     import IExpression.toFunApplier
     objectCtors.last()
   }
