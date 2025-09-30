@@ -60,6 +60,7 @@ import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
+import ap.theories.arrays.SetTheory
 
 object SMTParser2InputAbsy {
 
@@ -1652,6 +1653,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         if (args.size < 2)
           throw new Parser2InputAbsy.TranslationException(
             "Expected at least two sort arguments in " + (printer print s))
+
+        def isSet = (args.size == 2) && (args.last == SMTBool)
+
+        if (isSet)
+          SMTSet(args.head)
+        else
         SMTArray(args.init, args.last)
       }
 
@@ -2224,40 +2231,62 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     // Array operations
     
     case PlainSymbol("select") => {
+      checkArgNum("select", 2, args)
+
       val transArgs = for (a <- args) yield translateTerm(a, 0)
-      transArgs.head._2 match {
-        case s@SMTArray(_, resultType) =>
-          (IFunApp(s.theory.select,
-                   for (a <- transArgs) yield asTerm(a)),
-           resultType)
+      val (select, resultType) = transArgs.head._2 match {
+        case s: SMTArray =>
+          (s.theory.select, s.result)
+        case s: SMTSet =>
+          (s.theory.arTheory.select, s.arSort.result)
         case s =>
           throw new Parser2InputAbsy.TranslationException(
             "select has to be applied to an array expression, not " + s)
       }
+      val term = IFunApp(select, for (a <- transArgs) yield asTerm(a))
+
+      (term, resultType)
     }
 
     case PlainSymbol("store") => {
+      checkArgNum("store", 3, args)
+
       val transArgs = for (a <- args) yield translateTerm(a, 0)
-      transArgs.head._2 match {
-        case s : SMTArray =>
-          (IFunApp(s.theory.store,
-                   for (a <- transArgs) yield asTerm(a)),
-           s)
+      val (store, arrayType) = transArgs.head._2 match {
+        case s: SMTArray =>
+          (s.theory.store, s)
+        case s: SMTSet =>
+          (s.theory.arTheory.store, s)
         case s =>
           throw new Parser2InputAbsy.TranslationException(
             "store has to be applied to an array expression, not " + s)
       }
+
+      val term = IFunApp(store, for (a <- transArgs) yield asTerm(a))
+      (term, arrayType)
     }
 
-    case CastSymbol("const", sort) =>
+    case CastSymbol("const", sort) => {
+      val (constFun, arrayType, resultType) = 
       translateSort(sort) match {
-        case s : SMTArray => {
+          case s: SMTArray =>
+            (s.theory.const, s, s.result)
+          case s: SMTSet =>
+            (s.theory.arTheory.const, s, s.arSort.result)
+          case _ =>
+            throw new Parser2InputAbsy.TranslationException(
+              "const can only be used with array types")
+        }
+      
           checkArgNum("const", 1, args)
           val transArg = translateTerm(args(0), 0)
-          if (transArg._2 != s.result)
+      if (transArg._2 != resultType)
             throw new Parser2InputAbsy.TranslationException(
               "const has to be applied to an expression of the object type")
-          (s.theory.const(asTerm(transArg)), s)
+
+      val term = IFunApp(constFun, Seq(asTerm(transArg)))
+
+      (term, arrayType)
         }
         case _ =>
           throw new Parser2InputAbsy.TranslationException(
