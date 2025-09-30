@@ -158,10 +158,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                            _prover : SimpleAPI)
       extends Parser2InputAbsy[
           SMTTypes.SMTType,
-           SMTParser2InputAbsy.VariableType,
-           SMTParser2InputAbsy.SMTFunctionType,
-           SMTParser2InputAbsy.SMTFunctionType,
-           SMTTypes.SMTType,
+          SMTParser2InputAbsy.VariableType,
+          SMTParser2InputAbsy.SMTFunctionType,
+          SMTParser2InputAbsy.SMTFunctionType,
+          SMTTypes.SMTType,
           (
             Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
             AnyRef,                                          // polyADTs
@@ -1661,7 +1661,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         if (isSet)
           SMTSet(args.head)
         else
-        SMTArray(args.init, args.last)
+          SMTArray(args.init, args.last)
       }
 
       case "Seq" => {
@@ -2270,7 +2270,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
     case CastSymbol("const", sort) => {
       val (constFun, arrayType, resultType) = 
-      translateSort(sort) match {
+        translateSort(sort) match {
           case s: SMTArray =>
             (s.theory.const, s, s.result)
           case s: SMTSet =>
@@ -2280,20 +2280,35 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
               "const can only be used with array types")
         }
       
-          checkArgNum("const", 1, args)
-          val transArg = translateTerm(args(0), 0)
+      checkArgNum("const", 1, args)
+      val transArg = translateTerm(args(0), 0)
       if (transArg._2 != resultType)
-            throw new Parser2InputAbsy.TranslationException(
-              "const has to be applied to an expression of the object type")
+        throw new Parser2InputAbsy.TranslationException(
+          "const has to be applied to an expression of the object type")
 
       val term = IFunApp(constFun, Seq(asTerm(transArg)))
 
       (term, arrayType)
-        }
-        case _ =>
-          throw new Parser2InputAbsy.TranslationException(
-            "const can only be used with array types")
-      }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Set operations
+
+    case IndexedSymbol("map", "not") => 
+      translateSetOp("not", 1, st => sq => IFunApp(st.compl, sq), args)
+
+    case IndexedSymbol("map", "or") => 
+      translateSetOp("or", 2, st => sq => IFunApp(st.union, sq), args)
+
+    case IndexedSymbol("map", "and") => 
+      translateSetOp("and", 2, st => sq => IFunApp(st.isect, sq), args)
+
+    case IndexedSymbol("map", impliesName) if impliesName == "implies" || impliesName == "=>" => 
+      val implies = 
+        (st: SetTheory, sq: Seq[ITerm]) =>
+          st.union(st.compl(sq(0)), sq(1))
+        
+      translateSetOp(impliesName, 2, st => sq => implies(st, sq), args)
 
     ////////////////////////////////////////////////////////////////////////////
     // Bit-vector operations
@@ -3373,6 +3388,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case _ =>
       None
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  /**
+   * Translates a set map operation of the type `(_ map <name>)`.
+   *
+   * @param name The name of the operation (without `(_ map ...)`).
+   * @param expectedArity The expected number of arguments.
+   * @param theoryToFun A function that accepts a set theory and arguments and
+   * applies this operation.
+   * @param args The untranslated arguments of the operation.
+   * 
+   * @example `(_ map or) a b` is 
+   * `translateSetOp("or", 2, st => sq => IFunApp(st.union, sq), args)`.
+   */
+  private def translateSetOp(
+                              name: String, 
+                              expectedArity: Int, 
+                              theoryToFun: SetTheory => Seq[ITerm] => IExpression, 
+                              args : Seq[Term]
+                            ): (IExpression, SMTSet) = {
+      val op = s"(_ map $name)"
+      checkArgNum(op, expectedArity, args)
+      
+      val transArgs = args.map(translateTerm(_, 0))
+
+      val setType =
+        transArgs.map(_._2).distinct match {
+          case Seq(st: SMTSet) => st
+          case types =>
+            throw new Parser2InputAbsy.TranslationException(
+              s"${op} must be applied to sets (with the same element type), found types ${types.mkString(", ")}.")
+        }
+
+      val fun = theoryToFun(setType.theory)
+
+      (fun(transArgs.map(asTerm)), setType)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
