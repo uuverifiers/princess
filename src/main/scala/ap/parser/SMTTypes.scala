@@ -42,6 +42,7 @@ import ap.theories.arrays.{ExtArray, SimpleArray}
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
 import ap.types.UninterpretedSortTheory
+import ap.theories.arrays.SetTheory
 
 /**
  * Representation of SMT-LIB types. Those are essentially just
@@ -86,6 +87,13 @@ object SMTTypes {
       print(result.toSMTLIBString)
       print(")")
     }
+  }
+
+  case class SMTSet(elementType : SMTType)         extends SMTType { st =>
+    val theory = new SetTheory(elementType.toSort)
+    val arSort = SMTArray(List(elementType), SMTBool)
+    def toSort = theory.sort
+    def toSMTLIBString = arSort.toSMTLIBString
   }
 
   case class SMTBitVec(width : Int)                extends SMTType {
