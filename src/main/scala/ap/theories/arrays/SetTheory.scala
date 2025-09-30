@@ -64,7 +64,7 @@ object SetTheory {
  * A theory of typed sets, implementing using combinatorial arrays.
  */
 class SetTheory(val elementSort : Sort)
-      extends CombArray(Vector(new ExtArray(List(elementSort), Sort.Bool)),
+      extends CombArray(Vector(ExtArray(List(elementSort), Sort.Bool)),
                         SetTheory.setOps(elementSort.name)) {
 
   val arTheory = subTheories.head
