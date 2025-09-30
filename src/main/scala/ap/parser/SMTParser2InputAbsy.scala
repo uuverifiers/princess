@@ -156,17 +156,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                               SMTTypes.SMTType],
                            settings : ParserSettings,
                            _prover : SimpleAPI)
-      extends Parser2InputAbsy
-          [SMTTypes.SMTType,
+      extends Parser2InputAbsy[
+          SMTTypes.SMTType,
            SMTParser2InputAbsy.VariableType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTTypes.SMTType,
-           (Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
+          (
+            Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
             AnyRef,                                          // polyADTs
             Int,                                             // nextPartitionNumber
             Map[PartName, Int]                               // partNameIndexes
-            )](_env, settings) {
+          )
+        ](_env, settings) {
   
   import IExpression.{Sort => TSort, _}
   import Parser2InputAbsy._
