@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -123,7 +123,7 @@ Unsat
     }
 
     scope {
-      ?? (set(x, y) === emptySet)
+      ?? (set(x, y) === emptySet())
       println(???) // invalid
     }
 
