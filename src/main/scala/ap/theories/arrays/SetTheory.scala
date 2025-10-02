@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2022-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,13 @@
 
 package ap.theories.arrays
 
-import ap.types.Sort
+import ap.Signature
+import ap.types.{Sort, ProxySort, MonoSortedIFunction}
+import ap.theories.{Theory, TheoryRegistry}
 import ap.parser._
+import ap.terfor.conjunctions.Conjunction
+
+import scala.collection.mutable.{HashMap => MHashMap}
 
 object SetTheory {
 
@@ -58,36 +63,108 @@ object SetTheory {
                    v(0) + v(1) === 1)
   )
 
+  private val instances = new MHashMap[Sort, SetTheory]
+
+  /**
+   * Get a unique instance of the set theory with the element sort.
+   */
+  def apply(elSort : Sort) : SetTheory = synchronized {
+    instances.getOrElseUpdate(elSort, new SetTheory(elSort))
+  }
+
 }
 
 /**
  * A theory of typed sets, implementing using combinatorial arrays.
  */
 class SetTheory(val elementSort : Sort)
-      extends CombArray(Vector(new ExtArray(List(elementSort), Sort.Bool)),
-                        SetTheory.setOps(elementSort.name)) {
+      extends Theory with SMTLinearisableTheory {
 
-  val arTheory = subTheories.head
+  val arTheory = new ExtArray(List(elementSort), Sort.Bool)
+  val combArTheory = new CombArray(Vector(arTheory),
+                                   SetTheory.setOps(elementSort.name))
   import arTheory.{select, store, const}
+  import combArTheory.combinators
 
-  val sort = arTheory.sort
+  override val dependencies = List(combArTheory)
+
+  object SetSort extends ProxySort(arTheory.sort) with Theory.TheorySort {
+    import IExpression._
+    val theory = SetTheory.this
+
+    // TODO: implement further methods. In particular, we have to translate
+    // back array terms to set terms, similar to how it is done in
+    // ArraySeqTheory
+  }
+
+  val sort = SetSort
 
   /**
    * <code>{}</code>.
-   * TODO: turn this into a proper function.
    */
-  def emptySet : ITerm = {
-    import IExpression._
-    const(1)
-  }
+  val emptySet =
+    new MonoSortedIFunction("emptySet",
+                            List(), SetSort, true, false)
 
   /**
    * <code>union(set, {el})</code>.
-   * TODO: turn this into a proper function.
    */
+  val insert =
+    new MonoSortedIFunction("insert",
+                            List(elementSort, SetSort), SetSort, true, false)
+
   def including(set : ITerm, el : ITerm) : ITerm = {
     import IExpression._
-    store(set, el, 0)
+    insert(el, set)
+  }
+
+  val functions = List(emptySet, insert)
+
+  val (funPredicates, axioms, _, funPredMap) =
+    Theory.genAxioms(theoryFunctions = functions,
+                     otherTheories   = dependencies)
+  val predicates = funPredicates
+
+  val functionPredicateMapping = functions zip funPredicates
+  val functionalPredicates = funPredicates.toSet
+  val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
+  val totalityAxioms = Conjunction.TRUE
+  val triggerRelevantFunctions : Set[IFunction] = Set()
+
+  def plugin = None
+
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+    config match {
+      case Theory.SatSoundnessConfig.Elementary |
+           Theory.SatSoundnessConfig.Existential => true
+      case Theory.SatSoundnessConfig.General     => false
+    }
+
+  /**
+   * Visitor called during pre-processing to eliminate symbols.
+   */
+  private object Preproc extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(`emptySet`, _) =>
+        const(1)
+      case IFunApp(`insert`, _) =>
+        store(subres(1).asInstanceOf[ITerm], subres(0).asInstanceOf[ITerm], 0)
+      case t =>
+        t update subres
+    }
+  }
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                          : (IFormula, Signature) = {
+//    println("before: " + f)
+    val res = Preproc.visit(f, ()).asInstanceOf[IFormula]
+//    println("after: " + res)
+    (res, signature)
   }
 
   /**
@@ -95,7 +172,7 @@ class SetTheory(val elementSort : Sort)
    */
   def set(els : ITerm*) : ITerm = {
     import IExpression._
-    var res = emptySet
+    var res : ITerm = emptySet()
     for (el <- els)
       res = including(res, el)
     res
@@ -116,11 +193,28 @@ class SetTheory(val elementSort : Sort)
    */
   def subsetOf(set1 : ITerm, set2 : ITerm) : IFormula = {
     import IExpression._
-    minus(set1, set2) === emptySet
+    minus(set1, set2) === emptySet()
   }
 
   val Seq(union, isect, minus, compl) = combinators
 
+  override def sort2SMTType(s : Sort) : Option[SMTTypes.SMTType] =
+    s match {
+      case SetSort => Some(SMTTypes.SMTSet(SMTTypes.sort2SMTType(elementSort)._1))
+      case _ => None
+    }
+
+  override def fun2SMTString(f : IFunction) : Option[String] =
+    f match {
+      case `emptySet` =>
+        Some(f"(as set.empty ${sort2SMTType(SetSort).get.toSMTLIBString})")
+      case `insert` =>
+        Some("set.insert")
+      case _ =>
+        None
+    }
+
   override def toString = "SetTheory[" + elementSort + "]"
+  TheoryRegistry register this
 
 }
