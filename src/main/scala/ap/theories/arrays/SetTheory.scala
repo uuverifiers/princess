@@ -109,11 +109,16 @@ class SetTheory(val elementSort : Sort)
   /**
    * <code>union(set, {el})</code>.
    */
-  val including =
-    new MonoSortedIFunction("including",
-                            List(SetSort, elementSort), SetSort, true, false)
+  val insert =
+    new MonoSortedIFunction("insert",
+                            List(elementSort, SetSort), SetSort, true, false)
 
-  val functions = List(emptySet, including)
+  def including(set : ITerm, el : ITerm) : ITerm = {
+    import IExpression._
+    insert(el, set)
+  }
+
+  val functions = List(emptySet, insert)
 
   val (funPredicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
@@ -147,8 +152,8 @@ class SetTheory(val elementSort : Sort)
                   subres : Seq[IExpression]) : IExpression = t match {
       case IFunApp(`emptySet`, _) =>
         const(1)
-      case IFunApp(`including`, _) =>
-        store(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm], 0)
+      case IFunApp(`insert`, _) =>
+        store(subres(1).asInstanceOf[ITerm], subres(0).asInstanceOf[ITerm], 0)
       case t =>
         t update subres
     }
@@ -167,7 +172,7 @@ class SetTheory(val elementSort : Sort)
    */
   def set(els : ITerm*) : ITerm = {
     import IExpression._
-    var res = emptySet()
+    var res : ITerm = emptySet()
     for (el <- els)
       res = including(res, el)
     res
@@ -203,7 +208,7 @@ class SetTheory(val elementSort : Sort)
     f match {
       case `emptySet` =>
         Some(f"(as set.empty ${sort2SMTType(SetSort).get.toSMTLIBString})")
-      case `including` =>
+      case `insert` =>
         Some("set.insert")
       case _ =>
         None
