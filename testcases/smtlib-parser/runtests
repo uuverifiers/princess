@@ -24,7 +24,7 @@ TESTS="bignum_quant.smt2 \
        bitops1.smt2 division_by_zero0.smt2 bvmul.smt2 \
        modelConstructionBug2.smt2 conjunct-eliminator-bug.smt2 \
        eagerMatchBug.smt2 index-error.smt2 division_by_zero1.smt2 \
-       finite-field-1.smt2 finite-field-2.smt2 sets1.smt2 sets2.smt2"
+       finite-field-1.smt2 finite-field-2.smt2 sets1.smt2 sets2.smt2 sets3.smt2"
 
 $PRI "$@" $TESTS
 

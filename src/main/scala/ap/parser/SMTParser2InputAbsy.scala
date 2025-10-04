@@ -2835,27 +2835,76 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Set operations
 
-    case CastSymbol("set.empty", sort) =>
+    case CastSymbol(n@("set.empty" | "set.all" | "set.universe"), sort) =>
       translateSort(sort) match {
         case s : SMTSet => {
-          checkArgNum("set.empty", 0, args)
-          (s.theory.emptySet(), s)
+          checkArgNum(n, 0, args)
+          n match {
+            case "set.empty"    => (s.theory.emptySet(), s)
+            case "set.all"      => (s.theory.all(), s)
+            case "set.universe" => (s.theory.all(), s)
+          }
         }
         case _ =>
           throw new Parser2InputAbsy.TranslationException(
-            "set.empty can only be used with set types")
+            s"$n can only be used with set types")
       }
+
+    case PlainSymbol(n@("set.insert" | "set.remove")) => {
+      val (argTerms, setType) =
+        translateSetArgs(
+          n, args, args.size - 1,
+          t => (1 until args.size).map(n => t.elements) ++ List(t))
+      val op =
+        if (n == "set.insert") setType.theory.insert else setType.theory.remove
+      val set =
+        argTerms.init.foldRight[ITerm](argTerms.last) {
+          case (a, b) => op(a, b)
+        }
+      (set, setType)
+    }
+
+    case PlainSymbol("set.singleton") => {
+      checkArgNum("set.singleton", 1, args)
+      val p@(_, elType) = translateTerm(args.head, 0)
+      val setType = SMTSet(elType)
+      (setType.theory.insert(asTerm(p), setType.theory.emptySet()), setType)
+    }
 
     case PlainSymbol("set.member") => {
       val (argTerms, setType) =
         translateSetArgs("set.member", args, 1, t => List(t.elements, t))
-      (setType.theory.contains(argTerms(1), argTerms(0)), SMTBool)
+      (setType.theory.member(argTerms(0), argTerms(1)), SMTBool)
+    }
+
+    case PlainSymbol("set.subset") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.subset", args, 0, t => List(t, t))
+      (setType.theory.subsetOf(argTerms(0), argTerms(1)), SMTBool)
     }
 
     case PlainSymbol("set.union") => {
       val (argTerms, setType) =
         translateSetArgs("set.union", args, 0, t => List(t, t))
       (setType.theory.union(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.inter") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.inter", args, 0, t => List(t, t))
+      (setType.theory.isect(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.minus") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.minus", args, 0, t => List(t, t))
+      (setType.theory.minus(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.complement") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.complement", args, 0, t => List(t))
+      (setType.theory.compl(argTerms(0)), setType)
     }
 
     // TODO: Add further set operations
