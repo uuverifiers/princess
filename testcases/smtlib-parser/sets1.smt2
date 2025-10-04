@@ -1,0 +1,8 @@
+(declare-fun x () (Set Int))
+(declare-fun y () (Set Int))
+(declare-fun z () (Set Int))
+(assert (set.member 0 x))
+(assert (set.member 1 y))
+(assert (= z (set.union x y)))
+(assert (not (set.member 2 z)))
+(check-sat)

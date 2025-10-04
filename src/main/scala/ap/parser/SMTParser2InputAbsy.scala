@@ -1667,6 +1667,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         SMTSeq(sequenceTheory(args.head.toSort), args.head)
       }
 
+      case "Set" => {
+        val args =
+          for (t <- s.listsort_.toList) yield translateSort(t)
+        if (args.size != 1)
+          throw new Parser2InputAbsy.TranslationException(
+            "Expected one sort argument in " + (printer print s))
+        SMTSet(args.head)
+      }
+
       case id if (polyADTs contains id) => {
         val encodedSortName = SMTADT.POLY_PREFIX + (printer print s)
         env.lookupSortPartial(encodedSortName) match {
@@ -2827,6 +2836,83 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Set operations
+
+    case CastSymbol(n@("set.empty" | "set.all" | "set.universe"), sort) =>
+      translateSort(sort) match {
+        case s : SMTSet => {
+          checkArgNum(n, 0, args)
+          n match {
+            case "set.empty"    => (s.theory.emptySet(), s)
+            case "set.all"      => (s.theory.all(), s)
+            case "set.universe" => (s.theory.all(), s)
+          }
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            s"$n can only be used with set types")
+      }
+
+    case PlainSymbol(n@("set.insert" | "set.remove")) => {
+      val (argTerms, setType) =
+        translateSetArgs(
+          n, args, args.size - 1,
+          t => (1 until args.size).map(n => t.elements) ++ List(t))
+      val op =
+        if (n == "set.insert") setType.theory.insert else setType.theory.remove
+      val set =
+        argTerms.init.foldRight[ITerm](argTerms.last) {
+          case (a, b) => op(a, b)
+        }
+      (set, setType)
+    }
+
+    case PlainSymbol("set.singleton") => {
+      checkArgNum("set.singleton", 1, args)
+      val p@(_, elType) = translateTerm(args.head, 0)
+      val setType = SMTSet(elType)
+      (setType.theory.insert(asTerm(p), setType.theory.emptySet()), setType)
+    }
+
+    case PlainSymbol("set.member") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.member", args, 1, t => List(t.elements, t))
+      (setType.theory.member(argTerms(0), argTerms(1)), SMTBool)
+    }
+
+    case PlainSymbol("set.subset") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.subset", args, 0, t => List(t, t))
+      (setType.theory.subsetOf(argTerms(0), argTerms(1)), SMTBool)
+    }
+
+    case PlainSymbol("set.union") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.union", args, 0, t => List(t, t))
+      (setType.theory.union(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.inter") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.inter", args, 0, t => List(t, t))
+      (setType.theory.isect(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.minus") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.minus", args, 0, t => List(t, t))
+      (setType.theory.minus(argTerms(0), argTerms(1)), setType)
+    }
+
+    case PlainSymbol("set.complement") => {
+      val (argTerms, setType) =
+        translateSetArgs("set.complement", args, 0, t => List(t))
+      (setType.theory.compl(argTerms(0)), setType)
+    }
+
+    // TODO: Add further set operations
+
+    ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
 /*
@@ -3212,6 +3298,32 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       }
     }
     (transArgs map (asTerm(_)), seqType)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateSetArgs(name       : String,
+                               args       : Seq[Term],
+                               setArg     : Int,
+                               argTypes   : SMTSet => Seq[SMTType])
+                            : (Seq[ITerm], SMTSet) = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    val setType = transArgs(setArg)._2 match {
+      case t : SMTSet => {
+        val expectedTypes = argTypes(t)
+        if (transArgs.size > 1 && expectedTypes != (transArgs map (_._2)))
+          throw new TranslationException(
+            name + " cannot be applied to arguments of type " +
+              (transArgs map (_._2) mkString ", "))
+        t
+      }
+      case t => {
+        throw new TranslationException(
+          name + " cannot be applied to " + setArg +
+          "'nth argument of type " + t)
+      }
+    }
+    (transArgs map (asTerm(_)), setType)
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -70,7 +70,7 @@ object CmdlMain {
     println()
     println("(c) Philipp Rümmer, 2009-2025")
     println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
-    println("              Amanda Stjerna.")
+    println("              Sankalp Gambhir, Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
     println()
     println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
