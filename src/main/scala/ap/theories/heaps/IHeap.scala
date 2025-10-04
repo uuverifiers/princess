@@ -259,9 +259,11 @@ trait IHeap extends Theory {
   /**
    * A function to enumerate range of the addresses that can be used on this
    * heap. <code>nthAddrRange(1, n)</code> is a range of addresses starting
-   * at the address <code>nthAddr(1)</code> of size <code>n</code>.
+   * at the address <code>nthAddr(1)</code> of size <code>n</code>. Applying
+   * the function to a start address that is not positive or size that is not
+   * non-negative should be interpreted as an empty address range.
    */
-  val nthAddrRange : IFunction          // Nat1 x Nat1 -> Address
+  val nthAddrRange : IFunction          // Nat1 x Nat -> Address
 
   /**
    * Function to obtain the n'th address in an address range. Accessing

@@ -21,12 +21,12 @@
 (declare-const A2 Addr)
 (declare-const n Int)
 
-(assert (= H       (batchAllocHeap emptyHeap (WrappedInt 3) 3)))
-(assert (= AR (batchAllocAddrRange emptyHeap (WrappedInt 3) 3)))
+(assert (= H       (newBatchHeap (batchAlloc emptyHeap (WrappedInt 3) 3))))
+(assert (= AR      (newAddrRange (batchAlloc emptyHeap (WrappedInt 3) 3))))
 (assert (= H2 (batchWrite H AR (WrappedInt 42))))
-(assert (within AR A1))
+(assert (addressRangeWithin AR A1))
 (assert (and (> n 0) (< n 4)))
-(assert (= A2 (nthAddrRange AR n)))
+(assert (= A2 (addressRangeNth AR n)))
 (assert (not (= (getInt (read H2 A1)) 42)))
 (assert (not (= (getInt (read H2 A2)) 42)))
 

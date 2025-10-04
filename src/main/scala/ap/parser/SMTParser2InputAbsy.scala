@@ -2963,6 +2963,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                        heap => List(SMTHeapAddressRange(heap),
                                     SMTInteger),
                        SMTHeapAddress(_))
+
+    case PlainSymbol("addressRangeWithin") =>
+      translateHeapPred(0,
+                        _.addressRangeWithin,
+                        args,
+                        heap => List(SMTHeapAddressRange(heap),
+                                     SMTHeapAddress(heap)))
+
+    case PlainSymbol("batchWrite") =>
+      translateHeapFun(0,
+                       _.batchWrite,
+                       args,
+                       heap => List(SMTHeap(heap), SMTHeapAddressRange(heap),
+                                    SMTHeapADT(heap, heap.objectSortIndex)),
+                       SMTHeap(_))
+
 /*
     case PlainSymbol(name@"batchWrite") =>
       translateHeapFun(
@@ -4262,7 +4278,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                 : (IExpression, SMTType) = {
     val transArgs = for (a <- args) yield translateTerm(a, 0)
     val heapArg   = transArgs(heapInd)
-    val SMTHeap(heapTheory) = heapArg._2
+    val heapTheory : IHeap =
+      heapArg._2 match {
+        case SMTHeap(t)             => t
+        case SMTHeapAddressRange(t) => t
+        case t =>
+          throw new TranslationException(s"could not decode heap type $t")
+      }
     val pred      = predF(heapTheory)
     val argTypes  = argTypesF(heapTheory)
 

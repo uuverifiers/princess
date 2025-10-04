@@ -18,8 +18,10 @@
 (declare-const a Addr)
 (declare-const ar AddrRange)
 
-(assert (= (BatchAllocResHeap h1 ar) (batchAlloc emptyHeap (WrappedInt 1) 3)))
-(assert (= (AllocResHeap h2 a) (alloc h1 (Wrappedsimple (simple ar)))))
-(assert (not (= (WrappedInt 1) (read h2 (AddrRangeStart (range (getsimple (read h2 a))))))))
+(assert (= h1 (newBatchHeap (batchAlloc emptyHeap (WrappedInt 1) 3))))
+(assert (= ar (newAddrRange (batchAlloc emptyHeap (WrappedInt 1) 3))))
+(assert (= h2 (newHeap (alloc h1 (Wrappedsimple (simple ar))))))
+(assert (= a  (newAddr (alloc h1 (Wrappedsimple (simple ar))))))
+(assert (not (= (WrappedInt 1) (read h2 (addressRangeNth (range (getsimple (read h2 a))) 0)))))
 
 (check-sat) ; should be unsat

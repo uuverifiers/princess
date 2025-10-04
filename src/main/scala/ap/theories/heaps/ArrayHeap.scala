@@ -445,7 +445,9 @@ class ArrayHeap(heapSortName         : String,
         val heap = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         withEps(heap, ObjectSort, (cont, size) =>
-	      ite(validTest2(size, addr), select(cont, addrOrd(addr)), defaultObject))
+	        ite(validTest2(size, addr),
+              select(cont, addrOrd(addr)),
+              defaultObject))
       }
 
       case IFunApp(`write`, _) => {
@@ -453,17 +455,17 @@ class ArrayHeap(heapSortName         : String,
         val addr = subres(1).asInstanceOf[ITerm]
         val obj  = subres(2).asInstanceOf[ITerm]
         withEps(heap, HeapSort, (cont, size) =>
-	      heapPair(ite(validTest2(size, addr),
-	                   store(cont, addrOrd(addr), obj), cont),
-		           size))
+	        heapPair(ite(validTest2(size, addr),
+	                     store(cont, addrOrd(addr), obj), cont),
+		               size))
       }
 
       case IFunApp(`alloc`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val obj  = subres(1).asInstanceOf[ITerm]
         withEps(heap, AllocResSort, (cont, size) =>
-	      allocResPair(heapPair(store(cont, size + 1, obj), size + 1),
-	                   nthAddr(size + 1)))
+	        allocResPair(heapPair(store(cont, size + 1, obj), size + 1),
+	                     nthAddr(size + 1)))
       }
 
       case IFunApp(`batchAlloc`, _) => {
@@ -471,13 +473,28 @@ class ArrayHeap(heapSortName         : String,
         val obj  = subres(1).asInstanceOf[ITerm]
         val num  = subres(2).asInstanceOf[ITerm]
         withEps(heap, AllocResSort, (cont, size) =>
-        ite(num > 0,
-	          batchAllocResPair(
-              heapPair(
-                storeRange(cont, size + 1, size + 1 + num, obj), size + num),
-	            nthAddrRange(size + 1, num)),
-            batchAllocResPair(
-              heap, nthAddrRange(1, 0))))
+          ite(num > 0,
+	            batchAllocResPair(
+                heapPair(
+                  storeRange(cont, size + 1, size + 1 + num, obj), size + num),
+	              nthAddrRange(size + 1, num)),
+              batchAllocResPair(
+                heap, nthAddrRange(1, 0))))
+      }
+
+      case IFunApp(`batchWrite`, _) => {
+        val heap = subres(0).asInstanceOf[ITerm]
+        val ar   = subres(1).asInstanceOf[ITerm]
+        val obj  = subres(2).asInstanceOf[ITerm]
+        withEps(heap, HeapSort, (cont, size) =>
+          heapPair(
+            ite(addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size,
+                storeRange(cont,
+                           addressRangeStart(ar),
+                           addressRangeStart(ar) + addressRangeSize(ar),
+                           obj),
+	              cont),
+            size))
       }
 
       case IFunApp(`nthAddr`, _) =>
