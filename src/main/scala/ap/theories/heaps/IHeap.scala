@@ -208,7 +208,7 @@ trait IHeap extends Theory {
   /**
    * Function to allocate a sequence of objects on the heap.
    */
-  val batchAlloc : IFunction            // Heap x Object x Nat -> BatchAllocRes
+  val batchAlloc : IFunction            // Heap x Object x Int -> BatchAllocRes
 
   /**
    * Function to obtain the new heap after batch allocation.
@@ -257,12 +257,20 @@ trait IHeap extends Theory {
   val nthAddr : IFunction               // Nat1 -> Address
 
   /**
-   * Function to obtain the n'th address in an address range.
+   * A function to enumerate range of the addresses that can be used on this
+   * heap. <code>nthAddrRange(1, n)</code> is a range of addresses starting
+   * at the address <code>nthAddr(1)</code> of size <code>n</code>.
    */
-  val addressRangeNth : IFunction       // AddressRange x Nat -> Address
+  val nthAddrRange : IFunction          // Nat1 x Nat1 -> Address
 
   /**
-   * Function to obtain the number of addresses in an address range
+   * Function to obtain the n'th address in an address range. Accessing
+   * addresses outside of the range will return <code>nullAddr</code>.
+   */
+  val addressRangeNth : IFunction       // AddressRange x Int -> Address
+
+  /**
+   * Function to obtain the number of addresses in an address range.
    */
   val addressRangeSize : IFunction       // AddressRange -> Nat
 

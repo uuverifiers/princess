@@ -446,8 +446,7 @@ class Heap(heapSortName : String, addressSortName : String,
     resSort = HeapSort, _partial = false, _relational = false)
 
   val nthAddr = new MonoSortedIFunction("nth" + addressSortName,
-    List(Sort.Nat), AddressSort,
-    false, false) // todo: make private?
+    List(Sort.Nat), AddressSort, false, false)
 
   object HeapADTSortId extends Enumeration(initial = sortNames.size) {
     type HeapADTSortId = Value
@@ -571,6 +570,9 @@ class Heap(heapSortName : String, addressSortName : String,
   val batchAllocResAddr  = newAddrRange
   val batchAllocResHeap  = newBatchHeap
 
+  val nthAddrRange = new MonoSortedIFunction(s"nth${addressSortName}Range",
+    List(Sort.Nat, Sort.Nat), addressRangeSort, false, false)
+
   val nth = new MonoSortedIFunction("nth" + addressRangeSortName,
     List(addressRangeSort, Sort.Nat), AddressSort,
     false, false)
@@ -596,7 +598,8 @@ class Heap(heapSortName : String, addressSortName : String,
    * write                : Heap x Address x Obj --> Heap
    * valid (isAlloc)      : Heap x Address       --> Bool
    * deAlloc              : Heap                 --> Heap
-   * nthAddress           : Nat                  --> Address
+   * nthAddr              : Nat                  --> Address
+   * nthAddrRange         : Nat x Nat            --> Address
    *
    * batchAlloc           : Heap x Obj   x Nat        --> Heap x AddressRange (batchAllocResHeap)
    * batchWrite           : Heap x AddressRange x Obj --> Heap
@@ -759,7 +762,7 @@ class Heap(heapSortName : String, addressSortName : String,
     List(HeapSort), Sort.Nat, false, false)
 
   val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
-                       nullAddr, counter, nthAddr,
+                       nullAddr, counter, nthAddr, nthAddrRange,
                        batchAlloc, batchAllocHeap, batchAllocAddrRange, nth,
                        batchWrite)
   val predefPredicates = List(isAlloc, within)
@@ -1083,8 +1086,13 @@ class Heap(heapSortName : String, addressSortName : String,
       case IAtom(`isAlloc`, _) =>
         //println("Simplified " + t + " to " + _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm]))
         _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm])
-      case IFunApp(`nullAddr`, _) =>  i(0)
-      case IFunApp(`nthAddr`, _) => subres.head
+      case IFunApp(`nullAddr`, _) =>
+        i(0)
+      case IFunApp(`nthAddr`, _) =>
+        subres.head
+      case IFunApp(`nthAddrRange`, _) =>
+        addressRangeCtor(subres(0).asInstanceOf[ITerm],
+                         subres(1).asInstanceOf[ITerm])
       case IFunApp(`write`, _) if subres(1) == i(0) =>
         //println("Simplified " + t + " to " + subres(0))
         subres(0)

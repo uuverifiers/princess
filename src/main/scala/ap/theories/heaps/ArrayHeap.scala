@@ -116,10 +116,10 @@ class ArrayHeap(heapSortName         : String,
       List(("null" + addressSortName,
             ADT.CtorSignature(List(),
 	                          ADT.ADTSort(addressSortId))),
-	       ("nth" + addressSortName,
+	         ("nth" + addressSortName,
             ADT.CtorSignature(List((addressSortName + "_ord", ONat1)),
 	                          ADT.ADTSort(addressSortId))),
-           (addressRangeSortName + "_ctor",
+           ("nth" + addressSortName + "Range",
             ADT.CtorSignature(List((addressSortName + "_start", ONat1),
 	                               (addressSortName + "_size", ONat)),
 	                          ADT.ADTSort(addressRangeSortId))))
@@ -137,7 +137,7 @@ class ArrayHeap(heapSortName         : String,
   
   val nullAddr             = onHeapADT.constructors(nullAddrCtorId)
   val nthAddr              = onHeapADT.constructors(nthAddrCtorId)
-  val addressRange         = onHeapADT.constructors(addressRangeCtorId)
+  val nthAddrRange         = onHeapADT.constructors(addressRangeCtorId)
   val userHeapConstructors = onHeapADT.constructors.take(ctorSignatures.size)
   val userHeapSelectors    = onHeapADT.selectors.take(ctorSignatures.size)
   val userHeapUpdators     = onHeapADT.updators.take(ctorSignatures.size)
@@ -290,7 +290,7 @@ class ArrayHeap(heapSortName         : String,
   val alloc =
     new MonoSortedIFunction("alloc", List(HSo, OSo), AResSo, true, false)
   val batchAlloc =
-    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Nat), BAResSo,
+    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer), BAResSo,
                             true, false)
   val read =
     new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
@@ -302,7 +302,7 @@ class ArrayHeap(heapSortName         : String,
   val valid =
     new MonoSortedPredicate("valid", List(HSo, ASo))
   val addressRangeNth =
-    new MonoSortedIFunction("addressRangeNth", List(ARSo, Nat), ASo,
+    new MonoSortedIFunction("addressRangeNth", List(ARSo, Integer), ASo,
                             true, false)
   val addressRangeWithin =
     new MonoSortedPredicate("addressRangeWithin", List(ARSo, ASo))
@@ -437,14 +437,17 @@ class ArrayHeap(heapSortName         : String,
     def postVisit(t : IExpression,
                   arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
+
       case IFunApp(`emptyHeap`, _) =>
         emptyHeapTerm
+
       case IFunApp(`read`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         withEps(heap, ObjectSort, (cont, size) =>
 	      ite(validTest2(size, addr), select(cont, addrOrd(addr)), defaultObject))
       }
+
       case IFunApp(`write`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
@@ -454,6 +457,7 @@ class ArrayHeap(heapSortName         : String,
 	                   store(cont, addrOrd(addr), obj), cont),
 		           size))
       }
+
       case IFunApp(`alloc`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val obj  = subres(1).asInstanceOf[ITerm]
@@ -461,31 +465,72 @@ class ArrayHeap(heapSortName         : String,
 	      allocResPair(heapPair(store(cont, size + 1, obj), size + 1),
 	                   nthAddr(size + 1)))
       }
+
       case IFunApp(`batchAlloc`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val obj  = subres(1).asInstanceOf[ITerm]
         val num  = subres(2).asInstanceOf[ITerm]
         withEps(heap, AllocResSort, (cont, size) =>
-	      batchAllocResPair(
-            heapPair(
-              storeRange(cont, size + 1, size + 1 + num, obj), size + num),
-	        addressRange(size + 1, num)))
+        ite(num > 0,
+	          batchAllocResPair(
+              heapPair(
+                storeRange(cont, size + 1, size + 1 + num, obj), size + num),
+	            nthAddrRange(size + 1, num)),
+            batchAllocResPair(
+              heap, nthAddrRange(1, 0))))
       }
+
+      case IFunApp(`nthAddr`, _) =>
+        subres match {
+          case Seq(Const(n)) if n >= 1 => {
+            t update subres
+          }
+          case Seq(Const(_)) => {
+            nullAddr()
+          }
+          case _ => {
+            // TODO: this check has to happen in the parser
+            Console.err.println(
+              s"Warning: ${nthAddr.name} applied to non-constant " +
+              s"argument ${subres(0)}")
+            t update subres
+          }
+        }
+
+      case IFunApp(`nthAddrRange`, _) =>
+        subres match {
+          case Seq(Const(n), Const(s)) if n >= 1 && s >= 0 => {
+            t update subres
+          }
+          case Seq(Const(_), Const(_)) => {
+            nthAddrRange(1, 0)
+          }
+          case _ => {
+            // TODO: this check has to happen in the parser
+            Console.err.println(
+              s"Warning: ${nthAddrRange.name} applied to non-constant " +
+              s"arguments ${subres.mkString(", ")}")
+            t update subres
+          }
+        }
+
       case IFunApp(`addressRangeNth`, _) => {
         val range = subres(0).asInstanceOf[ITerm]
         val n     = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        ite(n < addressRangeSize(range),
+        ite((n >= 0) & (n < addressRangeSize(range)),
             nthAddr(addressRangeStart(range) + n),
             nullAddr())
       }
+
       case IAtom(`valid`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
 //	ex((v(0) <= heapSize(shiftVars(heap, 0, 1))) &
 //	   (nthAddr(v(0)) === shiftVars(addr, 0, 1)))
-	    validTest(heap, addr)
+	      validTest(heap, addr)
       }
+
       case IAtom(`addressRangeWithin`, _) => {
         val ar   = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
@@ -494,6 +539,7 @@ class ArrayHeap(heapSortName         : String,
         (addressRangeStart(ar) <= addrOrd(addr)) &
         (addrOrd(addr) < addressRangeStart(ar) + addressRangeSize(ar))
       }
+
       case _ =>
         t update subres
     }
