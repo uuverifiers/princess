@@ -33,13 +33,16 @@
 
 package ap.theories.arrays
 
+import ap.basetypes.IdealInt
 import ap.Signature
-import ap.types.{Sort, ProxySort, MonoSortedIFunction}
-import ap.theories.{Theory, TheoryRegistry}
+import ap.types.{Sort, ProxySort, MonoSortedIFunction, MonoSortedPredicate}
+import ap.theories.{Theory, TheoryRegistry, ADT}
 import ap.parser._
 import ap.terfor.conjunctions.Conjunction
+import ADT.BoolADT
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.{Map => GMap}
+import scala.collection.mutable.{HashMap => MHashMap, Map => MMap, Set => MSet}
 
 object SetTheory {
 
@@ -95,6 +98,25 @@ class SetTheory(val elementSort : Sort)
     // TODO: implement further methods. In particular, we have to translate
     // back array terms to set terms, similar to how it is done in
     // ArraySeqTheory
+
+    override def decodeToTerm(
+                   id : IdealInt,
+                   amt : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      super.decodeToTerm(id, amt).map(translateArrayTerm _)
+    
+    private def translateArrayTerm(t : ITerm) : ITerm =
+      t match {
+        case IFunApp(`const`, Seq(BoolADT.False)) =>
+          SetTheory.this.emptySet()
+        case IFunApp(`const`, Seq(BoolADT.True)) =>
+          SetTheory.this.all()
+        case IFunApp(`store`, Seq(sub, el, BoolADT.True)) =>
+          insert(el, translateArrayTerm(sub))
+        case IFunApp(`store`, Seq(sub, el, BoolADT.False)) =>
+          remove(el, translateArrayTerm(sub))
+        case _ =>
+          t
+      }
   }
 
   val sort = SetSort
@@ -107,26 +129,55 @@ class SetTheory(val elementSort : Sort)
                             List(), SetSort, true, false)
 
   /**
+   * Set of all elements.
+   */
+  val all =
+    new MonoSortedIFunction("all",
+                            List(), SetSort, true, false)
+
+  /**
    * <code>union(set, {el})</code>.
    */
   val insert =
     new MonoSortedIFunction("insert",
                             List(elementSort, SetSort), SetSort, true, false)
 
+  /**
+   * <code>set \ {el}</code>.
+   */
+  val remove =
+    new MonoSortedIFunction("remove",
+                            List(elementSort, SetSort), SetSort, true, false)
+
+  /**
+   * <code>el in set</code>
+   */
+  val member =
+    new MonoSortedPredicate("member",
+                            List(elementSort, SetSort))
+
   def including(set : ITerm, el : ITerm) : ITerm = {
     import IExpression._
     insert(el, set)
   }
 
-  val functions = List(emptySet, insert)
+  def excluding(set : ITerm, el : ITerm) : ITerm = {
+    import IExpression._
+    remove(el, set)
+  }
 
-  val (funPredicates, axioms, _, funPredMap) =
+  val functions = List(emptySet, all, insert, remove)
+  val predefPredicates = List(member)
+
+  val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
-                     otherTheories   = dependencies)
-  val predicates = funPredicates
+                     otherTheories   = dependencies,
+                     extraPredicates = predefPredicates)
 
-  val functionPredicateMapping = functions zip funPredicates
-  val functionalPredicates = funPredicates.toSet
+  val functionPredicateMapping =
+    for (f <- functions) yield (f -> funPredMap(f))
+  val functionalPredicates =
+    (functions map funPredMap).toSet
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[IFunction] = Set()
@@ -152,8 +203,15 @@ class SetTheory(val elementSort : Sort)
                   subres : Seq[IExpression]) : IExpression = t match {
       case IFunApp(`emptySet`, _) =>
         const(1)
+      case IFunApp(SetTheory.this.all, _) =>
+        const(0)
       case IFunApp(`insert`, _) =>
         store(subres(1).asInstanceOf[ITerm], subres(0).asInstanceOf[ITerm], 0)
+      case IFunApp(`remove`, _) =>
+        store(subres(1).asInstanceOf[ITerm], subres(0).asInstanceOf[ITerm], 1)
+      case IAtom(`member`, _) =>
+        eqZero(select(subres(1).asInstanceOf[ITerm],
+                      subres(0).asInstanceOf[ITerm]))
       case t =>
         t update subres
     }
@@ -184,7 +242,7 @@ class SetTheory(val elementSort : Sort)
    */
   def contains(set : ITerm, el : ITerm) : IFormula = {
     import IExpression._
-    eqZero(select(set, el))
+    member(el, set)
   }
 
   /**
@@ -208,8 +266,20 @@ class SetTheory(val elementSort : Sort)
     f match {
       case `emptySet` =>
         Some(f"(as set.empty ${sort2SMTType(SetSort).get.toSMTLIBString})")
+      case this.all =>
+        Some(f"(as set.all ${sort2SMTType(SetSort).get.toSMTLIBString})")
       case `insert` =>
         Some("set.insert")
+      case `remove` =>
+        Some("set.remove")
+      case _ =>
+        None
+    }
+
+  override def pred2SMTString(p : IExpression.Predicate) : Option[String] =
+    p match {
+      case `member` =>
+        Some("set.member")
       case _ =>
         None
     }
