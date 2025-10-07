@@ -454,10 +454,11 @@ class ArrayHeap(heapSortName         : String,
         val heap = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         val obj  = subres(2).asInstanceOf[ITerm]
-        withEps(heap, HeapSort, (cont, size) =>
-	        heapPair(ite(validTest2(size, addr),
-	                     store(cont, addrOrd(addr), obj), cont),
-		               size))
+        withEps2(heap, (cont, size, cont2, size2) =>
+          (size === size2) &
+          ((validTest2(size, addr) & (cont2 === store(cont, addrOrd(addr), obj))) |
+           (!validTest2(size, addr) & (cont2 === cont)))
+        )
       }
 
       case IFunApp(`alloc`, _) => {
@@ -486,15 +487,16 @@ class ArrayHeap(heapSortName         : String,
         val heap = subres(0).asInstanceOf[ITerm]
         val ar   = subres(1).asInstanceOf[ITerm]
         val obj  = subres(2).asInstanceOf[ITerm]
-        withEps(heap, HeapSort, (cont, size) =>
-          heapPair(
-            ite(addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size,
-                storeRange(cont,
-                           addressRangeStart(ar),
-                           addressRangeStart(ar) + addressRangeSize(ar),
-                           obj),
-	              cont),
-            size))
+        withEps2(heap, (cont, size, cont2, size2) =>
+          (size === size2) &
+          (((addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+            (cont2 === storeRange(cont,
+                                  addressRangeStart(ar),
+                                  addressRangeStart(ar) + addressRangeSize(ar),
+                                  obj))) |
+           (!(addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+            (cont2 === cont)))
+        )
       }
 
       case IFunApp(`nthAddr`, _) =>
@@ -571,15 +573,17 @@ class ArrayHeap(heapSortName         : String,
 
     private val contC = ArraySort newConstant "contC"
     private val sizeC = IExpression.Sort.Integer newConstant "sizeC"
+    private val cont2C = ArraySort newConstant "cont2C"
+    private val size2C = IExpression.Sort.Integer newConstant "size2C"
 
     private def withEps(heap    : ITerm,
                         resSort : Sort,
                         body    : (ITerm, ITerm) => ITerm) : ITerm =
       heap match {
         case SimpleTerm(heap) => {
-	      body(heapContents(heap), heapSize(heap))
-	    }
-	    case heap => {
+	        body(heapContents(heap), heapSize(heap))
+	      }
+	      case heap => {
           val sheap = shiftVars(heap, 0, 3)
           val sbody = ConstantSubstVisitor(shiftVars(body(contC, sizeC), 0, 3),
                                            Map(contC -> v(1, ArraySort),
@@ -588,6 +592,20 @@ class ArrayHeap(heapSortName         : String,
                                         (v(2, resSort) === sbody))))
         }
       }
+
+    private def withEps2(heap : ITerm,
+                         body : (ITerm, ITerm, ITerm, ITerm) => IFormula)
+                               : ITerm = {
+      val sheap = shiftVars(heap, 0, 5)
+      val sbody = ConstantSubstVisitor(
+                    shiftVars(body(contC, sizeC, cont2C, size2C), 0, 5),
+                    Map(contC  -> v(1, ArraySort), sizeC  -> v(0),
+                        cont2C -> v(3, ArraySort), size2C -> v(2)))
+      HeapSort.eps(ArraySort.ex(ex(ArraySort.ex(ex(
+        (heapPair(v(1, ArraySort), v(0)) === sheap) &
+        (heapPair(v(3, ArraySort), v(2)) === v(4, HeapSort)) &
+        sbody)))))
+    }
   }
   
   override def iPreprocess(f : IFormula, signature : Signature)

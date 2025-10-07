@@ -19,14 +19,16 @@
 (declare-const A addr)
 (declare-const A2 addr)
 
-(assert (= (AllocResheap H A) (alloc emptyheap (WrappedInt 10))))
+(assert (= H (newheap (alloc emptyheap (WrappedInt 10)))))
+(assert (= A (newaddr(alloc emptyheap (WrappedInt 10)))))
 
 (push 1)
 (assert (not (and (is-WrappedInt (read H A)) (= (getInt (read H A)) 10))))
 (check-sat) ; should be unsat
 (pop 1)
 
-(assert (= (AllocResheap H2 A2) (alloc H (Wrappedsimple (simple 42)))))
+(assert (= H2 (newheap (alloc H (Wrappedsimple (simple 42))))))
+(assert (= A2 (newaddr (alloc H (Wrappedsimple (simple 42))))))
 
 (push 1)
 (assert (= A A2))
