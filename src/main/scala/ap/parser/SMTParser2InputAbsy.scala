@@ -4218,7 +4218,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         case t : NullaryTerm
             if ctorIndexes.contains(printer print t.symbolref_) =>
           IFunApp(ctorIndexes(printer print t.symbolref_), List())
-        // TODO: further cases
+        case t : FunctionTerm
+            if ctorIndexes.contains(printer print t.symbolref_) =>
+          IFunApp(ctorIndexes(printer print t.symbolref_),
+                  t.listterm_.map(translate _))
+        case t =>
+          asTerm(translateTerm(t, 0))
       }
  
     translate(t)
