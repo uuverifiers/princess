@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -758,6 +758,23 @@ object IExpression {
         Some((t, i(0)))
       case _ =>
         None
+    }
+  }
+
+  /**
+   * Generate or match a difference bound <code>s >= t + d</code>.
+   */
+  object DiffBound {
+    def apply(s : ITerm, t : ITerm, d : IdealInt) = (s >= t +++ d)
+    def unapply(f : IFormula) : Option[(ITerm, ITerm, IdealInt)] = f match {
+      case Geq(s, IPlus(t, Const(d)))      => Some((s, t, d))
+      case Geq(s, IPlus(Const(d), t))      => Some((s, t, d))
+      case Geq(IPlus(s, Const(d)), t)      => Some((s, t, -d))
+      case Geq(IPlus(Const(d), s), t)      => Some((s, t, -d))
+      case Geq(Difference(s, t), Const(d)) => Some((s, t, d))
+      case Geq(Const(d), Difference(s, t)) => Some((t, s, -d))
+      case Geq(s, t)                       => Some((s, t, IdealInt.ZERO))
+      case _                               => None
     }
   }
 
