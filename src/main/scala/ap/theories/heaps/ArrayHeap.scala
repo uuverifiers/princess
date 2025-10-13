@@ -47,7 +47,7 @@ import ap.util.Debug
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashSet => MHashSet, Map => MMap, Set => MSet,
-                                 ArrayBuffer}
+                                 ArrayBuffer, HashMap => MHashMap}
 
 object ArrayHeap {
 
@@ -554,7 +554,7 @@ class ArrayHeap(heapSortName         : String,
         val ar   = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        onHeapADT.hasCtor(addr, nthAddrCtorId) &
+        (addr =/= nullAddr()) &
         (addressRangeStart(ar) <= addrOrd(addr)) &
         (addrOrd(addr) < addressRangeStart(ar) + addressRangeSize(ar))
       }
@@ -565,11 +565,11 @@ class ArrayHeap(heapSortName         : String,
 
     private def validTest(heap : ITerm, p : ITerm) =
 // TODO: avoid duplicating the p expression
-      onHeapADT.hasCtor(p, nthAddrCtorId) & (addrOrd(p) <= heapSize(heap))
+      (p =/= nullAddr()) & (addrOrd(p) <= heapSize(heap))
 
     private def validTest2(size : ITerm, p : ITerm) =
 // TODO: avoid duplicating the p expression
-      onHeapADT.hasCtor(p, nthAddrCtorId) & (addrOrd(p) <= size)
+      (p =/= nullAddr()) & (addrOrd(p) <= size)
 
     private val contC = ArraySort newConstant "contC"
     private val sizeC = IExpression.Sort.Integer newConstant "sizeC"
@@ -616,6 +616,161 @@ class ArrayHeap(heapSortName         : String,
     (res, signature)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val Null = IFunApp(nullAddr, Seq())
+
+  private type NullStatus  = Int
+  private type AllocStatus = Int
+
+  private val N_TOP       : NullStatus = 3
+  private val N_NULL      : NullStatus = 2
+  private val N_NON_NULL  : NullStatus = 1
+  private val N_BOT       : NullStatus = 0
+
+  private val A_TOP       : AllocStatus = 3
+  private val A_ALLOC     : AllocStatus = 2
+  private val A_NON_ALLOC : AllocStatus = 1
+  private val A_BOT       : AllocStatus = 0
+
+  private object ContradictionException extends Exception
+
+  private case class AddrStatus(
+    nullStatus  : Map[ITerm, NullStatus],
+    allocStatus : Map[(ITerm, ITerm), AllocStatus]) {
+
+    def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
+      val oldS = nullStatus.getOrElse(addr, N_TOP)
+      val newS = oldS & s
+      if (newS == 0)
+        throw ContradictionException
+      if (oldS == newS)
+        this
+      else
+        AddrStatus(nullStatus + (addr -> newS), allocStatus)
+    }
+
+    def meetAllocStatus(addr : ITerm, heap : ITerm,
+                        s : AllocStatus) : AddrStatus = {
+      val oldS = allocStatus.getOrElse((addr, heap), N_TOP)
+      val newS = oldS & s
+      if (newS == 0)
+        throw ContradictionException
+      if (oldS == newS)
+        this
+      else
+        AddrStatus(nullStatus, allocStatus + ((addr, heap) -> newS))
+    }
+
+    def maybeNonNull(addr : ITerm) =
+      (nullStatus.getOrElse(addr, N_TOP) & N_NON_NULL) != N_BOT
+
+    def mustbeNull(addr : ITerm) = !maybeNonNull(addr)
+
+    def maybeNull(addr : ITerm) =
+      (nullStatus.getOrElse(addr, N_TOP) & N_NULL) != N_BOT
+
+    def mustbeNonNull(addr : ITerm) = !maybeNull(addr)
+
+    def reduce : AddrStatus = {
+      var changed = false
+      def checkChanged(oldS : Int, newS : Int) : Int =
+        if (oldS == newS) {
+          oldS
+        } else if (newS == 0) {
+          throw ContradictionException
+        } else {
+          changed = true
+          newS
+        }
+
+      val newAS =
+        for (((addr, heap), oldS) <- allocStatus) yield {
+          val newS = if (mustbeNull(addr)) oldS & ~A_ALLOC else oldS
+          ((addr, heap), checkChanged(oldS, newS))
+        }
+
+      if (changed) AddrStatus(nullStatus, newAS) else this
+    }
+  }
+
+  private def runValidityInference(
+    constraints   : Seq[IFormula],
+    initialStatus : AddrStatus) : AddrStatus = {
+    
+    import IExpression._
+
+    var status = initialStatus
+
+    for (c <- constraints)
+      c match {
+        case Eq(Null, a) =>
+          status = status.meetNullStatus(a, N_NULL)
+        case Eq(a, Null) =>
+          status = status.meetNullStatus(a, N_NULL)
+        case INot(Eq(Null, a)) =>
+          status = status.meetNullStatus(a, N_NON_NULL)
+        case INot(Eq(a, Null)) =>
+          status = status.meetNullStatus(a, N_NON_NULL)
+        case Eq(IFunApp(`nthAddr`, Seq(_)), a) =>
+          status = status.meetNullStatus(a, ~N_NULL)
+        case IExpression.EqLit(
+               IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+               IdealInt.ZERO) =>
+          status = status.meetNullStatus(a, ~N_NON_NULL)
+        case IExpression.EqLit(
+               IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+               IdealInt.ONE) =>
+          status = status.meetNullStatus(a, ~N_NULL)
+        case DiffBound(IFunApp(`heapSize`, Seq(h)),
+                       IFunApp(`addrOrd`, Seq(a)),
+                       n)
+            if n.signum >= 0 && status.mustbeNonNull(a) =>
+          status = status.meetAllocStatus(a, h, A_ALLOC)
+        case DiffBound(IFunApp(`addrOrd`, Seq(a)),
+                       IFunApp(`heapSize`, Seq(h)),
+                       n)
+            if n.signum > 0 =>
+          status = status.meetAllocStatus(a, h, A_NON_ALLOC)
+        case c =>
+          println(s"Not handled: $c under $status")
+      }
+
+    status = status.reduce
+
+    if (status == initialStatus)
+      initialStatus
+    else
+      runValidityInference(constraints, status)
+  }
+
+  private def simplifyFor(f          : IFormula,
+                          addrStatus : AddrStatus) : IFormula =
+    f match {
+      case IBinFormula(j, _, _) => {
+        val conjuncts = LineariseVisitor(f, j)
+        val (other, constraints) = conjuncts.partition(_.isInstanceOf[IBinFormula])
+        val constraints2 =
+          j match {
+            case IBinJunctor.And => constraints
+            case IBinJunctor.Or  => constraints.map(~_)
+          }
+        val newAddrStatus = runValidityInference(constraints2, addrStatus)
+        for (c <- other)
+          simplifyFor(c, newAddrStatus)
+        f
+      }
+      case _ =>
+        println(f)
+        f
+    }
+/*
+  override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
+    val simp = new Simplifier
+    simplifyFor(simp(f), AddrStatus(Map(), Map()))
+    f
+  }
+*/
   //////////////////////////////////////////////////////////////////////////////
 
   override def isSoundForSat(

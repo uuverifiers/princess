@@ -767,6 +767,8 @@ object IExpression {
   object DiffBound {
     def apply(s : ITerm, t : ITerm, d : IdealInt) = (s >= t +++ d)
     def unapply(f : IFormula) : Option[(ITerm, ITerm, IdealInt)] = f match {
+      // !(s >= t + d)  =  (s < t + d)  =  (t > s - d)  =  (t >= s + (-d + 1))
+      case INot(DiffBound(s, t, d))        => Some((t, s, IdealInt.ONE - d))
       case Geq(s, IPlus(t, Const(d)))      => Some((s, t, d))
       case Geq(s, IPlus(Const(d), t))      => Some((s, t, d))
       case Geq(IPlus(s, Const(d)), t)      => Some((s, t, -d))
