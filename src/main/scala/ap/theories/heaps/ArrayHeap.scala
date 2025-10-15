@@ -354,7 +354,9 @@ class ArrayHeap(heapSortName         : String,
            (0 < ind) & (ind <= heapSize(heap1)) &
            (select(heapContents(heap1), ind) =/=
             select(heapContents(heap2), ind))))
-    )
+    ) &
+    //
+    (nullAddr() === 0)
   }
 
   val functions =
@@ -453,9 +455,11 @@ class ArrayHeap(heapSortName         : String,
               defaultObject)) */
         withEps3(heap, ObjectSort, (cont, size, result) =>
           ex(
-            ((saddr === nthAddr(v(0))) & (v(0) >= 1) & (v(0) <= size) &
+            ((saddr =/= Null) &
+             (saddr === nthAddr(v(0))) & (v(0) >= 1) & (v(0) <= size) &
              (result === select(cont, v(0)))) |
-            ((saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
+            ((saddr =/= Null) &
+             (saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
              (result === defaultObject)) |
             ((saddr === Null) &
              (result === defaultObject))
@@ -478,9 +482,11 @@ class ArrayHeap(heapSortName         : String,
         withEps2(heap, (cont, size, cont2, size2) =>
           ex(
             (size === size2) &
-            (((saddr === nthAddr(v(0))) & (v(0) >= 1 & v(0) <= size) &
+            (((saddr =/= Null) &
+              (saddr === nthAddr(v(0))) & (v(0) >= 1 & v(0) <= size) &
               (cont2 === store(cont, v(0), sobj))) |
-             ((saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
+             ((saddr =/= Null) &
+              (saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
               (cont2 === cont)) |
              ((saddr === Null) &
               (cont2 === cont)))
