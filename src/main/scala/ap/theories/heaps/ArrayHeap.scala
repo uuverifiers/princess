@@ -354,9 +354,7 @@ class ArrayHeap(heapSortName         : String,
            (0 < ind) & (ind <= heapSize(heap1)) &
            (select(heapContents(heap1), ind) =/=
             select(heapContents(heap2), ind))))
-    ) &
-    //
-    (nullAddr() === 0)
+    )
   }
 
   val functions =
@@ -430,6 +428,8 @@ class ArrayHeap(heapSortName         : String,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private val Null = IFunApp(nullAddr, Seq())
 
   /**
    * Visitor called during pre-processing to eliminate symbols.
@@ -537,7 +537,7 @@ class ArrayHeap(heapSortName         : String,
             t update subres
           }
           case Seq(Const(_)) => {
-            nullAddr()
+            Null
           }
           case _ => {
             // TODO: this check has to happen in the parser
@@ -571,7 +571,7 @@ class ArrayHeap(heapSortName         : String,
         // TODO: avoid duplicating terms
         ite((n >= 0) & (n < addressRangeSize(range)),
             nthAddr(addressRangeStart(range) + n),
-            nullAddr())
+            Null)
       }
 
       case IAtom(`valid`, _) => {
@@ -586,7 +586,7 @@ class ArrayHeap(heapSortName         : String,
         val ar   = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        (addr =/= nullAddr()) &
+        (addr =/= Null) &
         (addressRangeStart(ar) <= addrOrd(addr)) &
         (addrOrd(addr) < addressRangeStart(ar) + addressRangeSize(ar))
       }
@@ -597,11 +597,11 @@ class ArrayHeap(heapSortName         : String,
 
     private def validTest(heap : ITerm, p : ITerm) =
 // TODO: avoid duplicating the p expression
-      (p =/= nullAddr()) & (addrOrd(p) <= heapSize(heap))
+      (p =/= Null) & (addrOrd(p) <= heapSize(heap))
 
     private def validTest2(size : ITerm, p : ITerm) =
 // TODO: avoid duplicating the p expression
-      (p =/= nullAddr()) & (addrOrd(p) <= size)
+      (p =/= Null) & (addrOrd(p) <= size)
 
     private val contC = ArraySort newConstant "contC"
     private val sizeC = IExpression.Sort.Integer newConstant "sizeC"
@@ -662,8 +662,6 @@ class ArrayHeap(heapSortName         : String,
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  private val Null = IFunApp(nullAddr, Seq())
 
   private type NullStatus  = Int
   private type AllocStatus = Int
