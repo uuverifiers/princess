@@ -12,6 +12,10 @@ TESTS="simple-heap.smt2 \
        read-interpolation-3.smt2 \
        read-interpolation-4.smt2 \
        read-interpolation-5.smt2 \
+       alloc-interpolation-1.smt2 \
+       alloc-interpolation-1b.smt2 \
+       alloc-interpolation-2.smt2 \
+       alloc-interpolation-3.smt2 \
        simple-heap-allocAddr.smt2 \
        simple-heap-batch.smt2 \
        simple-heap-batch-dual.smt2 \

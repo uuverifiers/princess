@@ -680,7 +680,8 @@ class ArrayHeap(heapSortName         : String,
 
   private case class AddrStatus(
     nullStatus  : Map[ITerm, NullStatus],
-    allocStatus : Map[(ITerm, ITerm), AllocStatus]) {
+    allocStatus : Map[(ITerm, ITerm), AllocStatus],
+    term2Addr   : Map[ITerm, ITerm]) {
 
     def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
       val oldS = nullStatus.getOrElse(addr, N_TOP)
@@ -690,7 +691,7 @@ class ArrayHeap(heapSortName         : String,
       if (oldS == newS)
         this
       else
-        AddrStatus(nullStatus + (addr -> newS), allocStatus)
+        AddrStatus(nullStatus + (addr -> newS), allocStatus, term2Addr)
     }
 
     def meetAllocStatus(addr : ITerm, heap : ITerm,
@@ -702,7 +703,7 @@ class ArrayHeap(heapSortName         : String,
       if (oldS == newS)
         this
       else
-        AddrStatus(nullStatus, allocStatus + ((addr, heap) -> newS))
+        AddrStatus(nullStatus, allocStatus + ((addr, heap) -> newS), term2Addr)
     }
 
     def maybeNonNull(addr : ITerm) =
@@ -738,8 +739,12 @@ class ArrayHeap(heapSortName         : String,
           ((addr, heap), checkChanged(oldS, newS))
         }
 
-      if (changed) AddrStatus(nullStatus, newAS) else this
+      if (changed) AddrStatus(nullStatus, newAS, term2Addr) else this
     }
+
+    def addTermReduction(nonAddrTerm : ITerm, addrTerm : ITerm) : AddrStatus =
+      AddrStatus(nullStatus, allocStatus,
+                 term2Addr + (nonAddrTerm -> addrTerm))
 
     def --(that : AddrStatus) : AddrStatus = {
       val nullDiff =
@@ -748,7 +753,7 @@ class ArrayHeap(heapSortName         : String,
       val allocDiff =
         for ((p, s) <- allocStatus; if s != that.allocStatus.getOrElse(p, A_TOP))
         yield (p -> s)
-      AddrStatus(nullDiff, allocDiff)
+      AddrStatus(nullDiff, allocDiff, term2Addr)
     }
 
     // TODO: make this function deterministic
@@ -807,19 +812,31 @@ class ArrayHeap(heapSortName         : String,
           List()
         }
         case Eq(IFunApp(`nthAddr`, Seq(_)), a) => {
-          status = status.meetNullStatus(a, ~N_NULL)
+          status = status.meetNullStatus(a, N_NON_NULL)
           List(c)
         }
         case IExpression.EqLit(
                IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
                IdealInt.ZERO) => {
-          status = status.meetNullStatus(a, ~N_NON_NULL)
+          status = status.meetNullStatus(a, N_NULL)
+          List()
+        }
+        case INot(IExpression.EqLit(
+               IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+               IdealInt.ZERO)) => {
+          status = status.meetNullStatus(a, N_NON_NULL)
           List()
         }
         case IExpression.EqLit(
                IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
                IdealInt.ONE) => {
-          status = status.meetNullStatus(a, ~N_NULL)
+          status = status.meetNullStatus(a, N_NON_NULL)
+          List()
+        }
+        case INot(IExpression.EqLit(
+               IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+               IdealInt.ONE)) => {
+          status = status.meetNullStatus(a, N_NULL)
           List()
         }
         case DiffBound(IFunApp(`heapSize`, Seq(h)),
@@ -834,6 +851,20 @@ class ArrayHeap(heapSortName         : String,
                        n)
             if n.signum > 0 => {
           status = status.meetAllocStatus(a, h, A_NON_ALLOC)
+          List(c)
+        }
+        case Eq(t1@IFunApp(`heapSize`, Seq(h)),
+                t2@IFunApp(`addrOrd`, Seq(a))) => {
+          if (status.mustbeNonNull(a))
+            status = status.meetAllocStatus(a, h, A_ALLOC)
+          status = status.addTermReduction(t1, t2)
+          List(c)
+        }
+        case Eq(t1@IFunApp(`addrOrd`, Seq(a)),
+                t2@IFunApp(`heapSize`, Seq(h))) => {
+          if (status.mustbeNonNull(a))
+            status = status.meetAllocStatus(a, h, A_ALLOC)
+          status = status.addTermReduction(t2, t1)
           List(c)
         }
         case c => {
@@ -859,6 +890,15 @@ class ArrayHeap(heapSortName         : String,
         false
       case Geq(IFunApp(`addrOrd`, _), Const(n)) if n.signum > 0 =>
         true
+      case IExpression.EqLit(
+              IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+              IdealInt.ZERO) =>
+        a === Null
+      case IExpression.EqLit(
+              IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
+              IdealInt.ONE)
+          if addrStatus.mustbeNull(a) =>
+        a =/= Null
       case IFunApp(`nthAddr`, Seq(IFunApp(`addrOrd`, Seq(a))))
           if addrStatus.mustbeNonNull(a) =>
         a
@@ -884,6 +924,11 @@ class ArrayHeap(heapSortName         : String,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        IFunApp(`addrOrd`, Seq(a)))) =>
         readUnsafe(h, a)
+      case IFunApp(`select`,
+                   Seq(t1@IFunApp(`heapContents`, Seq(h)),
+                       t2))
+          if addrStatus.term2Addr.contains(t2) =>
+        select(t1, addrStatus.term2Addr(t2))
       case e =>
         e
     }
@@ -923,7 +968,8 @@ class ArrayHeap(heapSortName         : String,
 
   override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
     val simp = new Simplifier
-    simplifyFor(simp(f), AddrStatus(Map(), Map()))
+//    println(simp(f))
+    simplifyFor(simp(f), AddrStatus(Map(), Map(), Map()))
   }
 
   //////////////////////////////////////////////////////////////////////////////
