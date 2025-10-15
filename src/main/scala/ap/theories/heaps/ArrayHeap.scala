@@ -294,6 +294,8 @@ class ArrayHeap(heapSortName         : String,
                             true, false)
   val read =
     new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
+  val readUnsafe =
+    new MonoSortedIFunction("readUnsafe", List(HSo, ASo), OSo, true, false)
   val write =
     new MonoSortedIFunction("write", List(HSo, ASo, OSo), HSo, true, false)
   val batchWrite =
@@ -356,8 +358,8 @@ class ArrayHeap(heapSortName         : String,
   }
 
   val functions =
-    List(emptyHeap, alloc, batchAlloc, read, write, batchWrite, addressRangeNth,
-         storeRange)
+    List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
+         addressRangeNth, storeRange)
   val predefPredicates =
     List(valid, addressRangeWithin, distinctHeaps)
 
@@ -448,6 +450,13 @@ class ArrayHeap(heapSortName         : String,
 	        ite(validTest2(size, addr),
               select(cont, addrOrd(addr)),
               defaultObject))
+      }
+
+      case IFunApp(`readUnsafe`, _) => {
+        val heap = subres(0).asInstanceOf[ITerm]
+        val addr = subres(1).asInstanceOf[ITerm]
+        withEps(heap, ObjectSort, (cont, size) =>
+          select(cont, addrOrd(addr)))
       }
 
       case IFunApp(`write`, _) => {
@@ -672,6 +681,11 @@ class ArrayHeap(heapSortName         : String,
 
     def mustbeNonNull(addr : ITerm) = !maybeNull(addr)
 
+    def maybeNonValid(addr : ITerm, heap : ITerm) =
+      (allocStatus.getOrElse((addr, heap), A_TOP) & A_NON_ALLOC) != A_BOT
+
+    def mustbeValid(addr : ITerm, heap : ITerm) = !maybeNonValid(addr, heap)
+
     def reduce : AddrStatus = {
       var changed = false
       def checkChanged(oldS : Int, newS : Int) : Int =
@@ -692,85 +706,191 @@ class ArrayHeap(heapSortName         : String,
 
       if (changed) AddrStatus(nullStatus, newAS) else this
     }
+
+    def --(that : AddrStatus) : AddrStatus = {
+      val nullDiff =
+        for ((a, s) <- nullStatus; if s != that.nullStatus.getOrElse(s, N_TOP))
+        yield (a -> s)
+      val allocDiff =
+        for ((p, s) <- allocStatus; if s != that.allocStatus.getOrElse(p, A_TOP))
+        yield (p -> s)
+      AddrStatus(nullDiff, allocDiff)
+    }
+
+    def toFormula : IFormula = {
+      import IExpression._
+      val validVars =
+        (for (((a, _), A_ALLOC) <- allocStatus) yield a).toSet
+      val f1 =
+        and(for ((a, s) <- nullStatus; if s != N_TOP && !validVars(a))
+            yield s match {
+              case N_NULL     => a === Null
+              case N_NON_NULL => a =/= Null
+            })
+      val f2 =
+        and(for (((a, h), s) <- allocStatus; if s != A_TOP)
+            yield s match {
+              case A_ALLOC     => valid(h, a)
+              case A_NON_ALLOC => !valid(h, a)
+            })
+      f1 &&& f2
+    }
+
+    lazy val simplifier = {
+      val heapSimp = heapSimplify(this) _
+      new Simplifier {
+        protected override def furtherSimplifications(e : IExpression) =
+          heapSimp(e)
+      }
+    }
   }
 
   private def runValidityInference(
     constraints   : Seq[IFormula],
-    initialStatus : AddrStatus) : AddrStatus = {
+    initialStatus : AddrStatus) : (AddrStatus, Seq[IFormula]) = {
     
     import IExpression._
 
     var status = initialStatus
 
-    for (c <- constraints)
+    val remainingConstraints = constraints.flatMap(c =>
       c match {
-        case Eq(Null, a) =>
+        case Eq(Null, a) => {
           status = status.meetNullStatus(a, N_NULL)
-        case Eq(a, Null) =>
+          List()
+        }
+        case Eq(a, Null) => {
           status = status.meetNullStatus(a, N_NULL)
-        case INot(Eq(Null, a)) =>
+          List()
+        }
+        case INot(Eq(Null, a)) => {
           status = status.meetNullStatus(a, N_NON_NULL)
-        case INot(Eq(a, Null)) =>
+          List()
+        }
+        case INot(Eq(a, Null)) => {
           status = status.meetNullStatus(a, N_NON_NULL)
-        case Eq(IFunApp(`nthAddr`, Seq(_)), a) =>
+          List()
+        }
+        case Eq(IFunApp(`nthAddr`, Seq(_)), a) => {
           status = status.meetNullStatus(a, ~N_NULL)
+          List(c)
+        }
         case IExpression.EqLit(
                IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
-               IdealInt.ZERO) =>
+               IdealInt.ZERO) => {
           status = status.meetNullStatus(a, ~N_NON_NULL)
+          List()
+        }
         case IExpression.EqLit(
                IFunApp(ADT.CtorId(`onHeapADT`, `addressSortId`), Seq(a)),
-               IdealInt.ONE) =>
+               IdealInt.ONE) => {
           status = status.meetNullStatus(a, ~N_NULL)
+          List()
+        }
         case DiffBound(IFunApp(`heapSize`, Seq(h)),
                        IFunApp(`addrOrd`, Seq(a)),
                        n)
-            if n.signum >= 0 && status.mustbeNonNull(a) =>
+            if n.signum >= 0 && status.mustbeNonNull(a) => {
           status = status.meetAllocStatus(a, h, A_ALLOC)
+          List(c)
+        }
         case DiffBound(IFunApp(`addrOrd`, Seq(a)),
                        IFunApp(`heapSize`, Seq(h)),
                        n)
-            if n.signum > 0 =>
+            if n.signum > 0 => {
           status = status.meetAllocStatus(a, h, A_NON_ALLOC)
-        case c =>
-          println(s"Not handled: $c under $status")
-      }
+          List(c)
+        }
+        case c => {
+          //println(s"Not handled: $c under $status")
+          List(c)
+        }
+      })
 
     status = status.reduce
 
     if (status == initialStatus)
-      initialStatus
+      (initialStatus, remainingConstraints)
     else
-      runValidityInference(constraints, status)
+      runValidityInference(remainingConstraints, status)
+  }
+
+  private def heapSimplify(addrStatus : AddrStatus)
+                          (e : IExpression) : IExpression = {
+    import IExpression._
+    import arrayTheory.{select}
+    e match {
+      case Geq(Const(n), IFunApp(`addrOrd`, _)) if n.signum <= 0 =>
+        false
+      case Geq(IFunApp(`addrOrd`, _), Const(n)) if n.signum > 0 =>
+        true
+      case IFunApp(`nthAddr`, Seq(IFunApp(`addrOrd`, Seq(a))))
+          if addrStatus.mustbeNonNull(a) =>
+        a
+      case Eq(IFunApp(`addrOrd`, Seq(a)), IFunApp(`addrOrd`, Seq(a2)))
+          if addrStatus.mustbeNonNull(a) && addrStatus.mustbeNonNull(a2) =>
+        a === a2
+      case DiffBound(IFunApp(`heapSize`, Seq(h)),
+                     IFunApp(`addrOrd`, Seq(a)),
+                     n)
+          if n.signum >= 0 && addrStatus.mustbeValid(a, h) =>
+        true
+      case DiffBound(IFunApp(`addrOrd`, Seq(a)),
+                     IFunApp(`heapSize`, Seq(h)),
+                     n)
+          if n.signum > 0 && addrStatus.mustbeValid(a, h) =>
+        false
+      case IFunApp(`select`,
+                   Seq(IFunApp(`heapContents`, Seq(h)),
+                       IFunApp(`addrOrd`, Seq(a))))
+          if addrStatus.mustbeValid(a, h) =>
+        read(h, a)
+      case IFunApp(`select`,
+                   Seq(IFunApp(`heapContents`, Seq(h)),
+                       IFunApp(`addrOrd`, Seq(a)))) =>
+        readUnsafe(h, a)
+      case e =>
+        e
+    }
   }
 
   private def simplifyFor(f          : IFormula,
                           addrStatus : AddrStatus) : IFormula =
     f match {
-      case IBinFormula(j, _, _) => {
+      case IBinFormula(j@IBinJunctor.And, _, _) => {
+        import IExpression._
         val conjuncts = LineariseVisitor(f, j)
-        val (other, constraints) = conjuncts.partition(_.isInstanceOf[IBinFormula])
-        val constraints2 =
-          j match {
-            case IBinJunctor.And => constraints
-            case IBinJunctor.Or  => constraints.map(~_)
-          }
-        val newAddrStatus = runValidityInference(constraints2, addrStatus)
-        for (c <- other)
-          simplifyFor(c, newAddrStatus)
-        f
+        val (other, constraints) =
+          conjuncts.partition(_.isInstanceOf[IBinFormula])
+        val (newAddrStatus, other2) =
+          runValidityInference(constraints, addrStatus)
+        val other3 =
+          (other ++ other2).map(simplifyFor(_, newAddrStatus))
+
+        newAddrStatus.toFormula &&& and(other3)
+      }
+      case IBinFormula(j@IBinJunctor.Or, _, _) => {
+        import IExpression._
+        val conjuncts = LineariseVisitor(f, j)
+        val (other, constraints) =
+          conjuncts.partition(_.isInstanceOf[IBinFormula])
+        val constraints2 = constraints.map(~_)
+        val (newAddrStatus, other2) =
+          runValidityInference(constraints2, addrStatus)
+        val other3 = other2.map(~_)
+        val other4 = (other ++ other3).map(simplifyFor(_, newAddrStatus))
+
+        newAddrStatus.toFormula ===> or(other4)
       }
       case _ =>
-        println(f)
-        f
+        addrStatus.simplifier(f)
     }
-/*
+
   override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
     val simp = new Simplifier
     simplifyFor(simp(f), AddrStatus(Map(), Map()))
-    f
   }
-*/
+
   //////////////////////////////////////////////////////////////////////////////
 
   override def isSoundForSat(

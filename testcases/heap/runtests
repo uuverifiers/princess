@@ -6,7 +6,7 @@ PRI=../../princess
 
 TESTS="simple-heap.smt2 \
        simple-heap-sat.smt2 \
-       read-interpolation.smt2 \
+       read-interpolation-1.smt2 \
        simple-heap-allocAddr.smt2 \
        simple-heap-batch.smt2 \
        simple-heap-batch-dual.smt2 \
