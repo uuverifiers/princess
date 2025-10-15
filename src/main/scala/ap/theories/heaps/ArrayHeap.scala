@@ -115,19 +115,19 @@ class ArrayHeap(heapSortName         : String,
     val additionalCtors =
       List(("null" + addressSortName,
             ADT.CtorSignature(List(),
-	                          ADT.ADTSort(addressSortId))),
+	                            ADT.ADTSort(addressSortId))),
 	         ("nth" + addressSortName,
             ADT.CtorSignature(List((addressSortName + "_ord", ONat1)),
-	                          ADT.ADTSort(addressSortId))),
+	                            ADT.ADTSort(addressSortId))),
            ("nth" + addressSortName + "Range",
             ADT.CtorSignature(List((addressSortName + "_start", ONat1),
-	                               (addressSortName + "_size", ONat)),
-	                          ADT.ADTSort(addressRangeSortId))))
+	                                 (addressSortName + "_size", ONat)),
+	                            ADT.ADTSort(addressRangeSortId))))
 
     val allCtors = userCtors ++ additionalCtors
 
     new ADT(userSortNames ++ List(addressSortName, addressRangeSortName),
-    	    allCtors)
+    	      allCtors)
   }
 
   val AddressSort          = onHeapADT.sorts(addressSortId)
@@ -444,12 +444,22 @@ class ArrayHeap(heapSortName         : String,
         emptyHeapTerm
 
       case IFunApp(`read`, _) => {
-        val heap = subres(0).asInstanceOf[ITerm]
-        val addr = subres(1).asInstanceOf[ITerm]
-        withEps(heap, ObjectSort, (cont, size) =>
+        val heap  = subres(0).asInstanceOf[ITerm]
+        val addr  = subres(1).asInstanceOf[ITerm]
+        val saddr = shiftVars(addr, 0, 1)
+/*        withEps(heap, ObjectSort, (cont, size) =>
 	        ite(validTest2(size, addr),
               select(cont, addrOrd(addr)),
-              defaultObject))
+              defaultObject)) */
+        withEps3(heap, ObjectSort, (cont, size, result) =>
+          ex(
+            ((saddr === nthAddr(v(0))) & (v(0) >= 1) & (v(0) <= size) &
+             (result === select(cont, v(0)))) |
+            ((saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
+             (result === defaultObject)) |
+            ((saddr === Null) &
+             (result === defaultObject))
+          ))
       }
 
       case IFunApp(`readUnsafe`, _) => {
@@ -460,14 +470,21 @@ class ArrayHeap(heapSortName         : String,
       }
 
       case IFunApp(`write`, _) => {
-        val heap = subres(0).asInstanceOf[ITerm]
-        val addr = subres(1).asInstanceOf[ITerm]
-        val obj  = subres(2).asInstanceOf[ITerm]
+        val heap  = subres(0).asInstanceOf[ITerm]
+        val addr  = subres(1).asInstanceOf[ITerm]
+        val obj   = subres(2).asInstanceOf[ITerm]
+        val saddr = shiftVars(addr, 0, 1)
+        val sobj  = shiftVars(obj, 0, 1)
         withEps2(heap, (cont, size, cont2, size2) =>
-          (size === size2) &
-          ((validTest2(size, addr) & (cont2 === store(cont, addrOrd(addr), obj))) |
-           (!validTest2(size, addr) & (cont2 === cont)))
-        )
+          ex(
+            (size === size2) &
+            (((saddr === nthAddr(v(0))) & (v(0) >= 1 & v(0) <= size) &
+              (cont2 === store(cont, v(0), sobj))) |
+             ((saddr === nthAddr(v(0))) & (v(0) <= 0 | v(0) > size) &
+              (cont2 === cont)) |
+             ((saddr === Null) &
+              (cont2 === cont)))
+        ))
       }
 
       case IFunApp(`alloc`, _) => {
@@ -615,8 +632,21 @@ class ArrayHeap(heapSortName         : String,
         (heapPair(v(3, ArraySort), v(2)) === v(4, HeapSort)) &
         sbody)))))
     }
-  }
   
+    private def withEps3(heap    : ITerm,
+                         resSort : Sort,
+                         body    : (ITerm, ITerm, ITerm) => IFormula) : ITerm = {
+      val resC  = resSort newConstant "result"
+      val sheap = shiftVars(heap, 0, 3)
+      val sbody = ConstantSubstVisitor(shiftVars(body(contC, sizeC, resC), 0, 3),
+                                       Map(contC -> v(1, ArraySort),
+                                           sizeC -> v(0),
+                                           resC  -> v(2, resSort)))
+        resSort.eps(ArraySort.ex(ex(
+          (heapPair(v(1, ArraySort), v(0)) === sheap) & sbody)))
+    }
+  }
+
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {
 //    println("before: " + f)
@@ -717,6 +747,7 @@ class ArrayHeap(heapSortName         : String,
       AddrStatus(nullDiff, allocDiff)
     }
 
+    // TODO: make this function deterministic
     def toFormula : IFormula = {
       import IExpression._
       val validVars =
