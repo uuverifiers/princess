@@ -4120,6 +4120,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       SMTFunctionType(List(SMTInteger), SMTHeapAddress(heap)))
     env.addFunction(heap.nthAddrRange, // TODO: only accept literals as argument
       SMTFunctionType(List(SMTInteger, SMTInteger), SMTHeapAddress(heap)))
+    env.addFunction(heap.nextAddr, // TODO: only accept literals as argument
+      SMTFunctionType(List(SMTHeap(heap), SMTInteger), SMTHeapAddress(heap)))
     env.addFunction(heap.allocResHeap,
       SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeap(heap)))
     env.addFunction(heap.allocResAddr,
