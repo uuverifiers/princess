@@ -303,6 +303,9 @@ class ArrayHeap(heapSortName         : String,
                             true, false)
   val valid =
     new MonoSortedPredicate("valid", List(HSo, ASo))
+  val nextAddr =
+    new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
+                            true, false)
   val addressRangeNth =
     new MonoSortedIFunction("addressRangeNth", List(ARSo, Integer), ASo,
                             true, false)
@@ -359,7 +362,7 @@ class ArrayHeap(heapSortName         : String,
 
   val functions =
     List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
-         addressRangeNth, storeRange)
+         nextAddr, addressRangeNth, storeRange)
   val predefPredicates =
     List(valid, addressRangeWithin, distinctHeaps)
 
@@ -547,6 +550,23 @@ class ArrayHeap(heapSortName         : String,
             t update subres
           }
         }
+
+      case IFunApp(`nextAddr`, _) => {
+        val heap = subres(0).asInstanceOf[ITerm]
+        val n    = subres(1).asInstanceOf[ITerm]
+        n match {
+          case Const(_) =>
+            // nothing
+          case _ => {
+            // TODO: this check has to happen in the parser
+            Console.err.println(
+              s"Warning: ${nextAddr.name} applied to non-constant argument $n")
+          }
+        }
+        withEps(heap, AddressSort, (cont, size) =>
+          ite(size + n >= 0, nthAddr(size + n + 1), Null)
+        )
+      }
 
       case IFunApp(`nthAddrRange`, _) =>
         subres match {

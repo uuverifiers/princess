@@ -447,6 +447,9 @@ class NativeHeap(heapSortName : String, addressSortName : String,
 
   val nthAddr = new MonoSortedIFunction("nth" + addressSortName,
     List(Sort.Nat), AddressSort, false, false)
+  val nextAddr =
+    new MonoSortedIFunction("next" + addressSortName,
+    List(HeapSort, Sort.Integer), AddressSort, false, false)
 
   object HeapADTSortId extends Enumeration(initial = sortNames.size) {
     type HeapADTSortId = Value
@@ -762,7 +765,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
     List(HeapSort), Sort.Nat, false, false)
 
   val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
-                       nullAddr, counter, nthAddr, nthAddrRange,
+                       nullAddr, counter, nthAddr, nextAddr, nthAddrRange,
                        batchAlloc, batchAllocHeap, batchAllocAddrRange, nth,
                        batchWrite)
   val predefPredicates = List(isAlloc, within)
@@ -1090,6 +1093,11 @@ class NativeHeap(heapSortName : String, addressSortName : String,
         i(0)
       case IFunApp(`nthAddr`, _) =>
         subres.head
+      case IFunApp(`nextAddr`, _) => {
+        val heap = subres(0).asInstanceOf[ITerm]
+        val n    = subres(1).asInstanceOf[ITerm]
+        max(List(counter(heap) + n + 1, i(0)))
+      }
       case IFunApp(`nthAddrRange`, _) =>
         addressRangeCtor(subres(0).asInstanceOf[ITerm],
                          subres(1).asInstanceOf[ITerm])

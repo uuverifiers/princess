@@ -257,6 +257,23 @@ trait Heap extends Theory {
   val nthAddr : IFunction               // Nat1 -> Address
 
   /**
+   * A function to enumerate the next addresses that will be returned by
+   * the <code>alloc</code> function. The next address that can be
+   * allocated is <code>nextAddr(h, 0)</code>, then
+   * <code>nextAddr(h, 1)</code>, etc. Applying the function to negative
+   * integers returns the last addresses that have been allocated:
+   * <code>nextAddr(h, -1)</code> is the last address that has been allocated
+   * on <code>h</code>, <code>nextAddr(h, -2)</code> the address before that,
+   * etc. Since a heap only has finitely many allocated addresses,
+   * for two small <code>n</code>, the result of <code>nextAddr(h, n)</code>
+   * is <code>nullAddr</code>.
+   * 
+   * <code>nthAddr(k)</code> is a synonym for
+   * <code>nextAddr(emptyHeap, k - 1)</code>.
+   */
+  val nextAddr : IFunction              // Heap x Int -> Address
+
+  /**
    * A function to enumerate range of the addresses that can be used on this
    * heap. <code>nthAddrRange(1, n)</code> is a range of addresses starting
    * at the address <code>nthAddr(1)</code> of size <code>n</code>. Applying

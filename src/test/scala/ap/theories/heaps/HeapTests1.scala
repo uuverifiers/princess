@@ -471,6 +471,15 @@ class HeapTests1 extends Properties("HeapTests1") {
         batchWrite(batchWrite(h, r, o1), r, o))
     )
 
+    TestCase(
+      "Behaviour of nextAddr",
+      SatStep((h === emptyHeap()) ==> (nextAddr(h, 41) === nthAddr(42))),
+      UnsatStep(isAlloc(h, nextAddr(h, 0))),
+      SatStep(isAlloc(h, nextAddr(h, -1))),
+      UnsatStep(allocResAddr(alloc(h, o)) =/= nextAddr(h, 0)),
+      SatStep(!isAlloc(h, nextAddr(h, -10)) & isAlloc(h, nextAddr(h, -9)))
+    )
+
   }}
 
 }
