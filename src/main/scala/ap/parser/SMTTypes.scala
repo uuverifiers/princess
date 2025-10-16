@@ -41,7 +41,7 @@ import ap.theories.sequences.SeqTheory
 import ap.theories.arrays.{ExtArray, SimpleArray, SetTheory}
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
-import ap.theories.heaps.IHeap
+import ap.theories.heaps.Heap
 import ap.types.UninterpretedSortTheory
 import ap.util.Debug
 
@@ -126,37 +126,37 @@ object SMTTypes {
     }
   }
 
-  case class SMTHeap(heap : IHeap)                  extends SMTType {
+  case class SMTHeap(heap : Heap)                  extends SMTType {
     def toSort = heap.HeapSort
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddress(heap : IHeap)           extends SMTType {
+  case class SMTHeapAddress(heap : Heap)           extends SMTType {
     def toSort = heap.AddressSort
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddressRange(heap : IHeap)      extends SMTType {
+  case class SMTHeapAddressRange(heap : Heap)      extends SMTType {
     def toSort = heap.AddressRangeSort
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAllocRes(heap : IHeap)          extends SMTType {
+  case class SMTHeapAllocRes(heap : Heap)          extends SMTType {
     def toSort = heap.AllocResSort
     override def toString = toSort.name
     def toSMTLIBString = toSort.name
   }
 
-  case class SMTHeapBatchAllocRes(heap : IHeap)     extends SMTType {
+  case class SMTHeapBatchAllocRes(heap : Heap)     extends SMTType {
     def toSort = heap.BatchAllocResSort
     override def toString = toSort.name
     def toSMTLIBString = toSort.name
   }
 
-  case class SMTHeapADT(heap : IHeap, sortNum : Int) extends SMTType {
+  case class SMTHeapADT(heap : Heap, sortNum : Int) extends SMTType {
     def toSort = heap.userHeapSorts(sortNum)
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(this.toString)
@@ -213,7 +213,7 @@ object SMTTypes {
       val Some(theory) = SeqTheory lookupSeqSort sort
       (SMTSeq(theory, sort2SMTType(theory.ElementSort)._1), None)
     }
-    case IHeap.HeapRelatedSort(heap) =>
+    case Heap.HeapRelatedSort(heap) =>
       sort match {
         case heap.HeapSort          => (SMTHeap(heap),              None)
         case heap.AddressSort       => (SMTHeapAddress(heap),       None)

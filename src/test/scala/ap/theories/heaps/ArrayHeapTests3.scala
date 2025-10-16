@@ -46,7 +46,7 @@ import org.scalacheck.Properties
 import ap.util.Prop._
 
 class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
-  import IHeap._
+  import Heap._
   import HeapTests.measureTime
 
   Debug enableAllAssertions false
@@ -69,12 +69,12 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
       objectCtors.last()
     }
 
-  def createArrayHeap : IHeap =
+  def createArrayHeap : Heap =
     new ArrayHeap(
       "heap", "addr", "addrRange", ObjSort, sorts, ctors, defObjCtor)
 
-  def createNativeHeap : IHeap =
-    new Heap(
+  def createNativeHeap : Heap =
+    new NativeHeap(
       "heap", "addr", "addrRange", ObjSort, List("HeapObject"), ctors, defObjCtor)
 
   import IExpression.toFunApplier
@@ -128,7 +128,7 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
     true
   }}
 
-  def checkHeap(heap : IHeap, pr : SimpleAPI,
+  def checkHeap(heap : Heap, pr : SimpleAPI,
                 initHeap : ITerm, as : Int => ITerm) : Unit = {
     import heap._
     import pr._

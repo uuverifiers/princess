@@ -46,13 +46,13 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap, Map => MMap,
                                  Set => MSet}
 import scala.collection.{mutable, Map => GMap}
 
-object Heap {
+object NativeHeap {
   private val AC = Debug.AC_HEAP
   
   class HeapException(m : String) extends Exception(m)
 
   class AddressSort(sortName : String,
-                    val heapTheory : Heap) extends ProxySort(Sort.Nat)
+                    val heapTheory : NativeHeap) extends ProxySort(Sort.Nat)
                                            with Theory.TheorySort {
     import IExpression.toFunApplier
 
@@ -69,7 +69,7 @@ object Heap {
   }
 
   class HeapSort(sortName : String,
-                 val heapTheory : Heap) extends ProxySort(Sort.Integer)
+                 val heapTheory : NativeHeap) extends ProxySort(Sort.Integer)
                                         with Theory.TheorySort {
     import IExpression.toFunApplier
     import ap.terfor.conjunctions.Conjunction
@@ -330,9 +330,9 @@ object Heap {
   addressRangeSort : addressRangeCtor (addr X nat); addrRangeStart, addrRangeSize
   */
   object HeapSortExtractor {
-    def unapply (sort : Sort) : Option[Heap] = {
+    def unapply (sort : Sort) : Option[NativeHeap] = {
       sort match {
-        case address : Heap.AddressSort =>
+        case address : NativeHeap.AddressSort =>
           Some(address.heapTheory)
         case adtSort : ADTProxySort =>
           // check if this is one of the hard-coded heapADT sorts
@@ -365,23 +365,23 @@ object Heap {
    * Also recognises the selectors and the constructor of AllocResSort ADT
    */
   object HeapFunExtractor {
-    def unapply(fun: IFunction): Option[Heap] =
+    def unapply(fun: IFunction): Option[NativeHeap] =
       (TheoryRegistry lookupSymbol fun) match {
-        case Some(t: Heap) => Some(t)
+        case Some(t: NativeHeap) => Some(t)
         case Some(_: ADT) if fun.isInstanceOf[MonoSortedIFunction] =>
           val sortedFun = fun.asInstanceOf[MonoSortedIFunction]
           sortedFun.resSort match {
-            case s: Heap.HeapSort =>
+            case s: NativeHeap.HeapSort =>
               if (sortedFun == s.heapTheory.newHeap) // newHeap(ar : AllocRes)
                 Some(s.heapTheory)
               else None
-            case s: Heap.AddressSort =>
+            case s: NativeHeap.AddressSort =>
               if (sortedFun == s.heapTheory.newAddr) // newAddr(ar : AllocRes)
                 Some(s.heapTheory)
               else None
             case t if sortedFun.arity == 2 => // AllocRes constructor
               sortedFun.argSorts.head match {
-                case s: Heap.HeapSort =>
+                case s: NativeHeap.HeapSort =>
                   if (t == s.heapTheory.allocResSort)
                     Some(s.heapTheory)
                   else None
@@ -398,9 +398,9 @@ object Heap {
    * Extractor recognising the predicates of any Heap theory.
    */
   object HeapPredExtractor {
-    def unapply(pred : Predicate) : Option[Heap] =
+    def unapply(pred : Predicate) : Option[NativeHeap] =
       (TheoryRegistry lookupSymbol pred) match {
-        case Some(t : Heap) => Some(t)
+        case Some(t : NativeHeap) => Some(t)
         case _ => None
       }
   }
@@ -418,15 +418,15 @@ object Heap {
  * @param sortNames
  * @param ctorSignatures
  */
-class Heap(heapSortName : String, addressSortName : String,
+class NativeHeap(heapSortName : String, addressSortName : String,
            addressRangeSortName : String,
-           objectSort : IHeap.ADTSort, sortNames : Seq[String],
-           ctorSignatures : Seq[(String, IHeap.CtorSignature)],
+           objectSort : Heap.ADTSort, sortNames : Seq[String],
+           ctorSignatures : Seq[(String, Heap.CtorSignature)],
            defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
-    extends IHeap with SMTLinearisableTheory {
+    extends Heap with SMTLinearisableTheory {
 
+  import NativeHeap._
   import Heap._
-  import IHeap._
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AC,
@@ -1050,7 +1050,7 @@ class Heap(heapSortName : String, addressSortName : String,
           List(
             Plugin.RemoveFacts(
               ap.terfor.equations.NegEquationConj(neqsToRemove, goal.order)),
-            Plugin.AddAxiom(List(), conj(neqsToAdd), Heap.this)
+            Plugin.AddAxiom(List(), conj(neqsToAdd), NativeHeap.this)
           )
         }
       }
@@ -1287,7 +1287,7 @@ class Heap(heapSortName : String, addressSortName : String,
   //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
-  IHeap register this
+  Heap register this
   override def toString = "HeapTheory"
 
   import IBinJunctor._

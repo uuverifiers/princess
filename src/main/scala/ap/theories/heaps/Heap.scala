@@ -44,7 +44,7 @@ import scala.collection.mutable.{HashMap => MHashMap}
 /**
  * Companion object for the trait implemented by the different heap theories.
  */
-object IHeap {
+object Heap {
 
   /**
    * Abstract class for the sorts that the heap ADT can refer to.
@@ -88,12 +88,12 @@ object IHeap {
    * user defined ADT sorts, etc.
    */
   object HeapRelatedSort {
-    def unapply(s : Sort) : Option[IHeap] = synchronized { heapSorts get s }
+    def unapply(s : Sort) : Option[Heap] = synchronized { heapSorts get s }
   }
 
-  private val heapSorts = new MHashMap[Sort, IHeap]
+  private val heapSorts = new MHashMap[Sort, Heap]
 
-  def register(t : IHeap) : Unit = synchronized {
+  def register(t : Heap) : Unit = synchronized {
     heapSorts.put(t.HeapSort,          t)
     heapSorts.put(t.AddressSort,       t)
     heapSorts.put(t.AddressRangeSort,  t)
@@ -109,7 +109,7 @@ object IHeap {
 /**
  * Trait implemented by the different heap theories.
  */
-trait IHeap extends Theory {
+trait Heap extends Theory {
 
   /**
    * Sort of heaps in this heap theory.
@@ -156,7 +156,7 @@ trait IHeap extends Theory {
   /**
    * User-specified constructor declarations.
    */
-  val userHeapCtorSignatures : Seq[(String, IHeap.CtorSignature)]
+  val userHeapCtorSignatures : Seq[(String, Heap.CtorSignature)]
 
   /**
    * Constructors declared as part of the heap ADT.

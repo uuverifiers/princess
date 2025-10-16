@@ -46,7 +46,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{ExtArray, ADT, ModuloArithmetic, Theory, DivZero}
-import ap.theories.heaps.{IHeap, Heap, ArrayHeap}
+import ap.theories.heaps.{Heap, NativeHeap, ArrayHeap}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.sequences.{SeqTheory, SeqTheoryBuilder}
 import ap.theories.rationals.Rationals
@@ -982,7 +982,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
         val heapSortName = asString(cmd.identifier_1)
         val addressSortName = asString(cmd.identifier_2)
-        val addressRangeSortName = addressSortName + IHeap.AddressRangeSuffix
+        val addressRangeSortName = addressSortName + Heap.AddressRangeSuffix
         val objectSortName = asString(cmd.identifier_3)
 
         val ADTSortNames =
@@ -3828,7 +3828,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     addressRangeSortName : String,
                                     resultSortNum        : Int,
                                     constructorDecls     : Seq[ConstructorDeclC])
-                                 : (Seq[(String, IHeap.CtorSignature)],
+                                 : (Seq[(String, Heap.CtorSignature)],
                                     Seq[Seq[SMTType]]) =
     (for (ctor <- constructorDecls) yield ctor match {
       case ctorDecl : ConstructorDecl => {
@@ -3845,31 +3845,31 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                 case -1 => {
                   selSortName match {
                     case `addressSortName` =>
-                      (IHeap.AddrSort, SMTHeapAddress(null))
+                      (Heap.AddrSort, SMTHeapAddress(null))
                     case `addressRangeSortName` =>
-                      (IHeap.AddrRangeSort, SMTHeapAddressRange(null))
+                      (Heap.AddrRangeSort, SMTHeapAddressRange(null))
                     case _ => {
                       val t = translateSort(selDecl.sort_)
-                      (IHeap.OtherSort(t.toSort), t)
+                      (Heap.OtherSort(t.toSort), t)
                     }
                   }
                 }
                 case ind =>
                   // we don't have the actual heap yet, so just put
                   // null for the moment
-                  (IHeap.ADTSort(ind), SMTHeapADT(null, ind))
+                  (Heap.ADTSort(ind), SMTHeapADT(null, ind))
               }
 
             ((selName, adtSort), smtSort)
           }).unzip
 
-        ((ctorName, IHeap.CtorSignature(adtArgs, IHeap.ADTSort(resultSortNum))),
+        ((ctorName, Heap.CtorSignature(adtArgs, Heap.ADTSort(resultSortNum))),
          smtArgs)
       }
 
       case ctorDecl : NullConstructorDecl =>
         ((asString(ctorDecl.symbol_),
-          IHeap.CtorSignature(List(), IHeap.ADTSort(resultSortNum))),
+          Heap.CtorSignature(List(), Heap.ADTSort(resultSortNum))),
          List())
     }).unzip
 
@@ -4064,7 +4064,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   private def setupHeap(heapSortName : String, addressSortName : String,
                         addressRangeSortName : String,
                         objectSortName : String, adtSortNames : Seq[String],
-                        allCtors : Seq[(Seq[(String, IHeap.CtorSignature)],
+                        allCtors : Seq[(Seq[(String, Heap.CtorSignature)],
                                         Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
@@ -4075,7 +4075,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       adtSortNames.indexOf(objectSortName) match {
         case -1 => throw new Parser2InputAbsy.TranslationException(
           "Could not find " + objectSortName + " among the given sorts.")
-        case n => (IHeap.ADTSort(n), n)
+        case n => (Heap.ADTSort(n), n)
       }
 
     // This gets called during the heap theory construction, before the actual
@@ -4083,11 +4083,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     def defObjCtor(objectCtors : Seq[MonoSortedIFunction]) : ITerm =
       translateDefaultObjectTerm(defaultObjectTerm, objectCtors)
 
-    val heap : IHeap =
+    val heap : Heap =
       Param.HEAP_THEORY(settings) match {
         case Param.HeapTheory.Native =>
-          new Heap(heapSortName, addressSortName, addressRangeSortName,
-                   objectSort, adtSortNames, adtCtors, defObjCtor _)
+          new NativeHeap(heapSortName, addressSortName, addressRangeSortName,
+                         objectSort, adtSortNames, adtCtors, defObjCtor _)
         case Param.HeapTheory.Array =>
           new ArrayHeap(heapSortName, addressSortName, addressRangeSortName,
                         objectSort, adtSortNames, adtCtors, defObjCtor _)
@@ -4231,16 +4231,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
   // extracts the heap theory given a sequence of terms, and possibly the heap
   // term if it is in the arguments (as the head)
+  /*
   protected def extractHeap(args : Seq[Term])
-                : scala.Option[(scala.Option[ITerm], IHeap)] =
+                : scala.Option[(scala.Option[ITerm], Heap)] =
     args match {
       case Seq(arg0, _*) => {
         val p@(t, s) = translateTerm(arg0, 0)
         s match {
-          case SMTHeap(heapTheory)  => Some((Some(asTerm(p)), heapTheory.asInstanceOf[Heap]))
+          case SMTHeap(heapTheory)  =>
+            Some((Some(asTerm(p)), heapTheory.asInstanceOf[Heap]))
           case SMTADT(adt, sortNum) => // if this is one of the heapADTs
             adt.sorts(sortNum) match {
-              case Heap.HeapSortExtractor(heap) =>
+              case NativeHeap.HeapSortExtractor(heap) =>
                 Some((None, heap))
               case _ => None
             }
@@ -4249,16 +4251,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       }
       case _ => None
     }
-
+*/
   protected def translateHeapFun(heapInd   : Int,
-                                 funF      : IHeap => IFunction,
+                                 funF      : Heap => IFunction,
                                  args      : Seq[Term],
-                                 argTypesF : IHeap => Seq[SMTType],
-                                 resTypeF  : IHeap => SMTType)
+                                 argTypesF : Heap => Seq[SMTType],
+                                 resTypeF  : Heap => SMTType)
                                : (IExpression, SMTType) = {
     val transArgs = for (a <- args) yield translateTerm(a, 0)
     val heapArg   = transArgs(heapInd)
-    val heapTheory : IHeap =
+    val heapTheory : Heap =
       heapArg._2 match {
         case SMTHeap(t)             => t
         case SMTHeapAddressRange(t) => t
@@ -4277,13 +4279,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   }
 
   protected def translateHeapPred(heapInd   : Int,
-                                  predF     : IHeap => Predicate,
+                                  predF     : Heap => Predicate,
                                   args      : Seq[Term],
-                                  argTypesF : IHeap => Seq[SMTType])
+                                  argTypesF : Heap => Seq[SMTType])
                                 : (IExpression, SMTType) = {
     val transArgs = for (a <- args) yield translateTerm(a, 0)
     val heapArg   = transArgs(heapInd)
-    val heapTheory : IHeap =
+    val heapTheory : Heap =
       heapArg._2 match {
         case SMTHeap(t)             => t
         case SMTHeapAddressRange(t) => t
@@ -4301,7 +4303,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     (IAtom(pred, transArgs map (asTerm(_))), SMTBool)
   }
 
-  protected def objectType(heapTheory : IHeap) : SMTType =
+  protected def objectType(heapTheory : Heap) : SMTType =
     SMTLineariser.sort2SMTType(heapTheory.ObjectSort)._1
 
   //////////////////////////////////////////////////////////////////////////////

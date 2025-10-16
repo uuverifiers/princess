@@ -46,7 +46,7 @@ import ap.util.Prop._
 
 class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
   import HeapTests._
-  import IHeap._
+  import Heap._
 
   Debug enableAllAssertions true
 
@@ -59,35 +59,57 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
     objectCtors.last()
   }
 
-  val heap = new ArrayHeap(
-    "heap", "addr", "addrRange", ObjSort,
-    List("HeapObject", "struct_S"), List(
-      ("WrappedInt", CtorSignature(List(("getInt",
-        OtherSort(Sort.Integer))), ObjSort)),
-      ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
-      ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-      ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
-        StructSSort)),
-      ("defObj", CtorSignature(List(), ObjSort))),
-    defObjCtor)
+  property("ArrayHeap") = Console.withOut(ap.CmdlMain.NullStream) {
+    val heap : Heap = new ArrayHeap(
+      "heap", "addr", "addrRange", ObjSort,
+      List("HeapObject", "struct_S"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
+          StructSSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor)
 
-  val Seq(wrappedInt,
-          wrappedS,
-          wrappedAddr,
-          struct_S,
-          defObjCtr) = heap.userHeapConstructors
-  val Seq(Seq(getInt),
-          Seq(getS),
-          Seq(getAddr),
-          Seq(sel_x), _*) = heap.userHeapSelectors
+    runHeapTests(heap)
+    true
+  }
 
-  import IExpression.toFunApplier
-  val defObj = defObjCtr()
+  property("NativeHeap") = Console.withOut(ap.CmdlMain.NullStream) {
+    val heap : Heap = new NativeHeap(
+      "heap", "addr", "addrRange", ObjSort,
+      List("HeapObject", "struct_S"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
+          StructSSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor)
 
-  property("main") = Console.withOut(ap.CmdlMain.NullStream) {
+    runHeapTests(heap)
+    true
+  }
+
+  def runHeapTests(heap : Heap) : Unit = {
   SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
     import heap._
+
+    val Seq(wrappedInt,
+            wrappedS,
+            wrappedAddr,
+            struct_S,
+            defObjCtr) = heap.userHeapConstructors
+    val Seq(Seq(getInt),
+            Seq(getS),
+            Seq(getAddr),
+            Seq(sel_x), _*) = heap.userHeapSelectors
+
+    import IExpression.toFunApplier
+    val defObj = defObjCtr()
 
     val h = createConstant("h", HeapSort)
     val h1 = createConstant("h1", HeapSort)
@@ -109,13 +131,13 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
 
     TestCase (
       "All locations on the empty heap are unallocated.",
-      UnsatStep(valid(emptyHeap(), p)),
-      SatStep(!valid(emptyHeap(), p))
+      UnsatStep(isAlloc(emptyHeap(), p)),
+      SatStep(!isAlloc(emptyHeap(), p))
     )
 
     TestCase (
       "For all heaps, null pointer always points to an unallocated location.",
-      UnsatStep(valid(h, nullAddr()))
+      UnsatStep(isAlloc(h, nullAddr()))
     )
 
     TestCase(
@@ -153,7 +175,6 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
       )
     )
 
-/*
     TestCase(
       "Deterministic allocation",
       UnsatStep(
@@ -164,7 +185,6 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
         allocResAddr(ar) =/= allocResAddr(ar1)
       )
     )
-*/
 
     TestCase(
       "Quantifiers over addresses",
@@ -175,7 +195,7 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
       UnsatStep(
         AddressSort.all(x => (p === x | p1 === x) ==> valid(h, x)),
         h1 === allocResHeap(alloc(h, o)),
-	!valid(h1, p1)
+	      !valid(h1, p1)
       )
     )
 
@@ -317,17 +337,23 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
       UnsatStep(write(h, p, o) =/= write(write(h, p, o1), p, o))
     )
 
-/*
     TestCase(
       "Extensionality",
-      CommonAssert(counter(h) === counter(h1) &
+      CommonAssert(// counter(h) === counter(h1) &
                    h =/= h1),
       SatStep(AddressSort.ex(a =>
-        isAlloc(h, a) & (read(h, a) =/= read(h1, a)))),
-      UnsatStep(AddressSort.all(a =>
-        isAlloc(h, a) & (read(h, a) === read(h1, a))))
+        (isAlloc(h, a) </> isAlloc(h, a)) |
+        (isAlloc(h, a) & isAlloc(h1, a) & read(h, a) =/= read(h1, a))))
+        /* ,
+      UnsatStep(
+        AddressSort.all(a =>
+          (isAlloc(h, a) ==> isAlloc(h1, a))) &
+        AddressSort.all(a =>
+          (isAlloc(h1, a) ==> isAlloc(h, a))) &
+        AddressSort.all(a =>
+          (isAlloc(h, a) ==> (read(h, a) === read(h1, a))))
+      ) */
     )
-*/
 
     TestCase(
       "ROW-Upward",
@@ -373,7 +399,6 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
       UnsatStep(read(h2, addressRangeNth(r, 3)) =/= wrappedInt(42))
     )
 
-/*
     TestCase(
       "Reading from a previously batch-written (alloc.) " +
         "location returns that value.",
@@ -393,8 +418,8 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
     TestCase(
       "batchWrite to a location does not modify the rest of the locations",
       CommonAssert(
-        isAlloc(h, p) & !within(r, p) & addrRangeSize(r) > 0 &
-          isAlloc(h, nth(r, addrRangeSize(r)-1)) // h is allocated for the whole address range
+        isAlloc(h, p) & !addressRangeWithin(r, p) & addressRangeSize(r) > 0 &
+          isAlloc(h, addressRangeNth(r, addressRangeSize(r)-1)) // h is allocated for the whole address range
       ),
       SatStep(
         read(batchWrite(h, r, o), p) === read(h, p)
@@ -408,7 +433,7 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
       "batchWrite to a range that contains an unallocated location " +
         "returns the same heap.",
       CommonAssert(
-        within(r, p) & !isAlloc(h, p)
+        addressRangeWithin(r, p) & !isAlloc(h, p)
       ),
       SatStep(batchWrite(h, r, o) === h),
       UnsatStep(batchWrite(h, r, o) =/= h),
@@ -432,7 +457,7 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
 
     TestCase(
       "Extensionality over batchWrite (exclude empty heaps and empty address ranges)",
-      CommonAssert(h =/= emptyHeap() & addrRangeSize(r) > 0),
+      CommonAssert(h =/= emptyHeap() & addressRangeSize(r) > 0),
       SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
       UnsatStep(batchWrite(h, r, o) =/=
         batchWrite(batchWrite(h, r, o1), r, o))
@@ -440,15 +465,12 @@ class ArrayHeapTests1 extends Properties("ArrayHeapTests1") {
 
     TestCase(
       "Extensionality over batchWrite (only valid writes)",
-      CommonAssert(addrRangeSize(r) > 0 & p === nth(r, addrRangeSize(r)-1) ),
+      CommonAssert(addressRangeSize(r) > 0 & p === addressRangeNth(r, addressRangeSize(r)-1) ),
        SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
       UnsatStep(batchWrite(h, r, o) =/=
         batchWrite(batchWrite(h, r, o1), r, o))
     )
 
-  */
-
-    true
   }}
 
 }

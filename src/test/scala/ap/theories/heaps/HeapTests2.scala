@@ -44,102 +44,16 @@ import ap.util.Debug
 import org.scalacheck.Properties
 import ap.util.Prop._
 
-class PrincessTesterXXX (p : SimpleAPI) {
-  import p._
-
-  var testCaseCounter = 1;
-
-  private def expect[A](x : A, expected : A) : (A, Boolean) = {
-    println(x)
-    (x, x == expected)
-  }
-
-  abstract sealed class TestStep (val fs : IFormula*)
-  case class SatStep(override val fs : IFormula*) extends TestStep
-  case class UnsatStep(override val fs : IFormula*) extends TestStep
-  case class CommonAssert (override val fs : IFormula*) extends TestStep
-
-  private def printModel {
-    val newLine = "\n" + " "*2
-    println {"Model:" + newLine +
-             (for ((l, v) <- partialModel.interpretation.iterator)
-               yield {
-                 l + " -> " + v
-               }).mkString(newLine)
-    }
-  }
-
-  private def justAssert(s : TestStep) = {
-    for (f <- s.fs) {
-      addAssertion(f)
-      print("  ")
-      PrincessLineariser printExpression f
-      println
-    }
-  }
-
-  private def executeStep(ps : ProverStatus.Value, s : TestStep) : Boolean = {
-    var res = false
-    scope {
-      for (f <- s.fs) {
-        addAssertion(f)
-        print("  ")
-        PrincessLineariser printExpression f
-        if (s.fs.last != f) println(" &")
-      }
-      print(" --> ")
-      val (proverResult, passed) = expect(???, ps)
-      res = passed
-      //if (passed && proverResult == ProverStatus.Sat) printModel
-      //else if (passed && proverResult == ProverStatus.Unsat)
-      //  println(certificateAsString(Map.empty,
-      //    InputFormat.Princess))
-    }
-    res
-  }
-
-  def TestCase(name : String, steps : TestStep*) {
-    println("=" * 80)
-    println(
-      "Test " + testCaseCounter + ": " + name)
-    println("-" * 80)
-    var stepNo = 1;
-    scope {
-      for (s <- steps) {
-        if (s.isInstanceOf[CommonAssert]) {
-          println("-" * 80)
-          println("Common assertion: ")
-          justAssert(s)
-          println("-" * 80)
-        } else {
-          print("Step " + testCaseCounter + "." + stepNo + " (expected: ")
-          stepNo = stepNo + 1
-          s match {
-            case _ : SatStep => println("Sat)")
-              executeStep(ProverStatus.Sat, s)
-            case _ : UnsatStep => println("Unsat)")
-              executeStep(ProverStatus.Unsat, s)
-            case _ => // do nothing as CommonAssert step is already handled
-          }
-          if (steps.last != s) println("-" * 80)
-        }
-      }
-      println("=" * 80)
-      testCaseCounter = testCaseCounter + 1
-    }
-  }
-}
-
 class HeapTests2 extends Properties("HeapTests2") {
   import HeapTests._
-  import IHeap._
+  import Heap._
 
   Debug enableAllAssertions true
 
   val NullObjName = "NullObj"
   val ObjSort = ADTSort(0)
   val StructSSort = ADTSort(1)
-  val heap = new Heap("heap", "addr", "addrRange", ObjSort,
+  val heap = new NativeHeap("heap", "addr", "addrRange", ObjSort,
     List("HeapObject", "struct_S"), List(
       ("WrappedInt", CtorSignature(List(("getInt",
         OtherSort(Sort.Integer))), ObjSort)),

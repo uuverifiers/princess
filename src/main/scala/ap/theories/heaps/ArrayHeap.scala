@@ -69,12 +69,12 @@ object ArrayHeap {
 class ArrayHeap(heapSortName         : String,
                 addressSortName      : String,
                 addressRangeSortName : String,
-                objectSort           : IHeap.ADTSort,
+                objectSort           : Heap.ADTSort,
                 userSortNames        : Seq[String],
-                ctorSignatures       : Seq[(String, IHeap.CtorSignature)],
+                ctorSignatures       : Seq[(String, Heap.CtorSignature)],
                 defaultObjectCtor    : Seq[MonoSortedIFunction] => ITerm)
-      extends IHeap {
-  import IHeap._
+      extends Heap {
+  import Heap._
   import ArrayHeap._
   import Sort.{Nat, Integer}
 
@@ -985,6 +985,6 @@ class ArrayHeap(heapSortName         : String,
 
   override def toString = name
   TheoryRegistry register this
-  IHeap register this
+  Heap register this
 
 }
