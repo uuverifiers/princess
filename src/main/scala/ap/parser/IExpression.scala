@@ -694,6 +694,27 @@ object IExpression {
   }
 
   /**
+   * Generate or match an inequality <code>s >= lit</code>,
+   * where <code>lit</code> is an integer literal.
+   */
+  object GeqLit {
+    def apply(s : ITerm, t : IdealInt) : IFormula = (s >= t)
+    def unapply(f : IFormula) : Option[(ITerm, IdealInt)] = f match {
+      case INot(GeqLit(s, t)) =>
+        // !(s >= t) = (s < t) = (-s > -t) = (-s >= -t+1)
+        Some((-s, -t + 1))
+      case IIntFormula(IIntRelation.GeqZero, IPlus(a, IIntLit(c))) =>
+        Some((a, -c))
+      case IIntFormula(IIntRelation.GeqZero, IPlus(IIntLit(c), a)) =>
+        Some((a, -c))
+      case IIntFormula(IIntRelation.GeqZero, t) =>
+        Some((t, IdealInt.ZERO))
+      case _ =>
+        None
+    }
+  }
+
+  /**
    * Generate or match a divisibility expression ex x. denom*x = t.
    */
   object Divisibility {
@@ -762,6 +783,19 @@ object IExpression {
   }
 
   /**
+   * Generate or match a sum <code>t + d</code>, where <code>d</code>
+   * is some integer constant.
+   */
+  object OffsetTerm {
+    def apply(t : ITerm, d : IdealInt) = (t +++ d)
+    def unapply(f : ITerm) : Option[(ITerm, IdealInt)] = f match {
+      case IPlus(t, Const(d)) => Some((t, d))
+      case IPlus(Const(d), t) => Some((t, d))
+      case t                  => Some((t, IdealInt.ZERO))
+    }
+  }
+
+  /**
    * Generate or match a difference bound <code>s >= t + d</code>.
    */
   object DiffBound {
@@ -776,6 +810,23 @@ object IExpression {
       case Geq(Difference(s, t), Const(d)) => Some((s, t, d))
       case Geq(Const(d), Difference(s, t)) => Some((t, s, -d))
       case Geq(s, t)                       => Some((s, t, IdealInt.ZERO))
+      case _                               => None
+    }
+  }
+
+  /**
+   * Generate or match a difference equation <code>s = t + d</code>.
+   */
+  object DiffEq {
+    def apply(s : ITerm, t : ITerm, d : IdealInt) = (s === (t +++ d))
+    def unapply(f : IFormula) : Option[(ITerm, ITerm, IdealInt)] = f match {
+      case Eq(s, IPlus(t, Const(d)))      => Some((s, t, d))
+      case Eq(s, IPlus(Const(d), t))      => Some((s, t, d))
+      case Eq(IPlus(s, Const(d)), t)      => Some((t, s, d))
+      case Eq(IPlus(Const(d), s), t)      => Some((t, s, d))
+      case Eq(Difference(s, t), Const(d)) => Some((s, t, d))
+      case Eq(Const(d), Difference(s, t)) => Some((s, t, d))
+      case Eq(s, t)                       => Some((s, t, IdealInt.ZERO))
       case _                               => None
     }
   }
