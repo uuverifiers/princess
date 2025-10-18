@@ -702,6 +702,11 @@ class ArrayHeap(heapSortName         : String,
     nullStatus  : Map[ITerm, NullStatus],
     allocStatus : Map[(ITerm, ITerm), AllocStatus]) {
 
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(AC,
+      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
       val oldS = nullStatus.getOrElse(addr, N_TOP)
       val newS = oldS & s
@@ -715,36 +720,76 @@ class ArrayHeap(heapSortName         : String,
 
     def meetAllocStatus(addr : ITerm, heap : ITerm,
                         s : AllocStatus) : AddrStatus = {
-      val oldS = allocStatus.getOrElse((addr, heap), N_TOP)
+      val newNS = nullStatus + (addr -> nullStatus.getOrElse(addr, N_TOP))
+      val oldS = allocStatus.getOrElse((addr, heap), A_TOP)
       val newS = oldS & s
       if (newS == 0)
         throw ContradictionException
       if (oldS == newS)
         this
       else
-        AddrStatus(nullStatus, allocStatus + ((addr, heap) -> newS))
+        AddrStatus(newNS, allocStatus + ((addr, heap) -> newS))
     }
 
-    def maybeNonNull(addr : ITerm) =
-      (nullStatus.getOrElse(addr, N_TOP) & N_NON_NULL) != N_BOT
+    def maybeNonNull(addr : ITerm) = !mustbeNull(addr)
 
-    def mustbeNull(addr : ITerm) = !maybeNonNull(addr)
+    def mustbeNull(addr : ITerm) = {
+      import IExpression._
+      addr match {
+        case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
+          -n > maxHeapSize.getOrElse(heap, -n)
+        case _ =>
+          nullStatus.getOrElse(addr, N_TOP) == N_NULL
+      }
+    }
 
-    def maybeNull(addr : ITerm) =
-      (nullStatus.getOrElse(addr, N_TOP) & N_NULL) != N_BOT
+    def maybeNull(addr : ITerm) = !mustbeNonNull(addr)
 
-    def mustbeNonNull(addr : ITerm) = !maybeNull(addr)
+    def mustbeNonNull(addr : ITerm) = {
+      import IExpression._
+      addr match {
+        case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
+          -n <= minHeapSize.getOrElse(heap, 0)
+        case _ =>
+          nullStatus.getOrElse(addr, N_TOP) == N_NON_NULL
+      }
+    }
 
-    def maybeNonValid(addr : ITerm, heap : ITerm) =
-      (allocStatus.getOrElse((addr, heap), A_TOP) & A_NON_ALLOC) != A_BOT
+    def maybeNonValid(addr : ITerm, heap : ITerm) = !mustbeValid(addr, heap)
 
     def mustbeValid(addr : ITerm, heap : ITerm) = {
-//      println(addr)
-//      println(this)
-      !maybeNonValid(addr, heap)
+      import IExpression._
+      addr match {
+        case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
+          n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
+        case _ =>
+          allocStatus.getOrElse((addr, heap), A_TOP) == A_ALLOC
+      }
+    }
+
+    lazy val minHeapSize : Map[ITerm, IdealInt] = {
+      import IExpression._
+      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
+                         N_NON_NULL) <- nullStatus.iterator)
+                   yield (heap, n)).toVector
+      (for ((h, ps) <- pairs.groupBy(_._1).iterator) yield {
+        h -> -(ps.map(_._2) :+ IdealInt.ZERO).min
+       }).toMap
+    }
+
+    lazy val maxHeapSize : Map[ITerm, IdealInt] = {
+      import IExpression._
+      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
+                         N_NULL) <- nullStatus.iterator)
+                   yield (heap, n)).toVector
+      (for ((h, ps) <- pairs.groupBy(_._1).iterator; if !ps.isEmpty) yield {
+        h -> -ps.map(_._2).max
+       }).toMap
     }
 
     def reduce : AddrStatus = {
+      import IExpression._
+
       var changed = false
       def checkChanged(oldS : Int, newS : Int) : Int =
         if (oldS == newS) {
@@ -759,8 +804,19 @@ class ArrayHeap(heapSortName         : String,
       val newAS =
         allocStatus.transform {
           case ((addr, heap), oldS) => {
-            val newS = if (mustbeNull(addr)) (oldS & ~A_ALLOC) else oldS
-            checkChanged(oldS, newS)
+            val newS = if (mustbeNull(addr)) (oldS & A_NON_ALLOC) else oldS
+            val newS2 =
+              addr match {
+                case IFunApp(`nextAddr`, Seq(`heap`, Const(n)))
+                    if n.signum >= 0 =>
+                  newS & A_NON_ALLOC
+                case IFunApp(`nextAddr`, Seq(`heap`, Const(n)))
+                    if n.signum < 0 && mustbeNonNull(addr) =>
+                  newS & A_ALLOC
+                case _ =>
+                  newS
+              }
+            checkChanged(oldS, newS2)
           }
         }
 
@@ -768,11 +824,23 @@ class ArrayHeap(heapSortName         : String,
         (for (((a, _), A_ALLOC) <- newAS.iterator) yield a).toSet
 
       val newNS =
-        (for (addr <- (nullStatus.keySet ++ allocatedAddrs).iterator) yield {
-           val oldS = nullStatus.getOrElse(addr, N_TOP)
-           val newS = if (allocatedAddrs(addr)) (oldS & N_NON_NULL) else oldS
-           (addr, checkChanged(oldS, newS))
-         }).toMap
+        nullStatus.transform {
+          case (addr, oldS) => {
+            val newS = if (allocatedAddrs(addr)) (oldS & N_NON_NULL) else oldS
+            val newS2 =
+              addr match {
+                case IFunApp(`nextAddr`, Seq(h, Const(n)))
+                    if -n <= minHeapSize.getOrElse(h, 0) =>
+                  newS & N_NON_NULL
+                case IFunApp(`nextAddr`, Seq(h, Const(n)))
+                    if -n > maxHeapSize.getOrElse(h, -n) =>
+                  newS & N_NULL
+                case _ =>
+                  newS
+              }
+            checkChanged(oldS, newS2)
+          }
+        }
 
       if (changed) AddrStatus(newNS, newAS) else this
     }
