@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -277,7 +277,8 @@ class IFunction(val name : String, val arity : Int,
  */
 case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-  Debug.assertCtor(IExpression.AC, fun.arity == args.length)
+  Debug.assertCtor(IExpression.AC, fun.arity == args.length,
+                   s"Function ${fun.name} needs ${fun.arity} arguments")
   //-END-ASSERTION-///////////////////////////////////////////////////////////  
   override def apply(i : Int) : ITerm = args(i)
   override def length : Int = args.length
