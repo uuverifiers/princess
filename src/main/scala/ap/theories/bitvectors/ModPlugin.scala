@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -558,22 +558,9 @@ object ModPlugin extends Plugin {
     implicit val order = goal.order
     import TerForConvenience._
 
-    val negPreds1 =
-      goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
-      goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
-
     val actions1 =
-      if (!negPreds1.isEmpty) {
-        (for (a <- negPreds1) yield {
-          val axiom =
-            exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
-              (v(0) >= a(0)) & (v(0) <= a(1)) & (v(0) =/= a.last))
-          Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic)
-        }) ++ List(Plugin.RemoveFacts(conj(
-                            for (a <- negPreds1) yield !conj(a))))
-      } else {
-        List()
-      }
+      Plugin.makePredicatePositive(_mod_cast, goal, ModuloArithmetic) ++
+      Plugin.makePredicatePositive(_l_shift_cast, goal, ModuloArithmetic)
 
     val negPreds2 =
       for (a <- goal.facts.predConj.negativeLitsWithPred(_bv_extract);
