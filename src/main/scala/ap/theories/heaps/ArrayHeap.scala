@@ -58,6 +58,21 @@ object ArrayHeap {
    */
   val Nat1 = Sort.Interval(Some(IdealInt.ONE), None)
 
+  private type NullStatus  = Int
+  private type AllocStatus = Int
+
+  private val N_TOP       : NullStatus = 3
+  private val N_NULL      : NullStatus = 2
+  private val N_NON_NULL  : NullStatus = 1
+  private val N_BOT       : NullStatus = 0
+
+  private val A_TOP       : AllocStatus = 3
+  private val A_ALLOC     : AllocStatus = 2
+  private val A_NON_ALLOC : AllocStatus = 1
+  private val A_BOT       : AllocStatus = 0
+
+  private object ContradictionException extends Exception
+
 }
 
 /**
@@ -683,21 +698,10 @@ class ArrayHeap(heapSortName         : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private type NullStatus  = Int
-  private type AllocStatus = Int
-
-  private val N_TOP       : NullStatus = 3
-  private val N_NULL      : NullStatus = 2
-  private val N_NON_NULL  : NullStatus = 1
-  private val N_BOT       : NullStatus = 0
-
-  private val A_TOP       : AllocStatus = 3
-  private val A_ALLOC     : AllocStatus = 2
-  private val A_NON_ALLOC : AllocStatus = 1
-  private val A_BOT       : AllocStatus = 0
-
-  private object ContradictionException extends Exception
-
+  /**
+   * Class to store information about pointers: pointers known to be
+   * null/non-null, and pointers known to be allocated/unallocated in some heap.
+   */
   private case class AddrStatus(
     nullStatus  : Map[ITerm, NullStatus],
     allocStatus : Map[(ITerm, ITerm), AllocStatus]) {
@@ -845,34 +849,30 @@ class ArrayHeap(heapSortName         : String,
       if (changed) AddrStatus(newNS, newAS) else this
     }
 
-    def --(that : AddrStatus) : AddrStatus = {
-      val nullDiff =
-        for ((a, s) <- nullStatus; if s != that.nullStatus.getOrElse(s, N_TOP))
-        yield (a -> s)
-      val allocDiff =
-        for ((p, s) <- allocStatus; if s != that.allocStatus.getOrElse(p, A_TOP))
-        yield (p -> s)
-      AddrStatus(nullDiff, allocDiff)
-    }
-
-    // TODO: make this function deterministic
-    def toFormula : IFormula = {
+    lazy val toFormulas : Set[IFormula] = {
       import IExpression._
       val validVars =
         (for (((a, _), A_ALLOC) <- allocStatus) yield a).toSet
       val f1 =
-        and(for ((a, s) <- nullStatus; if s != N_TOP && !validVars(a))
-            yield s match {
-              case N_NULL     => a === Null
-              case N_NON_NULL => a =/= Null
-            })
+        (for ((a, s) <- nullStatus; if s != N_TOP && !validVars(a))
+         yield s match {
+           case N_NULL     => a === Null
+           case N_NON_NULL => a =/= Null
+         }).toSet
       val f2 =
-        and(for (((a, h), s) <- allocStatus; if s != A_TOP)
-            yield s match {
-              case A_ALLOC     => valid(h, a)
-              case A_NON_ALLOC => !valid(h, a)
-            })
-      f1 &&& f2
+        (for (((a, h), s) <- allocStatus; if s != A_TOP)
+         yield s match {
+           case A_ALLOC     => valid(h, a)
+           case A_NON_ALLOC => !valid(h, a)
+         }).toSet
+      f1 ++ f2
+    }
+
+    def toFormula(knownStatus : AddrStatus) : IFormula = {
+      val newFors = toFormulas.filterNot(knownStatus.toFormulas)
+      // TODO: ensure a deterministic order without using the
+      // conversion to strings!
+      IExpression.and(newFors.toSeq.sortBy(_.toString))
     }
 
     lazy val simplifier = {
@@ -884,12 +884,15 @@ class ArrayHeap(heapSortName         : String,
     }
   }
 
-  private def runValidityInference(
-    constraints   : Seq[IFormula],
-    initialStatus : AddrStatus) : (AddrStatus, Seq[IFormula]) = {
-    
+  /**
+   * Infer information about pointers from a set of heap constraints.
+   * Constraints that are covered by the returned <code>AddrStatus</code>
+   * object are removed from the list of constraints.
+   */
+  private def runValidityInference(constraints   : Seq[IFormula],
+                                   initialStatus : AddrStatus)
+                                 : (AddrStatus, Seq[IFormula]) = {
     import IExpression._
-
     var status = initialStatus
 
     val remainingConstraints = constraints.flatMap(c =>
@@ -985,6 +988,9 @@ class ArrayHeap(heapSortName         : String,
       runValidityInference(remainingConstraints, status)
   }
 
+  /**
+   * Simple an expression given known information about pointers.
+   */
   private def heapSimplify(addrStatus : AddrStatus)
                           (e : IExpression) : IExpression = {
     import IExpression._
@@ -1048,33 +1054,36 @@ class ArrayHeap(heapSortName         : String,
     }
   }
 
+  /**
+   * Recursively post-process a formula.
+   */
   private def simplifyFor(f          : IFormula,
                           addrStatus : AddrStatus) : IFormula =
     f match {
-      case IBinFormula(j@IBinJunctor.And, _, _) => {
+      case IBinFormula(j@(IBinJunctor.And | IBinJunctor.Or), _, _) => {
         import IExpression._
         val conjuncts = LineariseVisitor(f, j)
         val (other, constraints) =
           conjuncts.partition(_.isInstanceOf[IBinFormula])
-        val (newAddrStatus, other2) =
-          runValidityInference(constraints, addrStatus)
-        val other3 =
-          (other ++ other2).map(simplifyFor(_, newAddrStatus))
 
-        newAddrStatus.toFormula &&& and(other3)
-      }
-      case IBinFormula(j@IBinJunctor.Or, _, _) => {
-        import IExpression._
-        val conjuncts = LineariseVisitor(f, j)
-        val (other, constraints) =
-          conjuncts.partition(_.isInstanceOf[IBinFormula])
-        val constraints2 = constraints.map(~_)
-        val (newAddrStatus, other2) =
-          runValidityInference(constraints2, addrStatus)
-        val other3 = other2.map(~_)
-        val other4 = (other ++ other3).map(simplifyFor(_, newAddrStatus))
-
-        newAddrStatus.toFormula ===> or(other4)
+        j match {
+          case IBinJunctor.And => {
+            val (newAddrStatus, other2) =
+              runValidityInference(constraints, addrStatus)
+            val other3 =
+              (other ++ other2).map(simplifyFor(_, newAddrStatus))
+            newAddrStatus.toFormula(addrStatus) &&& and(other3)
+          }
+          case IBinJunctor.Or => {
+            val constraints2 = constraints.map(~_)
+            val (newAddrStatus, other2) =
+              runValidityInference(constraints2, addrStatus)
+            val other3 = other2.map(~_)
+            val other4 =
+              (other ++ other3).map(simplifyFor(_, newAddrStatus))
+            newAddrStatus.toFormula(addrStatus) ===> or(other4)
+          }
+        }
       }
       case _ =>
         addrStatus.simplifier(f)
