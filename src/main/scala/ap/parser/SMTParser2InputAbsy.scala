@@ -164,7 +164,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
            (Map[IFunction, (IExpression, SMTTypes.SMTType)], // functionDefs
             AnyRef,                                          // polyADTs
             Int,                                             // nextPartitionNumber
-            Map[PartName, Int]                               // partNameIndexes
+            Map[PartName, Int],                              // partNameIndexes
+            Boolean                                          // usingHeap
             )](_env, settings) {
   
   import IExpression.{Sort => TSort, _}
@@ -599,6 +600,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   private var partNameIndexes = Map[PartName, Int]()
 //  private val interpolantSpecs = new ArrayBuffer[IInterpolantSpec]
 
+  private var usingHeap : Boolean = false
+
   private def getPartNameIndexFor(name : PartName) : Int =
     (partNameIndexes get name) match {
       case Some(ind) => ind
@@ -621,7 +624,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   protected def push : Unit = {
     checkIncremental("push")
     checkNotExtracting("push")
-    pushState((functionDefs, polyADTs, nextPartitionNumber, partNameIndexes))
+    pushState((functionDefs, polyADTs, nextPartitionNumber, partNameIndexes,
+               usingHeap))
     prover.push
   }
 
@@ -633,12 +637,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     checkNotExtracting("pop")
     prover.pop()
 
-    val (oldFunctionDefs, oldPolyADTs, oldNextPartitionNumber, oldPartNameIndexes) =
+    val (oldFunctionDefs, oldPolyADTs, oldNextPartitionNumber, oldPartNameIndexes,
+         oldUsingHeap) =
       popState
     functionDefs = oldFunctionDefs
     polyADTs = oldPolyADTs.asInstanceOf[Map[String, DataDeclsCommand]]
     nextPartitionNumber = oldNextPartitionNumber
     partNameIndexes = oldPartNameIndexes
+    usingHeap = oldUsingHeap
 
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
@@ -2915,14 +2921,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
-    case PlainSymbol("valid") =>
+    case PlainSymbol("valid") if usingHeap =>
       translateHeapPred(
         0,
         _.valid,
         args,
         heap => List(SMTHeap(heap), SMTHeapAddress(heap)))
 
-    case PlainSymbol("alloc") =>
+    case PlainSymbol("alloc") if usingHeap =>
       translateHeapFun(
         0,
         _.alloc,
@@ -2931,7 +2937,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTHeapADT(heap, heap.objectSortIndex)),
         heap => SMTHeapAllocRes(heap))
 
-    case PlainSymbol("batchAlloc") =>
+    case PlainSymbol("batchAlloc") if usingHeap =>
       translateHeapFun(
         0,
         _.batchAlloc,
@@ -2941,14 +2947,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTInteger),
         heap => SMTHeapBatchAllocRes(heap))
 
-    case PlainSymbol("read") =>
+    case PlainSymbol("read") if usingHeap =>
       translateHeapFun(0,
                        _.read,
                        args,
                        heap => List(SMTHeap(heap), SMTHeapAddress(heap)),
                        heap => SMTHeapADT(heap, heap.objectSortIndex))
 
-    case PlainSymbol("write") =>
+    case PlainSymbol("write") if usingHeap =>
       translateHeapFun(0,
                        _.write,
                        args,
@@ -2956,7 +2962,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTHeapADT(heap, heap.objectSortIndex)),
                        SMTHeap(_))
 
-    case PlainSymbol("addressRangeNth") =>
+    case PlainSymbol("addressRangeNth") if usingHeap =>
       translateHeapFun(0,
                        _.addressRangeNth,
                        args,
@@ -2964,14 +2970,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTInteger),
                        SMTHeapAddress(_))
 
-    case PlainSymbol("addressRangeWithin") =>
+    case PlainSymbol("addressRangeWithin") if usingHeap =>
       translateHeapPred(0,
                         _.addressRangeWithin,
                         args,
                         heap => List(SMTHeapAddressRange(heap),
                                      SMTHeapAddress(heap)))
 
-    case PlainSymbol("batchWrite") =>
+    case PlainSymbol("batchWrite") if usingHeap =>
       translateHeapFun(0,
                        _.batchWrite,
                        args,
@@ -2979,33 +2985,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTHeapADT(heap, heap.objectSortIndex)),
                        SMTHeap(_))
 
-/*
-    case PlainSymbol(name@"batchWrite") =>
-      translateHeapFun(
-          _.batchWrite,
-          args,
-          heap => List(SMTADT(heap.heapADTs,
-                   heap.HeapADTSortId.addressRangeSortId.id), objectType(heap)),
-          SMTHeap(_)).getOrElse(
-        unintFunApp(name, sym, args, polarity))
-
-    case PlainSymbol(name@"within") =>
-      extractHeap(args) match {
-        case Some((_, heap)) => {
-          val argTypes  = List(SMTADT(heap.heapADTs,
-            heap.HeapADTSortId.addressRangeSortId.id), SMTHeapAddress(heap))
-          val transArgs = for (a <- args) yield translateTerm(a, 0)
-
-          if (argTypes != (transArgs map (_._2)))
-            throw new TranslationException(
-              name + " cannot be applied to arguments of type " +
-                (transArgs map (_._2) mkString ", "))
-          (IAtom(heap.within, (transArgs map (asTerm(_)))), SMTBool)
-        }
-        case None =>
-          unintFunApp(name, sym, args, polarity)
-      }
-*/
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment, and symbols from extra theories
 
@@ -4068,6 +4047,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                         Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
+    usingHeap = true
     val adtCtors = (allCtors map (_._1)).flatten
 
     // Throw an error if the Object sort cannot be found as a datatype
@@ -4231,29 +4211,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     translate(t)
   }
 
-  // extracts the heap theory given a sequence of terms, and possibly the heap
-  // term if it is in the arguments (as the head)
-  /*
-  protected def extractHeap(args : Seq[Term])
-                : scala.Option[(scala.Option[ITerm], Heap)] =
-    args match {
-      case Seq(arg0, _*) => {
-        val p@(t, s) = translateTerm(arg0, 0)
-        s match {
-          case SMTHeap(heapTheory)  =>
-            Some((Some(asTerm(p)), heapTheory.asInstanceOf[Heap]))
-          case SMTADT(adt, sortNum) => // if this is one of the heapADTs
-            adt.sorts(sortNum) match {
-              case NativeHeap.HeapSortExtractor(heap) =>
-                Some((None, heap))
-              case _ => None
-            }
-          case _ => None
-        }
-      }
-      case _ => None
-    }
-*/
   protected def translateHeapFun(heapInd   : Int,
                                  funF      : Heap => IFunction,
                                  args      : Seq[Term],
