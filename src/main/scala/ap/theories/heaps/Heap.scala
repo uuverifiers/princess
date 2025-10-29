@@ -36,7 +36,7 @@ package ap.theories.heaps
 
 import ap.types.{Sort, MonoSortedIFunction}
 import ap.theories.Theory
-import ap.parser.{IFunction, ITerm, IFormula, IExpression}
+import ap.parser.{IFunction, ITerm, IFormula, IExpression, FunctionCollector}
 import IExpression.Predicate
 
 import scala.collection.mutable.{HashMap => MHashMap}
@@ -91,7 +91,23 @@ object Heap {
     def unapply(s : Sort) : Option[Heap] = synchronized { heapSorts get s }
   }
 
+  /**
+   * Extractor to recognise any function related to a heap theory.
+   */
+  object HeapRelatedFunction {
+    def unapply(f : IFunction) : Option[Heap] = synchronized { heapFuns get f }
+  }
+
+  /**
+   * Extractor to recognise any function related to a heap theory.
+   */
+  object HeapRelatedPredicate {
+    def unapply(p : Predicate) : Option[Heap] = synchronized { heapPreds get p }
+  }
+
   private val heapSorts = new MHashMap[Sort, Heap]
+  private val heapFuns  = new MHashMap[IFunction, Heap]
+  private val heapPreds = new MHashMap[Predicate, Heap]
 
   def register(t : Heap) : Unit = synchronized {
     heapSorts.put(t.HeapSort,          t)
@@ -102,6 +118,41 @@ object Heap {
 
     for (s <- t.userHeapSorts)
       heapSorts.put(s, t)
+
+    for (f <- t.userHeapConstructors)
+      heapFuns.put(f, t)
+    for (fs <- t.userHeapSelectors; f <- fs)
+      heapFuns.put(f, t)
+    for (fs <- t.userHeapUpdators; f <- fs)
+      heapFuns.put(f, t)
+      
+    heapFuns.put(t.emptyHeap, t)
+    heapFuns.put(t.nullAddr, t)
+    heapFuns.put(t.alloc, t)
+    heapFuns.put(t.allocResHeap, t)
+    heapFuns.put(t.allocResAddr, t)
+    heapFuns.put(t.batchAlloc, t)
+    heapFuns.put(t.batchAllocResHeap, t)
+    heapFuns.put(t.batchAllocResAddr, t)
+    heapFuns.put(t.read, t)
+    heapFuns.put(t.write, t)
+    heapFuns.put(t.batchWrite, t)
+    heapFuns.put(t.nthAddr, t)
+    heapFuns.put(t.nextAddr, t)
+    heapFuns.put(t.nthAddrRange, t)
+    heapFuns.put(t.addressRangeNth, t)
+    heapFuns.put(t.addressRangeSize, t)
+    
+    heapPreds.put(t.valid, t)
+    heapPreds.put(t.addressRangeWithin, t)
+
+    // HACK: we also want to include the testers, which are not directly
+    // exposed in the theory interface.
+    for (id <- 0 until t.userHeapConstructors.size) {
+      val f = t.hasUserHeapCtor(0, id)
+      for (g <- FunctionCollector(f))
+        heapFuns.put(g, t)
+    }
   }
 
 }
