@@ -46,7 +46,7 @@ import org.scalacheck.Properties
 import ap.util.Prop._
 
 class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
-  import IHeap._
+  import Heap._
   import HeapTests.measureTime
 
   Debug enableAllAssertions false
@@ -54,37 +54,28 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
   val NullObjName = "NullObj"
   val ObjSort = ADTSort(0)
 
-  def createArrayHeap : IHeap = {
-    def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
+  val sorts =
+    List("HeapObject")
+
+  val ctors =
+    List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("defObj", CtorSignature(List(), ObjSort)))
+
+  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
       import IExpression.toFunApplier
       objectCtors.last()
     }
 
+  def createArrayHeap : Heap =
     new ArrayHeap(
-      "heap", "addr", "addrRange", ObjSort,
-      List("HeapObject"), List(
-        ("WrappedInt", CtorSignature(List(("getInt",
-          OtherSort(Sort.Integer))), ObjSort)),
-        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-        ("defObj", CtorSignature(List(), ObjSort))),
-      defObjCtor)
-  }
+      "heap", "addr", "addrRange", ObjSort, sorts, ctors, defObjCtor)
 
-  def createNativeHeap : IHeap = {
-    def defObjCtor2(objectCtors : Seq[IFunction], adt : ADT) : ITerm = {
-      import IExpression.toFunApplier
-      objectCtors.last()
-    }
-
-    new Heap(
-      "heap", "addr", ObjSort,
-      List("HeapObject"), List(
-        ("WrappedInt", CtorSignature(List(("getInt",
-          OtherSort(Sort.Integer))), ObjSort)),
-        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-        ("defObj", CtorSignature(List(), ObjSort))),
-      defObjCtor2)
-  }
+  def createNativeHeap : Heap =
+    new NativeHeap(
+      "heap", "addr", "addrRange", ObjSort, List("HeapObject"), ctors, defObjCtor)
 
   import IExpression.toFunApplier
 
@@ -137,7 +128,7 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
     true
   }}
 
-  def checkHeap(heap : IHeap, pr : SimpleAPI,
+  def checkHeap(heap : Heap, pr : SimpleAPI,
                 initHeap : ITerm, as : Int => ITerm) : Unit = {
     import heap._
     import pr._

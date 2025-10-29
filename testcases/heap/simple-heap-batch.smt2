@@ -17,8 +17,9 @@
 (declare-const H Heap)
 (declare-const AR AddrRange)
 
-(assert (= (BatchAllocResHeap H AR) (batchAlloc emptyHeap (WrappedInt 42) 3)))
-(assert (= (getInt (read H (AddrRangeStart AR))) 42))
-(assert (not (is-WrappedInt (read H (AddrRangeStart AR)))))
+(assert (= H (newBatchHeap (batchAlloc emptyHeap (WrappedInt 42) 3))))
+(assert (= AR (newAddrRange (batchAlloc emptyHeap (WrappedInt 42) 3))))
+(assert (= (getInt (read H (addressRangeNth AR 0))) 42))
+(assert (not (is-WrappedInt (read H (addressRangeNth AR 0)))))
 
 (check-sat) ; should be unsat

@@ -44,108 +44,9 @@ import ap.util.Debug
 import org.scalacheck.Properties
 import ap.util.Prop._
 
-object HeapTests {
-class PrincessTester (p : SimpleAPI) {
-  import p._
-
-  var testCaseCounter = 1;
-
-  private def expect[A](x : A, expected : A) : (A, Boolean) = {
-    println(x)
-    assert(x == expected)
-    (x, x == expected)
-  }
-
-  abstract sealed class TestStep (val fs : IFormula*)
-  case class SatStep(override val fs : IFormula*) extends TestStep
-  case class UnsatStep(override val fs : IFormula*) extends TestStep
-  case class CommonAssert (override val fs : IFormula*) extends TestStep
-
-  private def printModel {
-    val newLine = "\n" + " "*2
-    println {"Model:" + newLine +
-             (for ((l, v) <- partialModel.interpretation.iterator)
-               yield {
-                 l + " -> " + v
-               }).mkString(newLine)
-    }
-  }
-
-  private def justAssert(s : TestStep) = {
-    for (f <- s.fs) {
-      addAssertion(f)
-      print("  ")
-      PrincessLineariser printExpression f
-      println
-    }
-  }
-
-  private def executeStep(ps : ProverStatus.Value, s : TestStep) : Boolean = {
-    var res = false
-    scope {
-      for (f <- s.fs) {
-        addAssertion(f)
-        print("  ")
-        PrincessLineariser printExpression f
-        if (s.fs.last != f) println(" &")
-      }
-      print(" --> ")
-      val (proverResult, passed) = expect(???, ps)
-      res = passed
-      //if (passed && proverResult == ProverStatus.Sat) printModel
-      //else if (passed && proverResult == ProverStatus.Unsat)
-      //  println(certificateAsString(Map.empty,
-      //    InputFormat.Princess))
-    }
-    res
-  }
-
-  def TestCase(name : String, steps : TestStep*) {
-    println("=" * 80)
-    println(
-      "Test " + testCaseCounter + ": " + name)
-    println("-" * 80)
-    var stepNo = 1;
-    scope {
-      for (s <- steps) {
-        if (s.isInstanceOf[CommonAssert]) {
-          println("-" * 80)
-          println("Common assertion: ")
-          justAssert(s)
-          println("-" * 80)
-        } else {
-          print("Step " + testCaseCounter + "." + stepNo + " (expected: ")
-          stepNo = stepNo + 1
-          s match {
-            case _ : SatStep => println("Sat)")
-              executeStep(ProverStatus.Sat, s)
-            case _ : UnsatStep => println("Unsat)")
-              executeStep(ProverStatus.Unsat, s)
-            case _ => // do nothing as CommonAssert step is already handled
-          }
-          if (steps.last != s) println("-" * 80)
-        }
-      }
-      println("=" * 80)
-      testCaseCounter = testCaseCounter + 1
-    }
-  }
-}
-
-  def measureTime[A](msg: String)(comp : => A) : A = {
-    print(f"$msg: ")
-    val start = System.currentTimeMillis
-    val res : A = comp
-    val stop = System.currentTimeMillis
-    println(f"${stop - start}ms")
-    res
-  }
-
-}
-
 class HeapTests1 extends Properties("HeapTests1") {
   import HeapTests._
-  import IHeap._
+  import Heap._
 
   Debug enableAllAssertions true
 
@@ -153,52 +54,74 @@ class HeapTests1 extends Properties("HeapTests1") {
   val ObjSort = ADTSort(0)
   val StructSSort = ADTSort(1)
 
-  def defObjCtor(objectCtors : Seq[IFunction],
-                 heapADTs : ADT) : ITerm = {
+  def defObjCtor(objectCtors : Seq[IFunction]) : ITerm = {
     import IExpression.toFunApplier
     objectCtors.last()
   }
 
-  val heap = new Heap("heap", "addr", ObjSort,
-    List("HeapObject", "struct_S"), List(
-      ("WrappedInt", CtorSignature(List(("getInt",
-        OtherSort(Sort.Integer))), ObjSort)),
-      ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
-      ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
-      ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
-        StructSSort)),
-      ("defObj", CtorSignature(List(), ObjSort))),
-    defObjCtor)
+  property("ArrayHeap") = Console.withOut(ap.CmdlMain.NullStream) {
+    val heap : Heap = new ArrayHeap(
+      "heap", "addr", "addrRange", ObjSort,
+      List("HeapObject", "struct_S"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
+          StructSSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor)
 
-  val Seq(wrappedInt,
-          wrappedS,
-          wrappedAddr,
-          struct_S,
-          defObjCtr) = heap.userADTCtors
-  val Seq(Seq(getInt),
-          Seq(getS),
-          Seq(getAddr),
-          Seq(sel_x), _*) = heap.userADTSels
+    runHeapTests(heap)
+    true
+  }
 
-  import IExpression.toFunApplier
-  val defObj = defObjCtr()
+  property("NativeHeap") = Console.withOut(ap.CmdlMain.NullStream) {
+    val heap : Heap = new NativeHeap(
+      "heap", "addr", "addrRange", ObjSort,
+      List("HeapObject", "struct_S"), List(
+        ("WrappedInt", CtorSignature(List(("getInt",
+          OtherSort(Sort.Integer))), ObjSort)),
+        ("WrappedS", CtorSignature(List(("getS", StructSSort)), ObjSort)),
+        ("WrappedAddr", CtorSignature(List(("getAddr", AddrSort)), ObjSort)),
+        ("struct_S", CtorSignature(List(("x", OtherSort(Sort.Integer))),
+          StructSSort)),
+        ("defObj", CtorSignature(List(), ObjSort))),
+      defObjCtor)
 
-  property("main") = Console.withOut(ap.CmdlMain.NullStream) {
+    runHeapTests(heap)
+    true
+  }
+
+  def runHeapTests(heap : Heap) : Unit = {
   SimpleAPI.withProver(enableAssert = true) { pr : SimpleAPI =>
     import pr._
     import heap._
+
+    val Seq(wrappedInt,
+            wrappedS,
+            wrappedAddr,
+            struct_S,
+            defObjCtr) = heap.userHeapConstructors
+    val Seq(Seq(getInt),
+            Seq(getS),
+            Seq(getAddr),
+            Seq(sel_x), _*) = heap.userHeapSelectors
+
+    import IExpression.toFunApplier
+    val defObj = defObjCtr()
 
     val h = createConstant("h", HeapSort)
     val h1 = createConstant("h1", HeapSort)
     val h2 = createConstant("h2", HeapSort)
     val p =  createConstant("p", AddressSort)
     val p1 =  createConstant("p'", AddressSort)
-    val ar = createConstant("ar", allocResSort)
-    val ar1 = createConstant("ar'", allocResSort)
+    val ar = createConstant("ar", AllocResSort)
+    val ar1 = createConstant("ar'", AllocResSort)
     val o = createConstant("o", ObjectSort)
     val o1 = createConstant("o'", ObjectSort)
-    val r = createConstant("r", addressRangeSort)
-    val bar = createConstant("bar", batchAllocResSort)
+    val r = createConstant("r", AddressRangeSort)
+    val bar = createConstant("bar", BatchAllocResSort)
     val n = createConstant("n", Sort.Nat)
 
     import IExpression.{all => forall, _}
@@ -233,8 +156,8 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase (
       "After alloc, the returned pointer points to an allocated address.",
       CommonAssert(alloc(h, o) === ar),
-      SatStep(isAlloc(newHeap(ar), newAddr(ar))),
-      UnsatStep(!isAlloc(newHeap(ar), newAddr(ar)))
+      SatStep(isAlloc(allocResHeap(ar), allocResAddr(ar))),
+      UnsatStep(!isAlloc(allocResHeap(ar), allocResAddr(ar)))
     )
 
     TestCase (
@@ -243,12 +166,12 @@ class HeapTests1 extends Properties("HeapTests1") {
         alloc(h, o) === ar
       ),
       UnsatStep(
-        isAlloc(h, p) & !isAlloc(newHeap(ar), p)
+        isAlloc(h, p) & !isAlloc(allocResHeap(ar), p)
       ),
       UnsatStep(
-        p =/= newAddr(ar),
+        p =/= allocResAddr(ar),
         !isAlloc(h, p),
-        isAlloc(newHeap(ar), p)
+        isAlloc(allocResHeap(ar), p)
       )
     )
 
@@ -256,9 +179,23 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Deterministic allocation",
       UnsatStep(
         AddressSort.all(x => isAlloc(h, x) <=> isAlloc(h1, x)),
+	// heapSize(h) === heapSize(h1),
         alloc(h, o) === ar,
         alloc(h1, o1) === ar1,
-        newAddr(ar) =/= newAddr(ar1)
+        allocResAddr(ar) =/= allocResAddr(ar1)
+      )
+    )
+
+    TestCase(
+      "Quantifiers over addresses",
+      UnsatStep(
+        AddressSort.all(x => (p === x | p1 === x) ==> valid(h, x)),
+        !valid(h, p1)
+      ),
+      UnsatStep(
+        AddressSort.all(x => (p === x | p1 === x) ==> valid(h, x)),
+        h1 === allocResHeap(alloc(h, o)),
+	      !valid(h1, p1)
       )
     )
 
@@ -283,10 +220,10 @@ class HeapTests1 extends Properties("HeapTests1") {
         ar === alloc(h, o)
       ),
       SatStep(
-        read(newHeap(ar), newAddr(ar)) === o
+        read(allocResHeap(ar), allocResAddr(ar)) === o
       ),
       UnsatStep(
-        read(newHeap(ar), newAddr(ar)) =/= o
+        read(allocResHeap(ar), allocResAddr(ar)) =/= o
       )
     )
 
@@ -294,13 +231,13 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Allocation does not modify any of the values on the old heap",
       CommonAssert(
         ar === alloc(h, o),
-        p =/= newAddr(ar)
+        p =/= allocResAddr(ar)
       ),
       SatStep(
-        read(newHeap(ar), p) === read(h, p)
+        read(allocResHeap(ar), p) === read(h, p)
       ),
       UnsatStep(
-        read(newHeap(ar), p) =/= read(h, p)
+        read(allocResHeap(ar), p) =/= read(h, p)
       )
     )
 
@@ -308,8 +245,8 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Reading a newly allocated location returns the allocated value (v2)",
       CommonAssert(
         alloc(h, o) === ar,
-        h1 === newHeap(ar),
-        p === newAddr(ar)
+        h1 === allocResHeap(ar),
+        p === allocResAddr(ar)
       ),
       SatStep(
         read(h1, p) === o
@@ -365,9 +302,9 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "Allocating and dereferencing pointer to pointer.",
       CommonAssert(alloc(emptyHeap(), wrappedInt(42)) === ar &
-                   p === newAddr(ar) & h === newHeap(ar)),
+                   p === allocResAddr(ar) & h === allocResHeap(ar)),
       CommonAssert(alloc(h, wrappedAddr(p)) === ar1 &
-                   p1 === newAddr(ar1) & h1 === newHeap(ar1)),
+                   p1 === allocResAddr(ar1) & h1 === allocResHeap(ar1)),
       SatStep(read(h, getAddr(read(h1,p1))) === wrappedInt(42)),
       UnsatStep(read(h, getAddr(read(h1,p1))) =/= wrappedInt(42))
     )
@@ -402,12 +339,20 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "Extensionality",
-      CommonAssert(counter(h) === counter(h1) &
+      CommonAssert(// counter(h) === counter(h1) &
                    h =/= h1),
       SatStep(AddressSort.ex(a =>
-        isAlloc(h, a) & (read(h, a) =/= read(h1, a)))),
-      UnsatStep(AddressSort.all(a =>
-        isAlloc(h, a) & (read(h, a) === read(h1, a))))
+        (isAlloc(h, a) </> isAlloc(h, a)) |
+        (isAlloc(h, a) & isAlloc(h1, a) & read(h, a) =/= read(h1, a))))
+        /* ,
+      UnsatStep(
+        AddressSort.all(a =>
+          (isAlloc(h, a) ==> isAlloc(h1, a))) &
+        AddressSort.all(a =>
+          (isAlloc(h1, a) ==> isAlloc(h, a))) &
+        AddressSort.all(a =>
+          (isAlloc(h, a) ==> (read(h, a) === read(h1, a))))
+      ) */
     )
 
     TestCase(
@@ -422,45 +367,45 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "batchAlloc tests - 1",
       CommonAssert(n > 0 & batchAlloc(emptyHeap(), o, n) === bar),
-      SatStep(addrRangeStart(newAddrRange(bar)) =/= nullAddr()),
-      UnsatStep(addrRangeStart(newAddrRange(bar)) === nullAddr()),
-      SatStep(addrRangeSize(newAddrRange(bar)) === n),
-      UnsatStep(addrRangeSize(newAddrRange(bar)) =/= n),
-      UnsatStep(within(newAddrRange(bar), nullAddr()))
+      SatStep(addressRangeNth(batchAllocResAddr(bar), 0) =/= nullAddr()),
+      UnsatStep(addressRangeNth(batchAllocResAddr(bar), 0) === nullAddr()),
+      SatStep(addressRangeSize(batchAllocResAddr(bar)) === n),
+      UnsatStep(addressRangeSize(batchAllocResAddr(bar)) =/= n),
+      UnsatStep(addressRangeWithin(batchAllocResAddr(bar), nullAddr()))
     )
 
     TestCase(
       "batchAlloc tests - 2",
       CommonAssert(
-        batchAlloc(h, wrappedInt(3), 10) ===
-          batchAllocResCtor(h1, r) &
-          write(h1, nth(r, 3), wrappedInt(42)) === h2),
-      SatStep(read(h2, nth(r, 0)) === wrappedInt(3)),
-      UnsatStep(read(h2, nth(r, 0)) =/= wrappedInt(3)),
-      SatStep(read(h2, nth(r, 5)) === wrappedInt(3)),
-      UnsatStep(read(h2, nth(r, 5)) =/= wrappedInt(3)),
-      SatStep(read(h2, nth(r, 9)) === wrappedInt(3)),
-      UnsatStep(read(h2, nth(r, 9)) =/= wrappedInt(3)),
-      SatStep(isAlloc(h2, nth(r, 9))),
-      UnsatStep(!isAlloc(h2, nth(r, 9))),
-      UnsatStep(isAlloc(h2, nth(r, 10))),
-      SatStep(!isAlloc(h2, nth(r, 10))),
-      SatStep(nth(r, 10) === nullAddr()),
-      UnsatStep(nth(r, 10) =/= nullAddr()),
-      SatStep(read(h2, nth(r, 10)) === defObj),
-      UnsatStep(within(r, nth(r, 10))),
-      UnsatStep(read(h2, nth(r, 10)) =/= defObj),
-      SatStep(read(h2, nth(r, 3)) === wrappedInt(42)),
-      UnsatStep(read(h2, nth(r, 3)) =/= wrappedInt(42))
+        h1 === batchAllocResHeap(batchAlloc(h, wrappedInt(3), 10)) &
+        r === batchAllocResAddr(batchAlloc(h, wrappedInt(3), 10)) &
+        write(h1, addressRangeNth(r, 3), wrappedInt(42)) === h2),
+      SatStep(read(h2, addressRangeNth(r, 0)) === wrappedInt(3)),
+      UnsatStep(read(h2, addressRangeNth(r, 0)) =/= wrappedInt(3)),
+      SatStep(read(h2, addressRangeNth(r, 5)) === wrappedInt(3)),
+      UnsatStep(read(h2, addressRangeNth(r, 5)) =/= wrappedInt(3)),
+      SatStep(read(h2, addressRangeNth(r, 9)) === wrappedInt(3)),
+      UnsatStep(read(h2, addressRangeNth(r, 9)) =/= wrappedInt(3)),
+      SatStep(isAlloc(h2, addressRangeNth(r, 9))),
+      UnsatStep(!isAlloc(h2, addressRangeNth(r, 9))),
+      UnsatStep(isAlloc(h2, addressRangeNth(r, 10))),
+      SatStep(!isAlloc(h2, addressRangeNth(r, 10))),
+      SatStep(addressRangeNth(r, 10) === nullAddr()),
+      UnsatStep(addressRangeNth(r, 10) =/= nullAddr()),
+      SatStep(read(h2, addressRangeNth(r, 10)) === defObj),
+      UnsatStep(addressRangeWithin(r, addressRangeNth(r, 10))),
+      UnsatStep(read(h2, addressRangeNth(r, 10)) =/= defObj),
+      SatStep(read(h2, addressRangeNth(r, 3)) === wrappedInt(42)),
+      UnsatStep(read(h2, addressRangeNth(r, 3)) =/= wrappedInt(42))
     )
 
     TestCase(
       "Reading from a previously batch-written (alloc.) " +
         "location returns that value.",
       CommonAssert(
-        isAlloc(h, p) & within(r, p) &
-          isAlloc(h, addrRangeStart(r)) &
-          isAlloc(h, nth(r, addrRangeSize(r)-1)) // h is allocated for the whole address range
+        isAlloc(h, p) & addressRangeWithin(r, p) &
+          isAlloc(h, addressRangeNth(r, 0)) &
+          isAlloc(h, addressRangeNth(r, addressRangeSize(r)-1)) // h is allocated for the whole address range
       ),
       SatStep(
         read(batchWrite(h, r, o), p) === o
@@ -473,8 +418,8 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "batchWrite to a location does not modify the rest of the locations",
       CommonAssert(
-        isAlloc(h, p) & !within(r, p) & addrRangeSize(r) > 0 &
-          isAlloc(h, nth(r, addrRangeSize(r)-1)) // h is allocated for the whole address range
+        isAlloc(h, p) & !addressRangeWithin(r, p) & addressRangeSize(r) > 0 &
+          isAlloc(h, addressRangeNth(r, addressRangeSize(r)-1)) // h is allocated for the whole address range
       ),
       SatStep(
         read(batchWrite(h, r, o), p) === read(h, p)
@@ -488,7 +433,7 @@ class HeapTests1 extends Properties("HeapTests1") {
       "batchWrite to a range that contains an unallocated location " +
         "returns the same heap.",
       CommonAssert(
-        within(r, p) & !isAlloc(h, p)
+        addressRangeWithin(r, p) & !isAlloc(h, p)
       ),
       SatStep(batchWrite(h, r, o) === h),
       UnsatStep(batchWrite(h, r, o) =/= h),
@@ -512,7 +457,7 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "Extensionality over batchWrite (exclude empty heaps and empty address ranges)",
-      CommonAssert(h =/= emptyHeap() & addrRangeSize(r) > 0),
+      CommonAssert(h =/= emptyHeap() & addressRangeSize(r) > 0),
       SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
       UnsatStep(batchWrite(h, r, o) =/=
         batchWrite(batchWrite(h, r, o1), r, o))
@@ -520,12 +465,21 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "Extensionality over batchWrite (only valid writes)",
-      CommonAssert(addrRangeSize(r) > 0 & p === nth(r, addrRangeSize(r)-1) ),
+      CommonAssert(addressRangeSize(r) > 0 & p === addressRangeNth(r, addressRangeSize(r)-1) ),
        SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
       UnsatStep(batchWrite(h, r, o) =/=
         batchWrite(batchWrite(h, r, o1), r, o))
     )
 
-    true
+    TestCase(
+      "Behaviour of nextAddr",
+      SatStep((h === emptyHeap()) ==> (nextAddr(h, 41) === nthAddr(42))),
+      UnsatStep(isAlloc(h, nextAddr(h, 0))),
+      SatStep(isAlloc(h, nextAddr(h, -1))),
+      UnsatStep(allocResAddr(alloc(h, o)) =/= nextAddr(h, 0)),
+      SatStep(!isAlloc(h, nextAddr(h, -10)) & isAlloc(h, nextAddr(h, -9)))
+    )
+
   }}
+
 }

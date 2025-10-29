@@ -204,9 +204,12 @@ object CmdlMain {
     println("                             size:     size of terms                (default)")
     println(" -stringSolver=val         Specify the used string solver")
     println("                             (default: ap.theories.strings.SeqStringTheory)")
+    println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
     println(" -seqSolver=val            Specify the used sequence solver")
     println("                             (default: ap.theories.sequences.ArraySeqTheory)")
-    println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
+    println(" -heapSolver=val           Specify the heap theory solver to use")
+    println("                             native: native heap theory             (default)")
+    println("                             array:  array-backed heap theory")
   }
 
   //////////////////////////////////////////////////////////////////////////////

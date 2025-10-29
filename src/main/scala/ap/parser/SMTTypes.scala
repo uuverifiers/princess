@@ -36,19 +36,22 @@ package ap.parser;
 import ap.basetypes.IdealInt
 import ap.DialogUtil
 import ap.types.Sort
-import ap.theories.{ADT, Heap, ModuloArithmetic, TheoryRegistry}
+import ap.theories.{ADT, ModuloArithmetic, TheoryRegistry}
 import ap.theories.sequences.SeqTheory
-import ap.theories.arrays.{ExtArray, SimpleArray}
+import ap.theories.arrays.{ExtArray, SimpleArray, SetTheory}
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
+import ap.theories.heaps.Heap
 import ap.types.UninterpretedSortTheory
-import ap.theories.arrays.SetTheory
+import ap.util.Debug
 
 /**
  * Representation of SMT-LIB types. Those are essentially just
  * wrappers around the corresponding sorts.
  */
 object SMTTypes {
+
+  private val AC = Debug.AC_PARSER
 
   import SMTParser2InputAbsy.toNormalBool
 
@@ -67,7 +70,7 @@ object SMTTypes {
     def toSMTLIBString = "Int"
   }
 
-  case class  SMTReal(sort : Sort)                extends SMTType {
+  case class  SMTReal(sort : Sort)                 extends SMTType {
     def toSort = sort
     def toSMTLIBString = "Real"
   }
@@ -123,16 +126,40 @@ object SMTTypes {
     }
   }
 
-  case class SMTHeap(heap : Heap) extends SMTType {
+  case class SMTHeap(heap : Heap)                  extends SMTType {
     def toSort = heap.HeapSort
-    override def toString = heap.HeapSort.name
-    def toSMTLIBString = heap.HeapSort.name
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddress(heap : Heap) extends SMTType {
+  case class SMTHeapAddress(heap : Heap)           extends SMTType {
     def toSort = heap.AddressSort
-    override def toString = heap.AddressSort.name
-    def toSMTLIBString = heap.AddressSort.name
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
+  }
+
+  case class SMTHeapAddressRange(heap : Heap)      extends SMTType {
+    def toSort = heap.AddressRangeSort
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
+  }
+
+  case class SMTHeapAllocRes(heap : Heap)          extends SMTType {
+    def toSort = heap.AllocResSort
+    override def toString = toSort.name
+    def toSMTLIBString = toSort.name
+  }
+
+  case class SMTHeapBatchAllocRes(heap : Heap)     extends SMTType {
+    def toSort = heap.BatchAllocResSort
+    override def toString = toSort.name
+    def toSMTLIBString = toSort.name
+  }
+
+  case class SMTHeapADT(heap : Heap, sortNum : Int) extends SMTType {
+    def toSort = heap.userHeapSorts(sortNum)
+    override def toString = toSort.name
+    def toSMTLIBString = SMTLineariser.quoteIdentifier(this.toString)
   }
 
   case class SMTUnint(sort : Sort)                extends SMTType {
@@ -186,6 +213,22 @@ object SMTTypes {
       val Some(theory) = SeqTheory lookupSeqSort sort
       (SMTSeq(theory, sort2SMTType(theory.ElementSort)._1), None)
     }
+    case Heap.HeapRelatedSort(heap) =>
+      sort match {
+        case heap.HeapSort          => (SMTHeap(heap),              None)
+        case heap.AddressSort       => (SMTHeapAddress(heap),       None)
+        case heap.AddressRangeSort  => (SMTHeapAddressRange(heap),  None)
+        case heap.AllocResSort      => (SMTHeapAllocRes(heap),      None)
+        case heap.BatchAllocResSort => (SMTHeapBatchAllocRes(heap), None)
+        case _ => {
+          // then the sort has to be the sort of a user-defined heap ADT
+          val ind = heap.userHeapSorts.indexOf(sort)
+          //-BEGIN-ASSERTION-//////////////////////////////////////////////////
+          Debug.assertPre(AC, ind >= 0)
+          //-END-ASSERTION-////////////////////////////////////////////////////
+          (SMTHeapADT(heap, ind), None)
+        }
+      }
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
@@ -205,10 +248,6 @@ object SMTTypes {
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
-    case sort : Heap.HeapSort =>
-      (SMTHeap(sort.heapTheory), None)
-    case sort : Heap.AddressSort =>
-      (SMTHeapAddress(sort.heapTheory), None)
     case Sort.AnySort =>
       (SMTInteger, None)
 
