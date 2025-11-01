@@ -395,6 +395,16 @@ class ArrayHeap(heapSortName         : String,
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[IFunction] = Set()
 
+  lazy val heapRelatedSymbols = {
+    val allFuns =
+      (functions ++ (for (t <- dependencies; f <- t.functions) yield f)).toSet
+    val allPreds =
+      (predicates ++ (for (t <- dependencies; p <- t.predicates) yield p)).toSet
+    (allFuns, allPreds)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val pluginObj = new Plugin {
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
       goalState(goal) match {

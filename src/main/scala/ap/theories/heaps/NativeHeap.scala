@@ -1064,6 +1064,14 @@ class NativeHeap(heapSortName : String, addressSortName : String,
    */
   override val dependencies : Iterable[Theory] = List(heapADTs)
 
+  lazy val heapRelatedSymbols = {
+    val allFuns =
+      (functions ++ (for (t <- dependencies; f <- t.functions) yield f)).toSet
+    val allPreds =
+      (predicates ++ (for (t <- dependencies; p <- t.predicates) yield p)).toSet
+    (allFuns, allPreds)
+  }
+
   /**
    * Optionally, a pre-processor that is applied to formulas over this
    * theory, prior to sending the formula to a prover. This method
