@@ -119,40 +119,12 @@ object Heap {
     for (s <- t.userHeapSorts)
       heapSorts.put(s, t)
 
-    for (f <- t.userHeapConstructors)
-      heapFuns.put(f, t)
-    for (fs <- t.userHeapSelectors; f <- fs)
-      heapFuns.put(f, t)
-    for (fs <- t.userHeapUpdators; f <- fs)
-      heapFuns.put(f, t)
-      
-    heapFuns.put(t.emptyHeap, t)
-    heapFuns.put(t.nullAddr, t)
-    heapFuns.put(t.alloc, t)
-    heapFuns.put(t.allocResHeap, t)
-    heapFuns.put(t.allocResAddr, t)
-    heapFuns.put(t.batchAlloc, t)
-    heapFuns.put(t.batchAllocResHeap, t)
-    heapFuns.put(t.batchAllocResAddr, t)
-    heapFuns.put(t.read, t)
-    heapFuns.put(t.write, t)
-    heapFuns.put(t.batchWrite, t)
-    heapFuns.put(t.nthAddr, t)
-    heapFuns.put(t.nextAddr, t)
-    heapFuns.put(t.nthAddrRange, t)
-    heapFuns.put(t.addressRangeNth, t)
-    heapFuns.put(t.addressRangeSize, t)
+    val (funs, preds) = t.heapRelatedSymbols
     
-    heapPreds.put(t.valid, t)
-    heapPreds.put(t.addressRangeWithin, t)
-
-    // HACK: we also want to include the testers, which are not directly
-    // exposed in the theory interface.
-    for (id <- 0 until t.userHeapConstructors.size) {
-      val f = t.hasUserHeapCtor(0, id)
-      for (g <- FunctionCollector(f))
-        heapFuns.put(g, t)
-    }
+    for (f <- funs)
+      heapFuns.put(f, t)
+    for (p <- preds)
+      heapPreds.put(p, t)
   }
 
 }
@@ -353,5 +325,11 @@ trait Heap extends Theory {
    * The object stored on the heap at not yet allocated locations.
    */
   val defaultObject : ITerm
+
+  /**
+   * Method to query all functions and predicates of the theory,
+   * including API, internal symbols, and symbols of the constituent theories.
+   */
+  def heapRelatedSymbols : (Set[IFunction], Set[Predicate])
 
 }

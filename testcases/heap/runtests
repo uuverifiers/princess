@@ -31,7 +31,8 @@ $PRI "$@" -heapSolver=array $TESTS
 TESTS="bug-model-1.smt2 \
        incremental-heap.smt2 \
        swap-interpolation.smt2 \
-       heap-batch-write-read-2-sat.smt2"
+       heap-batch-write-read-2-sat.smt2 \
+       queries.smt2"
 
 $PRI "$@" +incremental -heapSolver=native $TESTS
 $PRI "$@" +incremental -heapSolver=array $TESTS
