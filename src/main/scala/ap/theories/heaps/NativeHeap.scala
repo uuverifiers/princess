@@ -588,28 +588,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
   /** Returns whether (an ADT) sort is declared as part of this theory. */
   def containsADTSort(sort : Sort): Boolean = theoryADTSorts.contains(sort)
 
-  /** Functions and predicates of the theory
-   * Assuming Address as address sort name, Heap as heap sort name, and
-   * Obj as the selected object sort.
-   * Some function / predicate names incorporate the defined / selected names.
-   * ***************************************************************************
-   * Public functions and predicates
-   * ***************************************************************************
-   * emptyHeap            : ()                   --> Heap
-   * alloc                : Heap x Obj           --> Heap x Address (allocResHeap)
-   * read                 : Heap x Address       --> Obj
-   * write                : Heap x Address x Obj --> Heap
-   * valid (isAlloc)      : Heap x Address       --> Bool
-   * deAlloc              : Heap                 --> Heap
-   * nthAddr              : Nat                  --> Address
-   * nthAddrRange         : Nat x Nat            --> Address
-   *
-   * batchAlloc           : Heap x Obj   x Nat        --> Heap x AddressRange (batchAllocResHeap)
-   * batchWrite           : Heap x AddressRange x Obj --> Heap
-   * nth                  : AddressRange x Nat     --> Address
-   * within               : AddressRange x Address --> Bool
-   *
-   *             0     1
+  /** See the [[Heap]] trait for functions and predicates of the theory
    * writeADT : Obj x Obj --> Heap
    * * Updates the ADT's field (described by a read to 0) using value (1)
    * ***************************************************************************

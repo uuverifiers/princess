@@ -303,7 +303,7 @@ trait Heap extends Theory {
    * the function to a start address that is not positive or size that is not
    * non-negative should be interpreted as an empty address range.
    */
-  val nthAddrRange : IFunction          // Nat1 x Nat -> Address
+  val nthAddrRange : IFunction          // Nat1 x Nat -> AddressRange
 
   /**
    * Function to obtain the n'th address in an address range. Accessing
