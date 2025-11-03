@@ -479,21 +479,24 @@ class ArrayHeap(heapSortName         : String,
         val ord    = v(0)
         val size   = v(1)
         val cont   = v(2, ArraySort)
-        val addr   = v(3, AddressSort)
         val result = v(4, ObjectSort)
+
+        val (addr, addrDef) =
+          saddr match {
+            case SimpleTerm(a) => (a, i(true))
+            case a             => (v(3, AddressSort), v(3, AddressSort) === a)
+          }
 
         ObjectSort.eps(AddressSort.ex(ArraySort.ex(ex(ex(
           (heapPair(cont, size) === sheap) &
-          (addr === saddr) &
+          addrDef &
           (
-            ((addr =/= Null) &
-             (addr === nthAddr(ord)) & (ord >= 1) & (ord <= size) &
-             (result === select(cont, ord))) |
-            ((addr =/= Null) &
-             (addr === nthAddr(ord)) & (ord <= 0 | ord > size) &
-             (result === defaultObject)) |
-            ((addr === Null) &
-             (result === defaultObject))
+            ite(addr === Null,
+                result === defaultObject,
+                (addr === nthAddr(ord)) &
+                ite((ord >= 1) & (ord <= size),
+                    result === select(cont, ord),
+                    result === defaultObject))
            ))))))
       }
 
@@ -513,22 +516,25 @@ class ArrayHeap(heapSortName         : String,
         val size   = v(1)
         val cont   = v(2, ArraySort)
         val cont2  = v(3, ArraySort)
-        val addr   = v(4, AddressSort)
         val result = v(5, HeapSort)
+
+        val (addr, addrDef) =
+          saddr match {
+            case SimpleTerm(a) => (a, i(true))
+            case a             => (v(4, AddressSort), v(4, AddressSort) === a)
+          }
 
         HeapSort.eps(AddressSort.ex(ArraySort.ex(ArraySort.ex(ex(ex(
           (heapPair(cont, size) === sheap) &
           (heapPair(cont2, size) === result) &
-          (addr === saddr) &
+          addrDef &
           (
-            (((addr =/= Null) &
-              (addr === nthAddr(ord)) & (ord >= 1 & ord <= size) &
-              (cont2 === store(cont, ord, sobj))) |
-             ((addr =/= Null) &
-              (addr === nthAddr(ord)) & (ord <= 0 | ord > size) &
-              (cont2 === cont)) |
-             ((addr === Null) &
-              (cont2 === cont)))
+            ite(addr === Null,
+                cont2 === cont,
+                (addr === nthAddr(ord)) & 
+                ite(ord >= 1 & ord <= size,
+                    cont2 === store(cont, ord, sobj),
+                    cont2 === cont))
            )))))))
       }
 
