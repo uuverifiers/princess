@@ -1083,23 +1083,27 @@ class ArrayHeap(heapSortName         : String,
         val (other, constraints) =
           conjuncts.partition(_.isInstanceOf[IBinFormula])
 
-        j match {
-          case IBinJunctor.And => {
-            val (newAddrStatus, other2) =
-              runValidityInference(constraints, addrStatus)
-            val other3 =
-              (other ++ other2).map(simplifyFor(_, newAddrStatus))
-            newAddrStatus.toFormula(addrStatus) &&& and(other3)
+        try {
+          j match {
+            case IBinJunctor.And => {
+              val (newAddrStatus, other2) =
+                runValidityInference(constraints, addrStatus)
+              val other3 =
+                (other ++ other2).map(simplifyFor(_, newAddrStatus))
+              newAddrStatus.toFormula(addrStatus) &&& and(other3)
+            }
+            case IBinJunctor.Or => {
+              val constraints2 = constraints.map(~_)
+              val (newAddrStatus, other2) =
+                runValidityInference(constraints2, addrStatus)
+              val other3 = other2.map(~_)
+              val other4 =
+                (other ++ other3).map(simplifyFor(_, newAddrStatus))
+              newAddrStatus.toFormula(addrStatus) ===> or(other4)
+            }
           }
-          case IBinJunctor.Or => {
-            val constraints2 = constraints.map(~_)
-            val (newAddrStatus, other2) =
-              runValidityInference(constraints2, addrStatus)
-            val other3 = other2.map(~_)
-            val other4 =
-              (other ++ other3).map(simplifyFor(_, newAddrStatus))
-            newAddrStatus.toFormula(addrStatus) ===> or(other4)
-          }
+        } catch {
+          case ContradictionException => false
         }
       }
       case _ =>
