@@ -192,18 +192,7 @@ class ArrayHeap(heapSortName         : String,
                                (b("size"), OtherSort(Nat))),
                           ADTSort(0))))
 
-    // We must avoid circular dependencies, therefore the ADT is
-    // declared to depend on theories needed for the ADT sorts, but not
-    // on the heap theory itself.
-    val adtDependencies =
-      (for ((_, sig) <- ctors;
-            t <- sig.sortDependencies;
-            if t != this)
-      yield t).distinct
-
-    new ADT(List("Array_" +  heapSortName),
-            ctors,
-            overrideDeps = Some(adtDependencies))
+    new ADT(List("Array_" +  heapSortName), ctors)
   }
 
   val rawHeapSort = heapSizeADT.sorts(0)
