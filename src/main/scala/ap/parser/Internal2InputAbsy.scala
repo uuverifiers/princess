@@ -218,9 +218,6 @@ object VariableSortInferenceVisitor
           // nothing
         case oldSort if oldSort != effectiveSort => {
           val newSort = (oldSort, effectiveSort) match {
-            // TODO: remove this hack
-            case (s : NativeHeap.AddressSort, Sort.Integer) => s
-            case (Sort.Integer, s : NativeHeap.AddressSort) => s
             case _ =>
               Debug.whenAssertionsOn(AC) {
                 Console.err.println("Warning: type clash during inference: " +
@@ -240,12 +237,6 @@ object VariableSortInferenceVisitor
     case (ISortedVariable(ind1, AnySort), t2 ::: sort2) =>
       setVariableSort(ind1, sort2)
     case (t1 ::: sort1, ISortedVariable(ind2, AnySort)) =>
-      setVariableSort(ind2, sort1)
-    case (ISortedVariable(ind1, Numeric(_)), t2 ::: sort2)
-        if sort2.isInstanceOf[NativeHeap.AddressSort] =>
-      setVariableSort(ind1, sort2)
-    case (t1 ::: sort1, ISortedVariable(ind2, Numeric(_)))
-        if sort1.isInstanceOf[NativeHeap.AddressSort] =>
       setVariableSort(ind2, sort1)
     case _ =>
       // nothing
