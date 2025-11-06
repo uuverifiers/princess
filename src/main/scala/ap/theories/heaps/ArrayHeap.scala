@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025 Philipp Ruemmer, Zafer Esen <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -180,49 +180,58 @@ class ArrayHeap(heapSortName         : String,
   private val emptyArray = IFunApp(arrayTheory.const, List(defaultObject))
 
   /**
-   * ADT for all things that cannot be on the heap.
+   * ADT for the heap contents array and its size.
    */
-  val offHeapADT = {
+  val heapSizeADT = {
     import ADT.{CtorSignature, OtherSort, ADTSort}
     def b(n : String) = heapSortName + "_" + n
 
-    val ctors =
+    val ctors : Seq[(String, CtorSignature)] =
       List((b("ctor"),
-          CtorSignature(List((b("contents"), OtherSort(ArraySort)),
-                             (b("size"), OtherSort(Nat))),
-                        ADTSort(0))),
-           (b("allocRes_ctor"),
-          CtorSignature(List(("new" + heapSortName, ADTSort(0)),
-                             ("new" + addressSortName, OtherSort(AddressSort))),
-                        ADTSort(1))),
-         (b("batchAllocRes_ctor"),
-          CtorSignature(List(("newBatch" + heapSortName, ADTSort(0)),
-                             ("new" + addressRangeSortName,
-                                                  OtherSort(AddressRangeSort))),
-                        ADTSort(2))))
+            CtorSignature(List((b("contents"), OtherSort(ArraySort)),
+                               (b("size"), OtherSort(Nat))),
+                          ADTSort(0))))
 
-    new ADT(List(heapSortName,
-                 "AllocRes" + heapSortName,
-                 "BatchAllocRes" + heapSortName),
-            ctors)
+    new ADT(List(b("pair")), ctors)
   }
 
-  val rawHeapSort       = offHeapADT.sorts(0)
-  val AllocResSort      = offHeapADT.sorts(1)
-  val BatchAllocResSort = offHeapADT.sorts(2)
+  val rawHeapSort = heapSizeADT.sorts(0)
 
-  val Seq(heapPair, allocResPair, batchAllocResPair) = offHeapADT.constructors
+  //////////////////////////////////////////////////////////////////////////////
 
-  val Seq(Seq(heapContents,      heapSize),
-          Seq(allocResHeap,      allocResAddr),
-          Seq(batchAllocResHeap, batchAllocResAddr)) = offHeapADT.selectors
+  private val OSo     = ObjectSort
+  private val HSo     = HeapSort
+  private val ASo     = AddressSort
+  private val ARSo    = AddressRangeSort
 
-  private val _heapPair = offHeapADT.constructorPreds.head
+  val emptyHeap =
+    new MonoSortedIFunction("empty" + heapSortName, List(), HSo, true, false)
+  val read =
+    new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
+  val readUnsafe =
+    new MonoSortedIFunction("readUnsafe", List(HSo, ASo), OSo, true, false)
+  val write =
+    new MonoSortedIFunction("write", List(HSo, ASo, OSo), HSo, true, false)
+  val batchWrite =
+    new MonoSortedIFunction("batchWrite", List(HSo, ARSo, OSo), HSo,
+                            true, false)
+  val valid =
+    new MonoSortedPredicate("valid", List(HSo, ASo))
+  val nextAddr =
+    new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
+                            true, false)
+  val addressRangeNth =
+    new MonoSortedIFunction(addressRangeSortName + "Nth", List(ARSo, Integer),
+                            ASo, true, false)
+  val addressRangeWithin =
+    new MonoSortedPredicate(addressRangeSortName + "Within", List(ARSo, ASo))
 
-  private val emptyHeapTerm = {
-    import IExpression._
-    heapPair(emptyArray, 0)
-  }
+  val storeRange =
+    new MonoSortedIFunction("storeRange",
+                            List(ArraySort, Integer, Integer, OSo),
+                            ArraySort, true, true)
+  val distinctHeaps =
+    new MonoSortedPredicate("distinctHeaps", List(HSo, HSo))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -231,6 +240,8 @@ class ArrayHeap(heapSortName         : String,
    */
   object HeapSort extends ProxySort(rawHeapSort) with Theory.TheorySort {
     import IExpression._
+
+    override val name = heapSortName
 
     override def individuals : Stream[ITerm] = elementLists
 
@@ -288,50 +299,68 @@ class ArrayHeap(heapSortName         : String,
     val theory = ArrayHeap.this
   }
 
-  override val dependencies = List(offHeapADT, arrayTheory, onHeapADT)
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * ADT for all things that cannot be on the heap.
+   */
+  val offHeapADT = {
+    import ADT.{CtorSignature, OtherSort, ADTSort}
+    def b(n : String) = heapSortName + "_" + n
+
+    val ctors =
+      List((b("allocRes_ctor"),
+          CtorSignature(List(("new" + heapSortName, OtherSort(HeapSort)),
+                             ("new" + addressSortName, OtherSort(AddressSort))),
+                        ADTSort(0))),
+         (b("batchAllocRes_ctor"),
+          CtorSignature(List(("newBatch" + heapSortName, OtherSort(HeapSort)),
+                             ("new" + addressRangeSortName,
+                                                  OtherSort(AddressRangeSort))),
+                        ADTSort(1))))
+
+    // We must avoid circular dependencies, therefore the ADT is
+    // declared to depend on theories needed for the ADT sorts, but not
+    // on the heap theory itself.
+    val adtDependencies =
+      (for ((_, sig) <- ctors;
+            t <- sig.sortDependencies;
+            if t != this)
+      yield t).distinct
+
+    new ADT(List("AllocRes" + heapSortName,
+                 "BatchAllocRes" + heapSortName),
+            ctors,
+            overrideDeps = Some(adtDependencies))
+  }
+
+  val AllocResSort      = offHeapADT.sorts(0)
+  val BatchAllocResSort = offHeapADT.sorts(1)
+
+  val alloc =
+    new MonoSortedIFunction("alloc", List(HSo, OSo), AllocResSort, true, false)
+  val batchAlloc =
+    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer),
+                            BatchAllocResSort, true, false)
+
+  val heapPair = heapSizeADT.constructors(0)
+  val Seq(allocResPair, batchAllocResPair) = offHeapADT.constructors
+
+  val Seq(Seq(heapContents,      heapSize))          = heapSizeADT.selectors
+  val Seq(Seq(allocResHeap,      allocResAddr),
+          Seq(batchAllocResHeap, batchAllocResAddr)) = offHeapADT.selectors
+
+  private val _heapPair = heapSizeADT.constructorPreds.head
+
+  private val emptyHeapTerm = {
+    import IExpression._
+    heapPair(emptyArray, 0)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val OSo     = ObjectSort
-  private val HSo     = HeapSort
-  private val ASo     = AddressSort
-  private val ARSo    = AddressRangeSort
-  private val AResSo  = AllocResSort
-  private val BAResSo = BatchAllocResSort
-
-  val emptyHeap =
-    new MonoSortedIFunction("empty" + heapSortName, List(), HSo, true, false)
-  val alloc =
-    new MonoSortedIFunction("alloc", List(HSo, OSo), AResSo, true, false)
-  val batchAlloc =
-    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer), BAResSo,
-                            true, false)
-  val read =
-    new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
-  val readUnsafe =
-    new MonoSortedIFunction("readUnsafe", List(HSo, ASo), OSo, true, false)
-  val write =
-    new MonoSortedIFunction("write", List(HSo, ASo, OSo), HSo, true, false)
-  val batchWrite =
-    new MonoSortedIFunction("batchWrite", List(HSo, ARSo, OSo), HSo,
-                            true, false)
-  val valid =
-    new MonoSortedPredicate("valid", List(HSo, ASo))
-  val nextAddr =
-    new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
-                            true, false)
-  val addressRangeNth =
-    new MonoSortedIFunction("addressRangeNth", List(ARSo, Integer), ASo,
-                            true, false)
-  val addressRangeWithin =
-    new MonoSortedPredicate("addressRangeWithin", List(ARSo, ASo))
-
-  val storeRange =
-    new MonoSortedIFunction("storeRange",
-                            List(ArraySort, Integer, Integer, OSo),
-                            ArraySort, true, true)
-  val distinctHeaps =
-    new MonoSortedPredicate("distinctHeaps", List(HSo, HSo))
+  override val dependencies =
+    List(offHeapADT, heapSizeADT, arrayTheory, onHeapADT)
 
   //////////////////////////////////////////////////////////////////////////////
 
