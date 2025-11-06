@@ -182,14 +182,15 @@ class ArrayHeap(heapSortName         : String,
   /**
    * ADT for the heap contents array and its size.
    */
-  val arrayHeapADT = {
+  val heapSizeADT = {
     import ADT.{CtorSignature, OtherSort, ADTSort}
     def b(n : String) = heapSortName + "_" + n
 
-    val ctors : Seq[(String, CtorSignature)] = List((b("ctor"),
-                       CtorSignature(List((b("contents"), OtherSort(ArraySort)),
-                                          (b("size"), OtherSort(Nat))),
-                                     ADTSort(0))))
+    val ctors : Seq[(String, CtorSignature)] =
+      List((b("ctor"),
+            CtorSignature(List((b("contents"), OtherSort(ArraySort)),
+                               (b("size"), OtherSort(Nat))),
+                          ADTSort(0))))
 
     // We must avoid circular dependencies, therefore the ADT is
     // declared to depend on theories needed for the ADT sorts, but not
@@ -205,7 +206,7 @@ class ArrayHeap(heapSortName         : String,
             overrideDeps = Some(adtDependencies))
   }
 
-  val rawHeapSort = arrayHeapADT.sorts(0)
+  val rawHeapSort = heapSizeADT.sorts(0)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -351,14 +352,14 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer),
                             BatchAllocResSort, true, false)
 
-  val heapPair = arrayHeapADT.constructors(0)
+  val heapPair = heapSizeADT.constructors(0)
   val Seq(allocResPair, batchAllocResPair) = offHeapADT.constructors
 
-  val Seq(Seq(heapContents,      heapSize))          = arrayHeapADT.selectors
+  val Seq(Seq(heapContents,      heapSize))          = heapSizeADT.selectors
   val Seq(Seq(allocResHeap,      allocResAddr),
           Seq(batchAllocResHeap, batchAllocResAddr)) = offHeapADT.selectors
 
-  private val _heapPair = offHeapADT.constructorPreds.head
+  private val _heapPair = heapSizeADT.constructorPreds.head
 
   private val emptyHeapTerm = {
     import IExpression._
@@ -367,8 +368,8 @@ class ArrayHeap(heapSortName         : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  override val dependencies = List(
-    arrayHeapADT, offHeapADT, arrayTheory, onHeapADT)
+  override val dependencies =
+    List(offHeapADT, heapSizeADT, arrayTheory, onHeapADT)
 
   //////////////////////////////////////////////////////////////////////////////
 
