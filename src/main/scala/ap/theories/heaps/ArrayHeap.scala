@@ -231,10 +231,10 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
                             true, false)
   val addressRangeNth =
-    new MonoSortedIFunction("addressRangeNth", List(ARSo, Integer), ASo,
-                            true, false)
+    new MonoSortedIFunction(addressRangeSortName + "Nth", List(ARSo, Integer),
+                            ASo, true, false)
   val addressRangeWithin =
-    new MonoSortedPredicate("addressRangeWithin", List(ARSo, ASo))
+    new MonoSortedPredicate(addressRangeSortName + "Within", List(ARSo, ASo))
 
   val storeRange =
     new MonoSortedIFunction("storeRange",

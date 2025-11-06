@@ -576,14 +576,12 @@ class NativeHeap(heapSortName : String, addressSortName : String,
   val nthAddrRange = new MonoSortedIFunction(s"nth${addressSortName}Range",
     List(Sort.Nat, Sort.Nat), addressRangeSort, false, false)
 
-  val nth = new MonoSortedIFunction("nth" + addressRangeSortName,
-    List(addressRangeSort, Sort.Nat), AddressSort,
-    false, false)
-  val within = new MonoSortedPredicate("within",
+  val addressRangeNth = new MonoSortedIFunction(
+    addressRangeSortName + "Nth",
+    List(addressRangeSort, Sort.Nat), AddressSort, false, false)
+  val addressRangeWithin = new MonoSortedPredicate(
+    addressRangeSortName + "Within",
     List(addressRangeSort, AddressSort))
-
-  val addressRangeNth = nth
-  val addressRangeWithin = within
 
   /** Returns whether (an ADT) sort is declared as part of this theory. */
   def containsADTSort(sort : Sort): Boolean = theoryADTSorts.contains(sort)
@@ -745,9 +743,9 @@ class NativeHeap(heapSortName : String, addressSortName : String,
 
   val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
                        nullAddr, counter, nthAddr, nextAddr, nthAddrRange,
-                       batchAlloc, batchAllocHeap, batchAllocAddrRange, nth,
-                       batchWrite)
-  val predefPredicates = List(isAlloc, within)
+                       batchAlloc, batchAllocHeap, batchAllocAddrRange,
+                       addressRangeNth, batchWrite)
+  val predefPredicates = List(isAlloc, addressRangeWithin)
 
   val _defObj : ITerm = defaultObjectCtor(userADTCtors)
 
@@ -1151,13 +1149,13 @@ class NativeHeap(heapSortName : String, addressSortName : String,
         val Seq(h, _, n) = subres.take(3).map(_.asInstanceOf[ITerm])
         addressRangeCtor(ite(n > 0, counter(h)+1, counter(h)), n)
 
-      case IAtom(`within`, _) =>
+      case IAtom(`addressRangeWithin`, _) =>
         val Seq(r, a) = subres.take(2).map(_.asInstanceOf[ITerm])
 //        println("Simplified " + t + " to " + _within(r, a))
         a >= addrRangeStart(r) &
           a < addrRangeStart(r) + addrRangeSize(r)
 
-      case IFunApp(`nth`, _) =>
+      case IFunApp(`addressRangeNth`, _) =>
         val Seq(r, n) = subres.take(2).map(_.asInstanceOf[ITerm])
         n match {
           case IIntLit(IdealInt(i)) if i < 0 =>
