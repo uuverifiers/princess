@@ -4,7 +4,7 @@
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
  * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2023 Zafer Esen <zafer.esen@gmail.com>
+ *               2020-2025 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,63 +50,94 @@ object NativeHeap {
   private val AC = Debug.AC_HEAP
   
   class HeapException(m : String) extends Exception(m)
+}
 
-  class AddressSort(sortName : String,
-                    val heapTheory : NativeHeap) extends ProxySort(Sort.Nat)
-                                           with Theory.TheorySort {
+/**
+ * defaultObjectCtor is called from the theory (before it is completely
+ * initialised), and it passes back the theory ADTs for adding to environment
+ * (e.g. as done in SMTParser2InputAbsy), and also the actual constructors
+ * for the ctorSignatures, so the defObj term can be built using those.
+ *
+ * @param heapSortName
+ * @param addressSortName
+ * @param objectSort
+ * @param sortNames
+ * @param ctorSignatures
+ */
+class NativeHeap(heapSortName : String, addressSortName : String,
+           addressRangeSortName : String,
+           objectSort : Heap.ADTSort, sortNames : Seq[String],
+           ctorSignatures : Seq[(String, Heap.CtorSignature)],
+           defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
+    extends Heap with SMTLinearisableTheory {
+
+  import NativeHeap._
+  import Heap._
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(AC,
+    ctorSignatures forall {
+      case (_, sig) =>
+        ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
+          case ADTSort(id) => id >= 0 && id < sortNames.size
+          case _ : OtherSort => true
+          case AddrSort | AddrRangeSort => true
+        }
+    })
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  object AddressSort extends ProxySort(Sort.Nat) with Theory.TheorySort {
     import IExpression.toFunApplier
 
-    override val name = sortName
+    override val name = addressSortName
     override def decodeToTerm(
                  d : IdealInt,
-                 assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
-      Some(heapTheory.nthAddr(d.intValue))   // TODO: correctly use nullAddr!
+                 assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
+      d.intValue match {
+        case 0 => Some(nullAddr())
+        case v => Some(nthAddr(v))
+      }
+    }
 
     override lazy val individuals : Stream[ITerm] =
-      for (t <- Sort.Nat.individuals) yield heapTheory.nthAddr(t)
+      for (t <- Sort.Nat.individuals) yield nthAddr(t)
 
-    val theory = heapTheory
+    val theory = NativeHeap.this
   }
 
-  class HeapSort(sortName : String,
-                 val heapTheory : NativeHeap) extends ProxySort(Sort.Integer)
-                                        with Theory.TheorySort {
+  object HeapSort extends ProxySort(Sort.Integer) with Theory.TheorySort {
     import IExpression.toFunApplier
     import ap.terfor.conjunctions.Conjunction
     import ap.terfor.preds.Atom
-    import heapTheory.{ObjectSort, alloc, emptyHeap, newHeap}
-    override val name = sortName
+    override val name = heapSortName
 
-    val theory = heapTheory
+    val theory = NativeHeap.this
 
     override lazy val individuals : Stream[ITerm] =
       emptyHeap() #:: (for (t <- individuals;
                             obj <- ObjectSort.individuals)
-        yield newHeap(alloc(t, obj)))
+      yield newHeap(alloc(t, obj)))
 
     override def decodeToTerm(
-                 d : IdealInt,
-                 assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
+      d : IdealInt,
+      assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
       assignment get ((d, this))
     }
 
     override def augmentModelTermSet(
-                 model : Conjunction,
-                 terms : MMap[(IdealInt, Sort), ITerm],
-                 allTerms : Set[(IdealInt, Sort)],
-                 definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
+      model : Conjunction,
+      terms : MMap[(IdealInt, Sort), ITerm],
+      allTerms : Set[(IdealInt, Sort)],
+      definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
 
       /** Helper functions to collect atoms from theory functions */
       def getAtoms (f : IFunction) : IndexedSeq[Atom] =
-        model.predConj positiveLitsWithPred heapTheory.heapFunPredMap(f)
+        model.predConj positiveLitsWithPred heapFunPredMap(f)
       def getHeapADTAtoms (f : IFunction) : IndexedSeq[Atom] =
-        model.predConj positiveLitsWithPred heapTheory.heapADTs.
+        model.predConj positiveLitsWithPred heapADTs.
           functionPredicateMapping.find(_._1 == f).get._2
 
       /* Collect the relevant functions and predicates of the theory */
-      import heapTheory.{counter, emptyHeap, read, write, allocHeap,
-                         batchAllocHeap, batchWrite,
-                         addrRangeStart, addrRangeSize}
       val writeAtoms = getAtoms(write)
       val allocAtoms = getAtoms(allocHeap)
       val batchAllocAtoms = getAtoms(batchAllocHeap)
@@ -121,7 +152,6 @@ object NativeHeap {
 
       def createHeapTerm(contents : Seq[IdealInt]) : ITerm = {
         assume(contents.nonEmpty) // emptyHeap should be handled separately
-        import heapTheory.{newHeap, alloc, newBatchHeap, batchAlloc}
         var currentTerm = emptyHeap()
 
         /* below code tries to group objects by indices, in order to
@@ -143,7 +173,7 @@ object NativeHeap {
               thisElem
             }
           }
-          )
+                                       )
           if (l.zipWithIndex.exists(a => a._1 != res(a._2)))
             change = true
           l = res
@@ -155,8 +185,7 @@ object NativeHeap {
             List(b) ++ a)).sortBy(e => e._2.min)
 
         for ((objTermId, indices) <- groupedContents) {
-          val objTerm = terms.getOrElse((objTermId, heapTheory.ObjectSort),
-            heapTheory._defObj)
+          val objTerm = terms.getOrElse((objTermId, ObjectSort), defaultObject)
           val n = indices.size // n = object repeat count
           if (n > 1) {
             currentTerm = newBatchHeap(batchAlloc(currentTerm, objTerm, n))
@@ -165,10 +194,10 @@ object NativeHeap {
           }
         }
 // todo:use only official functions of the theory in the models
-        /*import heapTheory.{_defObj, alloc, newHeap}
+        /*import heapTheory.{defaultObject, alloc, newHeap}
         for (objTermId <- contents) {
           val objTerm = terms.getOrElse((objTermId, heapTheory.ObjectSort),
-            heapTheory._defObj)
+            heapTheory.defaultObject)
           currentTerm = newHeap(alloc(currentTerm, objTerm))
         }*/
         currentTerm
@@ -178,19 +207,19 @@ object NativeHeap {
 
       // fill in the contents for empty heaps
       for (a <- emptyHeapAtoms) { // emptyHeap(heapId)
-          heapContents += ((a(0).constant, new ArrayBuffer[IdealInt](0)))
+        heapContents += ((a(0).constant, new ArrayBuffer[IdealInt](0)))
       }
 
       // Map[addrRange(addrRangeId -> (addRangeStartId : IdealInt,
       //                               addrRangeSize : Int))]
       val addrRangeInfo =
         (for (addrRangeSizePair <- (addrRangeStartAtoms.sortBy(_(0).constant.intValue) zip
-        addrRangeSizeAtoms.sortBy(_(0).constant.intValue))) yield {
-        val addrRangeId = addrRangeSizePair._1(0).constant
-        assert (addrRangeId == addrRangeSizePair._2(0).constant)
-        (addrRangeId, (addrRangeSizePair._1(1).constant,
-          addrRangeSizePair._2(1).constant.intValue))
-      }).toMap
+                                    addrRangeSizeAtoms.sortBy(_(0).constant.intValue))) yield {
+          val addrRangeId = addrRangeSizePair._1(0).constant
+          assert (addrRangeId == addrRangeSizePair._2(0).constant)
+          (addrRangeId, (addrRangeSizePair._1(1).constant,
+            addrRangeSizePair._2(1).constant.intValue))
+        }).toMap
 
       // initialize content buffers of non-empty heaps
       // counter(heapId, counterVal)
@@ -249,7 +278,7 @@ object NativeHeap {
                               addrRangeSize) // size of change
                           case None => // no allocs or writes found
                             (IdealInt(-1), IdealInt(-1), IdealInt(-1), false, 0)
-                      }
+                        }
                     }
                 }
             }
@@ -280,8 +309,8 @@ object NativeHeap {
               for (a <- readAtoms if a(0).constant == heapId) {
                 val changedInd = a(1).constant.intValue - 1
                 val newVal = a(2).constant
-               // ignoring read atoms outside this heap term's allocated range
-               // these reads would only be defObj
+                // ignoring read atoms outside this heap term's allocated range
+                // these reads would only be defObj
                 if (heapContents(heapId).length > changedInd &&
                     changedInd >= 0 &&
                     heapContents(heapId)(changedInd) != newVal) {
@@ -323,124 +352,10 @@ object NativeHeap {
       }
     }
   }
-/*
-  // heap theory hard-coded ADT sorts, ctors and functions
-  allocResSort     : allocResCtor(heap X addr); newHeap, newAddr
-  batchAllocResSort: batchAllocResCtor (heap X addrRange); newBatchHeap, newAddrRange
-  addressRangeSort : addressRangeCtor (addr X nat); addrRangeStart, addrRangeSize
-  */
-  object HeapSortExtractor {
-    def unapply (sort : Sort) : Option[NativeHeap] = {
-      sort match {
-        case address : NativeHeap.AddressSort =>
-          Some(address.heapTheory)
-        case adtSort : ADTProxySort =>
-          // check if this is one of the hard-coded heapADT sorts
-          // this extractor depends on a few assumptions:
-          //   1. current hard-coded ADTs have all two arguments and
-          //   2. the hard-coded ADTs are declared last
-          val ctors = adtSort.adtTheory.constructors.filter(ctor =>
-            ctor.resSort == adtSort && ctor.argSorts.size == 2)
-          if (ctors isEmpty)
-            None
-          else {
-            val ctor = ctors.last
-            ctor.argSorts match {
-              case Seq(h: HeapSort, _) if // allocRes(heap, object)
-              Seq(h.heapTheory.allocResCtor, h.heapTheory.batchAllocResCtor)
-                contains ctor => Some(h.heapTheory) // alloc
-              case Seq(a: AddressSort, _) // addrRange(addr, nat)
-                if ctor == a.heapTheory.addressRangeCtor =>
-                Some(a.heapTheory)
-              case _ => None
-            }
-          }
-        case _ => None
-      }
-    }
-  }
 
-  /**
-   * Extractor recognising the functions of any Heap theory.
-   * Also recognises the selectors and the constructor of AllocResSort ADT
-   */
-  object HeapFunExtractor {
-    def unapply(fun: IFunction): Option[NativeHeap] =
-      (TheoryRegistry lookupSymbol fun) match {
-        case Some(t: NativeHeap) => Some(t)
-        case Some(_: ADT) if fun.isInstanceOf[MonoSortedIFunction] =>
-          val sortedFun = fun.asInstanceOf[MonoSortedIFunction]
-          sortedFun.resSort match {
-            case s: NativeHeap.HeapSort =>
-              if (sortedFun == s.heapTheory.newHeap) // newHeap(ar : AllocRes)
-                Some(s.heapTheory)
-              else None
-            case s: NativeHeap.AddressSort =>
-              if (sortedFun == s.heapTheory.newAddr) // newAddr(ar : AllocRes)
-                Some(s.heapTheory)
-              else None
-            case t if sortedFun.arity == 2 => // AllocRes constructor
-              sortedFun.argSorts.head match {
-                case s: NativeHeap.HeapSort =>
-                  if (t == s.heapTheory.allocResSort)
-                    Some(s.heapTheory)
-                  else None
-                case _ => None
-              }
-              //todo: support new functions of the theory: newBatchHeap, newAddrRange etc.
-            case _ => None
-          }
-        case _ => None
-      }
-  }
+  //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Extractor recognising the predicates of any Heap theory.
-   */
-  object HeapPredExtractor {
-    def unapply(pred : Predicate) : Option[NativeHeap] =
-      (TheoryRegistry lookupSymbol pred) match {
-        case Some(t : NativeHeap) => Some(t)
-        case _ => None
-      }
-  }
-}
-
-/**
- * defaultObjectCtor is called from the theory (before it is completely
- * initialised), and it passes back the theory ADTs for adding to environment
- * (e.g. as done in SMTParser2InputAbsy), and also the actual constructors
- * for the ctorSignatures, so the defObj term can be built using those.
- *
- * @param heapSortName
- * @param addressSortName
- * @param objectSort
- * @param sortNames
- * @param ctorSignatures
- */
-class NativeHeap(heapSortName : String, addressSortName : String,
-           addressRangeSortName : String,
-           objectSort : Heap.ADTSort, sortNames : Seq[String],
-           ctorSignatures : Seq[(String, Heap.CtorSignature)],
-           defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
-    extends Heap with SMTLinearisableTheory {
-
-  import NativeHeap._
-  import Heap._
-
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(AC,
-    ctorSignatures forall {
-      case (_, sig) =>
-        ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
-          case ADTSort(id) => id >= 0 && id < sortNames.size
-          case _ : OtherSort => true
-          case AddrSort | AddrRangeSort => true
-        }
-    })
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
-  val AddressSort = new AddressSort(addressSortName, this)
-  val HeapSort = new HeapSort(heapSortName, this)
+  //////////////////////////////////////////////////////////////////////////////
   val emptyHeap = new MonoSortedIFunction("empty" + heapSortName,
     argSorts = List(),
     resSort = HeapSort, _partial = false, _relational = false)
@@ -747,9 +662,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
                        addressRangeNth, batchWrite)
   val predefPredicates = List(isAlloc, addressRangeWithin)
 
-  val _defObj : ITerm = defaultObjectCtor(userADTCtors)
-
-  val defaultObject = _defObj
+  val defaultObject : ITerm = defaultObjectCtor(userADTCtors)
 
   private def _isAlloc(h: ITerm , p: ITerm) : IFormula = {
     import IExpression._
@@ -841,11 +754,11 @@ class NativeHeap(heapSortName : String, addressSortName : String,
 
         // invalid read - 1
         HeapSort.all(h => AddressSort.all(p => trig(
-          (counter(h) < p) ==> containFunctionApplications(read(h, p) === _defObj),
+          (counter(h) < p) ==> containFunctionApplications(read(h, p) === defaultObject),
           read(h, p)))) &
         // invalid read - 2
         HeapSort.all(h => AddressSort.all(p => trig(
-          (p <= 0) ==> containFunctionApplications(read(h, p) === _defObj),
+          (p <= 0) ==> containFunctionApplications(read(h, p) === defaultObject),
           read(h, p)))) &
 
         /*HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => trig(
@@ -867,35 +780,40 @@ class NativeHeap(heapSortName : String, addressSortName : String,
             (read(allocHeap(h, o), p) === read(h, p)),
           read(allocHeap(h, o), p), allocHeap(h, o))))) &
 
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(
+          n => trig(
           (p > counter(h) & p <= counter(h) + n) ==>
             (read(batchAllocHeap(h, o, n), p) === o) ,
           read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n)))))) &
 
         // !_within(r, p) split into two axioms
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
+        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(
+          n => trig(
           (p <= counter(h)) ==>
             (read(batchAllocHeap(h, o, n), p) === read(h, p)) ,
             read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n)))))) &
         /*HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => Sort.Nat.all(n => trig(
           p > counter(h) + n ==>
-            containFunctionApplications(read(batchAllocHeap(h, o, n), p) === _defObj) ,
+            containFunctionApplications(read(batchAllocHeap(h, o, n), p) === defaultObject) ,
           read(batchAllocHeap(h, o, n), p), batchAllocHeap(h, o, n))))))*/
 
         // read over valid batchWrite - 1
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(
+          o => addressRangeSort.all(r => trig(
           (p >= addrRangeStart(r) & p < addrRangeStart(r) + addrRangeSize(r) &
             ((addrRangeStart(r) + addrRangeSize(r) - 1) <= counter(h))) ==>
             (read(batchWrite(h, r, o), p) === o) ,
           read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) &
 
         // read over batchwrite - unmodified locations - 1
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(
+          o => addressRangeSort.all(r => trig(
           (p < addrRangeStart(r)) ==>
             (read(batchWrite(h, r, o), p) === read(h, p)) ,
           read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) &
         // read over batchwrite - unmodified locations - 2
-        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(o => addressRangeSort.all(r => trig(
+        HeapSort.all(h => AddressSort.all(p => ObjectSort.all(
+          o => addressRangeSort.all(r => trig(
           (p >= addrRangeStart(r) + addrRangeSize(r)) ==>
             (read(batchWrite(h, r, o), p) === read(h, p)) ,
           read(batchWrite(h, r, o), p), batchWrite(h, r, o)))))) //&
@@ -1093,11 +1011,11 @@ class NativeHeap(heapSortName : String, addressSortName : String,
         //println("Simplified " + t + " to " + emptyHeap())
         emptyHeap()
       case IFunApp(`read`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to " + _defObj)
-        _defObj
+        //println("Simplified " + t + " to " + defaultObject)
+        defaultObject
       case IFunApp(`read`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + _defObj)
-        _defObj
+        //println("Simplified " + t + " to " + defaultObject)
+        defaultObject
       case IFunApp(`counter`, _) if isFunAndMatches(subres(0), emptyHeap) =>
         //println("Simplified " + t + " to " + 0)
         i(0)
@@ -1253,7 +1171,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
     print("(declare-heap ")
     println(HeapSort.name + " " + AddressSort.name + " " +
           ObjectSort.name)
-    println(" " ++ asString(_defObj))
+    println(" " ++ asString(defaultObject))
     print(" (")
     print((for(s <- userADTSorts)
       yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
@@ -1477,9 +1395,9 @@ class NativeHeap(heapSortName : String, addressSortName : String,
       println("Simplified: " + expr + " to " + (h === emptyHeap()))
       h === emptyHeap()*/
     /*case IFunApp(`read`, Seq(_, IIntLit(IdealInt(0)))) =>
-      println("Rewrote: " + expr + " to " + _defObj)
-      _defObj*/
-    /*case Eq(`_defObj`, IFunApp(`read`, Seq(h, p))) =>
+      println("Rewrote: " + expr + " to " + defaultObject)
+      defaultObject*/
+    /*case Eq(`defaultObject`, IFunApp(`read`, Seq(h, p))) =>
       println("Simplified: " + expr + " to " + !_isAlloc(h, p))
       !_isAlloc(h, p) */
     case _ => expr
