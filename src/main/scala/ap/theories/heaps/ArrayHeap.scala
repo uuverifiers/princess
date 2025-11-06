@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025 Philipp Ruemmer, Zafer Esen <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -192,7 +192,7 @@ class ArrayHeap(heapSortName         : String,
                                (b("size"), OtherSort(Nat))),
                           ADTSort(0))))
 
-    new ADT(List("Array_" +  heapSortName), ctors)
+    new ADT(List(b("pair")), ctors)
   }
 
   val rawHeapSort = heapSizeADT.sorts(0)
@@ -240,6 +240,8 @@ class ArrayHeap(heapSortName         : String,
    */
   object HeapSort extends ProxySort(rawHeapSort) with Theory.TheorySort {
     import IExpression._
+
+    override val name = heapSortName
 
     override def individuals : Stream[ITerm] = elementLists
 
