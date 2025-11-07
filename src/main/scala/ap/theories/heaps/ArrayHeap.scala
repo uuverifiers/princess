@@ -257,7 +257,7 @@ class ArrayHeap(heapSortName         : String,
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       rawHeapSort.augmentModelTermSet(model, terms, allTerms, definedTerms)
 
-      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
+//      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
 
       for ((oldkey@(id, `rawHeapSort`),
             IFunApp(`heapPair`,
@@ -285,10 +285,10 @@ class ArrayHeap(heapSortName         : String,
             case (heap, obj) => allocResHeap(alloc(heap, obj)) }
 
         terms.put((id, this), constrTerm)
-        toRemove += oldkey
+//        toRemove += oldkey
       }
 
-      terms --= toRemove
+//      terms --= toRemove
     }
 
     override def decodeToTerm(
