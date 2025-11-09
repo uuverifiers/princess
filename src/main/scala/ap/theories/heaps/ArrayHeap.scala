@@ -257,7 +257,7 @@ class ArrayHeap(heapSortName         : String,
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       rawHeapSort.augmentModelTermSet(model, terms, allTerms, definedTerms)
 
-      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
+//      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
 
       for ((oldkey@(id, `rawHeapSort`),
             IFunApp(`heapPair`,
@@ -285,10 +285,10 @@ class ArrayHeap(heapSortName         : String,
             case (heap, obj) => allocResHeap(alloc(heap, obj)) }
 
         terms.put((id, this), constrTerm)
-        toRemove += oldkey
+//        toRemove += oldkey
       }
 
-      terms --= toRemove
+//      terms --= toRemove
     }
 
     override def decodeToTerm(
@@ -490,7 +490,7 @@ class ArrayHeap(heapSortName         : String,
   /**
    * Visitor called during pre-processing to eliminate symbols.
    */
-  private object Preproc extends CollectingVisitor[Unit, IExpression] {
+  private object PreTranslator extends CollectingVisitor[Unit, IExpression] {
     import IExpression._
     import arrayTheory.{select, store}
 
@@ -734,12 +734,57 @@ class ArrayHeap(heapSortName         : String,
     }
   }
 
+  /**
+   * Class to factor out shared sub-expressions in formulas.
+   * Those can then be encoded only once, and congruence-based
+   * reasoning becomes more effective.
+   */
+  private class Factorizer {
+    import IExpression._
+
+    def apply(f : IFormula) : IFormula = {
+      val parts =
+      for (INamedPart(name, f) <- PartExtractor(f)) yield {
+        val skeleton = SubExprAbbreviator(f, factor _).asInstanceOf[IFormula]
+        val newF = quanConsts(Quantifier.ALL, newConsts.toSeq,
+                             factoredExpressions ==> skeleton)
+        clear()
+        INamedPart(name, newF)
+      }
+      or(parts)
+    }
+
+    def clear() = {
+      newConsts.clear()
+      factoredExpressions = i(true)
+    }
+
+    private val newConsts = new ArrayBuffer[ConstantTerm]
+    private var factoredExpressions : IFormula = i(true)
+
+    private def factor(e : IExpression) : IExpression = e match {
+      case e@IFunApp(`read` | `write` | `alloc` |
+                     `batchAlloc` | `batchWrite`, _)
+                if ContainsSymbol.isClosed(e) => {
+        val sort = IExpression.Sort.sortOf(e)
+        val c = sort.newConstant("X")
+        newConsts += c
+        factoredExpressions = factoredExpressions &&& (e === c)
+        c
+      }
+      case e => e
+    }
+
+  }
+
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {
 //    println("before: " + f)
-    val res = Preproc.visit(f, ()).asInstanceOf[IFormula]
-//    println("after: " + res)
-    (res, signature)
+    val factorizer = new Factorizer
+    val f1 = factorizer(f)
+    val f2 = PreTranslator.visit(f1, ()).asInstanceOf[IFormula]
+//    println("after: " + f2)
+    (f2, signature)
   }
 
   //////////////////////////////////////////////////////////////////////////////
