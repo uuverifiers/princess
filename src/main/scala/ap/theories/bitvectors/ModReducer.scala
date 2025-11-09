@@ -114,6 +114,13 @@ object ModReducer {
          if getLeadingTerm(a, order) == t)
     yield a
 
+  private def extract(ub : IdealInt, lb : IdealInt, from : Term, to : Term)
+                     (implicit order : TermOrder) : Formula = {
+    import TerForConvenience._
+    val atom = _bv_extract(List(l(ub), l(lb), l(from), l(to)))
+    conj(atom, _bv_extract.asInstanceOf[SortedPredicate].sortConstraints(atom))
+  }
+
   private val emptyIteratorFun = (t : Term) => Iterator.empty
 
   object ReducerFactory extends ReducerPluginFactory {
@@ -278,10 +285,7 @@ object ModReducer {
                       throw new Exception("negative shift: " + a)
                     (SortedPredicate argumentSorts a).last match {
                       case UnsignedBVSort(bits) => {
-                        val newA =
-                          Atom(_bv_extract,
-                               Array(l(shift + bits - 1), l(shift), a(2), a(4)),
-                               order)
+                        val newA = extract(shift + bits - 1, shift, a(2), a(4))
                         //-BEGIN-ASSERTION-/////////////////////////////////////
                         if (debug) {
                           println("Reducing _r_shift_cast:")
@@ -343,8 +347,12 @@ object ModReducer {
 
                     if (bitBoundary >= 0) {
                       val LinearCombination.Constant(lb) = a(1)
+                      val LinearCombination.Constant(ub) = a(0)
+
                       if (lb >= bitBoundary) {
-                        val LinearCombination.Constant(ub) = a(0)
+                        // The extracted bits are completely determined by the
+                        // bounds
+
                         val newEq = a(3) === evalExtract(ub, lb, lower)
 
                         //-BEGIN-ASSERTION-/////////////////////////////////////
@@ -358,6 +366,27 @@ object ModReducer {
                         logger.otherComputation(List(a) ++ asses, newEq, order,
                                                 ModuloArithmetic)
                         newEq
+                      } else if (ub >= bitBoundary) {
+                        // The extracted bits are partly determined by the
+                        // bounds
+
+                        val bb = bitBoundary
+
+                        val newRHS =
+                          a(3) - evalExtract(ub, bb, lower) * pow2(bb - lb)
+                        val newExtract = extract(bb - 1, lb, a(2), newRHS)
+
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Simplifying bv_extract:")
+                          println("\t" + a)
+                          println("\t" + newExtract)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
+
+                        logger.otherComputation(List(a) ++ asses, newExtract, order,
+                                                ModuloArithmetic)
+                        newExtract
                       } else {
                         a
                       }

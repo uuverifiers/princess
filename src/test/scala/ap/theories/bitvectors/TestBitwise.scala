@@ -62,4 +62,28 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("extract1") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+
+      !! (bvuge(b1, bv(32, 0x00FF0000)))
+      !! (bvule(b1, bv(32, 0x00FFFFFF)))
+
+      scope {
+        !! (extract(19, 12, b1) === bv(8, 0xFF))
+        assert(??? == ProverStatus.Sat)
+      }
+
+      scope {
+        ?? (bvugt(extract(16, 15, b1), bv(2, 0)))
+        assert(??? == ProverStatus.Valid)
+      }
+
+      true
+    }
+  }
+
 }
