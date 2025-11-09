@@ -86,4 +86,20 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("extract2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x = createConstant("x")
+
+      scope {
+        !! (bvugt(extract(2, 1, 32*x + 3), bv(2, 0)))
+        assert(??? == ProverStatus.Sat)
+      }
+
+      true
+    }
+  }
+
 }
