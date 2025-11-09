@@ -801,6 +801,24 @@ final class IdealInt private (private val longStore : Long,
       (quot, rem)
     }
   
+   /**
+    * Reduce <code>this</code> by adding a multiple of <code>that</code> and
+    * return the remainder. In contrast to <code>%</code>,
+    * reduction is done so that the remainder has the same sign as
+    * <code>this</code>, unless the remainder is zero.
+    */
+  def moduloKeepingSign(that : IdealInt) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, that.signum > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val res = this % that
+    if (this.signum < 0 && res.signum > 0)
+      res - that
+    else
+      res
+  }
+
   /** Return whether this divides that */
   def divides (that : IdealInt) : Boolean =
     that.isZero || (!this.isZero && (that % this).isZero)

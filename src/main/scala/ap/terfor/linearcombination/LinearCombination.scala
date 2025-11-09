@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1011,6 +1011,22 @@ abstract sealed class LinearCombination (val order : TermOrder)
       for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
       yield (c.reduceAbs(lc) _1, t)
     LinearCombination.createFromSortedSeq(quotientTerms, order)
+  }
+
+  /**
+   * Reduce all coefficients of <code>this</code> with the given
+   * number, while keeping the sign of the terms, and return the remainder.
+   */
+  def moduloKeepingSign(modulus : IdealInt) : LinearCombination = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LinearCombination.AC, modulus.signum > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val remainder =
+      for ((c, t) <- this.pairIterator;
+           q = c.moduloKeepingSign(modulus);
+           if !q.isZero)
+      yield (q, t)
+    LinearCombination.createFromSortedSeq(remainder, order)
   }
 
   /**

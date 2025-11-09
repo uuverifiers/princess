@@ -98,6 +98,11 @@ class TestBitwise extends Properties("TestBitwise") {
         assert(??? == ProverStatus.Sat)
       }
 
+      scope {
+        !! (bvugt(extract(5, 3, 8*x + 3), bv(3, 0)))
+        assert(??? == ProverStatus.Sat)
+      }
+
       true
     }
   }

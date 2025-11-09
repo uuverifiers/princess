@@ -121,6 +121,9 @@ object ModReducer {
     conj(atom, _bv_extract.asInstanceOf[SortedPredicate].sortConstraints(atom))
   }
 
+  private def canBeReduced(lc : LinearCombination, modulus : IdealInt) =
+    lc.coeffIterator.exists { c => c >= modulus || c <= -modulus }
+
   private val emptyIteratorFun = (t : Term) => Iterator.empty
 
   object ReducerFactory extends ReducerPluginFactory {
@@ -285,7 +288,10 @@ object ModReducer {
                       throw new Exception("negative shift: " + a)
                     (SortedPredicate argumentSorts a).last match {
                       case UnsignedBVSort(bits) => {
-                        val newA = extract(shift + bits - 1, shift, a(2), a(4))
+                        val newA =
+                          Atom(_bv_extract,
+                               Array(l(shift + bits - 1), l(shift), a(2), a(4)),
+                               order)
                         //-BEGIN-ASSERTION-/////////////////////////////////////
                         if (debug) {
                           println("Reducing _r_shift_cast:")
@@ -307,10 +313,6 @@ object ModReducer {
                     a
                   }
 
-                // TODO: we should also identify extracts that completely
-                // determine the value of a bit-vector, and just replace
-                // with the value then
-                
                 case `_bv_extract` =>
                   if (a(2).isConstant) {
                     val LinearCombination.Constant(ub) = a(0)
@@ -329,6 +331,25 @@ object ModReducer {
                     logger.otherComputation(List(a), newEq, order,
                                             ModuloArithmetic)
                     newEq
+                  } else if (a(0).isConstant &&
+                             canBeReduced(a(2), pow2(a(0).constant + 1))) {
+                    println(a)
+                    val newExtract = _bv_extract(
+                      List(a(0), a(1),
+                           a(2).moduloKeepingSign(pow2(a(0).constant + 1)),
+                           a(3)))
+
+                    //-BEGIN-ASSERTION-/////////////////////////////////////////
+                    if (debug) {
+                      println("Simplifying bv_extract:")
+                      println("\t" + a)
+                      println("\t" + newExtract)
+                    }
+                    //-END-ASSERTION-///////////////////////////////////////////
+
+                    logger.otherComputation(List(a), newExtract, order,
+                                            ModuloArithmetic)
+                    newExtract
                   } else {
                     val (bitBoundary, lower, asses) = bitCache(a(2)) {
                       (reducer.lowerBound(a(2), logging),
@@ -394,7 +415,7 @@ object ModReducer {
                       a
                     }
                   }
-              }
+                }
           
         }} orElse {
           // then try to rewrite modulo atoms using known facts
