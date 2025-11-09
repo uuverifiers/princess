@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,8 +53,6 @@ import scala.collection.mutable.ArrayBuffer
  * Pre-processing of formulas
  */
 object ModPreprocessor {
-
-  private val AC = Debug.AC_MODULO_ARITHMETIC
 
   import ModuloArithmetic._
 
