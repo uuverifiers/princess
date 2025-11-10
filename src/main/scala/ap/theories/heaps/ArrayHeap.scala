@@ -617,9 +617,9 @@ class ArrayHeap(heapSortName         : String,
           }
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nthAddr.name} applied to non-constant " +
-              s"argument ${subres(0)}")
+//            Console.err.println(
+//              s"Warning: ${nthAddr.name} applied to non-constant " +
+//              s"argument ${subres(0)}")
             t update subres
           }
         }
@@ -632,8 +632,8 @@ class ArrayHeap(heapSortName         : String,
             // nothing
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nextAddr.name} applied to non-constant argument $n")
+//            Console.err.println(
+//              s"Warning: ${nextAddr.name} applied to non-constant argument $n")
           }
         }
         withEps(heap, AddressSort, (cont, size) =>
@@ -651,9 +651,9 @@ class ArrayHeap(heapSortName         : String,
           }
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nthAddrRange.name} applied to non-constant " +
-              s"arguments ${subres.mkString(", ")}")
+//            Console.err.println(
+//              s"Warning: ${nthAddrRange.name} applied to non-constant " +
+//              s"arguments ${subres.mkString(", ")}")
             t update subres
           }
         }
