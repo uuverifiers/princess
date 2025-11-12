@@ -1090,9 +1090,11 @@ class ArrayHeap(heapSortName         : String,
       // Simplify some cases of formulas with variables
       case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
           if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
         t === addrOrd(s)
       case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
           if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
         t === addrOrd(s)
 
       case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
