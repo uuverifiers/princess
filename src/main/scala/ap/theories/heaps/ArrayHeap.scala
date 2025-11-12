@@ -1087,21 +1087,6 @@ class ArrayHeap(heapSortName         : String,
     import IExpression._
     import arrayTheory.{select}
     e match {
-      // Simplify some cases of formulas with variables
-      case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
-          if !s.isInstanceOf[IVariable] =>
-        t === addrOrd(s)
-      case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
-          if !s.isInstanceOf[IVariable] =>
-        t === addrOrd(s)
-
-      case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
-          if !s.isInstanceOf[IVariable] =>
-        (cont === heapContents(s)) & (size === heapSize(s))
-      case Eq(s, IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)))
-          if !s.isInstanceOf[IVariable] =>
-        (cont === heapContents(s)) & (size === heapSize(s))
-
       case Geq(Const(n), IFunApp(`addrOrd`, _)) if n.signum <= 0 =>
         false
       case Geq(IFunApp(`addrOrd`, _), Const(n)) if n.signum > 0 =>
@@ -1160,6 +1145,30 @@ class ArrayHeap(heapSortName         : String,
     }
   }
 
+  private def equationalSimp(e : IExpression) : IExpression = {
+    import IExpression._
+    e match {
+      // Simplify some cases of formulas with variables
+      case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
+        t === addrOrd(s)
+      case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
+        t === addrOrd(s)
+
+      case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+      case Eq(s, IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+
+      case e => e
+    }
+  }
+
   /**
    * Recursively post-process a formula.
    *
@@ -1203,7 +1212,8 @@ class ArrayHeap(heapSortName         : String,
 
   override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
     val rewritings =
-      Rewriter.combineRewritings(Theory.postSimplifiers(dependencies))
+      Rewriter.combineRewritings(Theory.postSimplifiers(dependencies) :+
+                                 (equationalSimp _))
     val simp = new Simplifier {
       protected override def furtherSimplifications(expr : IExpression) =
         rewritings(expr)
