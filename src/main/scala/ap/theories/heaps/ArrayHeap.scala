@@ -1087,6 +1087,21 @@ class ArrayHeap(heapSortName         : String,
     import IExpression._
     import arrayTheory.{select}
     e match {
+      // Simplify some cases of formulas with variables
+      case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        t === addrOrd(s)
+      case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        t === addrOrd(s)
+
+      case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+      case Eq(s, IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+
       case Geq(Const(n), IFunApp(`addrOrd`, _)) if n.signum <= 0 =>
         false
       case Geq(IFunApp(`addrOrd`, _), Const(n)) if n.signum > 0 =>
@@ -1147,6 +1162,8 @@ class ArrayHeap(heapSortName         : String,
 
   /**
    * Recursively post-process a formula.
+   *
+   * TODO: also handle quantifiers in a reasonable way.
    */
   private def simplifyFor(f          : IFormula,
                           addrStatus : AddrStatus) : IFormula =
