@@ -250,6 +250,36 @@ class ArrayHeap(heapSortName         : String,
       (for (heap <- elementLists; obj <- ObjectSort.individuals)
        yield allocResHeap(alloc(heap, obj)))
 
+    /**
+     * Translate an array term with <code>heapPair</code> as the top-level
+     * function to a heap term.
+     */
+    def translateArrayTerm(arrayTerm : ITerm) : ITerm = {
+      val IFunApp(`heapPair`, Seq(contents, IIntLit(IdealInt(sizeInt)))) =
+        arrayTerm
+      val contentsAr =
+        new Array[ITerm] (sizeInt)
+
+      var t = contents
+      var cont = true
+      while (cont) t match {
+        case IFunApp(ExtArray.Store(_), Seq(t2, IIntLit(IdealInt(p)), v)) => {
+          t = t2
+          if (1 <= p && p <= contentsAr.size)
+            contentsAr(p - 1) = v
+        }
+        case IFunApp(ExtArray.Const(_), Seq(v)) => {
+          for (n <- 0 until contentsAr.size)
+            if (contentsAr(n) == null)
+              contentsAr(n) = v
+          cont = false
+        }
+      }
+
+      contentsAr.foldLeft(emptyHeap()) {
+        case (heap, obj) => allocResHeap(alloc(heap, obj)) }
+    }
+
     override def augmentModelTermSet(
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
@@ -260,31 +290,8 @@ class ArrayHeap(heapSortName         : String,
 //      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
 
       for ((oldkey@(id, `rawHeapSort`),
-            IFunApp(`heapPair`,
-                    Seq(contents, IIntLit(IdealInt(sizeInt))))) <- terms) {
-        val contentsAr = new Array[ITerm] (sizeInt)
-
-        var t = contents
-        var cont = true
-        while (cont) t match {
-          case IFunApp(ExtArray.Store(_), Seq(t2, IIntLit(IdealInt(p)), v)) => {
-            t = t2
-            if (1 <= p && p <= contentsAr.size)
-              contentsAr(p - 1) = v
-          }
-          case IFunApp(ExtArray.Const(_), Seq(v)) => {
-            for (n <- 0 until contentsAr.size)
-              if (contentsAr(n) == null)
-                contentsAr(n) = v
-            cont = false
-          }
-        }
-
-        val constrTerm =
-          contentsAr.foldLeft(emptyHeap()) {
-            case (heap, obj) => allocResHeap(alloc(heap, obj)) }
-
-        terms.put((id, this), constrTerm)
+            t@IFunApp(`heapPair`, Seq(_, IIntLit(_)))) <- terms) {
+        terms.put((id, this), translateArrayTerm(t))
 //        toRemove += oldkey
       }
 
