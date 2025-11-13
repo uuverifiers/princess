@@ -873,6 +873,7 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val minHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
+      // TODO: also take valid(h, nthAddr(n)) into account
       val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
                          N_NON_NULL) <- nullStatus.iterator)
                    yield (heap, n)).toVector
@@ -883,6 +884,7 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val maxHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
+      // TODO: also take valid(h, nthAddr(n)) into account
       val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
                          N_NULL) <- nullStatus.iterator)
                    yield (heap, n)).toVector
