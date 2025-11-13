@@ -864,6 +864,8 @@ class ArrayHeap(heapSortName         : String,
       addr match {
         case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
           n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
+        case IFunApp(`nthAddr`, Seq(Const(n))) if n.signum > 0 =>
+          n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
           allocStatus.getOrElse((addr, heap), A_TOP) == A_ALLOC
       }
@@ -1053,8 +1055,17 @@ class ArrayHeap(heapSortName         : String,
           status = status.meetAllocStatus(a, h, A_NON_ALLOC)
           List(c)
         }
-        case GeqLit(IFunApp(`heapSize`, Seq(h)), n) => {
+        case GeqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
           status = status.meetAllocStatus(nextAddr(h, -n), h, A_ALLOC)
+          List()
+        }
+        case EqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
+          status = status.meetNullStatus(nextAddr(h, -1), N_NULL)
+          List()
+        }
+        case EqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
+          status = status.meetAllocStatus(nextAddr(h, -n), h, A_ALLOC)
+          status = status.meetNullStatus(nextAddr(h, -n-1), N_NULL)
           List()
         }
 
@@ -1113,6 +1124,11 @@ class ArrayHeap(heapSortName         : String,
       case Eq(IFunApp(`addrOrd`, Seq(a)), IFunApp(`addrOrd`, Seq(a2)))
           if addrStatus.mustbeNonNull(a) && addrStatus.mustbeNonNull(a2) =>
         a === a2
+      case Eq(IFunApp(`nthAddr`, _), Null) | Eq(Null, IFunApp(`nthAddr`, _)) =>
+        false
+      case EqLit(IFunApp(`addrOrd`, Seq(a)), n)
+          if n.signum > 0 && addrStatus.mustbeNonNull(a) =>
+        a === nthAddr(n)
       case DiffBound(IFunApp(`heapSize`, Seq(h)),
                      IFunApp(`addrOrd`, Seq(a)),
                      n)
@@ -1147,6 +1163,11 @@ class ArrayHeap(heapSortName         : String,
                        OffsetTerm(IFunApp(`heapSize`, Seq(h2)), n)))
           if h == h2 && addrStatus.mustbeValid(nextAddr(h, n - 1), h) =>
         read(h, nextAddr(h, n - 1))
+      case IFunApp(`select`,
+                   Seq(IFunApp(`heapContents`, Seq(h)),
+                       Const(n)))
+          if n.signum > 0 && addrStatus.mustbeValid(nthAddr(n), h) =>
+        read(h, nthAddr(n))
       case e =>
         e
     }
