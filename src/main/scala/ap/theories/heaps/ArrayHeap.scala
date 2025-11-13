@@ -1152,6 +1152,10 @@ class ArrayHeap(heapSortName         : String,
     }
   }
 
+  /**
+   * Rewrite some cases of equations with variables, which then makes it
+   * easier to elimination quantifiers.
+   */
   private def equationalSimp(e : IExpression) : IExpression = {
     import IExpression._
     e match {
@@ -1159,11 +1163,11 @@ class ArrayHeap(heapSortName         : String,
       case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
           if !s.isInstanceOf[IVariable] =>
         // TODO: do we need guards to handle negative indices?
-        t === addrOrd(s)
+        (t === addrOrd(s)) & (s =/= Null)
       case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
           if !s.isInstanceOf[IVariable] =>
         // TODO: do we need guards to handle negative indices?
-        t === addrOrd(s)
+        (t === addrOrd(s)) & (s =/= Null)
 
       case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
           if !s.isInstanceOf[IVariable] =>
