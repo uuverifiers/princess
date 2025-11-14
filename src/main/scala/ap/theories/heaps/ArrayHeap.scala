@@ -1123,6 +1123,9 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`nthAddr`, Seq(IFunApp(`addrOrd`, Seq(a))))
           if addrStatus.mustbeNonNull(a) =>
         a
+      case IFunApp(`nthAddr`,
+                   Seq(OffsetTerm(IFunApp(`heapSize`, Seq(h)), n))) =>
+        nextAddr(h, n-1)
       case Eq(IFunApp(`addrOrd`, Seq(a)), IFunApp(`addrOrd`, Seq(a2)))
           if addrStatus.mustbeNonNull(a) && addrStatus.mustbeNonNull(a2) =>
         a === a2
