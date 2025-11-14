@@ -806,18 +806,34 @@ class ArrayHeap(heapSortName         : String,
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(AC,
-      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) })
+      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) } &&
+      nullStatus.forall { case (IFunApp(`nextAddr`, _), _) => false
+                          case _ => true })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
-      val oldS = nullStatus.getOrElse(addr, N_TOP)
-      val newS = oldS & s
-      if (newS == 0)
-        throw ContradictionException
-      if (oldS == newS)
-        this
-      else
-        AddrStatus(nullStatus + (addr -> newS), allocStatus)
+      import IExpression._
+      (addr, s) match {
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum < 0 =>
+          meetAllocStatus(nthAddr(-n), h, A_NON_ALLOC)
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum >= 0 =>
+          throw ContradictionException
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum < 0 =>
+          meetAllocStatus(nthAddr(-n), h, A_ALLOC)
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum >= 0 =>
+          // can be dropped
+          this
+        case _ => {
+          val oldS = nullStatus.getOrElse(addr, N_TOP)
+          val newS = oldS & s
+          if (newS == 0)
+            throw ContradictionException
+          if (oldS == newS)
+            this
+          else
+            AddrStatus(nullStatus + (addr -> newS), allocStatus)
+        }
+      }
     }
 
     def meetAllocStatus(addr : ITerm, heap : ITerm,
@@ -838,6 +854,10 @@ class ArrayHeap(heapSortName         : String,
     def mustbeNull(addr : ITerm) = {
       import IExpression._
       addr match {
+        case IFunApp(`nullAddr`, _) =>
+          true
+        case IFunApp(`nthAddr`, _) =>
+          false
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n > maxHeapSize.getOrElse(heap, -n)
         case _ =>
@@ -850,6 +870,10 @@ class ArrayHeap(heapSortName         : String,
     def mustbeNonNull(addr : ITerm) = {
       import IExpression._
       addr match {
+        case IFunApp(`nullAddr`, _) =>
+          false
+        case IFunApp(`nthAddr`, _) =>
+          true
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
@@ -862,10 +886,10 @@ class ArrayHeap(heapSortName         : String,
     def mustbeValid(addr : ITerm, heap : ITerm) = {
       import IExpression._
       addr match {
-        case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
-          n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
         case IFunApp(`nthAddr`, Seq(Const(n))) if n.signum > 0 =>
           n <= minHeapSize.getOrElse(heap, 0)
+        case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
+          n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
           allocStatus.getOrElse((addr, heap), A_TOP) == A_ALLOC
       }
@@ -873,23 +897,21 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val minHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      // TODO: also take valid(h, nthAddr(n)) into account
-      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
-                         N_NON_NULL) <- nullStatus.iterator)
+      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+                         A_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator) yield {
-        h -> -(ps.map(_._2) :+ IdealInt.ZERO).min
+        h -> (ps.map(_._2) :+ IdealInt.ZERO).max
        }).toMap
     }
 
     lazy val maxHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      // TODO: also take valid(h, nthAddr(n)) into account
-      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
-                         N_NULL) <- nullStatus.iterator)
+      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+                         A_NON_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator; if !ps.isEmpty) yield {
-        h -> -ps.map(_._2).max
+        h -> (ps.map(_._2).min - 1)
        }).toMap
     }
 
@@ -933,18 +955,7 @@ class ArrayHeap(heapSortName         : String,
         nullStatus.transform {
           case (addr, oldS) => {
             val newS = if (allocatedAddrs(addr)) (oldS & N_NON_NULL) else oldS
-            val newS2 =
-              addr match {
-                case IFunApp(`nextAddr`, Seq(h, Const(n)))
-                    if -n <= minHeapSize.getOrElse(h, 0) =>
-                  newS & N_NON_NULL
-                case IFunApp(`nextAddr`, Seq(h, Const(n)))
-                    if -n > maxHeapSize.getOrElse(h, -n) =>
-                  newS & N_NULL
-                case _ =>
-                  newS
-              }
-            checkChanged(oldS, newS2)
+            checkChanged(oldS, newS)
           }
         }
 
@@ -953,10 +964,18 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val toFormulas : Set[IFormula] = {
       import IExpression._
+      
       val validVars =
         (for (((a, _), A_ALLOC) <- allocStatus) yield a).toSet
+        
+      def considerAddrForNull(a : ITerm) = a match {
+        case IFunApp(`nthAddr`, _) => false
+        case a => !validVars(a)
+      }
+      
       val f1 =
-        (for ((a, s) <- nullStatus; if s != N_TOP && !validVars(a))
+        (for ((a, s) <- nullStatus;
+              if s != N_TOP && considerAddrForNull(a))
          yield s match {
            case N_NULL     => a === Null
            case N_NON_NULL => a =/= Null
@@ -1058,16 +1077,20 @@ class ArrayHeap(heapSortName         : String,
           List(c)
         }
         case GeqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
-          status = status.meetAllocStatus(nextAddr(h, -n), h, A_ALLOC)
+          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
+          List()
+        }
+        case LeqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
+          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
           List()
         }
         case EqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
-          status = status.meetNullStatus(nextAddr(h, -1), N_NULL)
+          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
           List()
         }
         case EqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
-          status = status.meetAllocStatus(nextAddr(h, -n), h, A_ALLOC)
-          status = status.meetNullStatus(nextAddr(h, -n-1), N_NULL)
+          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
+          status = status.meetAllocStatus(nthAddr(n+1), h, A_NON_ALLOC)
           List()
         }
 
