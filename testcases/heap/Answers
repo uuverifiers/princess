@@ -482,9 +482,9 @@ Loading swap-interpolation.smt2 ...
 unsat
 unsat
 ((and (and (and (valid H x) (valid H y)) (valid H z)) (and (and (or (not (= y x)) (= (read H y) (read H x))) (not (= z y))) (not (= z x))))
-(and (and (and (valid H1 x) (valid H1 y)) (valid H1 z)) (and (and (and (and (or (not (= y x)) (= (read H1 z) (read H1 y))) (not (= z x))) (= (heap_size H) (heap_size H1))) (= (readUnsafe H y) (read H1 y))) (= (read H1 z) (readUnsafe H x))))
-(and (and (and (valid H2 x) (valid H2 y)) (valid H2 z)) (and (and (and (or (not (= x y)) (= (readUnsafe H y) (read H2 z))) (= (heap_size H) (heap_size H2))) (= (read H2 x) (readUnsafe H y))) (= (readUnsafe H x) (read H2 z))))
-(and (and (valid H3 x) (valid H3 y)) (and (and (or (= (select (heap_contents H3) (addr_ord x)) (readUnsafe H y)) (= (read H3 x) (readUnsafe H y))) (= (heap_size H) (heap_size H3))) (= (read H3 y) (readUnsafe H x)))))
+(and (and (and (valid H1 x) (valid H1 y)) (valid H1 z)) (and (and (and (and (or (not (= y x)) (= (read H1 z) (read H1 y))) (not (= z x))) (= (heap_size H) (heap_size H1))) (= (read H y) (read H1 y))) (= (read H1 z) (read H x))))
+(and (and (and (valid H2 x) (valid H2 y)) (valid H2 z)) (and (and (and (or (not (= x y)) (= (read H y) (read H2 z))) (= (heap_size H) (heap_size H2))) (= (read H2 x) (read H y))) (= (read H x) (read H2 z))))
+(and (and (valid H3 x) (valid H3 y)) (and (and (or (= (select (heap_contents H3) (addr_ord x)) (read H y)) (= (read H3 x) (read H y))) (= (heap_size H) (heap_size H3))) (= (read H3 y) (read H x)))))
 Loading heap-batch-write-read-2-sat.smt2 ...
 sat
 (model

@@ -873,6 +873,7 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val minHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
+      // TODO: also take valid(h, nthAddr(n)) into account
       val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
                          N_NON_NULL) <- nullStatus.iterator)
                    yield (heap, n)).toVector
@@ -883,6 +884,7 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val maxHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
+      // TODO: also take valid(h, nthAddr(n)) into account
       val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
                          N_NULL) <- nullStatus.iterator)
                    yield (heap, n)).toVector
@@ -1103,7 +1105,7 @@ class ArrayHeap(heapSortName         : String,
   private def heapSimplify(addrStatus : AddrStatus)
                           (e : IExpression) : IExpression = {
     import IExpression._
-    import arrayTheory.{select}
+    import arrayTheory.select
     e match {
       case Geq(Const(n), IFunApp(`addrOrd`, _)) if n.signum <= 0 =>
         false
@@ -1152,7 +1154,7 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        IFunApp(`addrOrd`, Seq(a))))
-          if addrStatus.mustbeValid(a, h) =>
+          if addrStatus.mustbeNonNull(a) =>
         read(h, a)
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
@@ -1161,12 +1163,12 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        OffsetTerm(IFunApp(`heapSize`, Seq(h2)), n)))
-          if h == h2 && addrStatus.mustbeValid(nextAddr(h, n - 1), h) =>
+          if h == h2 && addrStatus.mustbeNonNull(nextAddr(h, n - 1)) =>
         read(h, nextAddr(h, n - 1))
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        Const(n)))
-          if n.signum > 0 && addrStatus.mustbeValid(nthAddr(n), h) =>
+          if n.signum > 0 =>
         read(h, nthAddr(n))
       case e =>
         e
