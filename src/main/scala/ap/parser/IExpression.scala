@@ -716,6 +716,19 @@ object IExpression {
   }
 
   /**
+   * Generate or match an inequality <code>lit >= s</code>,
+   * where <code>lit</code> is an integer literal.
+   */
+  object LeqLit {
+    def apply(s : ITerm, t : IdealInt) : IFormula = (s <= t)
+    def unapply(f : IFormula) : Option[(ITerm, IdealInt)] = f match {
+      case GeqLit(ITimes(IdealInt.MINUS_ONE, s), t) => Some((s, -t))
+      case GeqLit(s, t)                             => Some((-s, -t))
+      case _                                        => None
+    }
+  }
+  
+  /**
    * Generate or match a divisibility expression ex x. denom*x = t.
    */
   object Divisibility {
