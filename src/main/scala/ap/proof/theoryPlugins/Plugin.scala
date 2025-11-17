@@ -178,28 +178,39 @@ object Plugin {
    * Turn negated applications of a total function into positive
    * function applications.
    */
-  def makePredicatePositive(pred   : Predicate,
-                            goal   : Goal,
-                            theory : Theory) : Seq[Plugin.Action] = {
+  def makePredicatePositive(pred       : Predicate,
+                            goal       : Goal,
+                            theory     : Theory,
+                            deleteAtom : Boolean = true) : Seq[Plugin.Action] ={
     implicit val order = goal.order
     import TerForConvenience._
 
+    val predConj =
+      goal.facts.predConj
     val negPreds =
-      goal.facts.predConj.negativeLitsWithPred(pred)
+      predConj.negativeLitsWithPred(pred)
 
     val actions =
       if (!negPreds.isEmpty) {
-        (for (a <- negPreds) yield {
-           val sorts =
-             SortedPredicate.argumentSorts(a)
-           val axiom =
-             existsSorted(
-               List(sorts.last),
-               Atom(a.pred, a.init ++ List(l(v(0))), order) &
-                 (v(0) =/= a.last))
-           Plugin.AddAxiom(List(!conj(a)), axiom, theory)
-         }) ++ List(Plugin.RemoveFacts(
-                      conj(for (a <- negPreds) yield !conj(a))))
+        val actions1 =
+          (for (a <- negPreds;
+                if !predConj.lookupFunctionResult(a).isDefined) yield {
+             val sorts =
+               SortedPredicate.argumentSorts(a)
+             val axiom =
+               existsSorted(
+                 List(sorts.last),
+                 Atom(a.pred, a.init ++ List(l(v(0))), order) &
+                   (v(0) =/= a.last))
+             Plugin.AddAxiom(List(!conj(a)), axiom, theory)
+           })
+        val actions2 =
+          if (deleteAtom)
+            List(Plugin.RemoveFacts(
+                   conj(for (a <- negPreds) yield !conj(a))))
+          else
+            List()
+        actions1 ++ actions2
       } else {
         List()
       }
