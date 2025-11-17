@@ -802,9 +802,9 @@ class ExtArray (val indexSorts : Seq[Sort],
    * Replace negated predicates with positive predicates.
    */
   private def negPreds(goal : Goal) : Seq[Plugin.Action] =
-    Plugin.makePredicatePositive(_select, goal, this) ++
-    Plugin.makePredicatePositive(_store, goal, this) ++
-    Plugin.makePredicatePositive(_const, goal, this)
+    Plugin.makePredicatePositive(_select, goal, this, false) ++
+    Plugin.makePredicatePositive(_store, goal, this, false) ++
+    Plugin.makePredicatePositive(_const, goal, this, false)
 
   //////////////////////////////////////////////////////////////////////////////
 

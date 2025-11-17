@@ -46,8 +46,8 @@ lazy val commonSettings = Seq(
                                 url   = url("https://amandastjerna.se/")
                               ),
                               Developer(
-                                id    = "sankalp.ghambir",
-                                name  = "Sankalp Ghambir",
+                                id    = "sankalp.gambhir",
+                                name  = "Sankalp Gambhir",
                                 email = "sankalp.gambhir@epfl.ch",
                                 url   = url("https://people.epfl.ch/sankalp.gambhir")
                               )
