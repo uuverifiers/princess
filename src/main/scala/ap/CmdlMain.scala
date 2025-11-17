@@ -73,7 +73,7 @@ object CmdlMain {
     println("              Sankalp Gambhir, Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
     println()
-    println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
+    println("For more information, visit https://philipp.ruemmer.org/princess.shtml")
   }
   
   def printUsage = {
