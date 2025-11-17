@@ -774,9 +774,9 @@ class ExtArray (val indexSorts : Seq[Sort],
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
       goalState(goal) match {
         case Plugin.GoalState.Eager =>
-          negPreds(goal)              elseDo
           store2store2Eager(goal)
         case Plugin.GoalState.Intermediate =>
+          negPreds(goal)              elseDo
           expandExtensionality(goal)  elseDo
           store2store2Lazy(goal)
         case Plugin.GoalState.Final =>
