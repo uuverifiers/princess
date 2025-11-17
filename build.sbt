@@ -53,8 +53,8 @@ lazy val commonSettings = Seq(
                               )
                             ),
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
-    scalaVersion         := "2.13.15",
-    crossScalaVersions   := Seq("2.13.15"),
+    scalaVersion         := "2.13.17",
+    crossScalaVersions   := Seq("2.13.17"),
     run / fork           := true,
     Global / cancelable  := true,
     publishTo := Some(Resolver.file("file", new File( "/tmp/shared-repo" )) )
@@ -104,11 +104,11 @@ lazy val root = (project in file(".")).
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
-      case "2.13.15" => "-opt:_"
+      case "2.13.17" => "-opt:_"
     }}).value,
 //
     libraryDependencies +=
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.3.0",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.4.0",
 //
     libraryDependencies +=
       "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
