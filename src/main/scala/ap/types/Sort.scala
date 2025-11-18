@@ -61,7 +61,7 @@ object Sort {
 
     val cardinality : Option[IdealInt] = None
 
-    val individuals : Stream[ITerm] =
+    lazy val individuals : Stream[ITerm] =
       for (n <- Stream.iterate(IdealInt.ZERO){
                   n => if (n.signum <= 0) (-n+1) else -n
                 })
