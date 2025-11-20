@@ -499,7 +499,7 @@ object AbstractStringTheoryWithSort {
 
     def theory = theoryVar
 
-    override lazy val individuals : Stream[ITerm] =
+    override lazy val individuals : LazyList[ITerm] =
       IFunApp(theory.str_empty, List()) #::
       (for (t <- individuals;
             n <- theory.CharSort.individuals)

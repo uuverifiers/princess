@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,7 +82,7 @@ class Fractions(name            : String,
    * Optionally, a stream of the constructor terms for this domain can be
    * defined (e.g., the fractions with co-prime numerator and denominator).
    */
-  protected def individualsStream : Option[Stream[ITerm]] = None
+  protected def individualsStream : Option[LazyList[ITerm]] = None
 
   object FractionSort extends ProxySort (RingSort) with Theory.TheorySort {
 
@@ -90,7 +90,7 @@ class Fractions(name            : String,
 
     val theory = Fractions.this
 
-    override lazy val individuals : Stream[ITerm] =
+    override lazy val individuals : LazyList[ITerm] =
       individualsStream match {
         case None    => super.individuals
         case Some(s) => s

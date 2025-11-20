@@ -91,13 +91,13 @@ object Rationals
         (n, d)
     }
 
-  protected override def individualsStream : Option[Stream[ITerm]] = Some({
+  protected override def individualsStream : Option[LazyList[ITerm]] = Some({
     val numStream =
-      Stream.iterate(IdealInt.ZERO){ n => if (n.signum <= 0) (-n+1) else -n }
+      LazyList.iterate(IdealInt.ZERO){ n => if (n.signum <= 0) (-n+1) else -n }
     val denomStream =
-      Stream.iterate(IdealInt.ONE) { n => n + 1 }
+      LazyList.iterate(IdealInt.ONE) { n => n + 1 }
 
-    for (n  <- Stream.iterate(0)(n => n + 1);
+    for (n  <- LazyList.iterate(0)(n => n + 1);
          nthNum   = numStream(n);
          nthDenom = denomStream(n);
          (num, den) <- (for (t <- denomStream take n)   yield (nthNum, t)) ++

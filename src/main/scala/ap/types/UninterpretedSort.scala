@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2019-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,7 +90,7 @@ object UninterpretedSortTheory {
     /**
      * We just create numbered constants to represent the individuals.
      */
-    override val individuals : Stream[ITerm] = individualHandler.individuals
+    override val individuals : LazyList[ITerm] = individualHandler.individuals
 
     override def decodeToTerm(
                    d : IdealInt,
@@ -111,7 +111,7 @@ object UninterpretedSortTheory {
     /**
      * We just create numbered constants to represent the individuals.
      */
-    override val individuals : Stream[ITerm] = individualHandler.individuals
+    override val individuals : LazyList[ITerm] = individualHandler.individuals
 
     override def decodeToTerm(
                    d : IdealInt,
@@ -135,8 +135,8 @@ object UninterpretedSortTheory {
       })
     }
 
-    val individuals : Stream[ITerm] =
-      for (n <- Stream.iterate(IdealInt.ZERO){
+    val individuals : LazyList[ITerm] =
+      for (n <- LazyList.iterate(IdealInt.ZERO){
              n => if (n.signum >= 0) (-n-1) else -n
            })
       yield apply(n)

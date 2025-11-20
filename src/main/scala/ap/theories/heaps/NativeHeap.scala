@@ -99,7 +99,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
       }
     }
 
-    override lazy val individuals : Stream[ITerm] =
+    override val individuals : LazyList[ITerm] =
       for (t <- Sort.Nat.individuals) yield nthAddr(t)
 
     val theory = NativeHeap.this
@@ -113,7 +113,7 @@ class NativeHeap(heapSortName : String, addressSortName : String,
 
     val theory = NativeHeap.this
 
-    override lazy val individuals : Stream[ITerm] =
+    override val individuals : LazyList[ITerm] =
       emptyHeap() #:: (for (t <- individuals;
                             obj <- ObjectSort.individuals)
       yield newHeap(alloc(t, obj)))

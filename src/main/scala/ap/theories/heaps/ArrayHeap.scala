@@ -243,9 +243,9 @@ class ArrayHeap(heapSortName         : String,
 
     override val name = heapSortName
 
-    override def individuals : Stream[ITerm] = elementLists
+    override def individuals : LazyList[ITerm] = elementLists
 
-    private lazy val elementLists : Stream[ITerm] =
+    private lazy val elementLists : LazyList[ITerm] =
       emptyHeap() #::
       (for (heap <- elementLists; obj <- ObjectSort.individuals)
        yield allocResHeap(alloc(heap, obj)))

@@ -102,13 +102,13 @@ object ADT {
   }
 
   protected[theories]
-  def depthSortedVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
+  def depthSortedVectors(sorts : List[Sort]) : LazyList[List[ITerm]] =
     sorts match {
-      case List() => Stream(List())
+      case List() => LazyList(List())
       case List(s) => for (ind <- s.individuals) yield List(ind)
       case sorts => {
         def compTail(prefixes : List[List[ITerm]],
-                     suffixes : List[Stream[ITerm]]) : Stream[List[ITerm]] = {
+                     suffixes : List[LazyList[ITerm]]) : LazyList[List[ITerm]] = {
           // pick a minimum-depth term from the suffixes
           val depths =
             for (s <- suffixes.iterator; if !s.tail.isEmpty)
@@ -129,10 +129,10 @@ object ADT {
                  case s => (p, p, s)
                }).unzip3
 
-            (Combinatorics cartesianProduct components).toStream #:::
+            (Combinatorics cartesianProduct components).to(LazyList) #:::
               compTail(newPrefixes, newSuffixes)
           } else {
-            Stream()
+            LazyList()
           }
         }
         
@@ -142,28 +142,19 @@ object ADT {
       }
     }
 
-  private def depthSortedInterl(terms : Stream[Stream[ITerm]],
-                                currentDepth : Int) : Stream[ITerm] =
-    if (terms.isEmpty) {
-      Stream()
-    } else {
-      val ts = terms.head
-      if (ts.isEmpty) {
-        depthSortedInterl(terms.tail, currentDepth)
-      } else if (ctorTermDepth(ts.head) == currentDepth) {
-        ts.head #:: depthSortedInterl(ts.tail #:: terms.tail, currentDepth)
-      } else {
-        val (shortTerms, longTerms) = terms partition {
-          ts => ts.isEmpty || ctorTermDepth(ts.head) == currentDepth
-        }
-
-        if (shortTerms.isEmpty)
-          depthSortedInterl(longTerms, currentDepth + 1)
-        else
-          depthSortedInterl(shortTerms #::: longTerms, currentDepth)
-      }
+  private def depthSortedInterl(terms : LazyList[LazyList[ITerm]],
+                                currentDepth : Int) : LazyList[ITerm] = {
+    val (prefixes, suffixes) =
+      terms.map(_.span(t => ctorTermDepth(t) <= currentDepth)).unzip
+    prefixes.flatten #::: {
+      val suffixes2 = suffixes.filter(ts => !ts.isEmpty)
+      if (suffixes2.isEmpty)
+        LazyList.empty
+      else
+        depthSortedInterl(suffixes2, currentDepth + 1)
     }
-
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -176,9 +167,9 @@ object ADT {
 
     val theory = adtTheory
 
-    override lazy val individuals : Stream[ITerm] =
+    override val individuals : LazyList[ITerm] =
       depthSortedInterl(
-        for (ctorNum <- adtTheory.sortedGlobalCtorIdsPerSort(sortNum).toStream;
+        for (ctorNum <- adtTheory.sortedGlobalCtorIdsPerSort(sortNum).to(LazyList);
              f = adtTheory.constructors(ctorNum))
         yield (for (args <- depthSortedVectors(f.argSorts.toList))
                yield IFunApp(f, args)),

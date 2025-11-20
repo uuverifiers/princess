@@ -271,7 +271,7 @@ object ModuloArithmetic extends Theory {
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       Some(mod_cast(lower, upper, d))
 
-    override val individuals : Stream[ITerm] =
+    override val individuals : LazyList[ITerm] =
       for (t <- super.individuals) yield mod_cast(lower, upper, t)
   }
 

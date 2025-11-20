@@ -285,9 +285,9 @@ object ExtArray {
     override val name : String =
       "ExtArray[" + (indexSorts mkString ", ") + ", " + objSort + "]"
 
-    override def individuals : Stream[ITerm] = individualsVar
+    override def individuals : LazyList[ITerm] = individualsVar
 
-    private lazy val individualsVar : Stream[ITerm] = {
+    private lazy val individualsVar : LazyList[ITerm] = {
       val obj1 = objSort.individuals.head
       val obj2 = objSort.individuals.tail.head
       val indexStream = ADT.depthSortedVectors(indexSorts.toList)

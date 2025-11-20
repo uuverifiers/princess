@@ -61,8 +61,8 @@ object Sort {
 
     val cardinality : Option[IdealInt] = None
 
-    lazy val individuals : Stream[ITerm] =
-      for (n <- Stream.iterate(IdealInt.ZERO){
+    val individuals : LazyList[ITerm] =
+      for (n <- LazyList.iterate(IdealInt.ZERO){
                   n => if (n.signum <= 0) (-n+1) else -n
                 })
       yield IExpression.i(n)
@@ -132,16 +132,16 @@ object Sort {
     val cardinality =
       for (l <- lower; u <- upper) yield (u - l + 1)
 
-    lazy val individuals : Stream[ITerm] =
+    val individuals : LazyList[ITerm] =
       (lower, upper) match {
         case (Some(l), Some(u)) =>
-          for (n <- ap.util.IdealRange(l, u+1).toStream)
+          for (n <- ap.util.IdealRange(l, u+1).to(LazyList))
           yield IExpression.i(n)
         case (Some(l), None) =>
-          for (n <- Stream.iterate(l){_ + 1})
+          for (n <- LazyList.iterate(l){_ + 1})
           yield IExpression.i(n)
         case (None, Some(u)) =>
-          for (n <- Stream.iterate(u){_ - 1})
+          for (n <- LazyList.iterate(u){_ - 1})
           yield IExpression.i(n)
         case (None, None) =>
           Sort.Integer.individuals
@@ -240,9 +240,9 @@ object Sort {
      */
     def isFalse(t : ITerm) : IFormula = !IExpression.eqZero(t)
 
-    override lazy val individuals : Stream[ITerm] =
+    override val individuals : LazyList[ITerm] =
       True #:: False #::
-      (for (n <- Stream.iterate(IdealInt.MINUS_ONE){
+      (for (n <- LazyList.iterate(IdealInt.MINUS_ONE){
                    n => if (n.signum <= 0) (-n+1) else -n
                  })
        yield IExpression.i(n))
@@ -320,10 +320,10 @@ object Sort {
   /**
    * Generate a stream of vectors of individuals in the given sort vector.
    */
-  def individualsVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
+  def individualsVectors(sorts : List[Sort]) : LazyList[List[ITerm]] =
     sorts match {
       case List() =>
-        Stream(List())
+        LazyList(List())
       case s :: sTail =>
         for (ind <- s.individuals; v <- individualsVectors(sTail))
         yield (ind :: v)
@@ -356,7 +356,7 @@ trait Sort {
   /**
    * Terms representing elements of the sort.
    */
-  def individuals : Stream[ITerm]
+  def individuals : LazyList[ITerm]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -615,7 +615,7 @@ class ProxySort(underlying : Sort) extends Sort {
 
   val cardinality : Option[IdealInt] = underlying.cardinality
 
-  def individuals : Stream[ITerm] = underlying.individuals
+  def individuals : LazyList[ITerm] = underlying.individuals
 
   override def decodeToTerm(
                  d : IdealInt,

@@ -88,9 +88,9 @@ class ArraySeqTheory(val ElementSort : Sort) extends SeqTheory
   object SeqSort extends ProxySort(pairSort) {
     import IExpression._
 
-    override def individuals : Stream[ITerm] = elementLists
+    override def individuals : LazyList[ITerm] = elementLists
 
-    private lazy val elementLists : Stream[ITerm] =
+    private lazy val elementLists : LazyList[ITerm] =
       seq_empty() #::
       (for (tail <- elementLists; t <- ElementSort.individuals)
        yield seq_cons(t, tail))
