@@ -38,7 +38,7 @@ import ap.basetypes.IdealInt
 import ap.theories.{Theory, TheoryRegistry, ADT, ExtArray}
 import ap.types.{Sort, MonoSortedIFunction, MonoSortedPredicate, ProxySort}
 import ap.parser._
-import ap.terfor.{ConstantTerm, TerForConvenience}
+import ap.terfor.{ConstantTerm, TerForConvenience, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal.Goal
@@ -230,8 +230,15 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("storeRange",
                             List(ArraySort, Integer, Integer, OSo),
                             ArraySort, true, true)
+
+  // A predicate asserting that two heaps have distinct contents
   val distinctHeaps =
     new MonoSortedPredicate("distinctHeaps", List(HSo, HSo))
+
+  // A predicate to record that we generate a model for some term
+  // ourselves
+  val heapConstant =
+    MonoSortedPredicate("heapConstant", List(HeapSort))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -414,7 +421,7 @@ class ArrayHeap(heapSortName         : String,
     List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
          nextAddr, addressRangeNth, storeRange)
   val predefPredicates =
-    List(valid, addressRangeWithin, distinctHeaps)
+    List(valid, addressRangeWithin, distinctHeaps, heapConstant)
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
@@ -429,6 +436,8 @@ class ArrayHeap(heapSortName         : String,
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[IFunction] = Set()
+
+  override val modelGenPredicates = Set(heapConstant)
 
   lazy val heapRelatedSymbols = {
     val allFuns =
@@ -450,9 +459,19 @@ class ArrayHeap(heapSortName         : String,
         case Plugin.GoalState.Final =>
           List()
       }
+    override def computeModel(goal : Goal) : Seq[Plugin.Action] =
+      goalState(goal) match {
+        case Plugin.GoalState.Final =>
+          augmentModel(goal) elseDo
+          extractHeapModel(goal)
+        case _ =>
+          List()
+      }
   }
 
   def plugin = Some(pluginObj)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * The extensionality axiom is implemented by rewriting negated
@@ -469,7 +488,7 @@ class ArrayHeap(heapSortName         : String,
         heapConsts ++= a.last.constants
 
       if (!heapConsts.isEmpty) {
-        implicit val order = goal.order
+        implicit val order : TermOrder = goal.order
         import TerForConvenience._
 
         val eqs =
@@ -488,6 +507,55 @@ class ArrayHeap(heapSortName         : String,
     } else {
       List()
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Scan a goal for occurring heap terms t and add heapConstant(t)
+   * atoms for those.
+   */
+  private def augmentModel(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val heapAtoms =
+      goal.facts.predConj.positiveLitsWithPred(_heapPair)
+
+    val constAtoms =
+      (for (atom <- heapAtoms.iterator;
+            t = atom.last;
+            a = conj(heapConstant(List(t)));
+            red = goal reduceWithFacts a;
+            if !red.isTrue)
+       yield red).toVector
+
+    for (c <- constAtoms)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Introduce unique ids for heap terms.
+   */
+  private def extractHeapModel(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val heapAtoms =
+      goal.facts.predConj.positiveLitsWithPred(_heapPair)
+
+    // Wait until all heap constants and sizes are completely defined
+    if (heapAtoms.exists(a => !a(0).isConstant || !a(1).isConstant) ||
+        heapAtoms.forall(a => a(2).isConstant))
+      return List()
+
+    val equations =
+      for ((a, n) <- heapAtoms.zipWithIndex) yield (a(2) === n)
+
+    for (c <- equations)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
   }
 
   //////////////////////////////////////////////////////////////////////////////
