@@ -852,12 +852,19 @@ class ArrayHeap(heapSortName         : String,
 
   }
 
+  /**
+   * Translate a formula to its internal presentation in terms of arrays and
+   * ADTs.
+   */
+  def expandFormula(f : IFormula) : IFormula =
+    PreTranslator.visit(f, ()).asInstanceOf[IFormula]
+
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {
 //    println("before: " + f)
     val factorizer = new Factorizer
     val f1 = factorizer(f)
-    val f2 = PreTranslator.visit(f1, ()).asInstanceOf[IFormula]
+    val f2 = expandFormula(f1)
 //    println("after: " + f2)
     (f2, signature)
   }
