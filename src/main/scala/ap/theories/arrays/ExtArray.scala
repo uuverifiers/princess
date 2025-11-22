@@ -774,9 +774,9 @@ class ExtArray (val indexSorts : Seq[Sort],
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
       goalState(goal) match {
         case Plugin.GoalState.Eager =>
-          negPreds(goal)              elseDo
           store2store2Eager(goal)
         case Plugin.GoalState.Intermediate =>
+          negPreds(goal)              elseDo
           expandExtensionality(goal)  elseDo
           store2store2Lazy(goal)
         case Plugin.GoalState.Final =>
@@ -802,9 +802,9 @@ class ExtArray (val indexSorts : Seq[Sort],
    * Replace negated predicates with positive predicates.
    */
   private def negPreds(goal : Goal) : Seq[Plugin.Action] =
-    Plugin.makePredicatePositive(_select, goal, this) ++
-    Plugin.makePredicatePositive(_store, goal, this) ++
-    Plugin.makePredicatePositive(_const, goal, this)
+    Plugin.makePredicatePositive(_select, goal, this, false) ++
+    Plugin.makePredicatePositive(_store, goal, this, false) ++
+    Plugin.makePredicatePositive(_const, goal, this, false)
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -195,6 +195,15 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+Loading extensionality-bug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun h2 () Heap (newHeap (alloc emptyHeap (O_Int 42))))
+  (define-fun h1 () Heap (newHeap (alloc emptyHeap (O_Int 42))))
+)
 Loading simple-heap.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -284,10 +293,10 @@ Found proof (size 83), simplifying (165), interpolating ...
 
 unsat
 (
-  (valid h (nextaddr h (- 1)))
-  (valid h (nextaddr h (- 1)))
-  (and (and (not (= a2 nulladdr)) (valid h2 (nextaddr h2 (- 2)))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) 10)))
-  (and (and (not (= a2 nulladdr)) (valid h2 (nextaddr h2 (- 2)))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) 10)))
+  (valid h (nthaddr 1))
+  (valid h (nthaddr 1))
+  (and (and (not (= a2 nulladdr)) (valid h2 (nthaddr 2))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) 10)))
+  (and (and (not (= a2 nulladdr)) (valid h2 (nthaddr 2))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) 10)))
   (and (valid h3 a2) (= (getInt (read h3 a2)) 10))
 )
 Loading alloc-interpolation-1b.smt2 ...
@@ -322,7 +331,7 @@ Found proof (size 162), simplifying (321), interpolating ...
 
 unsat
 (
-  (and (and (not (= a2 nulladdr)) (valid h2 (nextaddr h2 (- 1)))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) x)))
+  (and (and (not (= a2 nulladdr)) (valid h2 (nthaddr 1))) (and (= a2 (nextaddr h2 (- 1))) (= (getInt (read h2 (nextaddr h2 (- 1)))) x)))
   (and (and (not (= a2 nulladdr)) (valid h3 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (getInt (read h3 a3)) y)) (= (getInt (select (heap_contents h3) (+ (- 1) (addr_ord a3)))) x)))
   (and (and (not (= a2 nulladdr)) (valid h4 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (+ (getInt (read h4 a3)) y) 0)) (= (getInt (select (heap_contents h4) (+ (- 1) (addr_ord a3)))) x)))
   (and (and (not (= a2 nulladdr)) (valid h5 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (+ (getInt (select (heap_contents h5) (+ (- 1) (addr_ord a3)))) x) 0)) (= (+ (getInt (read h5 a3)) y) 0)))
@@ -337,9 +346,9 @@ sat
   (define-fun x () Int 0)
   (define-fun a3 () addr (nthaddr 2))
   (define-fun a2 () addr (nthaddr 1))
-  (define-fun h5 () heap (newheap (alloc (newheap (alloc emptyheap (AnInt 14))) (AnInt (- 11)))))
-  (define-fun h4 () heap (newheap (alloc (newheap (alloc emptyheap (ABool false))) (AnInt (- 11)))))
-  (define-fun h3 () heap (newheap (alloc (newheap (alloc emptyheap (ABool false))) (AnInt 11))))
+  (define-fun h5 () heap (newheap (alloc (newheap (alloc emptyheap (AnInt 11))) (AnInt (- 8)))))
+  (define-fun h4 () heap (newheap (alloc (newheap (alloc emptyheap (ABool false))) (AnInt (- 8)))))
+  (define-fun h3 () heap (newheap (alloc (newheap (alloc emptyheap (ABool false))) (AnInt 8))))
 )
 Loading alloc-interpolation-3c.smt2 ...
 Preprocessing ...
@@ -392,6 +401,15 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+Loading extensionality-bug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun h2 () Heap (newHeap (alloc emptyHeap (O_Int 42))))
+  (define-fun h1 () Heap (newHeap (alloc emptyHeap (O_Int 42))))
+)
 Loading bug-model-1.smt2 ...
 sat
 (model
@@ -482,9 +500,9 @@ Loading swap-interpolation.smt2 ...
 unsat
 unsat
 ((and (and (and (valid H x) (valid H y)) (valid H z)) (and (and (or (not (= y x)) (= (read H y) (read H x))) (not (= z y))) (not (= z x))))
-(and (and (and (valid H1 x) (valid H1 y)) (valid H1 z)) (and (and (and (and (or (not (= y x)) (= (read H1 z) (read H1 y))) (not (= z x))) (= (heap_size H) (heap_size H1))) (= (readUnsafe H y) (read H1 y))) (= (read H1 z) (readUnsafe H x))))
-(and (and (and (valid H2 x) (valid H2 y)) (valid H2 z)) (and (and (and (or (not (= x y)) (= (readUnsafe H y) (read H2 z))) (= (heap_size H) (heap_size H2))) (= (read H2 x) (readUnsafe H y))) (= (readUnsafe H x) (read H2 z))))
-(and (and (valid H3 x) (valid H3 y)) (and (and (or (= (select (heap_contents H3) (addr_ord x)) (readUnsafe H y)) (= (read H3 x) (readUnsafe H y))) (= (heap_size H) (heap_size H3))) (= (read H3 y) (readUnsafe H x)))))
+(and (and (and (valid H1 x) (valid H1 y)) (valid H1 z)) (and (and (and (and (or (not (= y x)) (= (read H1 z) (read H1 y))) (not (= z x))) (= (heap_size H) (heap_size H1))) (= (read H y) (read H1 y))) (= (read H1 z) (read H x))))
+(and (and (and (valid H2 x) (valid H2 y)) (valid H2 z)) (and (and (and (or (not (= x y)) (= (read H y) (read H2 z))) (= (heap_size H) (heap_size H2))) (= (read H2 x) (read H y))) (= (read H x) (read H2 z))))
+(and (and (valid H3 x) (valid H3 y)) (and (and (or (= (select (heap_contents H3) (addr_ord x)) (read H y)) (= (read H3 x) (read H y))) (= (heap_size H) (heap_size H3))) (= (read H3 y) (read H x)))))
 Loading heap-batch-write-read-2-sat.smt2 ...
 sat
 (model

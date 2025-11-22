@@ -38,7 +38,7 @@ import ap.basetypes.IdealInt
 import ap.theories.{Theory, TheoryRegistry, ADT, ExtArray}
 import ap.types.{Sort, MonoSortedIFunction, MonoSortedPredicate, ProxySort}
 import ap.parser._
-import ap.terfor.{ConstantTerm, TerForConvenience}
+import ap.terfor.{ConstantTerm, TerForConvenience, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal.Goal
@@ -230,8 +230,15 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("storeRange",
                             List(ArraySort, Integer, Integer, OSo),
                             ArraySort, true, true)
+
+  // A predicate asserting that two heaps have distinct contents
   val distinctHeaps =
     new MonoSortedPredicate("distinctHeaps", List(HSo, HSo))
+
+  // A predicate to record that we generate a model for some term
+  // ourselves
+  val heapConstant =
+    MonoSortedPredicate("heapConstant", List(HeapSort))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -250,6 +257,36 @@ class ArrayHeap(heapSortName         : String,
       (for (heap <- elementLists; obj <- ObjectSort.individuals)
        yield allocResHeap(alloc(heap, obj)))
 
+    /**
+     * Translate an array term with <code>heapPair</code> as the top-level
+     * function to a heap term.
+     */
+    def translateArrayTerm(arrayTerm : ITerm) : ITerm = {
+      val IFunApp(`heapPair`, Seq(contents, IIntLit(IdealInt(sizeInt)))) =
+        arrayTerm
+      val contentsAr =
+        new Array[ITerm] (sizeInt)
+
+      var t = contents
+      var cont = true
+      while (cont) t match {
+        case IFunApp(ExtArray.Store(_), Seq(t2, IIntLit(IdealInt(p)), v)) => {
+          t = t2
+          if (1 <= p && p <= contentsAr.size)
+            contentsAr(p - 1) = v
+        }
+        case IFunApp(ExtArray.Const(_), Seq(v)) => {
+          for (n <- 0 until contentsAr.size)
+            if (contentsAr(n) == null)
+              contentsAr(n) = v
+          cont = false
+        }
+      }
+
+      contentsAr.foldLeft(emptyHeap()) {
+        case (heap, obj) => allocResHeap(alloc(heap, obj)) }
+    }
+
     override def augmentModelTermSet(
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
@@ -260,31 +297,8 @@ class ArrayHeap(heapSortName         : String,
 //      val toRemove = new ArrayBuffer[(IdealInt, Sort)]
 
       for ((oldkey@(id, `rawHeapSort`),
-            IFunApp(`heapPair`,
-                    Seq(contents, IIntLit(IdealInt(sizeInt))))) <- terms) {
-        val contentsAr = new Array[ITerm] (sizeInt)
-
-        var t = contents
-        var cont = true
-        while (cont) t match {
-          case IFunApp(ExtArray.Store(_), Seq(t2, IIntLit(IdealInt(p)), v)) => {
-            t = t2
-            if (1 <= p && p <= contentsAr.size)
-              contentsAr(p - 1) = v
-          }
-          case IFunApp(ExtArray.Const(_), Seq(v)) => {
-            for (n <- 0 until contentsAr.size)
-              if (contentsAr(n) == null)
-                contentsAr(n) = v
-            cont = false
-          }
-        }
-
-        val constrTerm =
-          contentsAr.foldLeft(emptyHeap()) {
-            case (heap, obj) => allocResHeap(alloc(heap, obj)) }
-
-        terms.put((id, this), constrTerm)
+            t@IFunApp(`heapPair`, Seq(_, IIntLit(_)))) <- terms) {
+        terms.put((id, this), translateArrayTerm(t))
 //        toRemove += oldkey
       }
 
@@ -407,7 +421,7 @@ class ArrayHeap(heapSortName         : String,
     List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
          nextAddr, addressRangeNth, storeRange)
   val predefPredicates =
-    List(valid, addressRangeWithin, distinctHeaps)
+    List(valid, addressRangeWithin, distinctHeaps, heapConstant)
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
@@ -422,6 +436,8 @@ class ArrayHeap(heapSortName         : String,
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[IFunction] = Set()
+
+  override val modelGenPredicates = Set(heapConstant)
 
   lazy val heapRelatedSymbols = {
     val allFuns =
@@ -443,9 +459,19 @@ class ArrayHeap(heapSortName         : String,
         case Plugin.GoalState.Final =>
           List()
       }
+    override def computeModel(goal : Goal) : Seq[Plugin.Action] =
+      goalState(goal) match {
+        case Plugin.GoalState.Final =>
+          augmentModel(goal) elseDo
+          extractHeapModel(goal)
+        case _ =>
+          List()
+      }
   }
 
   def plugin = Some(pluginObj)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * The extensionality axiom is implemented by rewriting negated
@@ -462,7 +488,7 @@ class ArrayHeap(heapSortName         : String,
         heapConsts ++= a.last.constants
 
       if (!heapConsts.isEmpty) {
-        implicit val order = goal.order
+        implicit val order : TermOrder = goal.order
         import TerForConvenience._
 
         val eqs =
@@ -481,6 +507,55 @@ class ArrayHeap(heapSortName         : String,
     } else {
       List()
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Scan a goal for occurring heap terms t and add heapConstant(t)
+   * atoms for those.
+   */
+  private def augmentModel(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val heapAtoms =
+      goal.facts.predConj.positiveLitsWithPred(_heapPair)
+
+    val constAtoms =
+      (for (atom <- heapAtoms.iterator;
+            t = atom.last;
+            a = conj(heapConstant(List(t)));
+            red = goal reduceWithFacts a;
+            if !red.isTrue)
+       yield red).toVector
+
+    for (c <- constAtoms)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Introduce unique ids for heap terms.
+   */
+  private def extractHeapModel(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val heapAtoms =
+      goal.facts.predConj.positiveLitsWithPred(_heapPair)
+
+    // Wait until all heap constants and sizes are completely defined
+    if (heapAtoms.exists(a => !a(0).isConstant || !a(1).isConstant) ||
+        heapAtoms.forall(a => a(2).isConstant))
+      return List()
+
+    val equations =
+      for ((a, n) <- heapAtoms.zipWithIndex) yield (a(2) === n)
+
+    for (c <- equations)
+    yield Plugin.AddFormula(Conjunction.negate(c, order))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -617,9 +692,9 @@ class ArrayHeap(heapSortName         : String,
           }
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nthAddr.name} applied to non-constant " +
-              s"argument ${subres(0)}")
+//            Console.err.println(
+//              s"Warning: ${nthAddr.name} applied to non-constant " +
+//              s"argument ${subres(0)}")
             t update subres
           }
         }
@@ -632,8 +707,8 @@ class ArrayHeap(heapSortName         : String,
             // nothing
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nextAddr.name} applied to non-constant argument $n")
+//            Console.err.println(
+//              s"Warning: ${nextAddr.name} applied to non-constant argument $n")
           }
         }
         withEps(heap, AddressSort, (cont, size) =>
@@ -651,9 +726,9 @@ class ArrayHeap(heapSortName         : String,
           }
           case _ => {
             // TODO: this check has to happen in the parser
-            Console.err.println(
-              s"Warning: ${nthAddrRange.name} applied to non-constant " +
-              s"arguments ${subres.mkString(", ")}")
+//            Console.err.println(
+//              s"Warning: ${nthAddrRange.name} applied to non-constant " +
+//              s"arguments ${subres.mkString(", ")}")
             t update subres
           }
         }
@@ -777,12 +852,19 @@ class ArrayHeap(heapSortName         : String,
 
   }
 
+  /**
+   * Translate a formula to its internal presentation in terms of arrays and
+   * ADTs.
+   */
+  def expandFormula(f : IFormula) : IFormula =
+    PreTranslator.visit(f, ()).asInstanceOf[IFormula]
+
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {
 //    println("before: " + f)
     val factorizer = new Factorizer
     val f1 = factorizer(f)
-    val f2 = PreTranslator.visit(f1, ()).asInstanceOf[IFormula]
+    val f2 = expandFormula(f1)
 //    println("after: " + f2)
     (f2, signature)
   }
@@ -799,18 +881,34 @@ class ArrayHeap(heapSortName         : String,
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(AC,
-      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) })
+      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) } &&
+      nullStatus.forall { case (IFunApp(`nextAddr`, _), _) => false
+                          case _ => true })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
-      val oldS = nullStatus.getOrElse(addr, N_TOP)
-      val newS = oldS & s
-      if (newS == 0)
-        throw ContradictionException
-      if (oldS == newS)
-        this
-      else
-        AddrStatus(nullStatus + (addr -> newS), allocStatus)
+      import IExpression._
+      (addr, s) match {
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum < 0 =>
+          meetAllocStatus(nthAddr(-n), h, A_NON_ALLOC)
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum >= 0 =>
+          throw ContradictionException
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum < 0 =>
+          meetAllocStatus(nthAddr(-n), h, A_ALLOC)
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum >= 0 =>
+          // can be dropped
+          this
+        case _ => {
+          val oldS = nullStatus.getOrElse(addr, N_TOP)
+          val newS = oldS & s
+          if (newS == 0)
+            throw ContradictionException
+          if (oldS == newS)
+            this
+          else
+            AddrStatus(nullStatus + (addr -> newS), allocStatus)
+        }
+      }
     }
 
     def meetAllocStatus(addr : ITerm, heap : ITerm,
@@ -831,6 +929,10 @@ class ArrayHeap(heapSortName         : String,
     def mustbeNull(addr : ITerm) = {
       import IExpression._
       addr match {
+        case IFunApp(`nullAddr`, _) =>
+          true
+        case IFunApp(`nthAddr`, _) =>
+          false
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n > maxHeapSize.getOrElse(heap, -n)
         case _ =>
@@ -843,6 +945,10 @@ class ArrayHeap(heapSortName         : String,
     def mustbeNonNull(addr : ITerm) = {
       import IExpression._
       addr match {
+        case IFunApp(`nullAddr`, _) =>
+          false
+        case IFunApp(`nthAddr`, _) =>
+          true
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
@@ -855,6 +961,8 @@ class ArrayHeap(heapSortName         : String,
     def mustbeValid(addr : ITerm, heap : ITerm) = {
       import IExpression._
       addr match {
+        case IFunApp(`nthAddr`, Seq(Const(n))) if n.signum > 0 =>
+          n <= minHeapSize.getOrElse(heap, 0)
         case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
           n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
@@ -864,21 +972,21 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val minHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
-                         N_NON_NULL) <- nullStatus.iterator)
+      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+                         A_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator) yield {
-        h -> -(ps.map(_._2) :+ IdealInt.ZERO).min
+        h -> (ps.map(_._2) :+ IdealInt.ZERO).max
        }).toMap
     }
 
     lazy val maxHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      val pairs = (for ((IFunApp(`nextAddr`, Seq(heap, Const(n))),
-                         N_NULL) <- nullStatus.iterator)
+      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+                         A_NON_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator; if !ps.isEmpty) yield {
-        h -> -ps.map(_._2).max
+        h -> (ps.map(_._2).min - 1)
        }).toMap
     }
 
@@ -922,18 +1030,7 @@ class ArrayHeap(heapSortName         : String,
         nullStatus.transform {
           case (addr, oldS) => {
             val newS = if (allocatedAddrs(addr)) (oldS & N_NON_NULL) else oldS
-            val newS2 =
-              addr match {
-                case IFunApp(`nextAddr`, Seq(h, Const(n)))
-                    if -n <= minHeapSize.getOrElse(h, 0) =>
-                  newS & N_NON_NULL
-                case IFunApp(`nextAddr`, Seq(h, Const(n)))
-                    if -n > maxHeapSize.getOrElse(h, -n) =>
-                  newS & N_NULL
-                case _ =>
-                  newS
-              }
-            checkChanged(oldS, newS2)
+            checkChanged(oldS, newS)
           }
         }
 
@@ -942,10 +1039,18 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val toFormulas : Set[IFormula] = {
       import IExpression._
+      
       val validVars =
         (for (((a, _), A_ALLOC) <- allocStatus) yield a).toSet
+        
+      def considerAddrForNull(a : ITerm) = a match {
+        case IFunApp(`nthAddr`, _) => false
+        case a => !validVars(a)
+      }
+      
       val f1 =
-        (for ((a, s) <- nullStatus; if s != N_TOP && !validVars(a))
+        (for ((a, s) <- nullStatus;
+              if s != N_TOP && considerAddrForNull(a))
          yield s match {
            case N_NULL     => a === Null
            case N_NON_NULL => a =/= Null
@@ -1046,8 +1151,21 @@ class ArrayHeap(heapSortName         : String,
           status = status.meetAllocStatus(a, h, A_NON_ALLOC)
           List(c)
         }
-        case GeqLit(IFunApp(`heapSize`, Seq(h)), n) => {
-          status = status.meetAllocStatus(nextAddr(h, -n), h, A_ALLOC)
+        case GeqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
+          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
+          List()
+        }
+        case LeqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
+          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
+          List()
+        }
+        case EqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
+          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
+          List()
+        }
+        case EqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
+          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
+          status = status.meetAllocStatus(nthAddr(n+1), h, A_NON_ALLOC)
           List()
         }
 
@@ -1085,7 +1203,7 @@ class ArrayHeap(heapSortName         : String,
   private def heapSimplify(addrStatus : AddrStatus)
                           (e : IExpression) : IExpression = {
     import IExpression._
-    import arrayTheory.{select}
+    import arrayTheory.select
     e match {
       case Geq(Const(n), IFunApp(`addrOrd`, _)) if n.signum <= 0 =>
         false
@@ -1103,9 +1221,17 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`nthAddr`, Seq(IFunApp(`addrOrd`, Seq(a))))
           if addrStatus.mustbeNonNull(a) =>
         a
+      case IFunApp(`nthAddr`,
+                   Seq(OffsetTerm(IFunApp(`heapSize`, Seq(h)), n))) =>
+        nextAddr(h, n-1)
       case Eq(IFunApp(`addrOrd`, Seq(a)), IFunApp(`addrOrd`, Seq(a2)))
           if addrStatus.mustbeNonNull(a) && addrStatus.mustbeNonNull(a2) =>
         a === a2
+      case Eq(IFunApp(`nthAddr`, _), Null) | Eq(Null, IFunApp(`nthAddr`, _)) =>
+        false
+      case EqLit(IFunApp(`addrOrd`, Seq(a)), n)
+          if n.signum > 0 && addrStatus.mustbeNonNull(a) =>
+        a === nthAddr(n)
       case DiffBound(IFunApp(`heapSize`, Seq(h)),
                      IFunApp(`addrOrd`, Seq(a)),
                      n)
@@ -1129,7 +1255,7 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        IFunApp(`addrOrd`, Seq(a))))
-          if addrStatus.mustbeValid(a, h) =>
+          if addrStatus.mustbeNonNull(a) =>
         read(h, a)
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
@@ -1138,15 +1264,50 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`select`,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        OffsetTerm(IFunApp(`heapSize`, Seq(h2)), n)))
-          if h == h2 && addrStatus.mustbeValid(nextAddr(h, n - 1), h) =>
+          if h == h2 && addrStatus.mustbeNonNull(nextAddr(h, n - 1)) =>
         read(h, nextAddr(h, n - 1))
+      case IFunApp(`select`,
+                   Seq(IFunApp(`heapContents`, Seq(h)),
+                       Const(n)))
+          if n.signum > 0 =>
+        read(h, nthAddr(n))
       case e =>
         e
     }
   }
 
   /**
+   * Rewrite some cases of equations with variables, which then makes it
+   * easier to elimination quantifiers.
+   */
+  private def equationalSimp(e : IExpression) : IExpression = {
+    import IExpression._
+    e match {
+      // Simplify some cases of formulas with variables
+      case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
+        (t === addrOrd(s)) & (s =/= Null)
+      case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        // TODO: do we need guards to handle negative indices?
+        (t === addrOrd(s)) & (s =/= Null)
+
+      case Eq(IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)), s)
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+      case Eq(s, IFunApp(`heapPair`, Seq(cont : IVariable, size : IVariable)))
+          if !s.isInstanceOf[IVariable] =>
+        (cont === heapContents(s)) & (size === heapSize(s))
+
+      case e => e
+    }
+  }
+
+  /**
    * Recursively post-process a formula.
+   *
+   * TODO: also handle quantifiers in a reasonable way.
    */
   private def simplifyFor(f          : IFormula,
                           addrStatus : AddrStatus) : IFormula =
@@ -1186,7 +1347,8 @@ class ArrayHeap(heapSortName         : String,
 
   override def iPostprocess(f : IFormula, signature : Signature) : IFormula = {
     val rewritings =
-      Rewriter.combineRewritings(Theory.postSimplifiers(dependencies))
+      Rewriter.combineRewritings(Theory.postSimplifiers(dependencies) :+
+                                 (equationalSimp _))
     val simp = new Simplifier {
       protected override def furtherSimplifications(expr : IExpression) =
         rewritings(expr)

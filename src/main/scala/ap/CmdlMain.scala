@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2025-06-25"
+  val version = "2025-11-17"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -73,7 +73,7 @@ object CmdlMain {
     println("              Sankalp Gambhir, Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
     println()
-    println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
+    println("For more information, visit https://philipp.ruemmer.org/princess.shtml")
   }
   
   def printUsage = {
