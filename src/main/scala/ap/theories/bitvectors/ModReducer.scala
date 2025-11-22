@@ -333,7 +333,7 @@ object ModReducer {
                     newEq
                   } else if (a(0).isConstant &&
                              canBeReduced(a(2), pow2(a(0).constant + 1))) {
-                    println(a)
+
                     val newExtract = _bv_extract(
                       List(a(0), a(1),
                            a(2).moduloKeepingSign(pow2(a(0).constant + 1)),

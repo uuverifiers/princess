@@ -39,7 +39,8 @@ import ap.theories._
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
-import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm}
+import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm,
+                  TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
 import LinearCombination.{SingleTerm, Constant}
@@ -63,13 +64,13 @@ object ExtractArithEncoder extends TheoryProcedure {
 
     def encode(goal : Goal, encodeAll : Boolean) : Seq[Plugin.Action] =  {
       import TerForConvenience._
-      implicit val order = goal.order
+      implicit val order : TermOrder = goal.order
 
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      val inEqs = goal.facts.arithConj.inEqs
-
       if (extracts.isEmpty)
         return List()
+
+      val inEqs = goal.facts.arithConj.inEqs
 
       val terms =
         new LinkedHashMap[LinearCombination,

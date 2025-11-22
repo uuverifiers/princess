@@ -92,15 +92,69 @@ class TestBitwise extends Properties("TestBitwise") {
       Debug enableAllAssertions true
 
       val x = createConstant("x")
+      val y = createConstant("y", Sort.Nat)
 
       scope {
         !! (bvugt(extract(2, 1, 32*x + 3), bv(2, 0)))
         assert(??? == ProverStatus.Sat)
       }
 
+      /*
+           8*y + 3 \in [3, infty)
+
+           (... 6] [5..3] [2..0] 
+
+           calculated bounds:
+
+           ub: infty
+           lb: 0 + 2^3*1 + 2^6*0 = 8
+       */
+
       scope {
-        !! (bvugt(extract(5, 3, 8*x + 3), bv(3, 0)))
+        !! (bvugt(extract(5, 3, 8*y + 3), bv(3, 0)))
         assert(??? == ProverStatus.Sat)
+      }
+
+      true
+    }
+  }
+
+  property("extract3") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val q = createRelation("q", List(UnsignedBVSort(32)))
+      val y = createConstant("y", UnsignedBVSort(32))
+
+      scope {
+        !! (q(y))
+        !! (bvuge(extract(5, 3, y), bv(3, 5)))
+        !! (bvuge(extract(12, 11, y), bv(2, 2)))
+        !! (bvule(extract(23, 20, y), bv(4, 10)))
+        !! (bvuge(y, bv(32, 1000)))
+        !! (bvule(y, bv(32, 100000000)))
+        assert(??? == ProverStatus.Sat)
+      }
+
+      true
+    }
+  }
+
+  property("extract4") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val q = createRelation("q", List(UnsignedBVSort(8)))
+      val y = createConstant("y", UnsignedBVSort(8))
+
+      scope {
+        !! (!q(167))
+        !! (q(y))
+        !! (extract(7, 4, y) === bv(4, 10))
+        !! (extract(3, 0, y) === bv(4, 7))
+        assert(??? == ProverStatus.Unsat)
       }
 
       true
