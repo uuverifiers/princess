@@ -147,7 +147,7 @@ object IdealInt {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IdealInt.AC, exp >= 0, "negative exponent")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (exp <= 63)
+    if (exp <= 62)
       IdealInt(1l << exp)
     else
       IdealInt.ONE << exp
