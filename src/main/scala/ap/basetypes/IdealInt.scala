@@ -143,14 +143,21 @@ object IdealInt {
   /**
    * Compute <code>2^exp</code>.
    */
-  def pow2(exp : Int) : IdealInt =
-    IdealInt(2) pow exp
+  def pow2(exp : Int) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, exp >= 0, "negative exponent")
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (exp <= 63)
+      IdealInt(1l << exp)
+    else
+      IdealInt.ONE << exp
+  }
 
   /**
    * Compute <code>2^exp</code>.
    */
   def pow2(exp : IdealInt) : IdealInt =
-    IdealInt(2) pow exp.intValueSafe
+    IdealInt.ONE << exp
 
   /**
    * Compute <code>2^exp % modulus</code>.
@@ -717,9 +724,87 @@ final class IdealInt private (private val longStore : Long,
       IdealInt(this.getBI xor that.getBI)
   }
 
+  /**
+   * Left-shift. For positive shifts, this is equivalent to multiplication by
+   * <code>pow2(shift)</code>. Negative shifts are equivalent to right-shift
+   * by the negated value.
+   */
+  def <<(shift : Int) : IdealInt =
+    if (shift < 0) {
+      this >> (-shift)
+    } else {
+      if (shift <= 32 &&
+          Int.MinValue <= this.longStore && this.longStore <= Int.MaxValue)
+        IdealInt(this.longStore << shift)
+      else
+        IdealInt(this.getBI.shiftLeft(shift))
+    }
+
+  /**
+   * Left-shift. For positive shifts, this is equivalent to multiplication by
+   * <code>pow2(shift)</code>. Negative shifts are equivalent to right-shift
+   * by the negated value.
+   */
+  def <<(shift : IdealInt) : IdealInt =
+    if (shift.signum < 0)
+      this >> (-shift)
+    else
+      this << shift.intValueSafe
+
+  /**
+   * Right-shift with sign extension. For positive shifts, this is equivalent
+   * to division by <code>pow2(shift)</code>. Negative shifts are equivalent to
+   * left-shift by the negated value.
+   */
+  def >>(shift : Int) : IdealInt =
+    if (shift < 0) {
+      this << (-shift)
+    } else {
+      if (this.usesLong)
+        IdealInt(this.longStore >> shift)
+      else
+        IdealInt(this.getBI.shiftRight(shift))
+    }
+
+  /**
+   * Right-shift with sign extension. For positive shifts, this is equivalent
+   * to division by <code>pow2(shift)</code>. Negative shifts are equivalent to
+   * left-shift by the negated value.
+   */
+  def >>(shift : IdealInt) : IdealInt =
+    if (shift.signum < 0) {
+      this << (-shift)
+    } else if (this.usesLong) {
+      if (shift >= 64) {
+        if (this.signum >= 0) IdealInt.ZERO else IdealInt.MINUS_ONE
+      } else {
+        IdealInt(this.longStore >> shift.intValue)
+      }
+    } else {
+      this.signum match {
+        case 0 =>
+          IdealInt.ZERO
+        case 1 =>
+          if (shift > this.getBI.bitLength)
+            IdealInt.ZERO
+          else
+            IdealInt(this.getBI.shiftRight(shift.intValue))
+        case -1 =>
+          if (shift > (-this).getBI.bitLength)
+            IdealInt.MINUS_ONE
+          else
+            IdealInt(this.getBI.shiftRight(shift.intValue))
+      }
+    }
+
+  /**
+   * For a positive number, determine the index of the highest bit that is set.
+   * For instance, <code>IdealInt.ONE.getHighestSetBit == 0</code>.
+   */
   def getHighestSetBit : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum > 0)
+    Debug.assertPre(IdealInt.AC, this.signum > 0,
+                    "highest bit can only be queried for positive numbers")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong) {
       var n = this.longStore >> 1
