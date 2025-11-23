@@ -752,6 +752,28 @@ final class IdealInt private (private val longStore : Long,
       this << shift.intValueSafe
 
   /**
+   * Shift left, filling up with ones. This is equivalent to
+   * <code>((this + 1) << shift) - 1</code>.
+   */
+  def shiftLeftAddOnes(shift : Int) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, shift >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    ((this + 1) << shift) - 1
+  }
+
+  /**
+   * Shift left, filling up with ones. This is equivalent to
+   * <code>((this + 1) << shift) - 1</code>.
+   */
+  def shiftLeftAddOnes(shift : IdealInt) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, shift.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    ((this + 1) << shift) - 1
+  }
+
+  /**
    * Right-shift with sign extension. For positive shifts, this is equivalent
    * to division by <code>pow2(shift)</code>. Negative shifts are equivalent to
    * left-shift by the negated value.

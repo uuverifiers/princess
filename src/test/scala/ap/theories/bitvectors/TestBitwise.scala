@@ -99,17 +99,6 @@ class TestBitwise extends Properties("TestBitwise") {
         assert(??? == ProverStatus.Sat)
       }
 
-      /*
-           8*y + 3 \in [3, infty)
-
-           (... 6] [5..3] [2..0] 
-
-           calculated bounds:
-
-           ub: infty
-           lb: 0 + 2^3*1 + 2^6*0 = 8
-       */
-
       scope {
         !! (bvugt(extract(5, 3, 8*y + 3), bv(3, 0)))
         assert(??? == ProverStatus.Sat)
@@ -154,6 +143,27 @@ class TestBitwise extends Properties("TestBitwise") {
         !! (q(y))
         !! (extract(7, 4, y) === bv(4, 10))
         !! (extract(3, 0, y) === bv(4, 7))
+        assert(??? == ProverStatus.Unsat)
+      }
+
+      true
+    }
+  }
+
+  property("extract5") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val q = createRelation("q", List(UnsignedBVSort(8)))
+      val y = createConstant("y", Sort.Interval(Some(-8), Some(-1)))
+
+      scope {
+        !! (!q(-3))
+        !! (!q(-4))
+        !! (q(y))
+        !! (extract(1, 1, y) === bv(1, 0))
+        !! (extract(2, 2, y) === bv(1, 1))
         assert(??? == ProverStatus.Unsat)
       }
 

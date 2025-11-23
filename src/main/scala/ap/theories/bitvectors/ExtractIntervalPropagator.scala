@@ -35,9 +35,10 @@ package ap.theories.bitvectors
 
 import ap.theories._
 
+import ap.basetypes.IdealInt
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.basetypes.IdealInt
+import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
@@ -68,34 +69,38 @@ object ExtractIntervalPropagator {
 
       val actions = new ArrayBuffer[Plugin.Action]
 
+      val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
+
       // TODO: make sure that the order of actions is deterministic
       // TODO: add optimized version when no proofs are generated
       for ((arg, exes) <- extracts.groupBy(_(2))) {
-        reducer.lowerBoundWithAssumptions(arg) match {
+        reducer.lowerBound(arg, proofs) match {
           case Some((argLB, argLBAssumptions)) => {
             // check whether we can derive a tighter lower bound based on the
             // bounds on extracts
             val allAssumptions = new ArrayBuffer[Formula]
-            allAssumptions ++= argLBAssumptions.map(_ >= 0)
+            allAssumptions ++= argLBAssumptions
 
-            val Atom(_, Seq(Constant(IdealInt(headU)), _, _, _), _) = exes.head
+            val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
 
             var lastL = headU + 1
-            var newArgLB = argLB / pow2(lastL) * pow2(lastL)
+            var newArgLB = argLB >> lastL
 
-            for (ex@Atom(_, Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
-                                _, res), _) <- exes.iterator;
+            for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
+                   exes.iterator;
                  if ub < lastL) {
-              reducer.lowerBoundWithAssumptions(res) match {
+              reducer.lowerBound(res, proofs) match {
                 case Some((resLB, resLBAssumptions)) if resLB.signum > 0 => {
-                  newArgLB = newArgLB + resLB * pow2(lb)
-                  allAssumptions ++= resLBAssumptions.map(_ >= 0)
+                  newArgLB = (newArgLB << (lastL - lb)) + resLB
+                  allAssumptions ++= resLBAssumptions
                   allAssumptions += ex
                 }
                 case _ =>
               }
               lastL = lb
             }
+
+            newArgLB = newArgLB << lastL
 
             if (newArgLB > argLB) {
               val action = Plugin.AddAxiom(allAssumptions, arg >= newArgLB,
@@ -113,33 +118,43 @@ object ExtractIntervalPropagator {
           case None => // without an initial lower bound, nothing can be done
         }
 
-        reducer.upperBoundWithAssumptions(arg) match {
+        reducer.upperBound(arg, proofs) match {
           case Some((argUB, argUBAssumptions)) => {
             // check whether we can derive a tighter upper bound based on the
             // bounds on extracts
             val allAssumptions = new ArrayBuffer[Formula]
-            allAssumptions ++= argUBAssumptions.map(_ >= 0)
+            allAssumptions ++= argUBAssumptions
 
-            val Atom(_, Seq(Constant(IdealInt(headU)), _, _, _), _) = exes.head
+            val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
 
             var lastL = headU + 1
-            var newArgUB = (argUB / pow2(lastL) + 1) * pow2(lastL) - 1
+            var newArgUB = argUB >> lastL
 
-            for (ex@Atom(_, Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
-                                _, res), _) <- exes.iterator;
+            for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
+                   exes.iterator;
                  if ub < lastL) {
-              reducer.upperBoundWithAssumptions(res) match {
+              // add the 1-bits between the last and the current block
+              newArgUB = newArgUB.shiftLeftAddOnes(lastL - ub - 1)
+
+              reducer.upperBound(res, proofs) match {
                 case Some((resUB, resUBAssumptions))
                     if resUB < pow2MinusOne(ub - lb + 1) => {
-                  newArgUB =
-                    newArgUB - (pow2MinusOne(ub - lb + 1) - resUB) * pow2(lb)
-                  allAssumptions ++= resUBAssumptions.map(_ >= 0)
+                  // add the upper bound on the current block
+                  newArgUB = (newArgUB << (ub - lb + 1)) + resUB
+                  allAssumptions ++= resUBAssumptions
                   allAssumptions += ex
                 }
-                case _ =>
+                case _ => {
+                  // use the worst-case upper bound
+                  newArgUB = newArgUB.shiftLeftAddOnes(ub - lb + 1)
+                }
               }
+
               lastL = lb
             }
+
+            // add remaining 1-bits after the last block
+            newArgUB = newArgUB.shiftLeftAddOnes(lastL)
 
             if (newArgUB < argUB) {
               val action = Plugin.AddAxiom(allAssumptions, arg <= newArgUB,
