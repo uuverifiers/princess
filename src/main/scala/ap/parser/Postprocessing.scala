@@ -80,7 +80,7 @@ class Postprocessing(signature : Signature,
         f.predConj.updateLits(f.predConj.positiveLits.filter(isGround),
                               f.predConj.negativeLits.filter(isGround))
       val groundF =
-        f.updatePredConj(groundAtoms)
+        Conjunction.conj(groundAtoms, order)
       implicit val context = new Theory.DefaultDecoderContext(groundF)
       iFormula = IntToTermTranslator(iFormula)
     }
