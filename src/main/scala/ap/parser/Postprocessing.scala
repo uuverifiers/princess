@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,8 +34,9 @@
 package ap.parser
 
 import ap.Signature
+import ap.terfor.TermOrder
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Predicate, Atom}
 import ap.theories.{Theory, TheoryRegistry}
 import ap.types.IntToTermTranslator
 
@@ -69,7 +70,18 @@ class Postprocessing(signature : Signature,
     var iFormula = Internal2InputAbsy(formula, predTranslation)
 
     if (int2TermTranslation) {
-      implicit val context = new Theory.DefaultDecoderContext(f)
+      // for decoding models, only atoms not containing any constants or
+      // variables are relevant
+      implicit val order : TermOrder =
+        f.order
+      def isGround(a : Atom) =
+        a.constants.isEmpty && a.variables.isEmpty
+      val groundAtoms =
+        f.predConj.updateLits(f.predConj.positiveLits.filter(isGround),
+                              f.predConj.negativeLits.filter(isGround))
+      val groundF =
+        f.updatePredConj(groundAtoms)
+      implicit val context = new Theory.DefaultDecoderContext(groundF)
       iFormula = IntToTermTranslator(iFormula)
     }
 
