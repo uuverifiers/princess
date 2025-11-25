@@ -35,7 +35,7 @@ package ap.parser
 
 import ap.Signature
 import ap.terfor.TermOrder
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
 import ap.terfor.preds.{Predicate, Atom}
 import ap.theories.{Theory, TheoryRegistry}
 import ap.types.IntToTermTranslator
@@ -80,7 +80,8 @@ class Postprocessing(signature : Signature,
         f.predConj.updateLits(f.predConj.positiveLits.filter(isGround),
                               f.predConj.negativeLits.filter(isGround))
       val groundF =
-        Conjunction.conj(groundAtoms, order)
+        Conjunction(f.quans, f.arithConj, groundAtoms,
+                    NegatedConjunctions.TRUE, order)
       implicit val context = new Theory.DefaultDecoderContext(groundF)
       iFormula = IntToTermTranslator(iFormula)
     }
