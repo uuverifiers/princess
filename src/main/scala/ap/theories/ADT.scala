@@ -207,7 +207,8 @@ object ADT {
 
           for (a <- atoms) {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+            Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty,
+                            s"cannot handle $a in augmentModelTermSet")
             //-END-ASSERTION-///////////////////////////////////////////////////
             val ADTCtorPred(ctorNum, sortNum, _) =
               adtTheory.adtPreds(a.pred)
