@@ -4,7 +4,7 @@
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
  * Copyright (C) 2011-2025 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
+ *               2020-2025 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -165,7 +165,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
             AnyRef,                                          // polyADTs
             Int,                                             // nextPartitionNumber
             Map[PartName, Int],                              // partNameIndexes
-            Boolean                                          // usingHeap
+            Set[Heap]                                        // heapsInUse
             )](_env, settings) {
   
   import IExpression.{Sort => TSort, _}
@@ -600,7 +600,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
   private var partNameIndexes = Map[PartName, Int]()
 //  private val interpolantSpecs = new ArrayBuffer[IInterpolantSpec]
 
-  private var usingHeap : Boolean = false
+  private var heapsInUse = Set[Heap]()
 
   private def getPartNameIndexFor(name : PartName) : Int =
     (partNameIndexes get name) match {
@@ -625,7 +625,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     checkIncremental("push")
     checkNotExtracting("push")
     pushState((functionDefs, polyADTs, nextPartitionNumber, partNameIndexes,
-               usingHeap))
+               heapsInUse))
     prover.push
   }
 
@@ -638,13 +638,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     prover.pop()
 
     val (oldFunctionDefs, oldPolyADTs, oldNextPartitionNumber, oldPartNameIndexes,
-         oldUsingHeap) =
+         oldHeapsInUse) =
       popState
     functionDefs = oldFunctionDefs
     polyADTs = oldPolyADTs.asInstanceOf[Map[String, DataDeclsCommand]]
     nextPartitionNumber = oldNextPartitionNumber
     partNameIndexes = oldPartNameIndexes
-    usingHeap = oldUsingHeap
+    heapsInUse = oldHeapsInUse
 
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
@@ -2921,14 +2921,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
-    case PlainSymbol("valid") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.valid.name == name) =>
       translateHeapPred(
         0,
         _.valid,
         args,
         heap => List(SMTHeap(heap), SMTHeapAddress(heap)))
 
-    case PlainSymbol("alloc") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.alloc.name == name) =>
       translateHeapFun(
         0,
         _.alloc,
@@ -2937,7 +2939,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTHeapADT(heap, heap.objectSortIndex)),
         heap => SMTHeapAllocRes(heap))
 
-    case PlainSymbol("batchAlloc") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.batchAlloc.name == name) =>
       translateHeapFun(
         0,
         _.batchAlloc,
@@ -2947,14 +2950,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTInteger),
         heap => SMTHeapBatchAllocRes(heap))
 
-    case PlainSymbol("read") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.read.name == name) =>
       translateHeapFun(0,
                        _.read,
                        args,
                        heap => List(SMTHeap(heap), SMTHeapAddress(heap)),
                        heap => SMTHeapADT(heap, heap.objectSortIndex))
 
-    case PlainSymbol("write") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.write.name == name) =>
       translateHeapFun(0,
                        _.write,
                        args,
@@ -2962,7 +2967,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTHeapADT(heap, heap.objectSortIndex)),
                        SMTHeap(_))
 
-    case PlainSymbol("addressRangeNth") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.addressRangeNth.name == name) =>
       translateHeapFun(0,
                        _.addressRangeNth,
                        args,
@@ -2970,14 +2976,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTInteger),
                        SMTHeapAddress(_))
 
-    case PlainSymbol("addressRangeWithin") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.addressRangeWithin.name == name) =>
       translateHeapPred(0,
                         _.addressRangeWithin,
                         args,
                         heap => List(SMTHeapAddressRange(heap),
                                      SMTHeapAddress(heap)))
 
-    case PlainSymbol("batchWrite") if usingHeap =>
+    case PlainSymbol(name)
+      if heapsInUse.exists(heap => heap.batchWrite.name == name) =>
       translateHeapFun(0,
                        _.batchWrite,
                        args,
@@ -4047,7 +4055,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                         Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
-    usingHeap = true
     val adtCtors = (allCtors map (_._1)).flatten
 
     // Throw an error if the Object sort cannot be found as a datatype
@@ -4063,15 +4070,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     def defObjCtor(objectCtors : Seq[MonoSortedIFunction]) : ITerm =
       translateDefaultObjectTerm(defaultObjectTerm, objectCtors)
 
-    val heap : Heap =
-      Param.HEAP_THEORY(settings) match {
-        case Param.HeapTheory.Native =>
-          new NativeHeap(heapSortName, addressSortName, addressRangeSortName,
-                         objectSort, adtSortNames, adtCtors, defObjCtor _)
-        case Param.HeapTheory.Array =>
-          new ArrayHeap(heapSortName, addressSortName, addressRangeSortName,
-                        objectSort, adtSortNames, adtCtors, defObjCtor _)
-      }
+    val heap : Heap = Param.HEAP_THEORY(settings) match {
+      case Param.HeapTheory.Native =>
+        new NativeHeap(heapSortName, addressSortName, addressRangeSortName,
+                       objectSort, adtSortNames, adtCtors, defObjCtor _)
+      case Param.HeapTheory.Array =>
+        new ArrayHeap(heapSortName, addressSortName, addressRangeSortName,
+                      objectSort, adtSortNames, adtCtors, defObjCtor _)
+    }
+    heapsInUse  += heap
 
     // Add the heap sorts to the environment
     env.addSort(heapSortName,                   SMTHeap(heap))
