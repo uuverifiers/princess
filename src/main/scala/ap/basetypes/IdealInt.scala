@@ -689,9 +689,6 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise and.
    */
   def &  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore & that.longStore)
     else
@@ -702,9 +699,6 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise or.
    */
   def |  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore | that.longStore)
     else
@@ -715,9 +709,6 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise xor.
    */
   def ^  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore ^ that.longStore)
     else

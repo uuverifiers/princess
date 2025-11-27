@@ -5,7 +5,7 @@ Constructing satisfying assignment for the existential constants ...
 VALID
 
 Under the assignment:
-b9 & b8 & !b7 & b6 & !b5 & !b4 & !b3 & !b2 & !b1 & !b0
+b9 & b8 & !b7 & b6 & b5 & !b4 & b3 & !b2 & !b1 & !b0
 Loading bvsdiv.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -38,8 +38,8 @@ Constructing countermodel ...
 sat
 (model
   (define-fun x () (_ BitVec 8) (_ bv127 8))
-  (define-fun d () (_ BitVec 8) (_ bv127 8))
-  (define-fun c () (_ BitVec 8) (_ bv127 8))
+  (define-fun d () (_ BitVec 8) (_ bv129 8))
+  (define-fun c () (_ BitVec 8) (_ bv129 8))
 )
 Loading bvsdiv6c.smt2 ...
 Preprocessing ...
@@ -47,7 +47,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv88 8))
+  (define-fun x () (_ BitVec 8) (_ bv8 8))
 )
 Loading bvsdiv7.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
@@ -426,20 +426,20 @@ unsat
 Loading example13.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 17), simplifying (38), interpolating ...
+Found proof (size 28), simplifying (40), interpolating ...
 
 VALID
 
 Interpolants:
-x[5:2] != 6.\as[bv[4]]
+x.\as[int] >= 28 | 23 >= x.\as[int]
 Loading example13.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 17), simplifying (38), interpolating ...
+Found proof (size 28), simplifying (40), interpolating ...
 
 unsat
 (
-  (not (= ((_ extract 5 2) x) (_ bv6 4)))
+  (or (bvule (_ bv28 8) x) (bvule x (_ bv23 8)))
 )
 Loading bvcomp.smt2 ...
 Preprocessing ...
@@ -505,7 +505,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-d = 27343733359679827402274728501681.\as[bv[106]] & c = 1023.\as[bv[11]] & b = 6071528471025506.\as[bv[53]] & a = 27343733359679827402274728501681.\as[bv[106]] & z = 1023.\as[bv[12]] & y = 2047.\as[bv[11]] & x = 5229123574718791.\as[bv[53]]
+d = 27343733359679827402274728501681.\as[bv[106]] & c = 2047.\as[bv[11]] & b = 6071528471025506.\as[bv[53]] & a = 27343733359679827402274728501681.\as[bv[106]] & z = 2047.\as[bv[12]] & y = 1535.\as[bv[11]] & x = 5229123574718791.\as[bv[53]]
 Loading big-bv3.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -513,7 +513,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-d = 27343733359679858777016176814436.\as[bv[106]] & c = 1023.\as[bv[11]] & b = 6071528471025513.\as[bv[53]] & a = 27343733359679858777016176814436.\as[bv[106]] & z = 1023.\as[bv[12]] & y = 2047.\as[bv[11]] & x = 5229123574718794.\as[bv[53]]
+d = 27343733359680005192476268940864.\as[bv[106]] & c = 2047.\as[bv[11]] & b = 6071528471025545.\as[bv[53]] & a = 27343733359680005192476268940864.\as[bv[106]] & z = 2047.\as[bv[12]] & y = 1535.\as[bv[11]] & x = 5229123574718808.\as[bv[53]]
 Loading conversions.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -531,7 +531,7 @@ sat
 Loading bv-ops3c.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 42)
+Found proof (size 22)
 
 VALID
 
@@ -584,146 +584,74 @@ Begin of proof
 |   (5)  all_5_2 >= 1
 |   (6)  3 >= all_5_2
 |   (7)  all_5_1 >= 0
-|   (8)  all_5_2[0:0] = all_5_1
-|   (9)  all_5_2[1:1] = all_5_0
-|   (10)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 &
+|   (8)  all_5_0 >= 0
+|   (9)  all_5_2[0:0] = all_5_1
+|   (10)  all_5_2[1:1] = all_5_0
+|   (11)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 &
 |           all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >=
 |           all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
 | 
-| DELTA: instantiating (10) with fresh symbol all_8_0 gives:
-|   (11)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 & all_2_0
+| DELTA: instantiating (11) with fresh symbol all_8_0 gives:
+|   (12)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 & all_2_0
 |         >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >= all_5_1 &
 |         all_8_0[1:1] = 1 - all_2_0 & all_8_0[0:0] = 1 - all_2_1
 | 
-| ALPHA: (11) implies:
-|   (12)  all_2_1 >= all_5_1
-|   (13)  -1*all_5_1 + -1*all_2_1 >= -1
-|   (14)  all_2_0 >= all_5_0
-|   (15)  -1*all_5_0 + -1*all_2_0 >= -1
+| ALPHA: (12) implies:
+|   (13)  all_2_1 >= all_5_1
+|   (14)  -1*all_5_1 + -1*all_2_1 >= -1
+|   (15)  all_2_0 >= all_5_0
+|   (16)  -1*all_5_0 + -1*all_2_0 >= -1
+| 
+| COMBINE_INEQS: (13), (14) imply:
+|   (17)  0 >= all_5_1
+| 
+| SIMP: (17) implies:
+|   (18)  0 >= all_5_1
+| 
+| COMBINE_INEQS: (15), (16) imply:
+|   (19)  0 >= all_5_0
+| 
+| SIMP: (19) implies:
+|   (20)  0 >= all_5_0
+| 
+| ANTI_SYMM: (8), (20) imply:
+|   (21)  all_5_0 = 0
+| 
+| ANTI_SYMM: (7), (18) imply:
+|   (22)  all_5_1 = 0
+| 
+| REDUCE: (10), (21) imply:
+|   (23)  all_5_2[1:1] = 0
+| 
+| REDUCE: (9), (22) imply:
+|   (24)  all_5_2[0:0] = 0
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-Warning: type clash during inference: bv[1] vs int
-Warning: type clash during inference: bv[1] vs int
-|   (16)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
-|           v0.\as[bv[2]] = 2*v2 + v1)
+|   (25)  \forall int v0; (3 < v0 | v0 < 1 | v0[1:1] != 0 | v0[0:0] != 0)
 | 
-| GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
-|              with (8), (9) gives:
-|   (17)  all_5_2.\as[bv[2]] = 2*all_5_0 + all_5_1
+| GROUND_INST: instantiating (25) with all_5_2, simplifying with (23), (24)
+|              gives:
+|   (26)  3 < all_5_2 | all_5_2 < 1
 | 
-| THEORY_AXIOM ModuloArithmetic: 
-|   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
-|           v0.\as[bv[2]] != 2*v2 + v1)
-| 
-| GROUND_INST: instantiating (18) with all_5_2, all_5_1, all_5_0, simplifying
-|              with (17) gives:
-|   (19)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2 | all_5_2 < 1
-| 
-| BETA: splitting (19) gives:
+| BETA: splitting (26) gives:
 | 
 | Case 1:
 | | 
-| |   (20)  0 >= all_5_2
+| |   (27)  all_5_2 >= 4
 | | 
-| | COMBINE_INEQS: (5), (20) imply:
-| |   (21)  false
+| | COMBINE_INEQS: (6), (27) imply:
+| |   (28)  false
 | | 
-| | CLOSE: (21) is inconsistent.
+| | CLOSE: (28) is inconsistent.
 | | 
 | Case 2:
 | | 
-| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2
+| |   (29)  0 >= all_5_2
 | | 
-| | BETA: splitting (22) gives:
+| | COMBINE_INEQS: (5), (29) imply:
+| |   (30)  false
 | | 
-| | Case 1:
-| | | 
-| | |   (23)  all_5_2 >= 4
-| | | 
-| | | COMBINE_INEQS: (6), (23) imply:
-| | |   (24)  false
-| | | 
-| | | CLOSE: (24) is inconsistent.
-| | | 
-| | Case 2:
-| | | 
-| | |   (25)  2*all_5_0 + all_5_1 = all_5_2
-| | | 
-| | | REDUCE: (15), (25) imply:
-| | |   (26)  all_5_0 + all_5_1 - all_5_2 - all_2_0 >= -1
-| | | 
-| | | REDUCE: (14), (25) imply:
-| | |   (27)  all_5_0 + all_5_1 - all_5_2 + all_2_0 >= 0
-| | | 
-| | | COL_REDUCE: introducing fresh symbol sc_17_1_0 defined by:
-| | |   (28)  all_5_0 - all_5_2 = sc_17_1_0
-| | | 
-| | | COMBINE_EQS: (25), (28) imply:
-| | |   (29)  all_5_1 + all_5_2 = -2*sc_17_1_0
-| | | 
-| | | REDUCE: (26), (28), (29) imply:
-| | |   (30)  -1*all_5_2 + -1*sc_17_1_0 - all_2_0 >= -1
-| | | 
-| | | REDUCE: (27), (28), (29) imply:
-| | |   (31)  -1*all_5_2 + -1*sc_17_1_0 + all_2_0 >= 0
-| | | 
-| | | REDUCE: (13), (29) imply:
-| | |   (32)  all_5_2 + 2*sc_17_1_0 - all_2_1 >= -1
-| | | 
-| | | REDUCE: (12), (29) imply:
-| | |   (33)  all_5_2 + 2*sc_17_1_0 + all_2_1 >= 0
-| | | 
-| | | REDUCE: (7), (29) imply:
-| | |   (34)  -2*sc_17_1_0 >= all_5_2
-| | | 
-| | | COMBINE_INEQS: (30), (32) imply:
-| | |   (35)  sc_17_1_0 - all_2_0 - all_2_1 >= -2
-| | | 
-| | | COMBINE_INEQS: (31), (32) imply:
-| | |   (36)  sc_17_1_0 + all_2_0 - all_2_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (30), (33) imply:
-| | |   (37)  sc_17_1_0 - all_2_0 + all_2_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (31), (33) imply:
-| | |   (38)  sc_17_1_0 + all_2_0 + all_2_1 >= 0
-| | | 
-| | | COMBINE_INEQS: (5), (34) imply:
-| | |   (39)  -1 >= sc_17_1_0
-| | | 
-| | | SIMP: (39) implies:
-| | |   (40)  -1 >= sc_17_1_0
-| | | 
-| | | COMBINE_INEQS: (35), (40) imply:
-| | |   (41)  -1*all_2_0 + -1*all_2_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (37), (40) imply:
-| | |   (42)  all_2_1 >= all_2_0
-| | | 
-| | | COMBINE_INEQS: (36), (40) imply:
-| | |   (43)  all_2_0 >= all_2_1
-| | | 
-| | | COMBINE_INEQS: (38), (40) imply:
-| | |   (44)  all_2_0 + all_2_1 >= 1
-| | | 
-| | | COMBINE_INEQS: (41), (43) imply:
-| | |   (45)  0 >= all_2_1
-| | | 
-| | | SIMP: (45) implies:
-| | |   (46)  0 >= all_2_1
-| | | 
-| | | COMBINE_INEQS: (42), (44) imply:
-| | |   (47)  all_2_1 >= 1
-| | | 
-| | | SIMP: (47) implies:
-| | |   (48)  all_2_1 >= 1
-| | | 
-| | | COMBINE_INEQS: (46), (48) imply:
-| | |   (49)  false
-| | | 
-| | | CLOSE: (49) is inconsistent.
-| | | 
-| | End of split
+| | CLOSE: (30) is inconsistent.
 | | 
 | End of split
 | 
@@ -731,7 +659,7 @@ End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 607)
+Found proof (size 598)
 
 unsat
 Loading bvsrem2.smt2 ...

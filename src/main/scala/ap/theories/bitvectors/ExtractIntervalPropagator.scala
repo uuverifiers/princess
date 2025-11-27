@@ -56,23 +56,87 @@ object ExtractIntervalPropagator {
 
   import ModuloArithmetic._
 
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+      if (goal.facts.predConj.predicates.contains(_bv_extract)) {
+        fwdPropagation(goal) ++ bwdPropagation(goal)
+      } else {
+        List()
+      }
+
+    /**
+     * Propagate information about extract arguments to the extract result.
+     */
+    def fwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
       import TerForConvenience._
       implicit val order : TermOrder = goal.order
 
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      if (extracts.isEmpty)
-        return List()
+      val reducer  = goal.reduceWithFacts
+      val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
 
-      val inEqs = goal.facts.arithConj.inEqs
-      val reducer = goal.reduceWithFacts
+      val actions  = new ArrayBuffer[Plugin.Action]
 
-      val actions = new ArrayBuffer[Plugin.Action]
+      for (ex@Atom(_, Seq(Constant(ub), Constant(lb), arg, res), _) <-
+             extracts) {
+        (reducer.lowerBound(arg, proofs),
+         reducer.upperBound(arg, proofs)) match {
+          case (Some((argLB, argLBAsses)), Some((argUB, argUBAsses)))
+              if lb <= ub => {
 
-      val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
+            commonBitsLB(argLB, argUB) match {
+              case Some(bitBoundary) if ub + 1 >= bitBoundary => {
+                val resLB = evalExtract(ub, lb, argLB)
+                val resUB = evalExtract(ub, lb, argUB)
+
+                val resConstraints = List(res - resLB, resUB - res) >= 0
+                val redConstraints = reducer(resConstraints)
+
+                if (!redConstraints.isTrue) {
+                  val action =
+                    if (proofs)
+                      Plugin.AddAxiom(argLBAsses ++ argUBAsses ++ List(ex),
+                                      resConstraints,
+                                      ModuloArithmetic)
+                    else
+                      Plugin.AddAxiom(List(),
+                                      redConstraints,
+                                      ModuloArithmetic)
+                  actions += action
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  if (debug) {
+                    println(s"Inferred new bounds [$resLB, $resUB] for term $res")
+                    println("\t" + action)
+                  }
+                  //-END-ASSERTION-/////////////////////////////////////////////
+                }
+              }
+              case _ =>
+                // nothing can be said
+            }
+          }
+
+          case _ =>
+            // nothing can be said
+        }
+      }
+
+      actions.toSeq
+    }
+
+    /**
+     * Propagate information about extract results to the extract arguments.
+     */
+    def bwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+      import TerForConvenience._
+      implicit val order : TermOrder = goal.order
+
+      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+      val reducer  = goal.reduceWithFacts
+      val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+
+      val actions  = new ArrayBuffer[Plugin.Action]
 
       // TODO: make sure that the order of actions is deterministic
-      // TODO: add optimized version when no proofs are generated
       for ((arg, exes) <- extracts.groupBy(_(2))) {
         reducer.lowerBound(arg, proofs) match {
           case Some((argLB, argLBAssumptions)) => {

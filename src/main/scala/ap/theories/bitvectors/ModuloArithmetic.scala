@@ -97,6 +97,25 @@ object ModuloArithmetic extends Theory {
   private def isPowerOf2(n : IdealInt) : Option[Int] =
     IdealInt.log2(n)
 
+  /**
+   * Compute the smallest number <code>n</code> such that all numbers in the
+   * interval <code>[min(a, b), max(a, b)]</code> have bits at and above
+   * <code>n<code> in common.
+   * For instance, <code>commonBitsLB(11, 14) == Some(3)</code>
+   * and <code>commonBitsLB(1, -1) == None</code>.
+   * 
+   * 11 = 1011_2
+   * 14 = 1110_2
+   */
+  protected[bitvectors] def commonBitsLB(a : IdealInt,
+                                         b : IdealInt) : Option[Int] =
+    (a.signum, b.signum) match {
+      case (1, 1) | (-1, -1) => Some((a ^ b).getHighestSetBit + 1)
+      case (1, 0)            => Some(a.getHighestSetBit + 1)
+      case (0, 1)            => Some(b.getHighestSetBit + 1)
+      case _                 => None
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   // API methods that infer the right bit-width based on types
   // See http://smtlib.cs.uiowa.edu/logics-all.shtml#QF_BV
