@@ -88,7 +88,7 @@ class ArrayHeap(heapSortName         : String,
                 userSortNames        : Seq[String],
                 ctorSignatures       : Seq[(String, Heap.CtorSignature)],
                 defaultObjectCtor    : Seq[MonoSortedIFunction] => ITerm)
-      extends Heap {
+      extends Heap with SMTLinearisableTheory {
   import Heap._
   import ArrayHeap._
   import Sort.{Nat, Integer}
@@ -1371,5 +1371,39 @@ class ArrayHeap(heapSortName         : String,
   override def toString = name
   TheoryRegistry register this
   Heap register this
+
+    //////////////////////////////////////////////////////////////////////////////
+
+  override def printSMTDeclaration : Unit = {
+    import SMTLineariser.{asString, quoteIdentifier}
+
+    print("(declare-heap ")
+    println(HeapSort.name + " " + AddressSort.name + " " +
+          ObjectSort.name)
+    println(" " ++ asString(defaultObject))
+    print(" (")
+    print((for(s <- userHeapSorts)
+      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+    println(") (")
+    for (num <- userHeapSorts.indices) {
+      println("  (")
+      for ((f, sels) <- userHeapConstructors zip userHeapSelectors; // todo: should probably be just the object ADT ctors
+           if (f.resSort match {
+             case s: ADT.ADTProxySort =>
+               s.sortNum == num && s.adtTheory == onHeapADT
+             case _ =>
+               false
+           })) {
+        print(" ")
+        ADT.printSMTCtorDeclaration(f, sels)
+      }
+      println("  )")
+    }
+    println("))")
+  }
+
+  override def SMTDeclarationSideEffects : Seq[Theory] = dependencies
+
+  //////////////////////////////////////////////////////////////////////////////
 
 }
