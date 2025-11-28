@@ -230,6 +230,10 @@ class ArrayHeap(heapSortName         : String,
     new MonoSortedIFunction("storeRange",
                             List(ArraySort, Integer, Integer, OSo),
                             ArraySort, true, true)
+  val storeRange2 =
+    new MonoSortedIFunction("storeRange2",
+                            List(ArraySort, Integer, Integer, OSo),
+                            ArraySort, true, true)
 
   // A predicate asserting that two heaps have distinct contents
   val distinctHeaps =
@@ -380,22 +384,22 @@ class ArrayHeap(heapSortName         : String,
 
   val allAxioms : IFormula = {
     import IExpression._
-    import arrayTheory.{select, store}
+    import arrayTheory.{select, store, store2}
 
     // TODO: the first axiom ensures bidirectional propagation and is needed
     // for completeness, but is also very inefficient. Implement this axiom
     // using a plugin instead?
 
-/*    ArraySort.all((heapAr, resultAr) =>
+    ArraySort.all((heapAr, resultAr) =>
       Integer.all((start, end) =>
         ObjectSort.all(obj =>
           ITrigger(
-            List(storeRange(heapAr, start, end, obj)),
-            (resultAr === storeRange(heapAr, start, end, obj)) ==>
+            List(storeRange2(heapAr, start, end, obj)),
+            (resultAr === storeRange2(heapAr, start, end, obj)) ==>
             ite(start < end,
                 resultAr ===
-                  store(storeRange(heapAr, start + 1, end, obj), start, obj),
-                resultAr === heapAr))))) & */
+                  store2(storeRange2(heapAr, start + 1, end, obj), start, obj),
+                resultAr === heapAr))))) &
     //
     ArraySort.all((heapAr) =>
       Integer.all((start, end, ind) =>
@@ -419,7 +423,7 @@ class ArrayHeap(heapSortName         : String,
 
   val functions =
     List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
-         nextAddr, addressRangeNth, storeRange)
+         nextAddr, addressRangeNth, storeRange, storeRange2)
   val predefPredicates =
     List(valid, addressRangeWithin, distinctHeaps, heapConstant)
 
@@ -447,6 +451,9 @@ class ArrayHeap(heapSortName         : String,
     (allFuns, allPreds)
   }
 
+  private val _storeRange = funPredMap(storeRange)
+  private val _storeRange2 = funPredMap(storeRange2)
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val pluginObj = new Plugin {
@@ -461,8 +468,9 @@ class ArrayHeap(heapSortName         : String,
       }
     override def computeModel(goal : Goal) : Seq[Plugin.Action] =
       goalState(goal) match {
+        case Plugin.GoalState.Intermediate =>
+          augmentModel(goal)
         case Plugin.GoalState.Final =>
-          augmentModel(goal) elseDo
           extractHeapModel(goal)
         case _ =>
           List()
@@ -518,9 +526,9 @@ class ArrayHeap(heapSortName         : String,
   private def augmentModel(goal : Goal) : Seq[Plugin.Action] = {
     import TerForConvenience._
     implicit val order : TermOrder = goal.order
-
-    val heapAtoms =
-      goal.facts.predConj.positiveLitsWithPred(_heapPair)
+    val predConj        = goal.facts.predConj
+    val heapAtoms       = predConj.positiveLitsWithPred(_heapPair)
+    val storeRangeAtoms = predConj.positiveLitsWithPred(_storeRange)
 
     val constAtoms =
       (for (atom <- heapAtoms.iterator;
@@ -530,7 +538,15 @@ class ArrayHeap(heapSortName         : String,
             if !red.isTrue)
        yield red).toVector
 
-    for (c <- constAtoms)
+    val storeRange2Atoms =
+      (for (a <- storeRangeAtoms.iterator;
+            if a(1).isConstant && a(2).isConstant;
+            newA = _storeRange2(List(a(0), a(1), a(2), a(3), a(4)));
+            red = goal reduceWithFacts newA;
+            if !red.isTrue)
+       yield red).toVector
+
+    for (c <- constAtoms ++ storeRange2Atoms)
     yield Plugin.AddFormula(Conjunction.negate(c, order))
   }
 
@@ -858,6 +874,13 @@ class ArrayHeap(heapSortName         : String,
    */
   def expandFormula(f : IFormula) : IFormula =
     PreTranslator.visit(f, ()).asInstanceOf[IFormula]
+
+  /**
+   * Translate a term to its internal presentation in terms of arrays and
+   * ADTs.
+   */
+  def expandTerm(f : ITerm) : ITerm =
+    PreTranslator.visit(f, ()).asInstanceOf[ITerm]
 
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {

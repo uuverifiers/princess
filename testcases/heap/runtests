@@ -20,6 +20,7 @@ TESTS="simple-heap.smt2 \
        alloc-interpolation-3c.smt2 \
        simple-heap-allocAddr.smt2 \
        simple-heap-batch.smt2 \
+       simple-heap-batch-sat.smt2 \
        heap-batch-write-read-1-unsat.smt2 \
        heap-batch-write-read-2-unsat.smt2 \
        adt-addrrange-sat.smt2 \
