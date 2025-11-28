@@ -123,10 +123,8 @@ class TestBitwise extends Properties("TestBitwise") {
         !! (bvule(extract(23, 20, y), bv(4, 10)))
         !! (bvuge(y, bv(32, 1000)))
         !! (bvule(y, bv(32, 100000000)))
-        assert(??? == ProverStatus.Sat)
+        ??? == ProverStatus.Sat
       }
-
-      true
     }
   }
 
@@ -143,10 +141,8 @@ class TestBitwise extends Properties("TestBitwise") {
         !! (q(y))
         !! (extract(7, 4, y) === bv(4, 10))
         !! (extract(3, 0, y) === bv(4, 7))
-        assert(??? == ProverStatus.Unsat)
+        ??? == ProverStatus.Unsat
       }
-
-      true
     }
   }
 
@@ -164,10 +160,8 @@ class TestBitwise extends Properties("TestBitwise") {
         !! (q(y))
         !! (extract(1, 1, y) === bv(1, 0))
         !! (extract(2, 2, y) === bv(1, 1))
-        assert(??? == ProverStatus.Unsat)
+        ??? == ProverStatus.Unsat
       }
-
-      true
     }
   }
 
@@ -183,10 +177,8 @@ class TestBitwise extends Properties("TestBitwise") {
         !! (y >= 25)
         !! (y <= 230)
         !! (extract(7, 4, y) === z)
-        assert(??? == ProverStatus.Sat)
+        ??? == ProverStatus.Sat
       }
-
-      true
     }
   }
 
@@ -217,5 +209,21 @@ class TestBitwise extends Properties("TestBitwise") {
       true
     }
   }
+
+  property("extract8") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val y = createConstant("y", UnsignedBVSort(8))
+      val z = createConstant("z", UnsignedBVSort(8))
+
+      !! (extract(7, 4, y) === extract(3, 0, y))
+      !! (extract(5, 2, y) === 10)
+      ?? (y === 170)
+      ??? == ProverStatus.Valid
+    }
+  }
+
 
 }
