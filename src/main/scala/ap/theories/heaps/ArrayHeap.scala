@@ -875,6 +875,13 @@ class ArrayHeap(heapSortName         : String,
   def expandFormula(f : IFormula) : IFormula =
     PreTranslator.visit(f, ()).asInstanceOf[IFormula]
 
+  /**
+   * Translate a term to its internal presentation in terms of arrays and
+   * ADTs.
+   */
+  def expandTerm(f : ITerm) : ITerm =
+    PreTranslator.visit(f, ()).asInstanceOf[ITerm]
+
   override def iPreprocess(f : IFormula, signature : Signature)
                           : (IFormula, Signature) = {
 //    println("before: " + f)
