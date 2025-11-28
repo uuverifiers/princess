@@ -358,9 +358,11 @@ object ModReducer {
                           // reducer is in an inconsistent state, just drop
                           // the extract atom
                           (0, IdealInt.ZERO, lbA ++ ubA)
-                        case (Some((lb, lbA)), Some((ub, ubA)))
-                            if lb.signum >= 0 =>
-                          ((lb ^ ub).getHighestSetBit + 1, lb, lbA ++ ubA)
+                        case (Some((lb, lbA)), Some((ub, ubA))) =>
+                          commonBitsLB(lb, ub) match {
+                            case Some(bb) => (bb, lb, lbA ++ ubA)
+                            case None => (-1, IdealInt.ZERO, List())
+                          }
                         case _ =>
                           (-1, IdealInt.ZERO, List())
                       }
@@ -370,7 +372,22 @@ object ModReducer {
                       val LinearCombination.Constant(lb) = a(1)
                       val LinearCombination.Constant(ub) = a(0)
 
-                      if (lb >= bitBoundary) {
+                      if (ub >= bitBoundary - 1 && lb.isZero) {
+                        // We can eliminate the extract operation
+
+                        val newEq = a(3) === a(2) - (lower - evalExtract(ub, lb, lower))
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Eliminating bv_extract:")
+                          println("\t" + a)
+                          println("\t" + newEq)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
+
+                        logger.otherComputation(List(a) ++ asses, newEq, order,
+                                                ModuloArithmetic)
+                        newEq
+                      } else if (lb >= bitBoundary) {
                         // The extracted bits are completely determined by the
                         // bounds
 

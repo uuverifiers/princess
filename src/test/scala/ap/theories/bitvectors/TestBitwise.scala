@@ -190,4 +190,32 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("extract7") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val y = createConstant("y")
+      val z = createConstant("z")
+
+      scope {
+        !! (y >= 0)
+        !! (y < 256)
+        !! (extract(7, 0, y) === z)
+        assert(??? == ProverStatus.Sat)
+      }
+
+      scope {
+        !! (y >= -1000)
+        !! (y < -900)
+        !! (extract(7, 0, y) === z)
+        assert(??? == ProverStatus.Sat)
+        !! (z === 150)
+        assert(??? == ProverStatus.Unsat)
+      }
+
+      true
+    }
+  }
+
 }
