@@ -225,5 +225,17 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("extract9") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x = createConstant("x", UnsignedBVSort(32))
+
+      ?? ((extract(31, 1, x) === extract(30, 0, x)) <=> ((x === 0) | (x === pow2MinusOne(32))))
+      ??? == ProverStatus.Valid
+    }
+  }
+
 
 }

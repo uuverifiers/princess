@@ -608,25 +608,25 @@ object ModuloArithmetic extends Theory {
 
   // Arguments: N, number mod 2^N
   // Result:    number mod 2^N
-  val bv_not           = new BVNAryOp ("bv_not", 1) // X
-  val bv_neg           = new BVNAryOp ("bv_neg", 1) // X
+  val bv_not           = new BVNAryOp ("bv_not", 1)
+  val bv_neg           = new BVNAryOp ("bv_neg", 1)
 
   // Arguments: N, number mod 2^N, number mod 2^N
   // Result:    number mod 2^N
-  val bv_and           = new BVNAryOp ("bv_and", 2)
-  val bv_or            = new BVNAryOp ("bv_or",  2)
-  val bv_add           = new BVNAryOp ("bv_add", 2) // X
-  val bv_sub           = new BVNAryOp ("bv_sub", 2) // X
-  val bv_mul           = new BVNAryOp ("bv_mul", 2) // X (to be optimised)
-  val bv_udiv          = new BVNAryOp ("bv_udiv",2) // X
+  val bv_add           = new BVNAryOp ("bv_add", 2)
+  val bv_sub           = new BVNAryOp ("bv_sub", 2)
+  val bv_mul           = new BVNAryOp ("bv_mul", 2)
+  val bv_udiv          = new BVNAryOp ("bv_udiv",2)
   val bv_sdiv          = new BVNAryOp ("bv_sdiv",2)
-  val bv_urem          = new BVNAryOp ("bv_urem",2) // partly
+  val bv_urem          = new BVNAryOp ("bv_urem",2)
   val bv_srem          = new BVNAryOp ("bv_srem",2)
   val bv_smod          = new BVNAryOp ("bv_smod",2)
-  val bv_shl           = new BVNAryOp ("bv_shl", 2) // partly
+  val bv_shl           = new BVNAryOp ("bv_shl", 2)
   val bv_lshr          = new BVNAryOp ("bv_lshr",2)
   val bv_ashr          = new BVNAryOp ("bv_ashr",2)
 
+  val bv_and           = new BVNAryOp ("bv_and", 2)
+  val bv_or            = new BVNAryOp ("bv_or",  2)
   val bv_xor           = new BVNAryOp ("bv_xor", 2)
   val bv_xnor          = new BVNAryOp ("bv_xnor",2)
 
