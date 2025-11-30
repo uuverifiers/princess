@@ -437,6 +437,8 @@ object ModReducer {
         }} orElse {
           // then try to rewrite modulo atoms using known facts
 
+          // TODO: extend this to extract, bv_and, etc.
+
           var rewritten : List[Atom] = List()
           val additionalAtoms = predConj.positiveLitsWithPred(_mod_cast)
           

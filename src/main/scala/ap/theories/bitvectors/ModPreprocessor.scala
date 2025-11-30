@@ -326,10 +326,14 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod pow2(width + addWidth)))
 
-      case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
-                   Seq(IIntLit(n), _*)) =>
-        // TODO: handle bit-width argument correctly
-        UniSubArgs(ctxt addMod pow2(n))
+      case IFunApp(`bv_neg`, Seq(IIntLit(width), _*)) =>
+        SubArgs(List(ctxt.noMod, ctxt addMod pow2(width)))
+
+      case IFunApp(`bv_add` | `bv_sub` | `bv_mul` | `bv_and`,
+                   Seq(IIntLit(width), _*)) => {
+        val ctxt2 = ctxt addMod pow2(width)
+        SubArgs(List(ctxt.noMod, ctxt2, ctxt2))
+      }
 
       case IFunApp(`bv_shl`, Seq(IIntLit(n), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
@@ -679,25 +683,20 @@ object ModPreprocessor {
           val sort = UnsignedBVSort(bits)
 
           def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
-            runlengths(pattern) match {
+            runLengthEnc(pattern, bits) match {
               case Seq(_) => {
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 // Pattern must be constantly zero
-                Debug.assertInt(AC, pattern.isZero)
+                Debug.assertInt(AC, evalExtract(bits - 1, 0, pattern).isZero)
                 //-END-ASSERTION-///////////////////////////////////////////////
                 VisitorRes(IdealInt.ZERO)
               }
-              case Seq(0, length) => {
+              case rle@(Seq(0, _) | Seq(0, _, _)) => {
                 // pattern starting with a single block of ones
-                VisitorRes(
-                  doExtract(length - 1, 0, arg.resTerm, bits),
-                  IdealInt.ZERO, pattern)
+                arg.modCastPow2(rle(1), ctxt)
               }
-
-              case preLens => {
+              case lens => {
                 // multiple blocks of zeros, handle using an epsilon term
-                val lens = completedRunlengths(preLens, bits)
-
                 var offset : Int = 0
                 var bit = true
                 
@@ -721,7 +720,7 @@ object ModPreprocessor {
                     ex(v(0) === shiftVars(arg.resTerm, 2) &
                        resultDef))
 
-                VisitorRes(res, IdealInt.ZERO, pattern)
+                VisitorRes(res, IdealInt.ZERO, evalExtract(bits - 1, 0, pattern))
               }
             }
 
@@ -734,6 +733,10 @@ object ModPreprocessor {
               oneConstant(subres(1), subres(2).lowerBound)
 
             case (false, false) => {
+              // TODO: correctly update bounds!
+              VisitorRes.update(bv_and(bits, subres(1).resTerm, subres(2).resTerm),
+                                subres)
+              /*
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
                   val res = doExtract(i, i, v(2, sort), bits)
@@ -750,6 +753,7 @@ object ModPreprocessor {
                          IdealInt.ZERO,
                          (subres(1) upperBoundMax sort.upper) min
                            (subres(2) upperBoundMax sort.upper))
+              */
             }
 
           }
@@ -1245,7 +1249,8 @@ object ModPreprocessor {
                                         order))
         }
 
-        case `_mod_cast` | `_l_shift_cast` | `_r_shift_cast` | `_bv_extract` =>
+        case `_mod_cast` | `_l_shift_cast` | `_r_shift_cast` | `_bv_extract` |
+             `_bv_and` =>
           a
 
         case BVPred(_) => {

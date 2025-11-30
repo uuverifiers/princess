@@ -261,6 +261,39 @@ object ModuloArithmetic extends Theory {
       }
     }
 
+  /**
+   * Run-length encoding of the least-significant <code>size</code> bits of
+   * a number, starting with the number of least-significant zeroes. Bits beyond
+   * <code>size</code> are ignored.
+   */
+  def runLengthEnc(v : IdealInt, size : Int) : Seq[Int] = {
+    val two = IdealInt(2)
+    val res = new ArrayBuffer[Int]
+
+    var curBit = IdealInt.ZERO
+    var curNum = 0
+    var curPos = 0
+
+    var rem = v
+
+    while (curPos < size) {
+      val (newRem, bit) = rem /% two
+      if (bit == curBit) {
+        curNum = curNum + 1
+      } else {
+        res += curNum
+        curNum = 1
+        curBit = bit
+      }
+
+      rem = newRem
+      curPos = curPos + 1
+    }
+
+    res += curNum
+    res.toSeq
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -714,6 +747,7 @@ object ModuloArithmetic extends Theory {
     Theory.genAxioms(theoryFunctions = functions, extraPredicates = otherPreds)
 
   val _bv_extract = functionTranslation(bv_extract)
+  val _bv_and = functionTranslation(bv_and)
 
   // We only keep the functionality axiom for the bv_extract function
   val axioms =

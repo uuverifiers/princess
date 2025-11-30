@@ -60,7 +60,8 @@ object ModPlugin extends Plugin {
 
       if (Seqs.disjoint(predConj.predicates,
                         Set(_bv_extract, _mod_cast,
-                            _l_shift_cast, _r_shift_cast)))
+                            _l_shift_cast, _r_shift_cast,
+                            _bv_and)))
         return List()
 
       //-BEGIN-ASSERTION-/////////////////////////////////////////////////////

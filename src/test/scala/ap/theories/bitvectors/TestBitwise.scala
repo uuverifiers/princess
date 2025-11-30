@@ -48,7 +48,7 @@ class TestBitwise extends Properties("TestBitwise") {
   import IExpression._
   import ModuloArithmetic._
 
-  property("bvand") = {
+  property("bvand1") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       Debug enableAllAssertions true
@@ -61,6 +61,32 @@ class TestBitwise extends Properties("TestBitwise") {
       ??? == ProverStatus.Sat
     }
   }
+
+  property("bvand2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+      
+      !! (b3 === bvand(b1, bv(32, 0xF0F0)))
+      assert(??? == ProverStatus.Sat)
+
+      !! (b3 === bvand(bv(32, 0x0F0F), b1))
+      assert(??? == ProverStatus.Sat)
+
+      ?? (extract(15, 0, b1) === 0)
+      assert(??? == ProverStatus.Valid)
+
+      true
+    }
+  }
+}
+
+class TestExtract extends Properties("TestExtract") {
+  import IExpression._
+  import ModuloArithmetic._
 
   property("extract1") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
@@ -236,6 +262,4 @@ class TestBitwise extends Properties("TestBitwise") {
       ??? == ProverStatus.Valid
     }
   }
-
-
 }
