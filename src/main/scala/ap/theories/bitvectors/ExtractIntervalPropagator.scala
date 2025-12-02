@@ -76,6 +76,7 @@ object ExtractIntervalPropagator {
 
       val actions  = new ArrayBuffer[Plugin.Action]
 
+      // TODO: cache results of lowerBound/upperBound?
       for (ex@Atom(_, Seq(Constant(ub), Constant(lb), arg, res), _) <-
              extracts) {
         (reducer.lowerBound(arg, proofs),
@@ -104,7 +105,8 @@ object ExtractIntervalPropagator {
                   actions += action
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
                   if (debug) {
-                    println(s"Inferred new bounds [$resLB, $resUB] for term $res")
+                    println(
+                      s"Inferred new bounds [$resLB, $resUB] for term $res")
                     println("\t" + action)
                   }
                   //-END-ASSERTION-/////////////////////////////////////////////

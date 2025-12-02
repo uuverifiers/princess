@@ -200,7 +200,7 @@ object ModReducer {
           ReducerPlugin.rewritePreds(predConj,
                                      List(_mod_cast,
                                           _l_shift_cast, _r_shift_cast,
-                                          _bv_extract),
+                                          _bv_extract, _bv_and),
                                      order,
                                      logger) { a =>
               a.pred match {
@@ -233,6 +233,8 @@ object ModReducer {
                     case _ =>
                       a
                   }
+
+                  //////////////////////////////////////////////////////////////
 
                 case `_l_shift_cast` =>
                   if (a(2).isZero) {
@@ -275,6 +277,8 @@ object ModReducer {
                     }
                   }
 
+                  //////////////////////////////////////////////////////////////
+
                 case `_r_shift_cast` =>
                   if (RShiftCastSplitter.isShiftInvariant(a(2))) {
                     val newA =
@@ -312,6 +316,8 @@ object ModReducer {
                   } else {
                     a
                   }
+
+                  //////////////////////////////////////////////////////////////
 
                 case `_bv_extract` =>
                   if (a(2).isConstant) {
@@ -375,7 +381,8 @@ object ModReducer {
                       if (ub >= bitBoundary - 1 && lb.isZero) {
                         // We can eliminate the extract operation
 
-                        val newEq = a(3) === a(2) - (lower - evalExtract(ub, lb, lower))
+                        val newEq =
+                          a(3) === a(2) - (lower - evalExtract(ub, lb, lower))
                         //-BEGIN-ASSERTION-/////////////////////////////////////
                         if (debug) {
                           println("Eliminating bv_extract:")
@@ -422,7 +429,8 @@ object ModReducer {
                         }
                         //-END-ASSERTION-///////////////////////////////////////
 
-                        logger.otherComputation(List(a) ++ asses, newExtract, order,
+                        logger.otherComputation(List(a) ++ asses,
+                                                newExtract, order,
                                                 ModuloArithmetic)
                         newExtract
                       } else {
@@ -432,7 +440,78 @@ object ModReducer {
                       a
                     }
                   }
-                }
+
+                  //////////////////////////////////////////////////////////////
+
+                case `_bv_and` =>
+                  if (a(1).isConstant || a(2).isConstant) {
+                    val LinearCombination.Constant(bits) = a(0)
+
+                    if (a(1).isConstant && a(2).isConstant) {
+                      val newEq =
+                        a(3) === evalExtract(bits - 1, 0,
+                                             a(1).constant & a(2).constant)
+
+                      //-BEGIN-ASSERTION-///////////////////////////////////////
+                      if (debug) {
+                        println("Evaluating bv_and:")
+                        println("\t" + a)
+                        println("\t" + newEq)
+                      }
+                      //-END-ASSERTION-/////////////////////////////////////////
+
+                      logger.otherComputation(List(a), newEq, order,
+                                              ModuloArithmetic)
+                      newEq
+                    } else {
+                      // maybe the bv_and can be replaced by mod_cast
+
+                      val (pattern, freeArg) =
+                        if (a(1).isConstant)
+                          (a(1).constant, a(2))
+                        else
+                          (a(2).constant, a(1))
+
+                      val newFormula =
+                        runLengthEnc(pattern, bits.intValueSafe) match {
+                          case Seq(_) => {
+                            //-BEGIN-ASSERTION-/////////////////////////////////
+                            // pattern must be constantly zero
+                            Debug.assertInt(AC,
+                                      evalExtract(bits - 1, 0, pattern).isZero)
+                            //-END-ASSERTION-///////////////////////////////////
+                            Some(a(3) === 0)
+                          }
+                          case rle@(Seq(0, _) | Seq(0, _, _)) => {
+                            // pattern starting with a single block of ones
+                            Some(extract(rle(1) - 1, 0, freeArg, a(3)))
+                          }
+                          case _ =>
+                            None
+                        }
+
+                      newFormula match {
+                        case Some(f) => {
+                          //-BEGIN-ASSERTION-///////////////////////////////////
+                          if (debug) {
+                            println("Simplifying bv_and:")
+                            println("\t" + a)
+                            println("\t" + f)
+                          }
+                          //-END-ASSERTION-/////////////////////////////////////
+
+                          logger.otherComputation(List(a), f, order,
+                                                  ModuloArithmetic)
+                          f
+                        }
+                        case None =>
+                          a
+                      }
+                    }
+                  } else {
+                    a
+                  }
+              }
           
         }} orElse {
           // then try to rewrite modulo atoms using known facts
