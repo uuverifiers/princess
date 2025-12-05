@@ -39,6 +39,7 @@ import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.parser._
 import ap.util.Debug
+import ap.parameters.{Param, GlobalSettings}
 
 import org.scalacheck.Properties
 import ap.util.Prop._
@@ -48,14 +49,17 @@ class TestBitwise extends Properties("TestBitwise") {
   import IExpression._
   import ModuloArithmetic._
 
+  val loggingSettings =
+    Param.LOG_LEVEL.set(GlobalSettings.DEFAULT, Set(Param.LOG_TASKS))
+
   property("bvand1") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       Debug enableAllAssertions true
 
-      val b1 = createConstant("b1", UnsignedBVSort(32))
-      val b2 = createConstant("b2", UnsignedBVSort(32))
-      val b3 = createConstant("b3", UnsignedBVSort(32))
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      val b2 = createConstant("b2", UnsignedBVSort(8))
+      val b3 = createConstant("b3", UnsignedBVSort(8))
       
       !! (b3 === bvand(b1, b2))
       ??? == ProverStatus.Sat
@@ -80,6 +84,21 @@ class TestBitwise extends Properties("TestBitwise") {
       assert(??? == ProverStatus.Valid)
 
       true
+    }
+  }
+
+  property("bvand_add") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(2))
+      val b2 = createConstant("b2", UnsignedBVSort(2))
+      val b3 = createConstant("b3", UnsignedBVSort(2))
+      val b4 = createConstant("b4", UnsignedBVSort(2))
+      
+      !! (b4 === bvand(b3, bvadd(b1, bv(2, 1))))
+      ??? == ProverStatus.Sat
     }
   }
 }
@@ -260,6 +279,26 @@ class TestExtract extends Properties("TestExtract") {
 
       ?? ((extract(31, 1, x) === extract(30, 0, x)) <=> ((x === 0) | (x === pow2MinusOne(32))))
       ??? == ProverStatus.Valid
+    }
+  }
+
+  property("extract10") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x = createConstant("x", UnsignedBVSort(32))
+      val y = createConstant("y", UnsignedBVSort(32))
+      val z1 = createConstant("z1", UnsignedBVSort(5))
+      val z2 = createConstant("z2", UnsignedBVSort(5))
+
+      !! (x > 10)
+      !! (y === extract(15, 0, x))
+      !! (z1 === extract(7, 3, y))
+      !! (z2 === extract(14, 10, y))
+      !! (z1 < z2)
+
+      ??? == ProverStatus.Sat
     }
   }
 }

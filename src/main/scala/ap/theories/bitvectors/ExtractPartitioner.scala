@@ -72,6 +72,8 @@ object ExtractPartitioner extends TheoryProcedure {
       (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
        yield c).toSet
 
+    // TODO: also handle bvand here!
+
     val diseqs = for (lc <- goal.facts.arithConj.negativeEqs;
                       if !Seqs.disjoint(lc.constants, extractedConsts))
                  yield lc

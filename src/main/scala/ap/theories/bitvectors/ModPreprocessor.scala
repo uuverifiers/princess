@@ -329,7 +329,7 @@ object ModPreprocessor {
       case IFunApp(`bv_neg`, Seq(IIntLit(width), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(width)))
 
-      case IFunApp(`bv_add` | `bv_sub` | `bv_mul` | `bv_and`,
+      case IFunApp(`bv_add` | `bv_sub` | `bv_mul`,
                    Seq(IIntLit(width), _*)) => {
         val ctxt2 = ctxt addMod pow2(width)
         SubArgs(List(ctxt.noMod, ctxt2, ctxt2))
@@ -733,9 +733,10 @@ object ModPreprocessor {
               oneConstant(subres(1), subres(2).lowerBound)
 
             case (false, false) => {
-              // TODO: correctly update bounds!
-              VisitorRes.update(bv_and(bits, subres(1).resTerm, subres(2).resTerm),
-                                subres)
+              VisitorRes(bv_and(bits, subres(1).resTerm, subres(2).resTerm),
+                         IdealInt.ZERO,
+                         (subres(1) upperBoundMax sort.upper) min
+                           (subres(2) upperBoundMax sort.upper))
               /*
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
