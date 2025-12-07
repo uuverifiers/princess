@@ -82,7 +82,9 @@ TESTS="existential.pri \
        big-bv2.pri \
        big-bv3.pri \
        conversions.smt2 \
-       bvdiv-bug.smt2"
+       bvdiv-bug.smt2 \
+       bvand.smt2 \
+       bvand2.smt2"
 
 $PRI "$@" $TESTS
 
