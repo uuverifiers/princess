@@ -749,10 +749,11 @@ object ModuloArithmetic extends Theory {
   val _bv_extract = functionTranslation(bv_extract)
   val _bv_and = functionTranslation(bv_and)
 
-  // We only keep the functionality axiom for the bv_extract function
-  val axioms =
-    (Conjunction.conj(preAxioms, order).iterator filter (
-       _.predicates == Set(_bv_extract))).next()
+  // TODO: Keep the functionality axiom for the bv_extract function? It tends to
+  // interfere with the rules for handling bv_extract.
+  val axioms = Conjunction.TRUE
+//    (Conjunction.conj(preAxioms, order).iterator filter (
+//       _.predicates == Set(_bv_extract))).next()
 
   val totalityAxioms = Conjunction.TRUE
 

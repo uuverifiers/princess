@@ -73,6 +73,7 @@ class IntelliFileProver(reader   : java.io.Reader,
     case _ : ap.theories.MulTheory          => true
     case _ : ap.theories.IntValueEnumTheory => true
     case ap.theories.ModuloArithmetic       => posUnitResolution
+    case ap.theories.bitvectors.BVOpSplitter => true
     // strictly speaking, only works for guarded formulas in ADT ... (TODO!)
     case _ : ap.theories.ADT                => posUnitResolution
     case _                                  => false
@@ -84,6 +85,7 @@ class IntelliFileProver(reader   : java.io.Reader,
     case _ : ap.theories.MulTheory          => true
     case _ : ap.theories.IntValueEnumTheory => true
     case ap.theories.ModuloArithmetic       => posUnitResolution
+    case ap.theories.bitvectors.BVOpSplitter => true
     case _                                  => false
   }
 

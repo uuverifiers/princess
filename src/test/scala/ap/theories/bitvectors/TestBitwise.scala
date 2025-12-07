@@ -45,12 +45,14 @@ import org.scalacheck.Properties
 import ap.util.Prop._
 import ap.util.ExtraAssertions
 
+object TestBitwise {
+  val loggingSettings =
+    Param.LOG_LEVEL.set(GlobalSettings.DEFAULT, Set(Param.LOG_TASKS))
+}
+
 class TestBitwise extends Properties("TestBitwise") {
   import IExpression._
   import ModuloArithmetic._
-
-  val loggingSettings =
-    Param.LOG_LEVEL.set(GlobalSettings.DEFAULT, Set(Param.LOG_TASKS))
 
   property("bvand1") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
@@ -323,7 +325,7 @@ class TestExtract extends Properties("TestExtract") {
       Debug enableAllAssertions true
 
       val x = createConstant("x", UnsignedBVSort(32))
-      val y = createConstant("y", UnsignedBVSort(32))
+      val y = createConstant("y", UnsignedBVSort(16))
       val z1 = createConstant("z1", UnsignedBVSort(5))
       val z2 = createConstant("z2", UnsignedBVSort(5))
 
@@ -331,6 +333,26 @@ class TestExtract extends Properties("TestExtract") {
       !! (y === extract(15, 0, x))
       !! (z1 === extract(7, 3, y))
       !! (z2 === extract(14, 10, y))
+      !! (z1 < z2)
+
+      ??? == ProverStatus.Sat
+    }
+  }
+
+  property("extract11") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x = createConstant("x", UnsignedBVSort(32))
+      val y = createConstant("y", UnsignedBVSort(16))
+      val z1 = createConstant("z1", UnsignedBVSort(8))
+      val z2 = createConstant("z2", UnsignedBVSort(8))
+
+      !! (x > 10)
+      !! (y === extract(31, 16, x))
+      !! (z1 === extract(7, 0, y))
+      !! (z2 === extract(15, 8, y))
       !! (z1 < z2)
 
       ??? == ProverStatus.Sat

@@ -74,12 +74,11 @@ object ModPlugin extends Plugin {
         case Plugin.GoalState.Eager =>
           negPreds(goal)                        elseDo
           elimAtoms(goal)                       elseDo
+          ExtractPartitioner.handleGoal(goal)
+        case Plugin.GoalState.Intermediate =>
           ExtractIntervalPropagator.handleGoal(goal) elseDo
 //          ExtractArithEncoder.handleGoal(goal)  elseDo
-          ExtractPartitioner.handleGoal(goal)   elseDo
           modShiftCast(goal)
-        case Plugin.GoalState.Intermediate =>
-          List()
         case Plugin.GoalState.Final =>
           ExtractArithEncoder.encode(goal, true)
       }

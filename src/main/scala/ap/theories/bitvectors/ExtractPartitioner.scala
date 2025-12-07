@@ -37,6 +37,7 @@ package ap.theories.bitvectors
 import ap.theories._
 
 import ap.basetypes.IdealInt
+import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.terfor.{Term, Formula, TermOrder, ConstantTerm, TerForConvenience,
@@ -46,7 +47,7 @@ import ap.terfor.preds.Atom
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, Seqs}
 
-import scala.collection.mutable.{ArrayBuffer, Map => MMap}
+import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
 
 /**
  * Partition extract-atoms for given terms to eliminate overlapping extracts.
@@ -68,6 +69,111 @@ object ExtractPartitioner extends TheoryProcedure {
         ex(1).asInstanceOf[LinearCombination0].constant.signum >= 0 })
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
+    extractFunctionality(extracts, goal)  elseDo
+    compressExtractChains(extracts, goal) elseDo
+    splitActions(extracts, goal)
+  }
+
+  private def extractFunctionality(extracts : Seq[Atom], goal : Goal)
+                                  (implicit order : TermOrder)
+                                 : Seq[Plugin.Action] =
+    if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+      // If proofs are enabled, we have to apply the functional consistency
+      // axiom manually
+      (for (Seq(a, b) <- extracts.sliding(2); if Atom.sameFunctionApp(a, b))
+       yield {
+         //-BEGIN-ASSERTION-////////////////////////////////////////////////////
+         if (debug) {
+           println(s"Extract functional consistency $a, $b")
+         }
+         //-END-ASSERTION-//////////////////////////////////////////////////////
+         List(Plugin.RemoveFacts(b),
+              Plugin.AddAxiom(List(a, b), a.last === b.last, ModuloArithmetic))
+       }).toVector.flatten
+    } else {
+      List()
+    }
+
+  /**
+   * Rewrite nested extracts to refer to the original bitvector, replacing the
+   * intermediate result with an arithmetic expression of the final extracted
+   * bitvectors.
+   */
+  private def compressExtractChains(extracts : Seq[Atom], goal : Goal)
+                                   (implicit order : TermOrder)
+                                 : Seq[Plugin.Action] = {
+    val sources = extracts.groupBy(_(2))
+
+    val toRemove = new MHashSet[Atom]
+    val actions = new ArrayBuffer[Plugin.Action]
+
+    for (leg1 <- extracts) {
+      val LinearCombination.Constant(upper) = leg1(0)
+      val LinearCombination.Constant(lower) = leg1(1)
+      val bv1 = leg1(2)
+      val bv2 = leg1(3)
+
+      if (!toRemove.contains(leg1) && sources.contains(bv2)) {
+        val leg2s = sources(bv2)
+
+        var curUpper = upper - lower
+        val leg2ToRewrite = new ArrayBuffer[Atom]
+        for (leg2 <- leg2s) {
+          val LinearCombination.Constant(locUpper) = leg2(0)
+          if (locUpper == curUpper && !toRemove.contains(leg2)) {
+            val LinearCombination.Constant(locLower) = leg2(1)
+            curUpper = locLower - 1
+            leg2ToRewrite += leg2
+          }
+        }
+
+        if (curUpper.isMinusOne) {
+          // we can go ahead and compress this chain
+          toRemove += leg1
+          toRemove ++= leg2ToRewrite
+
+          val newAtoms = new ArrayBuffer[Atom]
+          val bv2Def = new ArrayBuffer[(IdealInt, LinearCombination)]
+
+          bv2Def += ((IdealInt.MINUS_ONE, bv2))
+
+          for (leg2 <- leg2ToRewrite) {
+            val bv3 = leg2(3)
+            val LinearCombination.Constant(locUpper) = leg2(0)
+            val LinearCombination.Constant(locLower) = leg2(1)
+            newAtoms +=
+              Atom(_bv_extract,
+                   List(l(locUpper + lower), l(locLower + lower), bv1, bv3),
+                   order)
+            bv2Def += ((pow2(locLower), bv3))
+          }
+
+          val oldAtoms = leg2ToRewrite.toSeq :+ leg1
+          val forToAdd = conj(newAtoms.toSeq :+ (sum(bv2Def) === 0))
+
+          actions += Plugin.AddAxiom(oldAtoms, forToAdd, ModuloArithmetic)
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          if (debug) {
+            println("Compressing extracts")
+            for (t <- oldAtoms)
+            println("\t" + t)
+          }
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+        }
+      }
+    }
+
+    if (!toRemove.isEmpty)
+      actions += Plugin.RemoveFacts(conj(toRemove))
+
+    actions.toSeq
+  }
+
+  private def splitActions(extracts : Seq[Atom], goal : Goal)
+                          (implicit order : TermOrder)
+                         : Seq[Plugin.Action] = {
     val extractedConsts =
       (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
        yield c).toSet
@@ -88,8 +194,8 @@ object ExtractPartitioner extends TheoryProcedure {
     }
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
-    splitExtractActions(extracts, partitions, goal)   elseDo
-    splitDisequalityActions(diseqs, partitions, goal)
+    splitExtractActions(extracts, partitions, goal)  /*  elseDo
+    splitDisequalityActions(diseqs, partitions, goal) */
   }
 
   private def splitExtractActions(extracts : Seq[Atom],

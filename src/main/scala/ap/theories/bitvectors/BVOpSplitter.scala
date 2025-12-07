@@ -55,11 +55,12 @@ object BVOpSplitter extends SaturationProcedure("BVOpSplitter") {
              (implicit order : TermOrder) : Formula = {
     val f1 =
       if (bits > 1)
-        Atom(_bv_and, List(l(bits), op1, op2, res), order)
+        conj(Atom(_bv_and, List(l(bits), op1, op2, res), order) /* ,
+             res <= op1, res <= op2 */)
       else
         conj(res >= op1 + op2 - 1, res <= op1, res <= op2)
 
-    conj(f1)
+    f1
   }
 
   def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
