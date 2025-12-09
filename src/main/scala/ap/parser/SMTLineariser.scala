@@ -37,6 +37,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
+import ap.theories.heaps._
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
 import ap.theories.bitvectors.ModPostprocessor
@@ -781,6 +782,16 @@ object SMTLineariser {
         case DivZero.IntDivZero => Some(("div", "0"))
         case DivZero.IntModZero => Some(("mod", "0"))
       }
+      case Some(t : Heap) =>
+        fun match {
+          case t.emptyHeap | t.nullAddr | t.nthAddr | t.nthRange =>
+            val monoFun = fun.asInstanceOf[MonoSortedIFunction]
+            Some(("(as " + quoteIdentifier(fun.name) + " " +
+                  sort2SMTString(monoFun.resSort) +
+                  ")", ""))
+          case _ =>
+            for (str <- t.fun2SMTString(fun)) yield (str, "")
+        }
       case Some(t : SMTLinearisableTheory) =>
         for (str <- t.fun2SMTString(fun)) yield (str, "")
       case _ =>

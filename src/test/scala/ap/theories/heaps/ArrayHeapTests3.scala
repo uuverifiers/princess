@@ -116,14 +116,14 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
 
     val h0 = createConstant("h0", HeapSort)
     val h = createConstant("h", HeapSort)
-    val ar = createConstant("ar", AddressRangeSort)
+    val ar = createConstant("ar", RangeSort)
 
     measureTime("Allocation") {
       !! (h === batchAllocResHeap(batchAlloc(h0, wrappedInt(1), N + 1)))
       !! (ar === batchAllocResAddr(batchAlloc(h0, wrappedInt(1), N + 1)))
     }
 
-    checkHeap(heap, pr, h, addressRangeNth(ar, _))
+    checkHeap(heap, pr, h, rangeNth(ar, _))
 
     true
   }}

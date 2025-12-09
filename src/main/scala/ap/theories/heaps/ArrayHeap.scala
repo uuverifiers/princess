@@ -81,14 +81,14 @@ object ArrayHeap {
  * At the moment, extensionality and the batch operations are not fully
  * implemented yet.
  */
-class ArrayHeap(heapSortName         : String,
-                addressSortName      : String,
-                addressRangeSortName : String,
-                objectSort           : Heap.ADTSort,
-                userSortNames        : Seq[String],
-                ctorSignatures       : Seq[(String, Heap.CtorSignature)],
-                defaultObjectCtor    : Seq[MonoSortedIFunction] => ITerm)
-      extends Heap with SMTLinearisableTheory {
+class ArrayHeap(heapSortName      : String,
+                addressSortName   : String,
+                rangeSortName     : String,
+                objectSort        : Heap.ADTSort,
+                userSortNames     : Seq[String],
+                ctorSignatures    : Seq[(String, Heap.CtorSignature)],
+                defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
+      extends Heap {
   import Heap._
   import ArrayHeap._
   import Sort.{Nat, Integer}
@@ -97,12 +97,12 @@ class ArrayHeap(heapSortName         : String,
 
   val userHeapCtorSignatures = ctorSignatures
 
-  val userSortNum        = userSortNames.size
-  val addressSortId      = userSortNum
-  val addressRangeSortId = userSortNum + 1
-  val nullAddrCtorId     = ctorSignatures.size
-  val nthAddrCtorId      = ctorSignatures.size + 1
-  val addressRangeCtorId = ctorSignatures.size + 2
+  val userSortNum    = userSortNames.size
+  val addressSortId  = userSortNum
+  val rangeSortId    = userSortNum + 1
+  val nullAddrCtorId = ctorSignatures.size
+  val nthAddrCtorId  = ctorSignatures.size + 1
+  val rangeCtorId    = ctorSignatures.size + 2
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -112,10 +112,10 @@ class ArrayHeap(heapSortName         : String,
   val onHeapADT = {
     def convSort(s : CtorArgSort) : ADT.CtorArgSort =
       s match {
-        case ADTSort(num)  => ADT.ADTSort(num)
-        case OtherSort(s)  => ADT.OtherSort(s)
-        case AddrSort      => ADT.ADTSort(addressSortId)
-        case AddrRangeSort => ADT.ADTSort(addressRangeSortId)
+        case ADTSort(num)   => ADT.ADTSort(num)
+        case OtherSort(s)   => ADT.OtherSort(s)
+        case AddrSort       => ADT.ADTSort(addressSortId)
+        case Heap.RangeSort => ADT.ADTSort(rangeSortId)
       }
 
     val userCtors =
@@ -128,38 +128,37 @@ class ArrayHeap(heapSortName         : String,
     val ONat1 = ADT.OtherSort(Nat1)
 
     val additionalCtors =
-      List(("null" + addressSortName,
+      List((Heap.Names.Null,
             ADT.CtorSignature(List(),
                               ADT.ADTSort(addressSortId))),
-           ("nth" + addressSortName,
-            ADT.CtorSignature(List((addressSortName + "_ord", ONat1)),
+           (Heap.Names.Addr,
+            ADT.CtorSignature(List((addressSortName + "_ord", ONat1)), // TODO: change name?
                               ADT.ADTSort(addressSortId))),
-           ("nth" + addressSortName + "Range",
-            ADT.CtorSignature(List((addressSortName + "_start", ONat1),
-                                   (addressSortName + "_size", ONat)),
-                              ADT.ADTSort(addressRangeSortId))))
+           (Heap.Names.Range,
+            ADT.CtorSignature(List((Heap.Names.RangeStart, ONat1),
+                                   (Heap.Names.RangeSize, ONat)),
+                              ADT.ADTSort(rangeSortId))))
 
     val allCtors = userCtors ++ additionalCtors
 
-    new ADT(userSortNames ++ List(addressSortName, addressRangeSortName),
-            allCtors)
+    new ADT(userSortNames ++ List(addressSortName, rangeSortName), allCtors)
   }
 
   val AddressSort          = onHeapADT.sorts(addressSortId)
-  val AddressRangeSort     = onHeapADT.sorts(addressRangeSortId)
+  val RangeSort            = onHeapADT.sorts(rangeSortId)
   val ObjectSort           = onHeapADT.sorts(objectSort.num)
   val userHeapSorts        = onHeapADT.sorts.take(userSortNum)
   
   val nullAddr             = onHeapADT.constructors(nullAddrCtorId)
   val nthAddr              = onHeapADT.constructors(nthAddrCtorId)
-  val nthAddrRange         = onHeapADT.constructors(addressRangeCtorId)
+  val nthRange             = onHeapADT.constructors(rangeCtorId)
   val userHeapConstructors = onHeapADT.constructors.take(ctorSignatures.size)
   val userHeapSelectors    = onHeapADT.selectors.take(ctorSignatures.size)
   val userHeapUpdators     = onHeapADT.updators.take(ctorSignatures.size)
 
   val Seq(addrOrd)         = onHeapADT.selectors(nthAddrCtorId)
-  val Seq(addressRangeStart, addressRangeSize)
-                           = onHeapADT.selectors(addressRangeCtorId)
+  val Seq(rangeStart, rangeSize)
+                           = onHeapADT.selectors(rangeCtorId)
 
   val defaultObject        = defaultObjectCtor(userHeapConstructors)
 
@@ -202,29 +201,31 @@ class ArrayHeap(heapSortName         : String,
   private val OSo     = ObjectSort
   private val HSo     = HeapSort
   private val ASo     = AddressSort
-  private val ARSo    = AddressRangeSort
+  private val ARSo    = RangeSort
 
   val emptyHeap =
-    new MonoSortedIFunction("empty" + heapSortName, List(), HSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Empty, List(), HSo, true, false)
   val read =
-    new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Read, List(HSo, ASo), OSo, true, false)
   val readUnsafe =
-    new MonoSortedIFunction("readUnsafe", List(HSo, ASo), OSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Read + "Unsafe", List(HSo, ASo), OSo,
+                            true, false)
   val write =
-    new MonoSortedIFunction("write", List(HSo, ASo, OSo), HSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Write, List(HSo, ASo, OSo), HSo,
+                            true, false)
   val batchWrite =
-    new MonoSortedIFunction("batchWrite", List(HSo, ARSo, OSo), HSo,
+    new MonoSortedIFunction(Heap.Names.WriteRange, List(HSo, ARSo, OSo), HSo,
                             true, false)
   val valid =
-    new MonoSortedPredicate("valid", List(HSo, ASo))
-  val nextAddr =
-    new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
+    new MonoSortedPredicate(Heap.Names.Valid, List(HSo, ASo))
+  val nextAddr  =
+    new MonoSortedIFunction(Heap.Names.NextAddr, List(HSo, Integer), ASo,
                             true, false)
-  val addressRangeNth =
-    new MonoSortedIFunction(addressRangeSortName + "Nth", List(ARSo, Integer),
-                            ASo, true, false)
-  val addressRangeWithin =
-    new MonoSortedPredicate(addressRangeSortName + "Within", List(ARSo, ASo))
+  val rangeNth  =
+    new MonoSortedIFunction(Heap.Names.RangeNth, List(ARSo, Integer), ASo,
+                            true, false)
+  val rangeWithin =
+    new MonoSortedPredicate(Heap.Names.RangeWithin, List(ARSo, ASo))
 
   val storeRange =
     new MonoSortedIFunction("storeRange",
@@ -328,14 +329,14 @@ class ArrayHeap(heapSortName         : String,
 
     val ctors =
       List((b("allocRes_ctor"),
-          CtorSignature(List(("new" + heapSortName, OtherSort(HeapSort)),
-                             ("new" + addressSortName, OtherSort(AddressSort))),
-                        ADTSort(0))),
-         (b("batchAllocRes_ctor"),
-          CtorSignature(List(("newBatch" + heapSortName, OtherSort(HeapSort)),
-                             ("new" + addressRangeSortName,
-                                                  OtherSort(AddressRangeSort))),
-                        ADTSort(1))))
+            CtorSignature(List((Heap.Names.Alloc1, OtherSort(HeapSort)),
+                               (Heap.Names.Alloc2, OtherSort(AddressSort))),
+                          ADTSort(0))),
+           (b("batchAllocRes_ctor"),
+            CtorSignature(List((Heap.Names.AllocRange1, OtherSort(HeapSort)),
+                               (Heap.Names.AllocRange2,
+                                 OtherSort(RangeSort))),
+                          ADTSort(1))))
 
     // We must avoid circular dependencies, therefore the ADT is
     // declared to depend on theories needed for the ADT sorts, but not
@@ -346,20 +347,19 @@ class ArrayHeap(heapSortName         : String,
             if t != this)
       yield t).distinct
 
-    new ADT(List("AllocRes" + heapSortName,
-                 "BatchAllocRes" + heapSortName),
-            ctors,
+    new ADT(List(Heap.Names.Pair(heapSortName, addressSortName),
+                 Heap.Names.Pair(heapSortName, rangeSortName)), ctors,
             overrideDeps = Some(adtDependencies))
   }
 
   val AllocResSort      = offHeapADT.sorts(0)
   val BatchAllocResSort = offHeapADT.sorts(1)
 
-  val alloc =
-    new MonoSortedIFunction("alloc", List(HSo, OSo), AllocResSort, true, false)
-  val batchAlloc =
-    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer),
-                            BatchAllocResSort, true, false)
+  val alloc = new MonoSortedIFunction(
+    Heap.Names.Alloc, List(HSo, OSo), AllocResSort, true, false)
+  val batchAlloc = new MonoSortedIFunction(
+    Heap.Names.AllocRange, List(HSo, OSo, Integer), BatchAllocResSort,
+    true, false)
 
   val heapPair = heapSizeADT.constructors(0)
   val Seq(allocResPair, batchAllocResPair) = offHeapADT.constructors
@@ -423,9 +423,9 @@ class ArrayHeap(heapSortName         : String,
 
   val functions =
     List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
-         nextAddr, addressRangeNth, storeRange, storeRange2)
+         nextAddr, rangeNth, storeRange, storeRange2)
   val predefPredicates =
-    List(valid, addressRangeWithin, distinctHeaps, heapConstant)
+    List(valid, rangeWithin, distinctHeaps, heapConstant)
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
@@ -676,9 +676,9 @@ class ArrayHeap(heapSortName         : String,
               batchAllocResPair(
                 heapPair(
                   storeRange(cont, size + 1, size + 1 + num, obj), size + num),
-                nthAddrRange(size + 1, num)),
+                nthRange(size + 1, num)),
               batchAllocResPair(
-                heap, nthAddrRange(1, 0))))
+                heap, nthRange(1, 0))))
       }
 
       case IFunApp(`batchWrite`, _) => {
@@ -688,12 +688,12 @@ class ArrayHeap(heapSortName         : String,
         // TODO: avoid duplicating expressions
         withEps2(heap, (cont, size, cont2, size2) =>
           (size === size2) &
-          (((addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+          (((rangeStart(ar) + rangeSize(ar) - 1 <= size) &
             (cont2 === storeRange(cont,
-                                  addressRangeStart(ar),
-                                  addressRangeStart(ar) + addressRangeSize(ar),
+                                  rangeStart(ar),
+                                  rangeStart(ar) + rangeSize(ar),
                                   obj))) |
-           (!(addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+           (!(rangeStart(ar) + rangeSize(ar) - 1 <= size) &
             (cont2 === cont)))
         )
       }
@@ -732,29 +732,29 @@ class ArrayHeap(heapSortName         : String,
         )
       }
 
-      case IFunApp(`nthAddrRange`, _) =>
+      case IFunApp(`nthRange`, _) =>
         subres match {
           case Seq(Const(n), Const(s)) if n >= 1 && s >= 0 => {
             t update subres
           }
           case Seq(Const(_), Const(_)) => {
-            nthAddrRange(1, 0)
+            nthRange(1, 0)
           }
           case _ => {
             // TODO: this check has to happen in the parser
 //            Console.err.println(
-//              s"Warning: ${nthAddrRange.name} applied to non-constant " +
+//              s"Warning: ${nthRange.name} applied to non-constant " +
 //              s"arguments ${subres.mkString(", ")}")
             t update subres
           }
         }
 
-      case IFunApp(`addressRangeNth`, _) => {
+      case IFunApp(`rangeNth`, _) => {
         val range = subres(0).asInstanceOf[ITerm]
         val n     = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        ite((n >= 0) & (n < addressRangeSize(range)),
-            nthAddr(addressRangeStart(range) + n),
+        ite((n >= 0) & (n < rangeSize(range)),
+            nthAddr(rangeStart(range) + n),
             Null)
       }
 
@@ -766,13 +766,13 @@ class ArrayHeap(heapSortName         : String,
         validTest(heap, addr)
       }
 
-      case IAtom(`addressRangeWithin`, _) => {
+      case IAtom(`rangeWithin`, _) => {
         val ar   = subres(0).asInstanceOf[ITerm]
         val addr = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
         (addr =/= Null) &
-        (addressRangeStart(ar) <= addrOrd(addr)) &
-        (addrOrd(addr) < addressRangeStart(ar) + addressRangeSize(ar))
+        (rangeStart(ar) <= addrOrd(addr)) &
+        (addrOrd(addr) < rangeStart(ar) + rangeSize(ar))
       }
 
       case _ =>
@@ -1394,38 +1394,6 @@ class ArrayHeap(heapSortName         : String,
   override def toString = name
   TheoryRegistry register this
   Heap register this
-
-    //////////////////////////////////////////////////////////////////////////////
-
-  override def printSMTDeclaration : Unit = {
-    import SMTLineariser.{asString, quoteIdentifier}
-
-    print("(declare-heap ")
-    println(HeapSort.name + " " + AddressSort.name + " " +
-          ObjectSort.name)
-    println(" " ++ asString(defaultObject))
-    print(" (")
-    print((for(s <- userHeapSorts)
-      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
-    println(") (")
-    for (num <- userHeapSorts.indices) {
-      println("  (")
-      for ((f, sels) <- userHeapConstructors zip userHeapSelectors; // todo: should probably be just the object ADT ctors
-           if (f.resSort match {
-             case s: ADT.ADTProxySort =>
-               s.sortNum == num && s.adtTheory == onHeapADT
-             case _ =>
-               false
-           })) {
-        print(" ")
-        ADT.printSMTCtorDeclaration(f, sels)
-      }
-      println("  )")
-    }
-    println("))")
-  }
-
-  override def SMTDeclarationSideEffects : Seq[Theory] = dependencies
 
   //////////////////////////////////////////////////////////////////////////////
 

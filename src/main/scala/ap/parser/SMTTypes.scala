@@ -138,8 +138,8 @@ object SMTTypes {
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddressRange(heap : Heap)      extends SMTType {
-    def toSort = heap.AddressRangeSort
+  case class SMTHeapRange(heap : Heap)      extends SMTType {
+    def toSort = heap.RangeSort
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
@@ -216,9 +216,9 @@ object SMTTypes {
     case Heap.HeapRelatedSort(heap) =>
       sort match {
         case heap.HeapSort          => (SMTHeap(heap),              None)
-        case heap.AddressSort       => (SMTHeapAddress(heap),       None)
-        case heap.AddressRangeSort  => (SMTHeapAddressRange(heap),  None)
-        case heap.AllocResSort      => (SMTHeapAllocRes(heap),      None)
+        case heap.AddressSort  => (SMTHeapAddress(heap),       None)
+        case heap.RangeSort    => (SMTHeapRange(heap),  None)
+        case heap.AllocResSort => (SMTHeapAllocRes(heap),      None)
         case heap.BatchAllocResSort => (SMTHeapBatchAllocRes(heap), None)
         case _ => {
           // then the sort has to be the sort of a user-defined heap ADT
