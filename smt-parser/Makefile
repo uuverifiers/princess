@@ -1,101 +1,62 @@
-
-
-CUP = java_cup.Main
-CUPFLAGS = -nopositions -expect 100
-
-JLEX = JLex.Main
-
-LATEX = latex
-DVIPS = dvips
-DVIPDF = dvipdfm
-
+JAVAC=javac
+JAVAC_FLAGS=-sourcepath .
+JAVA=java
+JAVA_FLAGS=
+PARSER=${JAVA} ${JAVA_FLAGS} java_cup.Main
+PARSER_FLAGS=-locations -expect 100
+LEXER=${JAVA} ${JAVA_FLAGS} JLex.Main
+LEXER_FLAGS=
 
 PARSER_BASEDIR=$(shell pwd)
-PARSER_BINDIR=$(PARSER_BASEDIR)/bin
 
+all : ap/parser/smtlib/_cup.cup smt-parser.jar
 
-CLASSPATH:=$(CLASSPATH):$(PARSER_BASEDIR):$(JLEX_PATH)
+smt-parser.jar: test ap/parser/smtlib/PrettyPrinterNonStatic.class
+	jar cf $(PARSER_BASEDIR)/smt-parser.jar ap/parser/smtlib/*.class ap/parser/smtlib/Absyn/*.class
 
-
-all: smt-parser.jar ap/parser/smtlib/Test.class
-
-
-smt-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.class $(PARSER_BINDIR)/ap/parser/smtlib/sym.class $(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinterNonStatic.class $(PARSER_BINDIR)/ap/parser/smtlib/parser.class $(PARSER_BINDIR)/ap/parser/smtlib/AllVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/AbstractVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/ComposVisitor.class $(PARSER_BINDIR)/ap/parser/smtlib/FoldVisitor.class
-	cd $(PARSER_BINDIR) && jar cf $(PARSER_BASEDIR)/smt-parser.jar ap/parser/smtlib
-
-
-$(PARSER_BINDIR):
-	mkdir $(PARSER_BINDIR)
-
-clean:
-#	rm -rf parser.jar
-	rm -rf $(PARSER_BINDIR)
-	rm -rf ap
-	rm -rf smtlib.tex smtlib.dvi smtlib.aux smtlib.log smtlib.ps
-
-
-# just any of the files that is created by bnfc
-smtlib.tex: smtlib.cf
-	bnfc -java1.5 -p ap.parser smtlib.cf
-
-$(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.java: smtlib.cf
-	bnfc -java1.5 -p ap.parser smtlib.cf
+ap/parser/smtlib/_cup.cup: smtlib.cf
+	bnfc -java -l -p ap.parser smtlib.cf
 	cd ap/parser/smtlib && patch -p0 <../../../smtlib.cup.patch
 
-$(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.class: $(PARSER_BINDIR)/ap/parser/smtlib/Absyn/smtlib.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/Absyn/*.java
+test : absyn ap/parser/smtlib/Yylex.class ap/parser/smtlib/PrettyPrinter.class ap/parser/smtlib/Test.class ap/parser/smtlib/ComposVisitor.class ap/parser/smtlib/AbstractVisitor.class ap/parser/smtlib/FoldVisitor.class ap/parser/smtlib/AllVisitor.class ap/parser/smtlib/parser.class ap/parser/smtlib/sym.class ap/parser/smtlib/Test.class
 
-ap/parser/smtlib/Yylex.java: ap/parser/smtlib/Yylex
-#       remove some quotes that JLex does not accept
-	sed 's/\\\^/\^/g' <ap/parser/smtlib/Yylex >ap/parser/smtlib/Yylex.temp
-	mv ap/parser/smtlib/Yylex.temp ap/parser/smtlib/Yylex
-#       quote dashes "-"
-	sed 's/\\\+-/\\+\\-/g' <ap/parser/smtlib/Yylex >ap/parser/smtlib/Yylex.temp
-	mv ap/parser/smtlib/Yylex.temp ap/parser/smtlib/Yylex
-	${JAVA} ${JAVA_FLAGS} ${JLEX} ap/parser/smtlib/Yylex
+.PHONY : absyn
 
-ap/parser/smtlib/sym.java ap/parser/smtlib/parser.java: ap/parser/smtlib/smtlib.cup
-	${JAVA} ${JAVA_FLAGS} ${CUP} ${CUPFLAGS} ap/parser/smtlib/smtlib.cup
-	mv sym.java parser.java ap/parser/smtlib/
+%.class : %.java
+	${JAVAC} ${JAVAC_FLAGS} $^
 
-$(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class: ap/parser/smtlib/Yylex.java ap/parser/smtlib/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/Yylex.java
+absyn : ap/parser/smtlib/Absyn/ScriptC.java ap/parser/smtlib/Absyn/Script.java ap/parser/smtlib/Absyn/Command.java ap/parser/smtlib/Absyn/SetLogicCommand.java ap/parser/smtlib/Absyn/SetOptionCommand.java ap/parser/smtlib/Absyn/SetInfoCommand.java ap/parser/smtlib/Absyn/SortDeclCommand.java ap/parser/smtlib/Absyn/SortDefCommand.java ap/parser/smtlib/Absyn/DataDeclsCommand.java ap/parser/smtlib/Absyn/DataDeclsOldCommand.java ap/parser/smtlib/Absyn/DataDeclCommand.java ap/parser/smtlib/Absyn/HeapDeclCommand.java ap/parser/smtlib/Absyn/FunctionDeclCommand.java ap/parser/smtlib/Absyn/ConstDeclCommand.java ap/parser/smtlib/Absyn/FunctionDefCommand.java ap/parser/smtlib/Absyn/ConstDefCommand.java ap/parser/smtlib/Absyn/RecFunctionDefCommand.java ap/parser/smtlib/Absyn/RecFunctionDefsCommand.java ap/parser/smtlib/Absyn/PushCommand.java ap/parser/smtlib/Absyn/PopCommand.java ap/parser/smtlib/Absyn/AssertCommand.java ap/parser/smtlib/Absyn/CheckSatCommand.java ap/parser/smtlib/Absyn/GetAssertionsCommand.java ap/parser/smtlib/Absyn/GetValueCommand.java ap/parser/smtlib/Absyn/GetProofCommand.java ap/parser/smtlib/Absyn/GetUnsatCoreCommand.java ap/parser/smtlib/Absyn/GetAssignmentCommand.java ap/parser/smtlib/Absyn/GetModelCommand.java ap/parser/smtlib/Absyn/GetInterpolantsCommand.java ap/parser/smtlib/Absyn/SimplifyCommand.java ap/parser/smtlib/Absyn/GetInfoCommand.java ap/parser/smtlib/Absyn/GetOptionCommand.java ap/parser/smtlib/Absyn/EchoCommand.java ap/parser/smtlib/Absyn/ResetCommand.java ap/parser/smtlib/Absyn/ExitCommand.java ap/parser/smtlib/Absyn/IgnoreCommand.java ap/parser/smtlib/Absyn/EmptyCommand.java ap/parser/smtlib/Absyn/ListCommand.java ap/parser/smtlib/Absyn/OptionC.java ap/parser/smtlib/Absyn/Option.java ap/parser/smtlib/Absyn/Sort.java ap/parser/smtlib/Absyn/IdentSort.java ap/parser/smtlib/Absyn/CompositeSort.java ap/parser/smtlib/Absyn/ListSort.java ap/parser/smtlib/Absyn/MESorts.java ap/parser/smtlib/Absyn/SomeSorts.java ap/parser/smtlib/Absyn/NoSorts.java ap/parser/smtlib/Absyn/ConstructorDeclC.java ap/parser/smtlib/Absyn/NullConstructorDecl.java ap/parser/smtlib/Absyn/ConstructorDecl.java ap/parser/smtlib/Absyn/ListConstructorDeclC.java ap/parser/smtlib/Absyn/SelectorDeclC.java ap/parser/smtlib/Absyn/SelectorDecl.java ap/parser/smtlib/Absyn/ListSelectorDeclC.java ap/parser/smtlib/Absyn/PolySortC.java ap/parser/smtlib/Absyn/PolySort.java ap/parser/smtlib/Absyn/ListPolySortC.java ap/parser/smtlib/Absyn/MaybeParDataDecl.java ap/parser/smtlib/Absyn/MonoDataDecl.java ap/parser/smtlib/Absyn/ParDataDecl.java ap/parser/smtlib/Absyn/ListMaybeParDataDecl.java ap/parser/smtlib/Absyn/OldDataDeclC.java ap/parser/smtlib/Absyn/OldDataDecl.java ap/parser/smtlib/Absyn/ListOldDataDeclC.java ap/parser/smtlib/Absyn/Term.java ap/parser/smtlib/Absyn/ConstantTerm.java ap/parser/smtlib/Absyn/NullaryTerm.java ap/parser/smtlib/Absyn/FunctionTerm.java ap/parser/smtlib/Absyn/LetTerm.java ap/parser/smtlib/Absyn/QuantifierTerm.java ap/parser/smtlib/Absyn/AnnotationTerm.java ap/parser/smtlib/Absyn/ListTerm.java ap/parser/smtlib/Absyn/BindingC.java ap/parser/smtlib/Absyn/Binding.java ap/parser/smtlib/Absyn/ListBindingC.java ap/parser/smtlib/Absyn/Quantifier.java ap/parser/smtlib/Absyn/AllQuantifier.java ap/parser/smtlib/Absyn/ExQuantifier.java ap/parser/smtlib/Absyn/EpsQuantifier.java ap/parser/smtlib/Absyn/LbdQuantifier.java ap/parser/smtlib/Absyn/SymbolRef.java ap/parser/smtlib/Absyn/IdentifierRef.java ap/parser/smtlib/Absyn/CastIdentifierRef.java ap/parser/smtlib/Absyn/FunSignatureC.java ap/parser/smtlib/Absyn/FunSignature.java ap/parser/smtlib/Absyn/ListFunSignatureC.java ap/parser/smtlib/Absyn/SortedVariableC.java ap/parser/smtlib/Absyn/SortedVariable.java ap/parser/smtlib/Absyn/ListSortedVariableC.java ap/parser/smtlib/Absyn/ESortedVarC.java ap/parser/smtlib/Absyn/ESortedVar.java ap/parser/smtlib/Absyn/ListESortedVarC.java ap/parser/smtlib/Absyn/SpecConstant.java ap/parser/smtlib/Absyn/NumConstant.java ap/parser/smtlib/Absyn/RatConstant.java ap/parser/smtlib/Absyn/HexConstant.java ap/parser/smtlib/Absyn/BinConstant.java ap/parser/smtlib/Absyn/StringConstant.java ap/parser/smtlib/Absyn/StringSQConstant.java ap/parser/smtlib/Absyn/MetaConstant.java ap/parser/smtlib/Absyn/NumMetaConstant.java ap/parser/smtlib/Absyn/RatMetaConstant.java ap/parser/smtlib/Absyn/HexMetaConstant.java ap/parser/smtlib/Absyn/BinMetaConstant.java ap/parser/smtlib/Absyn/StringMetaConstant.java ap/parser/smtlib/Absyn/Identifier.java ap/parser/smtlib/Absyn/SymbolIdent.java ap/parser/smtlib/Absyn/IndexIdent.java ap/parser/smtlib/Absyn/IndexC.java ap/parser/smtlib/Absyn/NumIndex.java ap/parser/smtlib/Absyn/HexIndex.java ap/parser/smtlib/Absyn/SymIndex.java ap/parser/smtlib/Absyn/ListIndexC.java ap/parser/smtlib/Absyn/Symbol.java ap/parser/smtlib/Absyn/NormalSymbol.java ap/parser/smtlib/Absyn/QuotedSymbol.java ap/parser/smtlib/Absyn/ListSymbol.java ap/parser/smtlib/Absyn/Annotation.java ap/parser/smtlib/Absyn/AttrAnnotation.java ap/parser/smtlib/Absyn/ListAnnotation.java ap/parser/smtlib/Absyn/AttrParam.java ap/parser/smtlib/Absyn/SomeAttrParam.java ap/parser/smtlib/Absyn/NoAttrParam.java ap/parser/smtlib/Absyn/SExpr.java ap/parser/smtlib/Absyn/ConstantSExpr.java ap/parser/smtlib/Absyn/SymbolSExpr.java ap/parser/smtlib/Absyn/ParenSExpr.java ap/parser/smtlib/Absyn/ListSExpr.java
+	${JAVAC} ${JAVAC_FLAGS} $^
 
-$(PARSER_BINDIR)/ap/parser/smtlib/sym.class: ap/parser/smtlib/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/sym.java
+ap/parser/smtlib/Yylex.java : ap/parser/smtlib/Yylex
+	${LEXER} ${LEXER_FLAGS} ap/parser/smtlib/Yylex
 
-$(PARSER_BINDIR)/ap/parser/smtlib/parser.class: ap/parser/smtlib/parser.java ap/parser/smtlib/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/parser.java
+ap/parser/smtlib/parser.java ap/parser/smtlib/sym.java : ap/parser/smtlib/_cup.cup
+	${PARSER} ${PARSER_FLAGS} ap/parser/smtlib/_cup.cup
+	mv parser.java sym.java ap/parser/smtlib/
+
+ap/parser/smtlib/Yylex.class : ap/parser/smtlib/Yylex.java ap/parser/smtlib/parser.java ap/parser/smtlib/sym.java
+
+ap/parser/smtlib/sym.class : ap/parser/smtlib/sym.java
+
+ap/parser/smtlib/parser.class : ap/parser/smtlib/parser.java ap/parser/smtlib/sym.java
+
+ap/parser/smtlib/PrettyPrinter.class : ap/parser/smtlib/PrettyPrinter.java
 
 ap/parser/smtlib/PrettyPrinterNonStatic.java: ap/parser/smtlib/PrettyPrinter.java
 	sed 's/PrettyPrinter/PrettyPrinterNonStatic/g' <ap/parser/smtlib/PrettyPrinter.java | sed 's/static//g' >ap/parser/smtlib/PrettyPrinterNonStatic.java
 
-$(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinter.class: ap/parser/smtlib/PrettyPrinter.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/PrettyPrinter.java
+ap/parser/smtlib/PrettyPrinterNonStatic.class : ap/parser/smtlib/PrettyPrinterNonStatic.java
 
-$(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinterNonStatic.class: ap/parser/smtlib/PrettyPrinterNonStatic.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/PrettyPrinterNonStatic.java
+clean :
+	rm -f ap/parser/smtlib/Absyn/*.class ap/parser/smtlib/*.class
 
-ap/parser/smtlib/Test.class: ap/parser/smtlib/Test.java $(PARSER_BINDIR)/ap/parser/smtlib/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/smtlib/Yylex.class $(PARSER_BINDIR)/ap/parser/smtlib/parser.class $(PARSER_BINDIR)/ap/parser/smtlib/sym.class
-	${JAVAC} ${JAVAC_FLAGS} ap/parser/smtlib/Test.java
+distclean : vclean
 
-$(PARSER_BINDIR)/ap/parser/smtlib/AllVisitor.class: ap/parser/smtlib/AllVisitor.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/AllVisitor.java
-
-$(PARSER_BINDIR)/ap/parser/smtlib/AbstractVisitor.class: ap/parser/smtlib/AbstractVisitor.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/AbstractVisitor.java
-
-$(PARSER_BINDIR)/ap/parser/smtlib/ComposVisitor.class: ap/parser/smtlib/ComposVisitor.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/ComposVisitor.java
-
-$(PARSER_BINDIR)/ap/parser/smtlib/FoldVisitor.class: ap/parser/smtlib/FoldVisitor.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/smtlib/FoldVisitor.java
-
-smtlib.dvi: smtlib.tex
-	${LATEX} smtlib.tex
-
-smtlib.pdf: smtlib.dvi
-	${DVIPDF} smtlib.dvi
-
-smtlib.ps: smtlib.dvi
-	${DVIPS} smtlib.dvi -o smtlib.ps
+vclean :
+	 rm -f ap/parser/smtlib/Absyn/ScriptC.java ap/parser/smtlib/Absyn/Script.java ap/parser/smtlib/Absyn/Command.java ap/parser/smtlib/Absyn/SetLogicCommand.java ap/parser/smtlib/Absyn/SetOptionCommand.java ap/parser/smtlib/Absyn/SetInfoCommand.java ap/parser/smtlib/Absyn/SortDeclCommand.java ap/parser/smtlib/Absyn/SortDefCommand.java ap/parser/smtlib/Absyn/DataDeclsCommand.java ap/parser/smtlib/Absyn/DataDeclsOldCommand.java ap/parser/smtlib/Absyn/DataDeclCommand.java ap/parser/smtlib/Absyn/HeapDeclCommand.java ap/parser/smtlib/Absyn/FunctionDeclCommand.java ap/parser/smtlib/Absyn/ConstDeclCommand.java ap/parser/smtlib/Absyn/FunctionDefCommand.java ap/parser/smtlib/Absyn/ConstDefCommand.java ap/parser/smtlib/Absyn/RecFunctionDefCommand.java ap/parser/smtlib/Absyn/RecFunctionDefsCommand.java ap/parser/smtlib/Absyn/PushCommand.java ap/parser/smtlib/Absyn/PopCommand.java ap/parser/smtlib/Absyn/AssertCommand.java ap/parser/smtlib/Absyn/CheckSatCommand.java ap/parser/smtlib/Absyn/GetAssertionsCommand.java ap/parser/smtlib/Absyn/GetValueCommand.java ap/parser/smtlib/Absyn/GetProofCommand.java ap/parser/smtlib/Absyn/GetUnsatCoreCommand.java ap/parser/smtlib/Absyn/GetAssignmentCommand.java ap/parser/smtlib/Absyn/GetModelCommand.java ap/parser/smtlib/Absyn/GetInterpolantsCommand.java ap/parser/smtlib/Absyn/SimplifyCommand.java ap/parser/smtlib/Absyn/GetInfoCommand.java ap/parser/smtlib/Absyn/GetOptionCommand.java ap/parser/smtlib/Absyn/EchoCommand.java ap/parser/smtlib/Absyn/ResetCommand.java ap/parser/smtlib/Absyn/ExitCommand.java ap/parser/smtlib/Absyn/IgnoreCommand.java ap/parser/smtlib/Absyn/EmptyCommand.java ap/parser/smtlib/Absyn/ListCommand.java ap/parser/smtlib/Absyn/OptionC.java ap/parser/smtlib/Absyn/Option.java ap/parser/smtlib/Absyn/Sort.java ap/parser/smtlib/Absyn/IdentSort.java ap/parser/smtlib/Absyn/CompositeSort.java ap/parser/smtlib/Absyn/ListSort.java ap/parser/smtlib/Absyn/MESorts.java ap/parser/smtlib/Absyn/SomeSorts.java ap/parser/smtlib/Absyn/NoSorts.java ap/parser/smtlib/Absyn/ConstructorDeclC.java ap/parser/smtlib/Absyn/NullConstructorDecl.java ap/parser/smtlib/Absyn/ConstructorDecl.java ap/parser/smtlib/Absyn/ListConstructorDeclC.java ap/parser/smtlib/Absyn/SelectorDeclC.java ap/parser/smtlib/Absyn/SelectorDecl.java ap/parser/smtlib/Absyn/ListSelectorDeclC.java ap/parser/smtlib/Absyn/PolySortC.java ap/parser/smtlib/Absyn/PolySort.java ap/parser/smtlib/Absyn/ListPolySortC.java ap/parser/smtlib/Absyn/MaybeParDataDecl.java ap/parser/smtlib/Absyn/MonoDataDecl.java ap/parser/smtlib/Absyn/ParDataDecl.java ap/parser/smtlib/Absyn/ListMaybeParDataDecl.java ap/parser/smtlib/Absyn/OldDataDeclC.java ap/parser/smtlib/Absyn/OldDataDecl.java ap/parser/smtlib/Absyn/ListOldDataDeclC.java ap/parser/smtlib/Absyn/Term.java ap/parser/smtlib/Absyn/ConstantTerm.java ap/parser/smtlib/Absyn/NullaryTerm.java ap/parser/smtlib/Absyn/FunctionTerm.java ap/parser/smtlib/Absyn/LetTerm.java ap/parser/smtlib/Absyn/QuantifierTerm.java ap/parser/smtlib/Absyn/AnnotationTerm.java ap/parser/smtlib/Absyn/ListTerm.java ap/parser/smtlib/Absyn/BindingC.java ap/parser/smtlib/Absyn/Binding.java ap/parser/smtlib/Absyn/ListBindingC.java ap/parser/smtlib/Absyn/Quantifier.java ap/parser/smtlib/Absyn/AllQuantifier.java ap/parser/smtlib/Absyn/ExQuantifier.java ap/parser/smtlib/Absyn/EpsQuantifier.java ap/parser/smtlib/Absyn/LbdQuantifier.java ap/parser/smtlib/Absyn/SymbolRef.java ap/parser/smtlib/Absyn/IdentifierRef.java ap/parser/smtlib/Absyn/CastIdentifierRef.java ap/parser/smtlib/Absyn/FunSignatureC.java ap/parser/smtlib/Absyn/FunSignature.java ap/parser/smtlib/Absyn/ListFunSignatureC.java ap/parser/smtlib/Absyn/SortedVariableC.java ap/parser/smtlib/Absyn/SortedVariable.java ap/parser/smtlib/Absyn/ListSortedVariableC.java ap/parser/smtlib/Absyn/ESortedVarC.java ap/parser/smtlib/Absyn/ESortedVar.java ap/parser/smtlib/Absyn/ListESortedVarC.java ap/parser/smtlib/Absyn/SpecConstant.java ap/parser/smtlib/Absyn/NumConstant.java ap/parser/smtlib/Absyn/RatConstant.java ap/parser/smtlib/Absyn/HexConstant.java ap/parser/smtlib/Absyn/BinConstant.java ap/parser/smtlib/Absyn/StringConstant.java ap/parser/smtlib/Absyn/StringSQConstant.java ap/parser/smtlib/Absyn/MetaConstant.java ap/parser/smtlib/Absyn/NumMetaConstant.java ap/parser/smtlib/Absyn/RatMetaConstant.java ap/parser/smtlib/Absyn/HexMetaConstant.java ap/parser/smtlib/Absyn/BinMetaConstant.java ap/parser/smtlib/Absyn/StringMetaConstant.java ap/parser/smtlib/Absyn/Identifier.java ap/parser/smtlib/Absyn/SymbolIdent.java ap/parser/smtlib/Absyn/IndexIdent.java ap/parser/smtlib/Absyn/IndexC.java ap/parser/smtlib/Absyn/NumIndex.java ap/parser/smtlib/Absyn/HexIndex.java ap/parser/smtlib/Absyn/SymIndex.java ap/parser/smtlib/Absyn/ListIndexC.java ap/parser/smtlib/Absyn/Symbol.java ap/parser/smtlib/Absyn/NormalSymbol.java ap/parser/smtlib/Absyn/QuotedSymbol.java ap/parser/smtlib/Absyn/ListSymbol.java ap/parser/smtlib/Absyn/Annotation.java ap/parser/smtlib/Absyn/AttrAnnotation.java ap/parser/smtlib/Absyn/ListAnnotation.java ap/parser/smtlib/Absyn/AttrParam.java ap/parser/smtlib/Absyn/SomeAttrParam.java ap/parser/smtlib/Absyn/NoAttrParam.java ap/parser/smtlib/Absyn/SExpr.java ap/parser/smtlib/Absyn/ConstantSExpr.java ap/parser/smtlib/Absyn/SymbolSExpr.java ap/parser/smtlib/Absyn/ParenSExpr.java ap/parser/smtlib/Absyn/ListSExpr.java ap/parser/smtlib/Absyn/ScriptC.class ap/parser/smtlib/Absyn/Script.class ap/parser/smtlib/Absyn/Command.class ap/parser/smtlib/Absyn/SetLogicCommand.class ap/parser/smtlib/Absyn/SetOptionCommand.class ap/parser/smtlib/Absyn/SetInfoCommand.class ap/parser/smtlib/Absyn/SortDeclCommand.class ap/parser/smtlib/Absyn/SortDefCommand.class ap/parser/smtlib/Absyn/DataDeclsCommand.class ap/parser/smtlib/Absyn/DataDeclsOldCommand.class ap/parser/smtlib/Absyn/DataDeclCommand.class ap/parser/smtlib/Absyn/HeapDeclCommand.class ap/parser/smtlib/Absyn/FunctionDeclCommand.class ap/parser/smtlib/Absyn/ConstDeclCommand.class ap/parser/smtlib/Absyn/FunctionDefCommand.class ap/parser/smtlib/Absyn/ConstDefCommand.class ap/parser/smtlib/Absyn/RecFunctionDefCommand.class ap/parser/smtlib/Absyn/RecFunctionDefsCommand.class ap/parser/smtlib/Absyn/PushCommand.class ap/parser/smtlib/Absyn/PopCommand.class ap/parser/smtlib/Absyn/AssertCommand.class ap/parser/smtlib/Absyn/CheckSatCommand.class ap/parser/smtlib/Absyn/GetAssertionsCommand.class ap/parser/smtlib/Absyn/GetValueCommand.class ap/parser/smtlib/Absyn/GetProofCommand.class ap/parser/smtlib/Absyn/GetUnsatCoreCommand.class ap/parser/smtlib/Absyn/GetAssignmentCommand.class ap/parser/smtlib/Absyn/GetModelCommand.class ap/parser/smtlib/Absyn/GetInterpolantsCommand.class ap/parser/smtlib/Absyn/SimplifyCommand.class ap/parser/smtlib/Absyn/GetInfoCommand.class ap/parser/smtlib/Absyn/GetOptionCommand.class ap/parser/smtlib/Absyn/EchoCommand.class ap/parser/smtlib/Absyn/ResetCommand.class ap/parser/smtlib/Absyn/ExitCommand.class ap/parser/smtlib/Absyn/IgnoreCommand.class ap/parser/smtlib/Absyn/EmptyCommand.class ap/parser/smtlib/Absyn/ListCommand.class ap/parser/smtlib/Absyn/OptionC.class ap/parser/smtlib/Absyn/Option.class ap/parser/smtlib/Absyn/Sort.class ap/parser/smtlib/Absyn/IdentSort.class ap/parser/smtlib/Absyn/CompositeSort.class ap/parser/smtlib/Absyn/ListSort.class ap/parser/smtlib/Absyn/MESorts.class ap/parser/smtlib/Absyn/SomeSorts.class ap/parser/smtlib/Absyn/NoSorts.class ap/parser/smtlib/Absyn/ConstructorDeclC.class ap/parser/smtlib/Absyn/NullConstructorDecl.class ap/parser/smtlib/Absyn/ConstructorDecl.class ap/parser/smtlib/Absyn/ListConstructorDeclC.class ap/parser/smtlib/Absyn/SelectorDeclC.class ap/parser/smtlib/Absyn/SelectorDecl.class ap/parser/smtlib/Absyn/ListSelectorDeclC.class ap/parser/smtlib/Absyn/PolySortC.class ap/parser/smtlib/Absyn/PolySort.class ap/parser/smtlib/Absyn/ListPolySortC.class ap/parser/smtlib/Absyn/MaybeParDataDecl.class ap/parser/smtlib/Absyn/MonoDataDecl.class ap/parser/smtlib/Absyn/ParDataDecl.class ap/parser/smtlib/Absyn/ListMaybeParDataDecl.class ap/parser/smtlib/Absyn/OldDataDeclC.class ap/parser/smtlib/Absyn/OldDataDecl.class ap/parser/smtlib/Absyn/ListOldDataDeclC.class ap/parser/smtlib/Absyn/Term.class ap/parser/smtlib/Absyn/ConstantTerm.class ap/parser/smtlib/Absyn/NullaryTerm.class ap/parser/smtlib/Absyn/FunctionTerm.class ap/parser/smtlib/Absyn/LetTerm.class ap/parser/smtlib/Absyn/QuantifierTerm.class ap/parser/smtlib/Absyn/AnnotationTerm.class ap/parser/smtlib/Absyn/ListTerm.class ap/parser/smtlib/Absyn/BindingC.class ap/parser/smtlib/Absyn/Binding.class ap/parser/smtlib/Absyn/ListBindingC.class ap/parser/smtlib/Absyn/Quantifier.class ap/parser/smtlib/Absyn/AllQuantifier.class ap/parser/smtlib/Absyn/ExQuantifier.class ap/parser/smtlib/Absyn/EpsQuantifier.class ap/parser/smtlib/Absyn/LbdQuantifier.class ap/parser/smtlib/Absyn/SymbolRef.class ap/parser/smtlib/Absyn/IdentifierRef.class ap/parser/smtlib/Absyn/CastIdentifierRef.class ap/parser/smtlib/Absyn/FunSignatureC.class ap/parser/smtlib/Absyn/FunSignature.class ap/parser/smtlib/Absyn/ListFunSignatureC.class ap/parser/smtlib/Absyn/SortedVariableC.class ap/parser/smtlib/Absyn/SortedVariable.class ap/parser/smtlib/Absyn/ListSortedVariableC.class ap/parser/smtlib/Absyn/ESortedVarC.class ap/parser/smtlib/Absyn/ESortedVar.class ap/parser/smtlib/Absyn/ListESortedVarC.class ap/parser/smtlib/Absyn/SpecConstant.class ap/parser/smtlib/Absyn/NumConstant.class ap/parser/smtlib/Absyn/RatConstant.class ap/parser/smtlib/Absyn/HexConstant.class ap/parser/smtlib/Absyn/BinConstant.class ap/parser/smtlib/Absyn/StringConstant.class ap/parser/smtlib/Absyn/StringSQConstant.class ap/parser/smtlib/Absyn/MetaConstant.class ap/parser/smtlib/Absyn/NumMetaConstant.class ap/parser/smtlib/Absyn/RatMetaConstant.class ap/parser/smtlib/Absyn/HexMetaConstant.class ap/parser/smtlib/Absyn/BinMetaConstant.class ap/parser/smtlib/Absyn/StringMetaConstant.class ap/parser/smtlib/Absyn/Identifier.class ap/parser/smtlib/Absyn/SymbolIdent.class ap/parser/smtlib/Absyn/IndexIdent.class ap/parser/smtlib/Absyn/IndexC.class ap/parser/smtlib/Absyn/NumIndex.class ap/parser/smtlib/Absyn/HexIndex.class ap/parser/smtlib/Absyn/SymIndex.class ap/parser/smtlib/Absyn/ListIndexC.class ap/parser/smtlib/Absyn/Symbol.class ap/parser/smtlib/Absyn/NormalSymbol.class ap/parser/smtlib/Absyn/QuotedSymbol.class ap/parser/smtlib/Absyn/ListSymbol.class ap/parser/smtlib/Absyn/Annotation.class ap/parser/smtlib/Absyn/AttrAnnotation.class ap/parser/smtlib/Absyn/ListAnnotation.class ap/parser/smtlib/Absyn/AttrParam.class ap/parser/smtlib/Absyn/SomeAttrParam.class ap/parser/smtlib/Absyn/NoAttrParam.class ap/parser/smtlib/Absyn/SExpr.class ap/parser/smtlib/Absyn/ConstantSExpr.class ap/parser/smtlib/Absyn/SymbolSExpr.class ap/parser/smtlib/Absyn/ParenSExpr.class ap/parser/smtlib/Absyn/ListSExpr.class
+	 rm -f ap/parser/smtlib/Absyn/*.class
+	 rmdir ap/parser/smtlib/Absyn/
+	 rm -f ap/parser/smtlib/Yylex ap/parser/smtlib/_cup.cup ap/parser/smtlib/Yylex.java ap/parser/smtlib/VisitSkel.java ap/parser/smtlib/ComposVisitor.java ap/parser/smtlib/AbstractVisitor.java ap/parser/smtlib/FoldVisitor.java ap/parser/smtlib/AllVisitor.java ap/parser/smtlib/PrettyPrinter.java ap/parser/smtlib/Skeleton.java ap/parser/smtlib/Test.java ap/parser/smtlib/parser.java ap/parser/smtlib/sym.java ap/parser/smtlib/*.class
+	 rm -f Makefile
+	 rmdir -p ap/parser/smtlib/

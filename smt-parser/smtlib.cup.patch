@@ -1,22 +1,32 @@
---- smtlib.cup	2015-01-24 12:27:25.077793264 +0100
-+++ smtlib.cup-modified	2015-01-24 12:28:04.709989780 +0100
-@@ -2,6 +2,10 @@
- package ap.parser.smtlib;
- 
- parser code {:
-+    public boolean commandHook(ap.parser.smtlib.Absyn.Command cmd) {
-+        return true;
-+    }
-+
-   public ap.parser.smtlib.Absyn.ScriptC pScriptC() throws Exception
-   {
- 	java_cup.runtime.Symbol res = parse();
-@@ -120,7 +124,7 @@
-   | _SYMB_0 _SYMB_25 Term:p_3 _SYMB_2  {: RESULT = new ap.parser.smtlib.Absyn.IgnoreCommand(p_3); :}
- ;
- ListCommand ::=  /* empty */  {: RESULT = new ap.parser.smtlib.Absyn.ListCommand(); :} 
--  | ListCommand:p_1 Command:p_2  {: RESULT = p_1; p_1.addLast(p_2); :}
-+    | ListCommand:p_1 Command:p_2  {: RESULT = p_1; if (parser.commandHook(p_2)) p_1.addLast(p_2); :}
- ;
- OptionC ::= Annotation:p_1  {: RESULT = new ap.parser.smtlib.Absyn.Option(p_1); :} 
- ;
+*** _cup.cup.ori	2025-12-09 15:19:42.116532396 +0100
+--- _cup.cup	2025-12-09 15:22:12.397477032 +0100
+***************
+*** 13,18 ****
+--- 13,22 ----
+  }
+  :}
+  parser code {:
++     public boolean commandHook(ap.parser.smtlib.Absyn.Command cmd) {
++         return true;
++     }
++ 
+    public ap.parser.smtlib.Absyn.ScriptC pScriptC() throws Exception
+    {
+      java_cup.runtime.Symbol res = parse();
+***************
+*** 469,475 ****
+  ((ap.parser.smtlib.Absyn.EmptyCommand)RESULT).offset = -1; :}
+  ;
+  ListCommand ::=  /* empty */  {: RESULT = new ap.parser.smtlib.Absyn.ListCommand(); :}
+!   | ListCommand:p_1 Command:p_2  {: RESULT = p_1; p_1.addLast(p_2); :}
+  ;
+  OptionC ::= Annotation:p_1  {: RESULT = new ap.parser.smtlib.Absyn.Option(p_1);
+  java_cup.runtime.ComplexSymbolFactory.Location leftLoc = getLeftLocation(p_1xleft);
+--- 473,479 ----
+  ((ap.parser.smtlib.Absyn.EmptyCommand)RESULT).offset = -1; :}
+  ;
+  ListCommand ::=  /* empty */  {: RESULT = new ap.parser.smtlib.Absyn.ListCommand(); :}
+!   | ListCommand:p_1 Command:p_2  {: RESULT = p_1; if (parser.commandHook(p_2)) p_1.addLast(p_2); :}
+  ;
+  OptionC ::= Annotation:p_1  {: RESULT = new ap.parser.smtlib.Absyn.Option(p_1);
+  java_cup.runtime.ComplexSymbolFactory.Location leftLoc = getLeftLocation(p_1xleft);
