@@ -47,7 +47,8 @@ import ap.terfor.preds.Atom
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, Seqs}
 
-import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
+                                 HashMap => MHashMap}
 
 /**
  * Partition extract-atoms for given terms to eliminate overlapping extracts.
@@ -70,7 +71,7 @@ object ExtractPartitioner extends TheoryProcedure {
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
     extractFunctionality(extracts, goal)  elseDo
-    compressExtractChains(extracts, goal) elseDo
+ //   compressExtractChains(extracts, goal) elseDo
     splitActions(extracts, goal)
   }
 
@@ -174,16 +175,8 @@ object ExtractPartitioner extends TheoryProcedure {
   private def splitActions(extracts : Seq[Atom], goal : Goal)
                           (implicit order : TermOrder)
                          : Seq[Plugin.Action] = {
-    val extractedConsts =
-      (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
-       yield c).toSet
-
-    // TODO: also handle bvand here!
-
-    val diseqs = for (lc <- goal.facts.arithConj.negativeEqs;
-                      if !Seqs.disjoint(lc.constants, extractedConsts))
-                 yield lc
-    val partitions = computeCutPoints(extracts, diseqs)
+    val binOps = goal.facts.predConj.positiveLitsWithPred(_bv_and)
+    val partitions = computeCutPoints(extracts, binOps)
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
     if (debug && !partitions.isEmpty) {
@@ -194,28 +187,42 @@ object ExtractPartitioner extends TheoryProcedure {
     }
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
-    splitExtractActions(extracts, partitions, goal)  /*  elseDo
-    splitDisequalityActions(diseqs, partitions, goal) */
+    splitExtractActions(extracts, partitions, goal) ++
+    splitBinOpActions(binOps, partitions, goal)
   }
 
-  private def splitExtractActions(extracts : Seq[Atom],
-                                  partitions : Map[Term, List[Int]],
-                                  goal : Goal)
+  private def splitExtractActions(extracts   : Seq[Atom],
+                                  partitions : Map[Term, Seq[Int]],
+                                  goal       : Goal)
                                  (implicit order : TermOrder)
                                 : Seq[Plugin.Action] = {
     val res =
-    for (ex <- extracts;
-         action <- ex(2) match {
-           case SingleTerm(c : ConstantTerm) =>
-             splitExtract(ex, partitions(c))
-           case _ =>
-             List()
-         }) 
-    yield action
+      for (ex <- extracts; action <- splitExtract(ex, partitions(ex(2))))
+      yield action
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
     if (!res.isEmpty && debug) {
       println("Splitting extracts")
+      for (t <- res)
+        println("\t" + t)
+    }
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    res
+  }
+
+  private def splitBinOpActions(binOps     : Seq[Atom],
+                                partitions : Map[Term, Seq[Int]],
+                                goal       : Goal)
+                               (implicit order : TermOrder)
+                              : Seq[Plugin.Action] = {
+    val res =
+      for (op <- binOps; action <- splitBinOp(op, partitions(op(1))))
+      yield action
+
+    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
+    if (!res.isEmpty && debug) {
+      println("Splitting binary operator")
       for (t <- res)
         println("\t" + t)
     }
@@ -262,65 +269,105 @@ object ExtractPartitioner extends TheoryProcedure {
   // e.g., extract(7,3) is cut-point 8 and 3
   // Thus, when looping we get (7,3) and (2,0) in SMT-lib semantics
 
-  private def getExtracts(goal : Goal) : Seq[Atom] = {
-    // first check if congruence closure has been fully applied
-
-    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-
-    var lastAtom : Atom = null
-    val atomIt = extracts.iterator
-    while (atomIt.hasNext) {
-      val a = atomIt.next()
-      
-      if (a(2).isConstant)
-        // extract can be evaluated, delay all operations on extracts
-        return List()
-        
-      if (lastAtom != null &&
-          lastAtom(0) == a(0) && lastAtom(1) == a(1) && lastAtom(2) == a(2))
-        // a case where functionality axiom can be applied;
-        // in this case, delay all operations of the extracts
-        return List()
-        
-      lastAtom = a
-    }
-
-    extracts
-  }
-
   // This propagates all cut-points from lhs <-> rhs in extract
 
-  private def propagateExtract(extract : (Int, Int, ConstantTerm, ConstantTerm),
-                               cutPoints : MMap[Term, Set[Int]]) : Boolean = {
-    val (ub, lb, t1, t2) = extract
+  def computeCutPoints(extracts : Seq[Atom],
+                       binOps   : Seq[Atom]) : Map[Term, Seq[Int]] = {
+    val prop = new CutPropagator
+    extracts.foreach(prop.setupExtract)
+    binOps.foreach(prop.setupBinOp)
 
-    var changed = false
-
-    val cut1 = cutPoints.getOrElse(t1, Set())
-    val cut2 = cutPoints.getOrElse(t2, Set())
-
-    /// T1 ===> T2
-    val t1transformed =
-      cut1.map(_ - lb).filter(c => c > 0 && c <= ub - lb + 1)
-
-    if (!(t1transformed subsetOf cut2)) {
-      cutPoints += t2 -> (cut2 ++ t1transformed)
-      changed = true
+    prop.runToFixpoint {
+      extracts.foreach(prop.propagateExtract)
+      binOps.foreach(prop.propagateBinOp)
     }
 
-    // propagate FROM t2 TO t1
-    val t2transformed = cut2.map(_ + lb).filter(c => c <= ub)
+    prop.sortedCutPoints
+  }
 
-    if (!(t2transformed subsetOf cut1)) {
-      cutPoints += t1 -> (cut1 ++ t2transformed)
-      changed = true
+  class CutPropagator {
+    private val cutPoints = new MHashMap[Term, Set[Int]]
+
+    def getCutPoints(t : Term) : Set[Int] =
+      cutPoints.getOrElse(t, Set())
+
+    def sortedCutPoints : Map[Term, Seq[Int]] =
+      cutPoints.toMap.transform { case (k, v) => v.toVector.sortBy(-_) }
+
+    private var changedFlag = false
+
+    def runToFixpoint(comp : => Unit) : Unit = {
+      var cont = true
+      while (cont) {
+        changedFlag = false
+        comp
+        cont = changedFlag
+      }
     }
 
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-    Debug.assertInt(AC, cutPoints.values.flatten.forall(_ >= 0))
-    //-END-ASSERTION-/////////////////////////////////////////////////////////
+    def addCutPoints(t : Term, points : Iterable[Int]) : Unit = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, points.forall(_ >= 0))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      t match {
+        case LinearCombination.Constant(_) => // ignore constants
+        case t => {
+          val oldPoints = getCutPoints(t)
+          val newPoints = oldPoints ++ points
+          if (oldPoints.size != newPoints.size) {
+            changedFlag = true
+            cutPoints.put(t, newPoints)
+          }
+        }
+      }
+    }
 
-    changed
+    def setupExtract(extract : Atom) : Unit = {
+      val Seq(LinearCombination.Constant(IdealInt(ub)),
+              LinearCombination.Constant(IdealInt(lb)),
+              arg, res) = extract
+      addCutPoints(arg, List(lb, ub+1))
+    }
+
+    def setupBinOp(op : Atom) : Unit = {
+      val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op
+      addCutPoints(arg1, List(0, bits))
+    }
+
+    def propagateExtract(extract : Atom) : Unit = {
+      val Seq(LinearCombination.Constant(IdealInt(ub)),
+              LinearCombination.Constant(IdealInt(lb)),
+              t1, t2) = extract
+
+      val cut1 = getCutPoints(t1)
+      val cut2 = getCutPoints(t2)
+
+      /// T1 ===> T2
+      addCutPoints(t2, cut1.map(_ - lb).filter(c => c >= 0 && c <= ub - lb + 1))
+
+      // propagate FROM t2 TO t1
+      addCutPoints(t1, cut2.map(_ + lb).filter(c => c <= ub))
+    }
+
+    /**
+     * Propagation for operators such as bv_and, bv_or, etc.
+     */
+    def propagateBinOp(op : Atom) : Unit = {
+      val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op
+
+      val cut1 = getCutPoints(arg1)
+      val cut2 = getCutPoints(arg2)
+      val cut3 = getCutPoints(res)
+
+      val cut1transformed = cut1.filter(c => c <= bits)
+      val cut2transformed = cut2.filter(c => c <= bits)
+      val cut3transformed = cut3.filter(c => c <= bits)
+    
+      addCutPoints(arg1, cut2transformed ++ cut3transformed)
+      addCutPoints(arg2, cut1transformed ++ cut3transformed)
+      addCutPoints(res,  cut1transformed ++ cut2transformed)
+    }
+
   }
 
   private def propagateDisequality(disequality : (ConstantTerm, ConstantTerm),
@@ -345,56 +392,6 @@ object ExtractPartitioner extends TheoryProcedure {
     changed
   }
 
-  private def computeCutPoints(extracts : Seq[Atom],
-                               disequalities : Seq[LinearCombination])
-                             : Map[Term, List[Int]] = {
-    val cutPoints = MMap() : MMap[Term, Set[Int]]
-    val extractTuples = new ArrayBuffer[(Int, Int, ConstantTerm, ConstantTerm)]
-    val diseqTuples = new ArrayBuffer[(ConstantTerm, ConstantTerm)]
-
-    for (Seq(LinearCombination.Constant(IdealInt(ub)),
-             LinearCombination.Constant(IdealInt(lb)),
-             SingleTerm(t : ConstantTerm),
-             res) <- extracts) {
-      cutPoints += t -> (Set(lb, ub+1) ++ (cutPoints.getOrElse(t, Set())))
-      res match {
-        case SingleTerm(s : ConstantTerm) =>
-          extractTuples += ((ub, lb, t, s))
-        case _ =>
-          // nothing
-      }
-    }
-
-    for (lc <- disequalities)
-      if (lc.size == 2 &&
-          lc.getCoeff(0) == IdealInt.ONE &&
-          lc.getCoeff(1) == IdealInt.MINUS_ONE &&
-          lc.constants.size == 2)
-        diseqTuples += ((lc.getTerm(0).asInstanceOf[ConstantTerm],
-                         lc.getTerm(1).asInstanceOf[ConstantTerm]))
-
-    var changed = true
-    while (changed) {
-      changed = false
-      for (t <- extractTuples) {
-        if (propagateExtract(t, cutPoints))
-          changed = true
-      }
-
-      for (diseq <- diseqTuples) {
-        if (propagateDisequality(diseq, cutPoints))
-          changed = true
-      }
-    }
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(AC, cutPoints.values.flatten.forall(_ >= 0))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    cutPoints.map{case (k, v) => k -> v.toList.sorted.reverse}.toMap
-  }
-
-
   ///////////////////////////
   //
   // EXTRACT (and Diseq) SPLIT FUNCTIONS
@@ -403,8 +400,8 @@ object ExtractPartitioner extends TheoryProcedure {
   //
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
-  private def splitExtract(extract : Atom, cutPoints : List[Int])
-                          (implicit order : TermOrder) : List[Plugin.Action] = {
+  private def splitExtract(extract : Atom, cutPoints : Seq[Int])
+                          (implicit order : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
 
     val Seq(LinearCombination.Constant(IdealInt(upper)),
@@ -417,7 +414,7 @@ object ExtractPartitioner extends TheoryProcedure {
       List()
     } else {
       var curPoint = upper
-      var newExtracts = List() : List[Conjunction]
+      var newExtracts = new ArrayBuffer[Conjunction]
 
       while (!filterCutPoints.isEmpty) {
         val (ub, lb) = (curPoint, filterCutPoints.head)
@@ -431,17 +428,47 @@ object ExtractPartitioner extends TheoryProcedure {
           Atom(_bv_extract,
                List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order)
         val domain = List(l(v(0)) >= 0, l(v(0)) < pow2(ub-lb+1))
-        newExtracts = forall(!conj(bv1 :: bv2 :: domain)) :: newExtracts
+        newExtracts += forall(!conj(bv1 :: bv2 :: domain))
       }
-      Plugin.RemoveFacts(extract) ::
-      (for (c <- newExtracts)
+      Plugin.RemoveFacts(extract) +:
+      (for (c <- newExtracts.toSeq)
        yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic))
     }
   }
 
+  private def splitBinOp(op : Atom, cutPoints : Seq[Int])
+                        (implicit order : TermOrder) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+
+    val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, bits > 1)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val actions = new ArrayBuffer[Plugin.Action]
+    for (Seq(ub, lb) <- cutPoints.filter(x => x <= bits).sliding(2))
+      if (ub != bits || lb != 0) {
+        val bv1 = Atom(_bv_extract, List(l(ub-1), l(lb), arg1, l(v(0))), order)
+        val bv2 = Atom(_bv_extract, List(l(ub-1), l(lb), arg2, l(v(1))), order)
+        val bv3 = Atom(_bv_extract, List(l(ub-1), l(lb), res,  l(v(2))), order)
+        val nop = BVOpSplitter.doBVOp(op.pred, ub - lb, l(v(0)), l(v(1)), l(v(2)))
+        val domBound = pow2MinusOne(ub - lb)
+        val domain = List(l(v(0)) >= 0, l(v(0)) <= domBound,
+                          l(v(1)) >= 0, l(v(1)) <= domBound,
+                          l(v(2)) >= 0, l(v(2)) <= domBound)
+        val f = exists(exists(exists(conj(bv1 :: bv2 :: bv3 :: nop :: domain))))
+        actions += Plugin.AddAxiom(List(op), f, ModuloArithmetic)
+      }
+
+    if (!actions.isEmpty)
+      actions += Plugin.RemoveFacts(op)
+    actions.toSeq
+  }
+
   private def splitDiseq(disequality : LinearCombination,
                          cutPoints : List[Int], goal : Goal)
-                        (implicit order : TermOrder) : List[Plugin.Action] = {
+                        (implicit order : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
 
     // Make sure c1 != c2 according to cutPoints
