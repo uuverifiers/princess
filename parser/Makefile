@@ -47,8 +47,8 @@ $(PARSER_BINDIR)/ap/parser/ApInput/Absyn/ApInput.class: $(PARSER_BINDIR)/ap/pars
 ap/parser/ApInput/Yylex.java: ap/parser/ApInput/Yylex
 	${JAVA} ${JAVA_FLAGS} ${JLEX} ap/parser/ApInput/Yylex
 
-ap/parser/ApInput/sym.java ap/parser/ApInput/parser.java: ap/parser/ApInput/ApInput.cup
-	${JAVA} ${JAVA_FLAGS} ${CUP} ${CUPFLAGS} ap/parser/ApInput/ApInput.cup
+ap/parser/ApInput/sym.java ap/parser/ApInput/parser.java: ap/parser/ApInput/_cup.cup
+	${JAVA} ${JAVA_FLAGS} ${CUP} ${CUPFLAGS} ap/parser/ApInput/_cup.cup
 	mv sym.java parser.java ap/parser/ApInput/
 
 $(PARSER_BINDIR)/ap/parser/ApInput/Yylex.class: ap/parser/ApInput/Yylex.java ap/parser/ApInput/sym.java
