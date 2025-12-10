@@ -43,7 +43,7 @@ import ap.util.{Debug, Seqs}
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
 
-object BVOpSplitter extends SaturationProcedure("BVOpSplitter") {
+object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
   import ModuloArithmetic._
   import TerForConvenience._
 
@@ -83,50 +83,26 @@ object BVOpSplitter extends SaturationProcedure("BVOpSplitter") {
     if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
       implicit val order = goal.order
       p(0) match {
+        /*
+        case LinearCombination.Constant(IdealInt(bits)) if bits <= 4 => {
+          val f1 =
+            ap.theories.nia.GroebnerMultiplication.valueEnumerator.enumIntValuesOf(p(1), order)
+          val f2 =
+            ap.theories.nia.GroebnerMultiplication.valueEnumerator.enumIntValuesOf(p(2), order)
+          List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
+        }
+        */
         case LinearCombination.Constant(IdealInt(bits)) if bits > 1 => {
           val mid = bits / 2
           val arg1 = p(1)
 
-          val f =
-            existsSorted(List(UnsignedBVSort(mid)),
-                         _bv_extract(List(l(mid - 1), l(0), arg1, l(v(0)))))
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           if (debug) {
-            println(s"Splitting $p into intervals [0, ${mid-1}] and [$mid, ${bits-1}]")
-            println(f)
+            println(s"Splitting $p into intervals [0, ${mid-1}] and [$mid, ${bits-1}] ...")
           }
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
-          List(Plugin.AddAxiom(List(), f, ModuloArithmetic))
-
-          /*
-          val arg2 = p(2)
-          val res = p(3)
-
-          val f =
-            existsSorted(
-              (0 until 3).map(x => UnsignedBVSort(bits - mid)) ++
-              (0 until 3).map(x => UnsignedBVSort(mid)),
-              conj(
-                _bv_extract(List(l(bits - 1), l(mid), arg1, l(v(0)))),
-                _bv_extract(List(l(bits - 1), l(mid), arg2, l(v(1)))),
-                _bv_extract(List(l(bits - 1), l(mid), res, l(v(2)))),
-                doBVAnd(bits - mid, l(v(0)), l(v(1)), l(v(2))),
-                _bv_extract(List(l(mid - 1), l(0), arg1, l(v(3)))),
-                _bv_extract(List(l(mid - 1), l(0), arg2, l(v(4)))),
-                _bv_extract(List(l(mid - 1), l(0), res, l(v(5)))),
-                doBVAnd(mid, l(v(3)), l(v(4)), l(v(5)))))
-
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          if (debug) {
-            println(s"Splitting $p into intervals [0, ${mid-1}] and [$mid, ${bits-1}]")
-            println(f)
-          }
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-
-          List(Plugin.AddAxiom(List(p), f, ModuloArithmetic),
-               Plugin.RemoveFacts(p))
-          */
+          ExtractPartitioner.splitActions(goal, List((arg1, List(mid))))
         }
         case _ =>
           List()

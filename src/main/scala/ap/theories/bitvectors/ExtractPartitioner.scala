@@ -59,28 +59,18 @@ object ExtractPartitioner extends TheoryProcedure {
   import TerForConvenience._
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-    implicit val order = goal.order
-    val predConj = goal.facts.predConj
-    val extracts = predConj.positiveLitsWithPred(_bv_extract)
-
-    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
-    Debug.assertInt(AC,
-      extracts.forall{ ex =>
-        ex(0).asInstanceOf[LinearCombination0].constant.signum >= 0 &&
-        ex(1).asInstanceOf[LinearCombination0].constant.signum >= 0 })
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    extractFunctionality(extracts, goal)  elseDo
+    extractFunctionality(goal)  elseDo
  //   compressExtractChains(extracts, goal) elseDo
-    splitActions(extracts, goal)
+    splitActions(goal)
   }
 
-  private def extractFunctionality(extracts : Seq[Atom], goal : Goal)
-                                  (implicit order : TermOrder)
-                                 : Seq[Plugin.Action] =
+  private def extractFunctionality(goal : Goal) : Seq[Plugin.Action] =
     if (Param.PROOF_CONSTRUCTION(goal.settings)) {
       // If proofs are enabled, we have to apply the functional consistency
       // axiom manually
+      implicit val order = goal.order
+      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+
       (for (Seq(a, b) <- extracts.sliding(2); if Atom.sameFunctionApp(a, b))
        yield {
          //-BEGIN-ASSERTION-////////////////////////////////////////////////////
@@ -172,11 +162,18 @@ object ExtractPartitioner extends TheoryProcedure {
     actions.toSeq
   }
 
-  private def splitActions(extracts : Seq[Atom], goal : Goal)
-                          (implicit order : TermOrder)
-                         : Seq[Plugin.Action] = {
+  /**
+   * Partition bv_extract and binary bitwise operator application to eliminate
+   * overlapping ranges.
+   */
+  def splitActions(goal           : Goal,
+                   extraCutPoints : Seq[(Term, Seq[Int])] = List())
+                                  : Seq[Plugin.Action] = {
+    implicit val order = goal.order
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+
     val binOps = goal.facts.predConj.positiveLitsWithPred(_bv_and)
-    val partitions = computeCutPoints(extracts, binOps)
+    val partitions = computeCutPoints(extracts, binOps, extraCutPoints)
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
     if (debug && !partitions.isEmpty) {
@@ -217,7 +214,8 @@ object ExtractPartitioner extends TheoryProcedure {
                                (implicit order : TermOrder)
                               : Seq[Plugin.Action] = {
     val res =
-      for (op <- binOps; action <- splitBinOp(op, partitions(op(1))))
+      for (op <- binOps;
+           action <- splitBinOp(op, partitions.getOrElse(op(1), List())))
       yield action
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
@@ -271,11 +269,16 @@ object ExtractPartitioner extends TheoryProcedure {
 
   // This propagates all cut-points from lhs <-> rhs in extract
 
-  def computeCutPoints(extracts : Seq[Atom],
-                       binOps   : Seq[Atom]) : Map[Term, Seq[Int]] = {
+  def computeCutPoints(extracts       : Seq[Atom],
+                       binOps         : Seq[Atom],
+                       extraCutPoints : Seq[(Term, Seq[Int])])
+                                      : Map[Term, Seq[Int]] = {
     val prop = new CutPropagator
     extracts.foreach(prop.setupExtract)
     binOps.foreach(prop.setupBinOp)
+
+    for ((t, cuts) <- extraCutPoints)
+      prop.addCutPoints(t, cuts)
 
     prop.runToFixpoint {
       extracts.foreach(prop.propagateExtract)
@@ -452,7 +455,7 @@ object ExtractPartitioner extends TheoryProcedure {
         val bv1 = Atom(_bv_extract, List(l(ub-1), l(lb), arg1, l(v(0))), order)
         val bv2 = Atom(_bv_extract, List(l(ub-1), l(lb), arg2, l(v(1))), order)
         val bv3 = Atom(_bv_extract, List(l(ub-1), l(lb), res,  l(v(2))), order)
-        val nop = BVOpSplitter.doBVOp(op.pred, ub - lb, l(v(0)), l(v(1)), l(v(2)))
+        val nop = BitwiseOpSplitter.doBVOp(op.pred, ub - lb, l(v(0)), l(v(1)), l(v(2)))
         val domBound = pow2MinusOne(ub - lb)
         val domain = List(l(v(0)) >= 0, l(v(0)) <= domBound,
                           l(v(1)) >= 0, l(v(1)) <= domBound,
