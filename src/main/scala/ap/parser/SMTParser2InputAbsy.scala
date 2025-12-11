@@ -2940,7 +2940,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol(Heap.Names.Alloc1) if usingHeap =>
       translateHeapFun(
         0,
-        _.allocResHeap,
+        _.alloc_first,
         args,
         heap => List(SMTHeapAllocRes(heap)),
         heap => SMTHeap(heap))
@@ -2948,7 +2948,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol(Heap.Names.Alloc2) if usingHeap =>
       translateHeapFun(
         0,
-        _.allocResAddr,
+        _.alloc_second,
         args,
         heap => List(SMTHeapAllocRes(heap)),
         heap => SMTHeapAddress(heap))
@@ -2956,7 +2956,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol(Heap.Names.AllocRange) if usingHeap =>
       translateHeapFun(
         0,
-        _.batchAlloc,
+        _.allocRange,
         args,
         heap => List(SMTHeap(heap),
                      SMTHeapADT(heap, heap.objectSortIndex),
@@ -2966,7 +2966,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol(Heap.Names.AllocRange1) if usingHeap =>
       translateHeapFun(
         0,
-        _.batchAllocResHeap,
+        _.allocRange_first,
         args,
         heap => List(SMTHeapBatchAllocRes(heap)),
         heap => SMTHeap(heap))
@@ -2974,7 +2974,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol(Heap.Names.AllocRange2) if usingHeap =>
       translateHeapFun(
         0,
-        _.batchAllocResAddr,
+        _.allocRange_second,
         args,
         heap => List(SMTHeapBatchAllocRes(heap)),
         heap => SMTHeapRange(heap))
@@ -3011,7 +3011,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
     case PlainSymbol(Heap.Names.WriteRange) if usingHeap =>
       translateHeapFun(0,
-                       _.batchWrite,
+                       _.writeRange,
                        args,
                        heap => List(SMTHeap(heap), SMTHeapRange(heap),
                                     SMTHeapADT(heap, heap.objectSortIndex)),
@@ -3050,7 +3050,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
           checkArgNum(Heap.Names.Addr, 1, args)
           val transArgs = for (a <- args) yield translateTerm(a, 0)
           val argTerms = transArgs map (asTerm(_))
-          (IFunApp(s.heap.nthAddr, argTerms), s)
+          (IFunApp(s.heap.addr, argTerms), s)
         case _ =>
           throw new Parser2InputAbsy.TranslationException(
             s"${Heap.Names.Addr} must be cast to a heap address sort.")
@@ -3062,7 +3062,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
           checkArgNum(Heap.Names.Addr, 2, args)
           val transArgs = for (a <- args) yield translateTerm(a, 0)
           val argTerms = transArgs map (asTerm(_))
-          (IFunApp(s.heap.nthRange, argTerms), s)
+          (IFunApp(s.heap.range, argTerms), s)
         case _                =>
           throw new Parser2InputAbsy.TranslationException(
             s"${Heap.Names.Range} must be cast to a heap range sort.")
@@ -3911,7 +3911,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                     case `addressSortName` =>
                       (Heap.AddrSort, SMTHeapAddress(null))
                     case `addressRangeSortName` =>
-                      (Heap.RangeSort, SMTHeapRange(null))
+                      (Heap.AddrRangeSort, SMTHeapRange(null))
                     case _ => {
                       val t = translateSort(selDecl.sort_)
                       (Heap.OtherSort(t.toSort), t)
@@ -4241,8 +4241,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       env.addFunction(allocHeap, allocHeapType)
       env.addFunction(allocAddr, allocAddrType)
 
-      val allocHeapBody = heap.allocResHeap(heap.alloc(v(1), v(0)))
-      val allocAddrBody = heap.allocResAddr(heap.alloc(v(1), v(0)))
+      val allocHeapBody = heap.alloc_first(heap.alloc(v(1), v(0)))
+      val allocAddrBody = heap.alloc_second(heap.alloc(v(1), v(0)))
       functionDefs =
         functionDefs + (allocHeap -> (allocHeapBody, SMTHeap(heap)))
       functionDefs =

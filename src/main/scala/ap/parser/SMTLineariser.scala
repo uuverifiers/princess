@@ -784,7 +784,7 @@ object SMTLineariser {
       }
       case Some(t : Heap) =>
         fun match {
-          case t.emptyHeap | t.nullAddr | t.nthAddr | t.nthRange =>
+          case t.emptyHeap | t.nullAddr | t.addr | t.range =>
             val monoFun = fun.asInstanceOf[MonoSortedIFunction]
             Some(("(as " + quoteIdentifier(fun.name) + " " +
                   sort2SMTString(monoFun.resSort) +

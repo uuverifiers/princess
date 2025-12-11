@@ -115,7 +115,7 @@ class HeapTests2 extends Properties("HeapTests2") {
     val h = HeapSort.newConstant("h")
     val h1 = createConstant("h1", HeapSort)
     val h2 = createConstant("h2", HeapSort)
-    val ar = AllocResSort.newConstant("ar")
+    val ar = HeapAddressPairSort.newConstant("ar")
     val p1 =  createConstant("p1", AddressSort)
     val p2 =  createConstant("p2", AddressSort)
     val x = createConstant("x")
@@ -130,44 +130,44 @@ class HeapTests2 extends Properties("HeapTests2") {
     import priTests._
 
    TestCase (
-      "Reading back written value after chain allocation and a write.",
-      CommonAssert(
-        ar === alloc(allocResHeap(
+     "Reading back written value after chain allocation and a write.",
+     CommonAssert(
+        ar === alloc(alloc_first(
                              alloc(emptyHeap(), wrappedInt(0)) // h(0)
                      ), wrappedInt(3))                         // h(0, 3)
       ),
-      SatStep(isAlloc(allocResHeap(ar), allocResAddr(ar))),
-      SatStep(getInt(read(allocResHeap(ar), allocResAddr(ar))) === 3),
-      UnsatStep(getInt(read(allocResHeap(ar), allocResAddr(ar))) =/= 3),
-      SatStep(read(allocResHeap(ar), allocResAddr(ar)) === wrappedInt(3)),
-      CommonAssert(
-        h === write(allocResHeap(ar), allocResAddr(ar), wrappedInt(50))  // h(0, 50)
-      ),
-      SatStep(read(h, nthAddr(2)) =/= read(allocResHeap(ar),nthAddr(2))),
-      UnsatStep(read(h, nthAddr(2)) === read(allocResHeap(ar),nthAddr(2))),
-      SatStep(isAlloc(h, allocResAddr(ar))),
-      UnsatStep(getInt(read(h, allocResAddr(ar))) === 0),
-      UnsatStep(getInt(read(h, allocResAddr(ar))) === 3),
-      SatStep(getInt(read(h, allocResAddr(ar))) =/= 3),
-      SatStep(read(h, allocResAddr(ar)) =/= wrappedInt(3)),
-      UnsatStep(getInt(read(h, allocResAddr(ar))) =/= 50),
-      SatStep(getInt(read(h, allocResAddr(ar))) === 50),
-      SatStep(read(h, allocResAddr(ar)) === wrappedInt(50))
-    )
+     SatStep(isAlloc(alloc_first(ar), alloc_second(ar))),
+     SatStep(getInt(read(alloc_first(ar), alloc_second(ar))) === 3),
+     UnsatStep(getInt(read(alloc_first(ar), alloc_second(ar))) =/= 3),
+     SatStep(read(alloc_first(ar), alloc_second(ar)) === wrappedInt(3)),
+     CommonAssert(
+        h === write(alloc_first(ar), alloc_second(ar), wrappedInt(50))  // h(0, 50)
+     ),
+     SatStep(read(h, addr(2)) =/= read(alloc_first(ar), addr(2))),
+     UnsatStep(read(h, addr(2)) === read(alloc_first(ar), addr(2))),
+     SatStep(isAlloc(h, alloc_second(ar))),
+     UnsatStep(getInt(read(h, alloc_second(ar))) === 0),
+     UnsatStep(getInt(read(h, alloc_second(ar))) === 3),
+     SatStep(getInt(read(h, alloc_second(ar))) =/= 3),
+     SatStep(read(h, alloc_second(ar)) =/= wrappedInt(3)),
+     UnsatStep(getInt(read(h, alloc_second(ar))) =/= 50),
+     SatStep(getInt(read(h, alloc_second(ar))) === 50),
+     SatStep(read(h, alloc_second(ar)) === wrappedInt(50))
+     )
 
     TestCase(
       "list-001-fail.c-1",
-      CommonAssert(h === allocResHeap(alloc(emptyHeap(), wrappedS(struct_S(0))))),
-      CommonAssert(p1 === allocResAddr(alloc(emptyHeap(), wrappedS(struct_S(0))))),
+      CommonAssert(h === alloc_first(alloc(emptyHeap(), wrappedS(struct_S(0))))),
+      CommonAssert(p1 === alloc_second(alloc(emptyHeap(), wrappedS(struct_S(0))))),
       CommonAssert(p2 === p1),
       SatStep(p1 === p2)
-    )
+      )
     TestCase(
       "list-001-fail.c-2",
       SatStep(
         h1 === emptyHeap() &&&
-        h === allocResHeap(alloc(h1, wrappedS(struct_S(0)))) &&&
-        p1 === allocResAddr(alloc(h1, wrappedS(struct_S(0)))) &&&
+        h === alloc_first(alloc(h1, wrappedS(struct_S(0)))) &&&
+        p1 === alloc_second(alloc(h1, wrappedS(struct_S(0)))) &&&
         p2 === p1 &&&
         x === sel_x(getS(read(h, p2)))// &&&
       )
@@ -175,9 +175,9 @@ class HeapTests2 extends Properties("HeapTests2") {
     TestCase(
       "list-004-fail.c",
       SatStep(
-        h1 === allocResHeap(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
-        p1 === allocResAddr(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
-        h === allocResHeap(alloc(h1, p1)) &&&
+        h1 === alloc_first(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
+        p1 === alloc_second(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
+        h === alloc_first(alloc(h1, p1)) &&&
         h2 === write(h, p1, wrappedNode(struct_Node(p1)))
       )
     )

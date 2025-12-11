@@ -116,12 +116,12 @@ class HeapTests1 extends Properties("HeapTests1") {
     val h2 = createConstant("h2", HeapSort)
     val p =  createConstant("p", AddressSort)
     val p1 =  createConstant("p'", AddressSort)
-    val ar = createConstant("ar", AllocResSort)
-    val ar1 = createConstant("ar'", AllocResSort)
+    val ar = createConstant("ar", HeapAddressPairSort)
+    val ar1 = createConstant("ar'", HeapAddressPairSort)
     val o = createConstant("o", ObjectSort)
     val o1 = createConstant("o'", ObjectSort)
     val r = createConstant("r", RangeSort)
-    val bar = createConstant("bar", BatchAllocResSort)
+    val bar = createConstant("bar", HeapRangePairSort)
     val n = createConstant("n", Sort.Nat)
 
     import IExpression.{all => forall, _}
@@ -156,9 +156,9 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase (
       "After alloc, the returned pointer points to an allocated address.",
       CommonAssert(alloc(h, o) === ar),
-      SatStep(isAlloc(allocResHeap(ar), allocResAddr(ar))),
-      UnsatStep(!isAlloc(allocResHeap(ar), allocResAddr(ar)))
-    )
+      SatStep(isAlloc(alloc_first(ar), alloc_second(ar))),
+      UnsatStep(!isAlloc(alloc_first(ar), alloc_second(ar)))
+      )
 
     TestCase (
       "After alloc, previously allocated addresses are the same in both heaps.",
@@ -166,24 +166,24 @@ class HeapTests1 extends Properties("HeapTests1") {
         alloc(h, o) === ar
       ),
       UnsatStep(
-        isAlloc(h, p) & !isAlloc(allocResHeap(ar), p)
+        isAlloc(h, p) & !isAlloc(alloc_first(ar), p)
       ),
       UnsatStep(
-        p =/= allocResAddr(ar),
+        p =/= alloc_second(ar),
         !isAlloc(h, p),
-        isAlloc(allocResHeap(ar), p)
-      )
+        isAlloc(alloc_first(ar), p)
+        )
     )
 
     TestCase(
       "Deterministic allocation",
       UnsatStep(
         AddressSort.all(x => isAlloc(h, x) <=> isAlloc(h1, x)),
-	// heapSize(h) === heapSize(h1),
+        // heapSize(h) === heapSize(h1),
         alloc(h, o) === ar,
         alloc(h1, o1) === ar1,
-        allocResAddr(ar) =/= allocResAddr(ar1)
-      )
+        alloc_second(ar) =/= alloc_second(ar1)
+        )
     )
 
     TestCase(
@@ -194,9 +194,9 @@ class HeapTests1 extends Properties("HeapTests1") {
       ),
       UnsatStep(
         AddressSort.all(x => (p === x | p1 === x) ==> valid(h, x)),
-        h1 === allocResHeap(alloc(h, o)),
-	      !valid(h1, p1)
-      )
+        h1 === alloc_first(alloc(h, o)),
+        !valid(h1, p1)
+        )
     )
 
     /** Test cases for facts about read/write */
@@ -220,10 +220,10 @@ class HeapTests1 extends Properties("HeapTests1") {
         ar === alloc(h, o)
       ),
       SatStep(
-        read(allocResHeap(ar), allocResAddr(ar)) === o
+        read(alloc_first(ar), alloc_second(ar)) === o
       ),
       UnsatStep(
-        read(allocResHeap(ar), allocResAddr(ar)) =/= o
+        read(alloc_first(ar), alloc_second(ar)) =/= o
       )
     )
 
@@ -231,13 +231,13 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Allocation does not modify any of the values on the old heap",
       CommonAssert(
         ar === alloc(h, o),
-        p =/= allocResAddr(ar)
+        p =/= alloc_second(ar)
       ),
       SatStep(
-        read(allocResHeap(ar), p) === read(h, p)
+        read(alloc_first(ar), p) === read(h, p)
       ),
       UnsatStep(
-        read(allocResHeap(ar), p) =/= read(h, p)
+        read(alloc_first(ar), p) =/= read(h, p)
       )
     )
 
@@ -245,9 +245,9 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Reading a newly allocated location returns the allocated value (v2)",
       CommonAssert(
         alloc(h, o) === ar,
-        h1 === allocResHeap(ar),
-        p === allocResAddr(ar)
-      ),
+        h1 === alloc_first(ar),
+        p === alloc_second(ar)
+        ),
       SatStep(
         read(h1, p) === o
       ),
@@ -302,12 +302,12 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "Allocating and dereferencing pointer to pointer.",
       CommonAssert(alloc(emptyHeap(), wrappedInt(42)) === ar &
-                   p === allocResAddr(ar) & h === allocResHeap(ar)),
+                   p === alloc_second(ar) & h === alloc_first(ar)),
       CommonAssert(alloc(h, wrappedAddr(p)) === ar1 &
-                   p1 === allocResAddr(ar1) & h1 === allocResHeap(ar1)),
+                   p1 === alloc_second(ar1) & h1 === alloc_first(ar1)),
       SatStep(read(h, getAddr(read(h1,p1))) === wrappedInt(42)),
       UnsatStep(read(h, getAddr(read(h1,p1))) =/= wrappedInt(42))
-    )
+      )
 
   TestCase(
       "Extensionality over write",
@@ -366,19 +366,19 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "batchAlloc tests - 1",
-      CommonAssert(n > 0 & batchAlloc(emptyHeap(), o, n) === bar),
-      SatStep(rangeNth(batchAllocResAddr(bar), 0) =/= nullAddr()),
-      UnsatStep(rangeNth(batchAllocResAddr(bar), 0) === nullAddr()),
-      SatStep(rangeSize(batchAllocResAddr(bar)) === n),
-      UnsatStep(rangeSize(batchAllocResAddr(bar)) =/= n),
-      UnsatStep(rangeWithin(batchAllocResAddr(bar), nullAddr()))
+      CommonAssert(n > 0 & allocRange(emptyHeap(), o, n) === bar),
+      SatStep(rangeNth(allocRange_second(bar), 0) =/= nullAddr()),
+      UnsatStep(rangeNth(allocRange_second(bar), 0) === nullAddr()),
+      SatStep(rangeSize(allocRange_second(bar)) === n),
+      UnsatStep(rangeSize(allocRange_second(bar)) =/= n),
+      UnsatStep(rangeWithin(allocRange_second(bar), nullAddr()))
       )
 
     TestCase(
       "batchAlloc tests - 2",
       CommonAssert(
-        h1 === batchAllocResHeap(batchAlloc(h, wrappedInt(3), 10)) &
-        r === batchAllocResAddr(batchAlloc(h, wrappedInt(3), 10)) &
+        h1 === allocRange_first(allocRange(h, wrappedInt(3), 10)) &
+        r === allocRange_second(allocRange(h, wrappedInt(3), 10)) &
         write(h1, rangeNth(r, 3), wrappedInt(42)) === h2),
       SatStep(read(h2, rangeNth(r, 0)) === wrappedInt(3)),
       UnsatStep(read(h2, rangeNth(r, 0)) =/= wrappedInt(3)),
@@ -408,10 +408,10 @@ class HeapTests1 extends Properties("HeapTests1") {
         isAlloc(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
         ),
       SatStep(
-        read(batchWrite(h, r, o), p) === o
+        read(writeRange(h, r, o), p) === o
       ),
       UnsatStep(
-        read(batchWrite(h, r, o), p) =/= o
+        read(writeRange(h, r, o), p) =/= o
       )
     )
 
@@ -422,10 +422,10 @@ class HeapTests1 extends Properties("HeapTests1") {
         isAlloc(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
         ),
       SatStep(
-        read(batchWrite(h, r, o), p) === read(h, p)
+        read(writeRange(h, r, o), p) === read(h, p)
       ),
       UnsatStep(
-        read(batchWrite(h, r, o), p) =/= read(h, p)
+        read(writeRange(h, r, o), p) =/= read(h, p)
       )
     )
 
@@ -435,50 +435,50 @@ class HeapTests1 extends Properties("HeapTests1") {
       CommonAssert(
         rangeWithin(r, p) & !isAlloc(h, p)
         ),
-      SatStep(batchWrite(h, r, o) === h),
-      UnsatStep(batchWrite(h, r, o) =/= h),
+      SatStep(writeRange(h, r, o) === h),
+      UnsatStep(writeRange(h, r, o) =/= h),
 
       CommonAssert(h =/= emptyHeap()),
-      SatStep(batchWrite(h, r, o) === h & h =/= emptyHeap()),
-      UnsatStep(batchWrite(h, r, o) =/= h),
+      SatStep(writeRange(h, r, o) === h & h =/= emptyHeap()),
+      UnsatStep(writeRange(h, r, o) =/= h),
 
       CommonAssert(p =/= nullAddr()),
-      SatStep(batchWrite(h, r, o) === h),
-      UnsatStep(batchWrite(h, r, o) =/= h)
-    )
+      SatStep(writeRange(h, r, o) === h),
+      UnsatStep(writeRange(h, r, o) =/= h)
+      )
 
     TestCase(
       "Extensionality over batchWrite (exclude empty heaps)",
       CommonAssert(h =/= emptyHeap()),
-      SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
-      UnsatStep(batchWrite(h, r, o) =/=
-        batchWrite(batchWrite(h, r, o1), r, o))
-    )
+      SatStep(writeRange(h, r, o) === writeRange(writeRange(h, r, o1), r, o)),
+      UnsatStep(writeRange(h, r, o) =/=
+                writeRange(writeRange(h, r, o1), r, o))
+      )
 
     TestCase(
       "Extensionality over batchWrite (exclude empty heaps and empty address ranges)",
       CommonAssert(h =/= emptyHeap() & rangeSize(r) > 0),
-      SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
-      UnsatStep(batchWrite(h, r, o) =/=
-        batchWrite(batchWrite(h, r, o1), r, o))
+      SatStep(writeRange(h, r, o) === writeRange(writeRange(h, r, o1), r, o)),
+      UnsatStep(writeRange(h, r, o) =/=
+                writeRange(writeRange(h, r, o1), r, o))
       )
 
     TestCase(
       "Extensionality over batchWrite (only valid writes)",
       CommonAssert(rangeSize(r) > 0 & p === rangeNth(r, rangeSize(r) - 1)),
-      SatStep(batchWrite(h, r, o) === batchWrite(batchWrite(h, r, o1), r, o)),
-      UnsatStep(batchWrite(h, r, o) =/=
-        batchWrite(batchWrite(h, r, o1), r, o))
+      SatStep(writeRange(h, r, o) === writeRange(writeRange(h, r, o1), r, o)),
+      UnsatStep(writeRange(h, r, o) =/=
+                writeRange(writeRange(h, r, o1), r, o))
       )
 
     TestCase(
       "Behaviour of nextAddr",
-      SatStep((h === emptyHeap()) ==> (nextAddr(h, 41) === nthAddr(42))),
+      SatStep((h === emptyHeap()) ==> (nextAddr(h, 41) === addr(42))),
       UnsatStep(isAlloc(h, nextAddr(h, 0))),
       SatStep(isAlloc(h, nextAddr(h, -1))),
-      UnsatStep(allocResAddr(alloc(h, o)) =/= nextAddr(h, 0)),
+      UnsatStep(alloc_second(alloc(h, o)) =/= nextAddr(h, 0)),
       SatStep(!isAlloc(h, nextAddr(h, -10)) & isAlloc(h, nextAddr(h, -9)))
-    )
+      )
 
   }}
 

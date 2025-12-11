@@ -56,7 +56,7 @@ object Heap {
   /**
    * Reference to the num'th heap ADT sort.
    */
-  case class ADTSort(num : Int)       extends CtorArgSort
+  case class ADTSort(num : Int)     extends CtorArgSort
 
   /**
    * Reference to some externally defined sort.
@@ -72,7 +72,7 @@ object Heap {
    * Reference to the address range sort that is specific to the heap to be
    * declared.
    */
-  case object RangeSort             extends CtorArgSort
+  case object AddrRangeSort         extends CtorArgSort
 
   /**
    * Specification of a heap ADT constructor.
@@ -111,8 +111,8 @@ object Heap {
     heapSorts.put(t.HeapSort,          t)
     heapSorts.put(t.AddressSort,       t)
     heapSorts.put(t.RangeSort, t)
-    heapSorts.put(t.AllocResSort,      t)
-    heapSorts.put(t.BatchAllocResSort, t)
+    heapSorts.put(t.HeapAddressPairSort, t)
+    heapSorts.put(t.HeapRangePairSort, t)
 
     for (s <- t.userHeapSorts)
       heapSorts.put(s, t)
@@ -184,12 +184,12 @@ trait Heap extends Theory with SMTLinearisableTheory {
   /**
    * Result sort of the allocation function.
    */
-  val AllocResSort : Sort
+  val HeapAddressPairSort : Sort
 
   /**
-   * Result sort of the batch allocation function.
+   * Result sort of the range allocation function.
    */
-  val BatchAllocResSort : Sort
+  val HeapRangePairSort : Sort
 
   /**
    * Sorts declared as part of the heap ADT.
@@ -232,63 +232,63 @@ trait Heap extends Theory with SMTLinearisableTheory {
   /**
    * Constant representing empty heaps.
    */
-  val emptyHeap : IFunction             //  -> Heap
+  val emptyHeap : IFunction          //  -> Heap
 
   /**
    * Constant representing the null address.
    */
-  val nullAddr : IFunction              //  -> Address
+  val nullAddr : IFunction           //  -> Address
 
   /**
    * Function to allocate new objects on the heap.
    */
-  val alloc : IFunction                 // Heap x Object -> AllocRes
+  val alloc : IFunction              // Heap x Object -> HeapAddressPairSort
 
   /**
    * Function to obtain the new heap after allocation.
    */
-  val allocResHeap : IFunction          // AllocRes -> Heap
+  val alloc_first : IFunction       // HeapAddressPairSort -> Heap
 
   /**
    * Function to obtain the new address after allocation.
    */
-  val allocResAddr : IFunction          // AllocRes -> Address
+  val alloc_second : IFunction       // HeapAddressPairSort -> Address
 
   /**
    * Function to allocate a sequence of objects on the heap.
    */
-  val batchAlloc : IFunction            // Heap x Object x Int -> BatchAllocRes
+  val allocRange : IFunction         // Heap x Object x Int -> HeapRangePairSort
 
   /**
-   * Function to obtain the new heap after batch allocation.
+   * Function to obtain the new heap after range allocation.
    */
-  val batchAllocResHeap : IFunction     // BatchAllocRes -> Heap
+  val allocRange_first : IFunction   // HeapRangePairSort -> Heap
 
   /**
-   * Function to obtain the new address range after batch allocation.
+   * Function to obtain the new address range after range allocation.
    */
-  val batchAllocResAddr : IFunction     // BatchAllocRes -> Range
+  val allocRange_second : IFunction  // HeapRangePairSort -> Range
 
   /**
    * Function to read from the heap.
    */
-  val read : IFunction                  // Heap x Address -> Object
+  val read : IFunction               // Heap x Address -> Object
 
   /**
    * Function to write to the heap.
    */
-  val write : IFunction                 // Heap x Address x Object -> Heap
+  val write : IFunction              // Heap x Address x Object -> Heap
 
   /**
    * Function to overwrite objects within an address range.
    */
-  val batchWrite : IFunction            // Heap x Range x Object -> Heap
+  val writeRange : IFunction         // Heap x Range x Object -> Heap
 
   /**
    * Predicate to test whether an address is valid (allocated and non-null)
    * in a given heap.
    */
-  val valid : Predicate                 // Heap x Address -> Bool
+  val valid : Predicate              // Heap x Address -> Bool
 
   /**
    * Predicate to test whether an address is valid (allocated and non-null)
@@ -298,12 +298,12 @@ trait Heap extends Theory with SMTLinearisableTheory {
 
   /**
    * A function to enumerate the addresses that can be used on this heap.
-   * <code>nthAddr(1)</code> is the address returned by the first call to
-   * <code>alloc</code>, <code>nthAddr(2)</code> the second address, etc.
+   * <code>addr(1)</code> is the address returned by the first call to
+   * <code>alloc</code>, <code>addr(2)</code> the second address, etc.
    * Applying the function to zero or to negative values should be treated
    * as a synonym for <code>nullAddr</code>.
    */
-  val nthAddr : IFunction               // Nat1 -> Address
+  val addr : IFunction               // Nat1 -> Address
 
   /**
    * A function to enumerate the next addresses that will be returned by
@@ -316,36 +316,36 @@ trait Heap extends Theory with SMTLinearisableTheory {
    * etc. Since a heap only has finitely many allocated addresses,
    * for two small <code>n</code>, the result of <code>nextAddr(h, n)</code>
    * is <code>nullAddr</code>.
-   * 
-   * <code>nthAddr(k)</code> is a synonym for
+   *
+   * <code>addr(k)</code> is a synonym for
    * <code>nextAddr(emptyHeap, k - 1)</code>.
    */
-  val nextAddr : IFunction              // Heap x Int -> Address
+  val nextAddr : IFunction           // Heap x Int -> Address
 
   /**
    * A function to enumerate range of the addresses that can be used on this
-   * heap. <code>nthRange(1, n)</code> is a range of addresses starting
-   * at the address <code>nthAddr(1)</code> of size <code>n</code>. Applying
+   * heap. <code>range(1, n)</code> is a range of addresses starting
+   * at the address <code>addr(1)</code> of size <code>n</code>. Applying
    * the function to a start address that is not positive or size that is not
    * non-negative should be interpreted as an empty address range.
    */
-  val nthRange : IFunction               // Nat1 x Nat -> Range
+  val range : IFunction           // Nat1 x Nat -> Range
 
   /**
    * Function to obtain the n'th address in an address range. Accessing
    * addresses outside of the range will return <code>nullAddr</code>.
    */
-  val rangeNth : IFunction               // Range x Int -> Address
+  val rangeNth : IFunction           // Range x Int -> Address
 
   /**
    * Function to obtain the number of addresses in an address range.
    */
-  val rangeSize : IFunction              // Range -> Nat
+  val rangeSize : IFunction          // Range -> Nat
 
   /**
    * Predicate to test whether an address belongs to an address range.
    */
-  val rangeWithin : Predicate           // Range x Address -> Bool
+  val rangeWithin : Predicate        // Range x Address -> Bool
 
   /**
    * The object stored on the heap at not yet allocated locations.
@@ -365,20 +365,20 @@ trait Heap extends Theory with SMTLinearisableTheory {
 
   override def printSMTDeclaration : Unit = {
     import SMTLineariser.{asString, quoteIdentifier}
-
+    val declSorts = List(HeapSort, AddressSort, RangeSort, ObjectSort)
     print("(declare-heap ")
-    println(HeapSort.name + " " + AddressSort.name + " " +
-            RangeSort.name + " " + ObjectSort.name)
+    println(declSorts.map(sort => quoteIdentifier(sort.name)).mkString(" "))
     println(" " ++ asString(defaultObject))
     print(" (")
     print((for(s <- userHeapSorts)
       yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
     println(") (")
-    for (_ <- userHeapSorts) {
+    val sortCtorMap = userHeapConstructors.zipWithIndex.groupBy(_._1.resSort)
+    for (sort <- userHeapSorts) {
       println("  (")
-      for ((f, sels) <- userHeapConstructors zip userHeapSelectors) {
+      for ((ctor, ctorInd) <- sortCtorMap(sort)) {
         print(" ")
-        ADT.printSMTCtorDeclaration(f, sels)
+        ADT.printSMTCtorDeclaration(ctor, userHeapSelectors(ctorInd))
       }
       println("  )")
     }
