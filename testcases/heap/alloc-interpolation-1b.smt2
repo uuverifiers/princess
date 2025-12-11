@@ -2,7 +2,7 @@
 
 (set-option :produce-interpolants true)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  (AnInt 0)
  ((HeapObject 0)) (
   (
@@ -19,13 +19,13 @@
 (declare-const a3 addr)
 (declare-const x Int)
 
-(assert (valid h a))
-(assert (= (read h a) (ABool true)))
-(assert (and (= h2 (newheap (alloc h (AnInt 10))))
-             (= a2 (newaddr (alloc h (AnInt 10))))))
-(assert (not (getBool (read h2 a))))
-(assert (and (= h3 (newheap (alloc h2 (AnInt 42))))
-             (= a3 (newaddr (alloc h2 (AnInt 42))))))
-(assert (< (getInt (read h3 a2)) 100))
+(assert (heap.valid h a))
+(assert (= (heap.read h a) (ABool true)))
+(assert (and (= h2 (heap.alloc_first (heap.alloc h (AnInt 10))))
+             (= a2 (heap.alloc_second (heap.alloc h (AnInt 10))))))
+(assert (not (getBool (heap.read h2 a))))
+(assert (and (= h3 (heap.alloc_first (heap.alloc h2 (AnInt 42))))
+             (= a3 (heap.alloc_second (heap.alloc h2 (AnInt 42))))))
+(assert (< (getInt (heap.read h3 a2)) 100))
 
 (check-sat)

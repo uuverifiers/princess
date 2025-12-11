@@ -197,10 +197,10 @@ class ArrayHeap(heapSortName      : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val OSo     = ObjectSort
-  private val HSo     = HeapSort
-  private val ASo     = AddressSort
-  private val ARSo    = RangeSort
+  private val OSo  = ObjectSort
+  private val HSo  = HeapSort
+  private val ASo  = AddressSort
+  private val ARSo = RangeSort
 
   val emptyHeap =
     new MonoSortedIFunction(Heap.Names.Empty, List(), HSo, true, false)

@@ -757,16 +757,25 @@ object SMTLineariser {
         Some(("_size", ""))
       case Some(t : ADT)
         if t != ADT.BoolADT && (t.constructors contains fun) => {
-          val monoFun = fun.asInstanceOf[MonoSortedIFunction]
-          if (!(monoFun.argSorts contains monoFun.resSort) &&
-                (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
+        val monoFun = fun.asInstanceOf[MonoSortedIFunction]
+        monoFun match {
+          case theories.Heap.HeapRelatedFunction(heap)
+            // The following are functions in ArrayHeap overloaded by resSort
+            if Set(heap.addr, heap.nullAddr, heap.range) contains monoFun =>
             Some(("(as " + quoteIdentifier(fun.name) + " " +
+                  sort2SMTString(monoFun.resSort) +
+                  ")", ""))
+          case _ =>
+            if (!(monoFun.argSorts contains monoFun.resSort) &&
+                (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
+              Some(("(as " + quoteIdentifier(fun.name) + " " +
                     sort2SMTString(monoFun.resSort) +
                     ")", ""))
-          } else {
-            None
-          }
+            } else {
+              None
+            }
         }
+      }
       case Some(Rationals) => fun match {
         case Rationals.frac           => Some(("/", ""))
         case Rationals.fromRing       => Some(("/", "1"))

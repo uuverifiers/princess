@@ -150,6 +150,8 @@ object Heap {
     val RangeStart   = "heap.rangeStart"
     val RangeWithin  = "heap.rangeWithin"
 
+    val Size         = "heap.size"
+
     def Pair(first : String, second : String) = first + second + "Pair"
   }
 

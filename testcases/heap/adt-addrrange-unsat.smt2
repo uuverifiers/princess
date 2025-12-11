@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -9,19 +9,19 @@
    (defObj)
   )
   (
-   (simple (range AddrRange))
+   (simple (heap.range Range))
   )
 ))
 
 (declare-const h1 Heap)
 (declare-const h2 Heap)
 (declare-const a Addr)
-(declare-const ar AddrRange)
+(declare-const ar Range)
 
-(assert (= h1 (newBatchHeap (batchAlloc emptyHeap (WrappedInt 1) 3))))
-(assert (= ar (newAddrRange (batchAlloc emptyHeap (WrappedInt 1) 3))))
-(assert (= h2 (newHeap (alloc h1 (Wrappedsimple (simple ar))))))
-(assert (= a  (newAddr (alloc h1 (Wrappedsimple (simple ar))))))
-(assert (not (= (WrappedInt 1) (read h2 (addressRangeNth (range (getsimple (read h2 a))) 0)))))
+(assert (= h1 (heap.allocRange_first (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
+(assert (= ar (heap.allocRange_second (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
+(assert (= h2 (heap.alloc_first (heap.alloc h1 (Wrappedsimple (simple ar))))))
+(assert (= a  (heap.alloc_second (heap.alloc h1 (Wrappedsimple (simple ar))))))
+(assert (not (= (WrappedInt 1) (heap.read h2 (heap.rangeNth (heap.range (getsimple (heap.read h2 a))) 0)))))
 
 (check-sat) ; should be unsat

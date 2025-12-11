@@ -656,7 +656,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
   }
 
   val heapSize =
-    new MonoSortedIFunction("size", List(HeapSort), Sort.Nat, false, false)
+    new MonoSortedIFunction(Heap.Names.Size, List(HeapSort), Sort.Nat,
+                            false, false)
 
   val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
                        nullAddr, heapSize, addr, nextAddr, range,
