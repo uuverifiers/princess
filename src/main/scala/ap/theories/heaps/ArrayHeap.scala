@@ -134,7 +134,7 @@ class ArrayHeap(heapSortName      : String,
             ADT.CtorSignature(List((addressSortName + "_ord", ONat1)), // TODO: change name?
                               ADT.ADTSort(addressSortId))),
            (Heap.Names.Range,
-            ADT.CtorSignature(List((Heap.Names.RangeStart, ONat1),
+            ADT.CtorSignature(List(("heap.rangeStart", ONat1),
                                    (Heap.Names.RangeSize, ONat)),
                               ADT.ADTSort(rangeSortId))))
 

@@ -405,7 +405,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
 
   /** Create range ADT returned by batchAlloc: start x size */
   private val rangeCtorSignature = ADT.CtorSignature(
-    List((Heap.Names.RangeStart, ADT.OtherSort(AddressSort)),
+    List(("heap.rangeStart", ADT.OtherSort(AddressSort)),
          (Heap.Names.RangeSize, ADT.OtherSort(Sort.Nat))),
     ADT.ADTSort(rangeSortId))
   /** Create return sort of batchAlloc as an ADT: Heap x Range */
@@ -663,7 +663,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
   }
 
   val heapSize =
-    new MonoSortedIFunction(Heap.Names.Size, List(HeapSort), Sort.Nat,
+    new MonoSortedIFunction("heap.size", List(HeapSort), Sort.Nat,
                             false, false)
 
   val functions = List(emptyHeap, alloc, allocHeap, allocAddr, read, write,
