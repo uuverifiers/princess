@@ -139,13 +139,20 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       /* Collect the relevant functions and predicates of the theory */
       val writeAtoms = getAtoms(write)
       val allocAtoms = getAtoms(allocHeap)
-      val allocRangeAtoms = getAtoms(batchAllocHeap)
+      val allAllocRangeAtoms = getAtoms(batchAllocHeap)
+      val allocRangeAtoms = allAllocRangeAtoms.filter(
+        p => p(2).constant.intValue != 0) // allocRange with size 0 is empty
+      val emptyAllocRangeAtoms = allAllocRangeAtoms diff allocRangeAtoms
       val writeRangeAtoms = getAtoms(writeRange)
       val rangeStartAtoms = getHeapADTAtoms(rangeStart)
       val rangeSizeAtoms = getHeapADTAtoms(rangeSize)
       val readAtoms = getAtoms(read)
       val heapSizeAtoms = getAtoms(heapSize)
-      val emptyHeapAtoms = getAtoms(emptyHeap)
+      val emptyHeapAtoms =
+        getAtoms(emptyHeap) ++
+        emptyAllocRangeAtoms.map( // p(3) is the new heap id for this batchAlloc
+          p => ap.terfor.preds.Atom(heapFunPredMap(emptyHeap), List(p(3)),
+                                    p.order))
 
       import IExpression.{i, toFunApplier}
 
