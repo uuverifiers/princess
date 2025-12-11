@@ -906,7 +906,6 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         import goal.facts.predConj.positiveLitsWithPred
         val heapSizeLits = positiveLitsWithPred(heapFunPredMap(heapSize))
 
-        //println(goal.facts + "\n")
         import ap.terfor.TerForConvenience._
         import ap.terfor.linearcombination.{LinearCombination => LC}
         import ap.terfor.Term
@@ -920,15 +919,10 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
              heapSizeLits.indexWhere(a => a.head.head._2 == rhs))
 
           if(lhsHeapSizeInd >= 0 && rhsHeapSizeInd >= 0){
-            //println(Console.GREEN_B + "Both heapSize literals found for " + lhs + " and " + rhs  + Console.RESET)
             val lhsHeapSizeTerm : LC = heapSizeLits(lhsHeapSizeInd).last
             val rhsHeapSizeTerm : LC = heapSizeLits(rhsHeapSizeInd).last
             neqTermArr += ((neq, (lhs, rhs, lhsHeapSizeTerm, rhsHeapSizeTerm)))
           }
-          /*else if (lhsHeapSizeInd + rhsHeapSizeInd > -2) /* at least one found*/
-          {
-            println(Console.YELLOW_B + "Only one heapSize literal found for " + lhs + " and " + rhs + Console.RESET)
-          } else println(Console.RED_B + "No heapSize literals found for " + lhs + " nor " + rhs  + Console.RESET)*/
         }
 
         implicit val to = goal.order
@@ -990,10 +984,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
       case IAtom(`isAlloc`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to false")
         IBoolLit(false)
       case IAtom(`isAlloc`, _) =>
-        //println("Simplified " + t + " to " + _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm]))
         _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm])
       case IFunApp(`nullAddr`, _) =>
         i(0)
@@ -1008,37 +1000,25 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         rangeCtor(subres(0).asInstanceOf[ITerm],
                          subres(1).asInstanceOf[ITerm])
       case IFunApp(`write`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to " + subres(0))
         subres(0)
       case IFunApp(`write`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + emptyHeap())
         emptyHeap()
       case IFunApp(`read`, _) if subres(1) == i(0) =>
-        //println("Simplified " + t + " to " + defaultObject)
         defaultObject
       case IFunApp(`read`, _) if isFunAndMatches(subres(0), emptyHeap)   =>
-        //println("Simplified " + t + " to " + defaultObject)
         defaultObject
       case IFunApp(`heapSize`, _) if isFunAndMatches(subres(0), emptyHeap) =>
-        //println("Simplified " + t + " to " + 0)
         i(0)
       case IFunApp(`alloc_first`, _) if isFunAndMatches(subres(0), alloc)    =>
         val Seq(h, o) = subres(0).asInstanceOf[IFunApp].args
-        //println("Simplified " + t + " to " + allocHeap(h, o))
         allocHeap(h, o)
       case IFunApp(`alloc_second`, _) if isFunAndMatches(subres(0), alloc) =>
         val Seq(h, _) = subres(0).asInstanceOf[IFunApp].args
-        //println("Simplified " + t + " to " + heapSize(h) + 1)
         heapSize(h) + 1
       case IFunApp(`alloc`, _) =>
         val h = subres(0).asInstanceOf[ITerm]
         val o = subres(1).asInstanceOf[ITerm]
         heapAddressPairCtor(allocHeap(h, o), heapSize(h) + 1)
-      /*case IFunApp(`allocHeap`, _) =>
-        val h = subres(0).asInstanceOf[ITerm]
-        val o = subres(1).asInstanceOf[ITerm]
-        HeapSort.eps(h2 => h2 === shiftVars(allocHeap(h, o), 1) &
-                           heapSize(h2) === shiftVars(heapSize(h) + 1, 1))*/
       case IFunApp(`allocRange`, _) =>
         val Seq(h, o, n) = subres.take(3).map(_.asInstanceOf[ITerm])
         val rangeStartTerm = n match {
@@ -1053,7 +1033,6 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         batchAllocHeap(h, o, n)
       case IFunApp(`allocRange_second`, _) if isFunAndMatches(subres(0), allocRange)     =>
         val Seq(h, _, n) = subres(0).asInstanceOf[IFunApp].args
-        //batchAllocRange(ite(n > 0, heapSize(h)+1, heapSize(h)), n)
         val rangeStartTerm = n match {
           case IIntLit(IdealInt(i)) if i > 0 => heapSize(h) + 1
           case _ => ite(n > 0, heapSize(h) + 1, heapSize(h))
@@ -1079,9 +1058,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
           case _ =>
             ite(n >= 0 & n < rangeSize(r), rangeStart(r) + n, 0)
         }
-        //rangeStart(r) + n
 
-      case IFunApp(`allocAddr`, _) => //allocAddr(h,_) -> heapSize(h) + 1
+      case IFunApp(`allocAddr`, _) =>
         heapSize(subres(0).asInstanceOf[ITerm]) + 1
       case IFunApp(`deAlloc`, _) =>
         val h1 = subres(0).asInstanceOf[ITerm]
@@ -1089,9 +1067,6 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
           shiftVars(h1, 2) === allocHeap(h2, shiftVars(o,2))))
         newt
       case t =>
-        /*println(Console.YELLOW_B + t + Console.GREEN_B + " " +
-                t.getClass + Console.RESET)
-        println(Console.BLUE_B + subres + Console.RESET)*/
         t update subres
     }
   }
@@ -1165,14 +1140,13 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
   override def toString = "HeapTheory"
 
   import IBinJunctor._
-  import IIntRelation._
   import IExpression._
   import Quantifier._
 
   def rewriter(expr : IExpression) : IExpression = expr match {
     // add other cases
     case f@IQuantified(EX, subf) =>
-      if (f.asInstanceOf[IQuantified].sort == HeapSort) {
+      if (f.sort == HeapSort) {
         val h1 = ISortedVariable(0, HeapSort)
         subf match {
           case IBinFormula(`And`,
@@ -1209,7 +1183,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
           true
         case _ =>
           false
-      }) => //println("simplified: " + f + " as " + "true")
+      }) =>
       IBoolLit(true)
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
@@ -1218,7 +1192,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         case Eq(obj, IFunApp(`read`, Seq(IVariable(0), _*)))
           if !obj.isInstanceOf[IFunApp] => true
         case _  => false
-      }) => //println("Rewrote: " + f + " as " + "false")
+      }) =>
       IBoolLit(false)
     case f@IQuantified(ALL, subf) if f.sort == HeapSort &
       (subf match {
@@ -1227,139 +1201,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         case INot(Eq(obj, IFunApp(`read`, Seq(IVariable(0), _*))))
           if !obj.isInstanceOf[IFunApp] => true
         case _  => false
-      }) => //println("Rewrote: " + f + " as " + "true")
+      }) =>
       IBoolLit(true)
-/*
-    // todo: probably unnecessary, remove?
-    case f@IEquation(left, right) if left == right => // a == a => true
-      //println("Rewrote: " + f + " as " + "true")
-      IBoolLit(true)
-
-    //todo: probabably unnecessary, remove?
-    case f@IEquation(f1, IPlus(IIntLit(IdealInt(-1)), // a == -1 + a + 1 => true
-                 IPlus(f2, IIntLit(IdealInt(1))))) if f1 == f2 =>
-      //println("Rewrote: " + f + " as " + "true")
-      IBoolLit(true)
-/*
-    // todo: this one is probably unnecessary: rewrites "!ex o. read(_) = o & is-T(o)" as "!is-T(read(_))"
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       Eq(IFunApp(`read`, readArgs), IVariable(0)),
-                       Eq(IFunApp(f, Seq(IVariable(0))), objId)))) if
-        ObjectADT.ctorIds.contains(f) =>
-      println("Rewrote: " + eq + " as " + (IFunApp(f, Seq(IFunApp(read, readArgs))) =/= objId))
-      shiftVars(IFunApp(f, Seq(IFunApp(read, readArgs))) =/= objId, 1, -1)
-
-    // todo: this one is probably unnecessary: rewrites "!ex o. read(_) = o & !is-T(o)" as "is-T(read(_))"
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       Eq(IFunApp(`read`, readArgs), IVariable(0)),
-                       INot(Eq(IFunApp(f, Seq(IVariable(0))), objId))))) if
-        ObjectADT.ctorIds.contains(f) =>
-      println("Rewrote: " + eq + " as " + (IFunApp(f, Seq(IFunApp(read, readArgs))) === objId))
-      shiftVars(IFunApp(f, Seq(IFunApp(read, readArgs))) === objId, 1, -1))*/
-
-    // ALL HeapObject. !(!(_0[HeapObject] = o1) & (o2 = _0[HeapObject]))
-    /*case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(IBinFormula(And,
-                       INot(Eq(IVariable(0), o1)),
-                       Eq(o2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(o1 === o2, 1, -1))
-      shiftVars(o1 === o2, 1, -1)*/
-
-    case eq@IQuantified(ALL,
-      INot(IBinFormula(And,
-                       Eq(IVariable(0), v1),
-                       Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-      INot(IBinFormula(And,
-                       Eq(v1, IVariable(0)),
-                       Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    Eq(IVariable(0), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IVariable(0), v1),
-    Eq(IVariable(0), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(v1 =/= v2, 1, -1))
-      shiftVars(v1 =/= v2, 1, -1)
-
-    // ALL x. ! ((v1 = x) & !(f(x) = v2)) --> f(v1) = v2
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    INot(Eq(IFunApp(f, Seq(IVariable(0))), v2))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) === v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) === v2, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    Eq(IFunApp(f, Seq(IVariable(0))), v2)))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IFunApp(`read`, Seq(h, IVariable(0))), v1),
-    Eq(v2, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(read, Seq(h, v2)) =/= v1, 1, -1))
-      shiftVars(IFunApp(read, Seq(h, v2)) =/= v1, 1, -1)
-
-    case eq@IQuantified(ALL,
-    INot(IBinFormula(And,
-    Eq(IFunApp(f, Seq(IVariable(0))), v2),
-    Eq(v1, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1))
-      shiftVars(IFunApp(f, Seq(v1)) =/= v2, 1, -1)
-
-    // ALL HeapObject. !ALL HeapObject. !(!(_0[HeapObject] = _1[HeapObject]) & (defObj = _0[HeapObject]))
-    case eq@ISortedQuantified(ALL, ObjectSort,
-      INot(ISortedQuantified(ALL, ObjectSort,
-        INot(IBinFormula(And, INot(IEquation(IVariable(0), IVariable(1))), IEquation(o, IVariable(0))))))) =>
-      println("Rewrote: " + eq + " as false")
-      false
-
-    // ALL !(((_0 + -1) >= 0) & (next(_1[node]) = _0))
-    case eq@IQuantified(ALL, INot(IBinFormula(And, GeqZ(IPlus(IVariable(0), plusVal)), Eq(v, IVariable(0))))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(INot(GeqZ(IPlus(v, plusVal))), 1, -1))
-      shiftVars(INot(GeqZ(IPlus(v, plusVal))), 1, -1)
-
-    /*
-      ALL HeapObject.!((v1 = _0[HeapObject]) & !ALL node. !((next(_0[node]) = v2) &(getnode(_1[HeapObject]) = _0[node])))
-        to
-      next(getnode(v1)) =/= v2
-   */
-    case eq@IQuantified(ALL, INot(IBinFormula(And,
-    Eq(v1, IVariable(0)),
-    INot(IQuantified(ALL, INot(IBinFormula(And, Eq(IFunApp(f1, Seq(IVariable(0))), v2), Eq(IFunApp(f2, Seq(IVariable(1))), IVariable(0))))))
-    ))) =>
-      println("Rewrote: " + eq + " as " + shiftVars(IFunApp(f1,Seq(IFunApp(f2, Seq(v1)))) =/= v2, 2, -2))
-      shiftVars(IFunApp(f1,Seq(IFunApp(f2, Seq(v1)))) =/= v2, 2, -2)
-
-    case eq@IQuantified(_, subf) =>
-      println("unhandled: " + eq)
-      eq
-*/
-    /*case IQuantified(ALL, f) =>
-      println(expr); expr*/
-    /*case Eq(IFunApp(`heapSize`, Seq(h)), IIntLit(IdealInt(0))) =>
-      println("Simplified: " + expr + " to " + (h === emptyHeap()))
-      h === emptyHeap()*/
-    /*case IFunApp(`read`, Seq(_, IIntLit(IdealInt(0)))) =>
-      println("Rewrote: " + expr + " to " + defaultObject)
-      defaultObject*/
-    /*case Eq(`defaultObject`, IFunApp(`read`, Seq(h, p))) =>
-      println("Simplified: " + expr + " to " + !_isAlloc(h, p))
-      !_isAlloc(h, p) */
     case _ => expr
   }
 
