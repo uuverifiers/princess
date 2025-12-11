@@ -227,7 +227,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     timeoutPer = timeout min _timeoutPer
 
     val l = new Yylex(new SMTCommandTerminator (input))
-    val p = new parser(l) {
+    val p = new parser(l, l.getSymbolFactory) {
       override def commandHook(cmd : Command) : Boolean = {
         try {
           apply(cmd)

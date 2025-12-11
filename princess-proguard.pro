@@ -8,7 +8,7 @@
 # Specify the input jars, output jars, and library jars.
 
 -injars dist/princess.jar
--injars dist/java-cup-11a.jar
+-injars dist/java-cup-11b.jar
 -injars dist/parser.jar
 -injars dist/smt-parser.jar
 -injars dist/scala-library.jar(!META-INF/**)
