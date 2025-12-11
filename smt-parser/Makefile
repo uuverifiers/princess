@@ -3,8 +3,8 @@ JAVAC_FLAGS=-sourcepath .
 JAVA=java
 JAVA_FLAGS=
 PARSER=${JAVA} ${JAVA_FLAGS} java_cup.Main
-PARSER_FLAGS=-expect 100
-LEXER=${JAVA} ${JAVA_FLAGS} JLex.Main
+PARSER_FLAGS= -locations -expect 100
+LEXER=${JAVA} ${JAVA_FLAGS} jflex.Main
 LEXER_FLAGS=
 
 PARSER_BASEDIR=$(shell pwd)
@@ -15,7 +15,7 @@ smt-parser.jar: test ap/parser/smtlib/PrettyPrinterNonStatic.class
 	jar cf $(PARSER_BASEDIR)/smt-parser.jar ap/parser/smtlib/*.class ap/parser/smtlib/Absyn/*.class
 
 ap/parser/smtlib/_cup.cup: smtlib.cf
-	bnfc -java -p ap.parser smtlib.cf
+	bnfc -p ap.parser smtlib.cf --java --jflex -l
 	cd ap/parser/smtlib && patch -p0 <../../../smtlib.cup.patch
 
 test : absyn ap/parser/smtlib/Yylex.class ap/parser/smtlib/PrettyPrinter.class ap/parser/smtlib/Test.class ap/parser/smtlib/ComposVisitor.class ap/parser/smtlib/AbstractVisitor.class ap/parser/smtlib/FoldVisitor.class ap/parser/smtlib/AllVisitor.class ap/parser/smtlib/parser.class ap/parser/smtlib/sym.class ap/parser/smtlib/Test.class

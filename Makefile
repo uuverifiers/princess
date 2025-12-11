@@ -1,12 +1,12 @@
 
 
 BASEDIR:=$(shell pwd)
-EXTLIBSDIR:=$(BASEDIR)/extlibs
 
-JLEX_PATH:=/usr/share/java/JLex.jar
+# tested with bnfc 2.9.6.1 + JFlex 1.9.1
+JFLEX_PATH:=/usr/share/java/JFLex.jar
 CUP_PATH:=/usr/share/java/java-cup-11b.jar
 
-CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(JLEX_PATH):$(CUP_PATH)
+CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(JFLEX_PATH):$(CUP_PATH)
 
 SCALAC:=scalac
 SCALAC_OPTIONS:=-optimise \
@@ -30,7 +30,7 @@ SCALALIBDIR:=$(SCALABASEDIR)/lib
 PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
 
 
-export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JAVA_OPTS
+export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JAVA_OPTS JFLEX_PATH CUP_PATH
 
 
 all: scala-src

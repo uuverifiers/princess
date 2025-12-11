@@ -1,9 +1,9 @@
 
 
 CUP = java_cup.Main
-CUPFLAGS = -nopositions -expect 100
+CUPFLAGS = -locations -expect 100
 
-JLEX = JLex.Main
+JFLEX = jflex.Main
 
 LATEX = latex
 DVIPS = dvips
@@ -17,11 +17,11 @@ PARSER_BINDIR=$(PARSER_BASEDIR)/bin
 CLASSPATH:=$(CLASSPATH):$(PARSER_BASEDIR):$(JLEX_PATH)
 
 
-all: parser.jar ap/parser/ApInput/Test.class
+all: parser.jar ap/parser/ap_input/Test.class
 
 
-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/ap/parser/ApInput/Absyn/ApInput.class $(PARSER_BINDIR)/ap/parser/ApInput/sym.class $(PARSER_BINDIR)/ap/parser/ApInput/Yylex.class $(PARSER_BINDIR)/ap/parser/ApInput/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/ApInput/parser.class
-	cd $(PARSER_BINDIR) && jar cf $(PARSER_BASEDIR)/parser.jar ap/parser/ApInput
+parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/ap/parser/ap_input/Absyn/ApInput.class $(PARSER_BINDIR)/ap/parser/ap_input/sym.class $(PARSER_BINDIR)/ap/parser/ap_input/Yylex.class $(PARSER_BINDIR)/ap/parser/ap_input/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/ap_input/parser.class
+	cd $(PARSER_BINDIR) && jar cf $(PARSER_BASEDIR)/parser.jar ap/parser/ap_input
 
 
 $(PARSER_BINDIR):
@@ -36,35 +36,35 @@ clean:
 
 # just any of the files that is created by bnfc
 ApInput.tex: ApInput.cf
-	bnfc -java1.5 -p ap.parser ApInput.cf
+	bnfc -p ap.parser ApInput.cf --java --jflex -l
 
-$(PARSER_BINDIR)/ap/parser/ApInput/Absyn/ApInput.java: ApInput.cf
-	bnfc -java1.5 -p ap.parser ApInput.cf
+$(PARSER_BINDIR)/ap/parser/ap_input/Absyn/ApInput.java: ApInput.cf
+	bnfc -p ap.parser ApInput.cf --java --jflex -l
 
-$(PARSER_BINDIR)/ap/parser/ApInput/Absyn/ApInput.class: $(PARSER_BINDIR)/ap/parser/ApInput/Absyn/ApInput.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ApInput/Absyn/*.java
+$(PARSER_BINDIR)/ap/parser/ap_input/Absyn/ApInput.class: $(PARSER_BINDIR)/ap/parser/ap_input/Absyn/ApInput.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ap_input/Absyn/*.java
 
-ap/parser/ApInput/Yylex.java: ap/parser/ApInput/Yylex
-	${JAVA} ${JAVA_FLAGS} ${JLEX} ap/parser/ApInput/Yylex
+ap/parser/ap_input/Yylex.java: ap/parser/ap_input/Yylex
+	${JAVA} ${JAVA_FLAGS} ${JFLEX} ap/parser/ap_input/Yylex
 
-ap/parser/ApInput/sym.java ap/parser/ApInput/parser.java: ap/parser/ApInput/_cup.cup
-	${JAVA} ${JAVA_FLAGS} ${CUP} ${CUPFLAGS} ap/parser/ApInput/_cup.cup
-	mv sym.java parser.java ap/parser/ApInput/
+ap/parser/ap_input/sym.java ap/parser/ap_input/parser.java: ap/parser/ap_input/_cup.cup
+	${JAVA} ${JAVA_FLAGS} ${CUP} ${CUPFLAGS} ap/parser/ap_input/_cup.cup
+	mv sym.java parser.java ap/parser/ap_input/
 
-$(PARSER_BINDIR)/ap/parser/ApInput/Yylex.class: ap/parser/ApInput/Yylex.java ap/parser/ApInput/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ApInput/Yylex.java
+$(PARSER_BINDIR)/ap/parser/ap_input/Yylex.class: ap/parser/ap_input/Yylex.java ap/parser/ap_input/sym.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ap_input/Yylex.java
 
-$(PARSER_BINDIR)/ap/parser/ApInput/sym.class: ap/parser/ApInput/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ApInput/sym.java
+$(PARSER_BINDIR)/ap/parser/ap_input/sym.class: ap/parser/ap_input/sym.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ap_input/sym.java
 
-$(PARSER_BINDIR)/ap/parser/ApInput/parser.class: ap/parser/ApInput/parser.java ap/parser/ApInput/sym.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ApInput/parser.java
+$(PARSER_BINDIR)/ap/parser/ap_input/parser.class: ap/parser/ap_input/parser.java ap/parser/ap_input/sym.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ap_input/parser.java
 
-$(PARSER_BINDIR)/ap/parser/ApInput/PrettyPrinter.class: ap/parser/ApInput/PrettyPrinter.java
-	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ApInput/PrettyPrinter.java
+$(PARSER_BINDIR)/ap/parser/ap_input/PrettyPrinter.class: ap/parser/ap_input/PrettyPrinter.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) ap/parser/ap_input/PrettyPrinter.java
 
-ap/parser/ApInput/Test.class: ap/parser/ApInput/Test.java $(PARSER_BINDIR)/ap/parser/ApInput/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/ApInput/Yylex.class $(PARSER_BINDIR)/ap/parser/ApInput/parser.class $(PARSER_BINDIR)/ap/parser/ApInput/sym.class
-	${JAVAC} ${JAVAC_FLAGS} ap/parser/ApInput/Test.java
+ap/parser/ap_input/Test.class: ap/parser/ap_input/Test.java $(PARSER_BINDIR)/ap/parser/ap_input/PrettyPrinter.class $(PARSER_BINDIR)/ap/parser/ap_input/Yylex.class $(PARSER_BINDIR)/ap/parser/ap_input/parser.class $(PARSER_BINDIR)/ap/parser/ap_input/sym.class
+	${JAVAC} ${JAVAC_FLAGS} ap/parser/ap_input/Test.java
 
 ApInput.dvi: ApInput.tex
 	${LATEX} ApInput.tex
