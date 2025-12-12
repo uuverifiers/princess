@@ -89,9 +89,9 @@ unsat
 (
   true
   true
-  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (heap.heapAddrPair_1 var1 var0) h2)))))))
-  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (heap.heapAddrPair_1 var1 var0) h2)))))))
-  (and (<= 0 (+ (- 1) a2)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (heap.size (heap.heapAddrPair_1 var2 var1)) a2) (= (heap.heapAddrPair_1 (heap.heapAddrPair_1 var2 var1) var0) h3)) (and (= (getInt var1) 10) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (<= 0 (+ (- 1) a2)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (heap.size (allocHeap var2 var1)) a2) (= (allocHeap (allocHeap var2 var1) var0) h3)) (and (= (getInt var1) 10) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))
 )
 Loading alloc-interpolation-1b.smt2 ...
 Preprocessing ...
@@ -102,7 +102,7 @@ unsat
 (
   (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a)))
   (and (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a))) (getBool (heap.read h a)))
-  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 heap)) (and (= (heap.heapAddrPair_1 var1 var0) h2) (and (getBool (heap.read var1 a)) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))))))
+  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 heap)) (and (= (allocHeap var1 var0) h2) (and (getBool (heap.read var1 a)) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))))))
   false
   false
 )
@@ -115,8 +115,8 @@ unsat
 (
   (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a)))
   (and (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a))) (= (getInt2 (heap.read h a)) (- 10)))
-  (and (<= 0 (+ (- 1) a)) (and (<= 0 (+ (- 1) (+ (heap.size h2) (* (- 1) a)))) (exists ((var0 HeapObject) (var1 heap)) (and (and (= (heap.heapAddrPair_1 var1 var0) h2) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))) (= (getInt2 (heap.read var1 a)) (- 10))))))
-  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (heap.heapAddrPair_1 (heap.heapAddrPair_1 var2 var1) var0) h3) (not (= (+ (heap.size (heap.heapAddrPair_1 var2 var1)) (* (- 1) a)) (- 1)))) (and (not (= (+ (heap.size var2) (* (- 1) a)) (- 1))) (= (getInt2 (heap.read var2 a)) (- 10))))))
+  (and (<= 0 (+ (- 1) a)) (and (<= 0 (+ (- 1) (+ (heap.size h2) (* (- 1) a)))) (exists ((var0 HeapObject) (var1 heap)) (and (and (= (allocHeap var1 var0) h2) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))) (= (getInt2 (heap.read var1 a)) (- 10))))))
+  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (allocHeap (allocHeap var2 var1) var0) h3) (not (= (+ (heap.size (allocHeap var2 var1)) (* (- 1) a)) (- 1)))) (and (not (= (+ (heap.size var2) (* (- 1) a)) (- 1))) (= (getInt2 (heap.read var2 a)) (- 10))))))
 )
 Loading alloc-interpolation-3.smt2 ...
 Preprocessing ...
@@ -125,8 +125,8 @@ Found proof (size 219), simplifying (266), interpolating ...
 
 unsat
 (
-  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) x) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (heap.heapAddrPair_1 var1 var0) h2)))))))
-  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (= (+ (heap.size h3) (* (- 1) a2)) 1)) (exists ((var0 HeapObject)) (and (= (getInt var0) y) (exists ((var1 HeapObject) (var2 heap)) (and (and (= (heap.size (heap.heapAddrPair_1 var2 var1)) a2) (= (heap.heapAddrPair_1 (heap.heapAddrPair_1 var2 var1) var0) h3)) (and (= (getInt var1) x) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))))
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) x) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (= (+ (heap.size h3) (* (- 1) a2)) 1)) (exists ((var0 HeapObject)) (and (= (getInt var0) y) (exists ((var1 HeapObject) (var2 heap)) (and (and (= (heap.size (allocHeap var2 var1)) a2) (= (allocHeap (allocHeap var2 var1) var0) h3)) (and (= (getInt var1) x) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))))
   (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (and (= (+ (heap.size h4) (* (- 1) a2)) 1) (= (getInt (heap.read h4 a2)) x))) (= (+ (getInt (heap.read h4 (+ 1 a2))) y) 0))
   (and (= (+ (getInt (heap.read h5 a3)) y) 0) (= (+ (getInt (heap.read h5 a2)) x) 0))
 )
