@@ -96,8 +96,8 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
 
     measureTime("Allocation") {
       for (n <- 1 until N)
-        !! (as(n) === allocResAddr(alloc(hs(n-1), wrappedInt(n))) &
-            hs(n) === allocResHeap(alloc(hs(n-1), wrappedInt(n))))
+        !! (as(n) === heapAddrPair_2(alloc(hs(n - 1), wrappedInt(n))) &
+            hs(n) === heapAddrPair_1(alloc(hs(n - 1), wrappedInt(n))))
     }
 
     checkHeap(heap, pr, hs.last, as)
@@ -116,14 +116,14 @@ class ArrayHeapTests3 extends Properties("ArrayHeapTests3") {
 
     val h0 = createConstant("h0", HeapSort)
     val h = createConstant("h", HeapSort)
-    val ar = createConstant("ar", AddressRangeSort)
+    val ar = createConstant("ar", RangeSort)
 
     measureTime("Allocation") {
-      !! (h === batchAllocResHeap(batchAlloc(h0, wrappedInt(1), N + 1)))
-      !! (ar === batchAllocResAddr(batchAlloc(h0, wrappedInt(1), N + 1)))
+      !! (h  === heapRangePair_1(allocRange(h0, wrappedInt(1), N + 1)))
+      !! (ar === heapRangePair_2(allocRange(h0, wrappedInt(1), N + 1)))
     }
 
-    checkHeap(heap, pr, h, addressRangeNth(ar, _))
+    checkHeap(heap, pr, h, rangeNth(ar, _))
 
     true
   }}

@@ -37,6 +37,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
+import ap.theories.heaps._
 import ap.theories.strings.StringTheory
 import ap.theories.rationals.Rationals
 import ap.theories.bitvectors.ModPostprocessor
@@ -757,16 +758,25 @@ object SMTLineariser {
         Some(("_size", ""))
       case Some(t : ADT)
         if t != ADT.BoolADT && (t.constructors contains fun) => {
-          val monoFun = fun.asInstanceOf[MonoSortedIFunction]
-          if (!(monoFun.argSorts contains monoFun.resSort) &&
-                (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
+        val monoFun = fun.asInstanceOf[MonoSortedIFunction]
+        monoFun match {
+          case theories.Heap.HeapRelatedFunction(heap)
+            // The following are functions in ArrayHeap overloaded by resSort
+            if Set(heap.addr, heap.nullAddr, heap.range) contains monoFun =>
             Some(("(as " + quoteIdentifier(fun.name) + " " +
+                  sort2SMTString(monoFun.resSort) +
+                  ")", ""))
+          case _ =>
+            if (!(monoFun.argSorts contains monoFun.resSort) &&
+                (monoFun.resSort.name startsWith SMTADT.POLY_PREFIX)) {
+              Some(("(as " + quoteIdentifier(fun.name) + " " +
                     sort2SMTString(monoFun.resSort) +
                     ")", ""))
-          } else {
-            None
-          }
+            } else {
+              None
+            }
         }
+      }
       case Some(Rationals) => fun match {
         case Rationals.frac           => Some(("/", ""))
         case Rationals.fromRing       => Some(("/", "1"))
@@ -782,6 +792,16 @@ object SMTLineariser {
         case DivZero.IntDivZero => Some(("div", "0"))
         case DivZero.IntModZero => Some(("mod", "0"))
       }
+      case Some(t : Heap) =>
+        fun match {
+          case t.emptyHeap | t.nullAddr | t.addr | t.range =>
+            val monoFun = fun.asInstanceOf[MonoSortedIFunction]
+            Some(("(as " + quoteIdentifier(fun.name) + " " +
+                  sort2SMTString(monoFun.resSort) +
+                  ")", ""))
+          case _ =>
+            for (str <- t.fun2SMTString(fun)) yield (str, "")
+        }
       case Some(t : SMTLinearisableTheory) =>
         for (str <- t.fun2SMTString(fun)) yield (str, "")
       case _ =>

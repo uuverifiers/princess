@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -18,8 +18,8 @@
 (declare-const H2 Heap)
 (declare-const A Addr)
 
-(assert (= H1 (newHeap (alloc emptyHeap (WrappedInt 10)))))
-(assert (= H2 (newHeap (alloc H1 (Wrappedsimple (simple 42))))))
+(assert (= H1 (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 10)))))
+(assert (= H2 (heap.heapAddrPair_1 (heap.alloc H1 (Wrappedsimple (simple 42))))))
 
 (check-sat) ; should be sat
 (get-model)

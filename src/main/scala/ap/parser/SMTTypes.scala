@@ -138,20 +138,20 @@ object SMTTypes {
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
-  case class SMTHeapAddressRange(heap : Heap)      extends SMTType {
-    def toSort = heap.AddressRangeSort
+  case class SMTHeapRange(heap : Heap)      extends SMTType {
+    def toSort = heap.RangeSort
     override def toString = toSort.name
     def toSMTLIBString = SMTLineariser.quoteIdentifier(toSort.name)
   }
 
   case class SMTHeapAllocRes(heap : Heap)          extends SMTType {
-    def toSort = heap.AllocResSort
+    def toSort = heap.HeapAddressPairSort
     override def toString = toSort.name
     def toSMTLIBString = toSort.name
   }
 
   case class SMTHeapBatchAllocRes(heap : Heap)     extends SMTType {
-    def toSort = heap.BatchAllocResSort
+    def toSort = heap.HeapRangePairSort
     override def toString = toSort.name
     def toSMTLIBString = toSort.name
   }
@@ -216,11 +216,11 @@ object SMTTypes {
     case Heap.HeapRelatedSort(heap) =>
       sort match {
         case heap.HeapSort          => (SMTHeap(heap),              None)
-        case heap.AddressSort       => (SMTHeapAddress(heap),       None)
-        case heap.AddressRangeSort  => (SMTHeapAddressRange(heap),  None)
-        case heap.AllocResSort      => (SMTHeapAllocRes(heap),      None)
-        case heap.BatchAllocResSort => (SMTHeapBatchAllocRes(heap), None)
-        case _ => {
+        case heap.AddressSort  => (SMTHeapAddress(heap),       None)
+        case heap.RangeSort           => (SMTHeapRange(heap),  None)
+        case heap.HeapAddressPairSort => (SMTHeapAllocRes(heap),      None)
+        case heap.HeapRangePairSort   => (SMTHeapBatchAllocRes(heap), None)
+        case _                        => {
           // then the sort has to be the sort of a user-defined heap ADT
           val ind = heap.userHeapSorts.indexOf(sort)
           //-BEGIN-ASSERTION-//////////////////////////////////////////////////

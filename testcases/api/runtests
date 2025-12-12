@@ -25,9 +25,9 @@ for testname in $TESTS; do
   scala $OPTIONS $testname
 done
 
-# Test cases that are use the SMT-LIB parser, which needs additional libraries
+# Test cases that use the SMT-LIB parser, which needs additional libraries
 
-OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:/usr/share/java/java-cup-0.11b.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
 TESTS="readSMTLIB.scala"
 

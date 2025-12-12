@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -19,16 +19,16 @@
 (declare-const A addr)
 (declare-const A2 addr)
 
-(assert (= H (newheap (alloc emptyheap (WrappedInt 10)))))
-(assert (= A (newaddr(alloc emptyheap (WrappedInt 10)))))
+(assert (= H (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10)))))
+(assert (= A (heap.heapAddrPair_2(heap.alloc (as heap.empty heap) (WrappedInt 10)))))
 
 (push 1)
-(assert (not (and (is-WrappedInt (read H A)) (= (getInt (read H A)) 10))))
+(assert (not (and (is-WrappedInt (heap.read H A)) (= (getInt (heap.read H A)) 10))))
 (check-sat) ; should be unsat
 (pop 1)
 
-(assert (= H2 (newheap (alloc H (Wrappedsimple (simple 42))))))
-(assert (= A2 (newaddr (alloc H (Wrappedsimple (simple 42))))))
+(assert (= H2 (heap.heapAddrPair_1 (heap.alloc H (Wrappedsimple (simple 42))))))
+(assert (= A2 (heap.heapAddrPair_2 (heap.alloc H (Wrappedsimple (simple 42))))))
 
 (push 1)
 (assert (= A A2))
@@ -36,7 +36,7 @@
 (pop 1)
 
 (push 1)
-(assert (< (getInt (read H2 A)) (x (getsimple (read H2 A2)))))
+(assert (< (getInt (heap.read H2 A)) (x (getsimple (heap.read H2 A2)))))
 (check-sat) ; should be sat
 (get-model)
 (pop 1)

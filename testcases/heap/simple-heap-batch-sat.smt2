@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -15,11 +15,11 @@
 ))
 
 (declare-const H Heap)
-(declare-const AR AddrRange)
+(declare-const AR Range)
 (declare-const O HeapObject)
 
-(assert (= H (newBatchHeap (batchAlloc emptyHeap (WrappedInt 42) 3))))
-(assert (= AR (newAddrRange (batchAlloc emptyHeap (WrappedInt 42) 3))))
-(assert (= O (read H (addressRangeNth AR 1))))
+(assert (= H (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
+(assert (= AR (heap.heapRangePair_2 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
+(assert (= O (heap.read H (heap.rangeNth AR 1))))
 
 (check-sat) ; should be sat

@@ -45,7 +45,7 @@ object SMTParsingUtils {
   def parseWithEntry[T](input : java.io.Reader,
                         entry : (parser) => T) : T = {
     val l = new Yylex(new Parser2InputAbsy.CRRemover2 (input))
-    val p = new parser(l)
+    val p = new parser(l, l.getSymbolFactory)
     
     try { entry(p) } catch {
       case e : Exception =>

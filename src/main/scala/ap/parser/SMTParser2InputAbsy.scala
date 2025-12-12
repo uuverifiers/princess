@@ -228,7 +228,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     timeoutPer = timeout min _timeoutPer
 
     val l = new Yylex(new SMTCommandTerminator (input))
-    val p = new parser(l) {
+    val p = new parser(l, l.getSymbolFactory) {
       override def commandHook(cmd : Command) : Boolean = {
         try {
           apply(cmd)
@@ -987,10 +987,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       case cmd : HeapDeclCommand => {
         ensureEnvironmentCopy
 
-        val heapSortName = asString(cmd.identifier_1)
-        val addressSortName = asString(cmd.identifier_2)
-        val addressRangeSortName = addressSortName + Heap.AddressRangeSuffix
-        val objectSortName = asString(cmd.identifier_3)
+        val heapSortName         = asString(cmd.identifier_1)
+        val addressSortName      = asString(cmd.identifier_2)
+        val addressRangeSortName = asString(cmd.identifier_3)
+        val objectSortName       = asString(cmd.identifier_4)
 
         val ADTSortNames =
           for (sortc <- cmd.listpolysortc_) yield {
@@ -2922,14 +2922,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     ////////////////////////////////////////////////////////////////////////////
     // Heap operations
 
-    case PlainSymbol("valid") if usingHeap =>
+    case PlainSymbol(Heap.Names.Valid) if usingHeap =>
       translateHeapPred(
         0,
         _.valid,
         args,
         heap => List(SMTHeap(heap), SMTHeapAddress(heap)))
 
-    case PlainSymbol("alloc") if usingHeap =>
+    case PlainSymbol(Heap.Names.Alloc) if usingHeap =>
       translateHeapFun(
         0,
         _.alloc,
@@ -2938,24 +2938,56 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTHeapADT(heap, heap.objectSortIndex)),
         heap => SMTHeapAllocRes(heap))
 
-    case PlainSymbol("batchAlloc") if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapAddrPair_1) if usingHeap =>
       translateHeapFun(
         0,
-        _.batchAlloc,
+        _.heapAddrPair_1,
+        args,
+        heap => List(SMTHeapAllocRes(heap)),
+        heap => SMTHeap(heap))
+
+    case PlainSymbol(Heap.Names.HeapAddrPair_2) if usingHeap =>
+      translateHeapFun(
+        0,
+        _.heapAddrPair_2,
+        args,
+        heap => List(SMTHeapAllocRes(heap)),
+        heap => SMTHeapAddress(heap))
+
+    case PlainSymbol(Heap.Names.AllocRange) if usingHeap =>
+      translateHeapFun(
+        0,
+        _.allocRange,
         args,
         heap => List(SMTHeap(heap),
                      SMTHeapADT(heap, heap.objectSortIndex),
                      SMTInteger),
         heap => SMTHeapBatchAllocRes(heap))
 
-    case PlainSymbol("read") if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapRangePair_1) if usingHeap =>
+      translateHeapFun(
+        0,
+        _.heapRangePair_1,
+        args,
+        heap => List(SMTHeapBatchAllocRes(heap)),
+        heap => SMTHeap(heap))
+
+    case PlainSymbol(Heap.Names.HeapRangePair_2) if usingHeap =>
+      translateHeapFun(
+        0,
+        _.heapRangePair_2,
+        args,
+        heap => List(SMTHeapBatchAllocRes(heap)),
+        heap => SMTHeapRange(heap))
+
+    case PlainSymbol(Heap.Names.Read) if usingHeap =>
       translateHeapFun(0,
                        _.read,
                        args,
                        heap => List(SMTHeap(heap), SMTHeapAddress(heap)),
                        heap => SMTHeapADT(heap, heap.objectSortIndex))
 
-    case PlainSymbol("write") if usingHeap =>
+    case PlainSymbol(Heap.Names.Write) if usingHeap =>
       translateHeapFun(0,
                        _.write,
                        args,
@@ -2963,28 +2995,81 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                                     SMTHeapADT(heap, heap.objectSortIndex)),
                        SMTHeap(_))
 
-    case PlainSymbol("addressRangeNth") if usingHeap =>
+    case PlainSymbol(Heap.Names.RangeNth) if usingHeap =>
       translateHeapFun(0,
-                       _.addressRangeNth,
+                       _.rangeNth,
                        args,
-                       heap => List(SMTHeapAddressRange(heap),
+                       heap => List(SMTHeapRange(heap),
                                     SMTInteger),
                        SMTHeapAddress(_))
 
-    case PlainSymbol("addressRangeWithin") if usingHeap =>
+    case PlainSymbol(Heap.Names.RangeWithin) if usingHeap =>
       translateHeapPred(0,
-                        _.addressRangeWithin,
+                        _.rangeWithin,
                         args,
-                        heap => List(SMTHeapAddressRange(heap),
+                        heap => List(SMTHeapRange(heap),
                                      SMTHeapAddress(heap)))
 
-    case PlainSymbol("batchWrite") if usingHeap =>
+    case PlainSymbol(Heap.Names.WriteRange) if usingHeap =>
       translateHeapFun(0,
-                       _.batchWrite,
+                       _.writeRange,
                        args,
-                       heap => List(SMTHeap(heap), SMTHeapAddressRange(heap),
+                       heap => List(SMTHeap(heap), SMTHeapRange(heap),
                                     SMTHeapADT(heap, heap.objectSortIndex)),
                        SMTHeap(_))
+
+    case PlainSymbol(Heap.Names.NextAddr) if usingHeap =>
+      translateHeapFun(0,
+                       _.nextAddr,
+                       args,
+                       heap => List(SMTHeap(heap), SMTInteger),
+                       SMTHeapAddress(_))
+
+    case CastSymbol(Heap.Names.Empty, sort) =>
+      translateSort(sort) match {
+        case s : SMTHeap =>
+          checkArgNum(Heap.Names.Empty, 0, args)
+          (IFunApp(s.heap.emptyHeap, List()), s)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            s"${Heap.Names.Empty} must be cast to a heap sort.")
+      }
+
+    case CastSymbol(Heap.Names.Null, sort) =>
+      translateSort(sort) match {
+        case s : SMTHeapAddress =>
+          checkArgNum(Heap.Names.Null, 0, args)
+          (IFunApp(s.heap.nullAddr, List()), s)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            s"${Heap.Names.Null} must be cast to a heap address sort.")
+      }
+
+    case CastSymbol(Heap.Names.Addr, sort) =>
+      translateSort(sort) match {
+        case s : SMTHeapAddress =>
+          checkArgNum(Heap.Names.Addr, 1, args)
+          val transArgs = for (a <- args) yield translateTerm(a, 0)
+          val argTerms = transArgs map (asTerm(_))
+          (IFunApp(s.heap.addr, argTerms), s)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            s"${Heap.Names.Addr} must be cast to a heap address sort.")
+      }
+
+    case CastSymbol(Heap.Names.Range, sort) =>
+      translateSort(sort) match {
+        case s : SMTHeapRange =>
+          checkArgNum(Heap.Names.Addr, 2, args)
+          val transArgs = for (a <- args) yield translateTerm(a, 0)
+          val argTerms = transArgs map (asTerm(_))
+          (IFunApp(s.heap.range, argTerms), s)
+        case _                =>
+          throw new Parser2InputAbsy.TranslationException(
+            s"${Heap.Names.Range} must be cast to a heap range sort.")
+      }
+
+    // TODO: heap.nextRange
 
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment, and symbols from extra theories
@@ -3827,7 +3912,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                     case `addressSortName` =>
                       (Heap.AddrSort, SMTHeapAddress(null))
                     case `addressRangeSortName` =>
-                      (Heap.AddrRangeSort, SMTHeapAddressRange(null))
+                      (Heap.AddrRangeSort, SMTHeapRange(null))
                     case _ => {
                       val t = translateSort(selDecl.sort_)
                       (Heap.OtherSort(t.toSort), t)
@@ -4041,10 +4126,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def setupHeap(heapSortName : String, addressSortName : String,
-                        addressRangeSortName : String,
-                        objectSortName : String, adtSortNames : Seq[String],
-                        allCtors : Seq[(Seq[(String, Heap.CtorSignature)],
+  private def setupHeap(heapSortName      : String, addressSortName : String,
+                        rangeSortName     : String,
+                        objectSortName    : String, adtSortNames : Seq[String],
+                        allCtors          : Seq[(Seq[(String, Heap.CtorSignature)],
                                         Seq[Seq[SMTType]])],
                         defaultObjectTerm : Term) : Unit = {
 
@@ -4067,19 +4152,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     val heap : Heap =
       Param.HEAP_THEORY(settings) match {
         case Param.HeapTheory.Native =>
-          new NativeHeap(heapSortName, addressSortName, addressRangeSortName,
+          new NativeHeap(heapSortName, addressSortName, rangeSortName,
                          objectSort, adtSortNames, adtCtors, defObjCtor _)
         case Param.HeapTheory.Array =>
-          new ArrayHeap(heapSortName, addressSortName, addressRangeSortName,
+          new ArrayHeap(heapSortName, addressSortName, rangeSortName,
                         objectSort, adtSortNames, adtCtors, defObjCtor _)
       }
 
     // Add the heap sorts to the environment
-    env.addSort(heapSortName,                   SMTHeap(heap))
-    env.addSort(addressSortName,                SMTHeapAddress(heap))
-    env.addSort(addressRangeSortName,           SMTHeapAddressRange(heap))
-    env.addSort("AllocRes"      + heapSortName, SMTHeapAllocRes(heap))
-    env.addSort("BatchAllocRes" + heapSortName, SMTHeapBatchAllocRes(heap))
+
+    env.addSort(heapSortName,    SMTHeap(heap))
+    env.addSort(addressSortName, SMTHeapAddress(heap))
+    env.addSort(rangeSortName, SMTHeapRange(heap))
+    env.addSort(Heap.Names.Pair(heapSortName, addressSortName),
+                SMTHeapAllocRes(heap))
+    env.addSort(Heap.Names.Pair(heapSortName, rangeSortName),
+                SMTHeapBatchAllocRes(heap))
 
     val smtDataTypes =
       for (n <- 0 until adtSortNames.size) yield SMTHeapADT(heap, n)
@@ -4087,41 +4175,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     for ((s, t) <- heap.userHeapSorts zip smtDataTypes)
       env.addSort(s.name, t)
 
-    // Add heap functions to the environment
-
-    // Some of the heap functions are overloaded, and have to be handled
-    // directly in symApp: alloc, batchAlloc, read, write, batchWrite,
-    //     and predicates: valid, within
-
-    env.addFunction(heap.emptyHeap,
-      SMTFunctionType(List(), SMTHeap(heap)))
-    env.addFunction(heap.nullAddr,
-      SMTFunctionType(List(), SMTHeapAddress(heap)))
-    env.addFunction(heap.nthAddr, // TODO: only accept literals as argument
-      SMTFunctionType(List(SMTInteger), SMTHeapAddress(heap)))
-    env.addFunction(heap.nthAddrRange, // TODO: only accept literals as argument
-      SMTFunctionType(List(SMTInteger, SMTInteger), SMTHeapAddress(heap)))
-    env.addFunction(heap.nextAddr, // TODO: only accept literals as argument
-      SMTFunctionType(List(SMTHeap(heap), SMTInteger), SMTHeapAddress(heap)))
-    env.addFunction(heap.allocResHeap,
-      SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeap(heap)))
-    env.addFunction(heap.allocResAddr,
-      SMTFunctionType(List(SMTHeapAllocRes(heap)), SMTHeapAddress(heap)))
-    env.addFunction(heap.batchAllocResHeap,
-      SMTFunctionType(List(SMTHeapBatchAllocRes(heap)), SMTHeap(heap)))
-    env.addFunction(heap.batchAllocResAddr,
-      SMTFunctionType(List(SMTHeapBatchAllocRes(heap)), SMTHeapAddressRange(heap)))
-
     // add ADT symbols to the environment
 
     val smtCtorFunctionTypes =
       for (((_, args), num) <- allCtors.zipWithIndex;
             args2 <- args.iterator;
             cleanedArgs = for (t <- args2) yield t match {
-              case SMTHeapADT(null, n)       => SMTHeapADT(heap, n)
-              case SMTHeapAddress(null)      => SMTHeapAddress(heap)
-              case SMTHeapAddressRange(null) => SMTHeapAddressRange(heap)
-              case t => t
+              case SMTHeapADT(null, n)  => SMTHeapADT(heap, n)
+              case SMTHeapAddress(null) => SMTHeapAddress(heap)
+              case SMTHeapRange(null)   => SMTHeapRange(heap)
+              case t                    => t
             })
       yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
 
@@ -4168,7 +4231,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
 
     // define allocAddr and allocHeap as inlined functions
 
-    {
+    { // TODO: do we keep these?
       val allocHeap = new IFunction("alloc" + heapSortName, 2, true, true)
       val allocAddr = new IFunction("alloc" + addressSortName, 2, true, true)
 
@@ -4179,8 +4242,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       env.addFunction(allocHeap, allocHeapType)
       env.addFunction(allocAddr, allocAddrType)
 
-      val allocHeapBody = heap.allocResHeap(heap.alloc(v(1), v(0)))
-      val allocAddrBody = heap.allocResAddr(heap.alloc(v(1), v(0)))
+      val allocHeapBody = heap.heapAddrPair_1(heap.alloc(v(1), v(0)))
+      val allocAddrBody = heap.heapAddrPair_2(heap.alloc(v(1), v(0)))
       functionDefs =
         functionDefs + (allocHeap -> (allocHeapBody, SMTHeap(heap)))
       functionDefs =
@@ -4222,9 +4285,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     val heapArg   = transArgs(heapInd)
     val heapTheory : Heap =
       heapArg._2 match {
-        case SMTHeap(t)             => t
-        case SMTHeapAddressRange(t) => t
-        case t =>
+        case SMTHeap(t)              => t
+        case SMTHeapAddress(t)       => t
+        case SMTHeapRange(t)         => t
+        case SMTHeapAllocRes(t)      => t
+        case SMTHeapBatchAllocRes(t) => t
+        case t                       =>
           throw new TranslationException(s"could not decode heap type $t")
       }
     val fun       = funF(heapTheory)
@@ -4247,9 +4313,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     val heapArg   = transArgs(heapInd)
     val heapTheory : Heap =
       heapArg._2 match {
-        case SMTHeap(t)             => t
-        case SMTHeapAddressRange(t) => t
-        case t =>
+        case SMTHeap(t)      => t
+        case SMTHeapRange(t) => t
+        case t               =>
           throw new TranslationException(s"could not decode heap type $t")
       }
     val pred      = predF(heapTheory)

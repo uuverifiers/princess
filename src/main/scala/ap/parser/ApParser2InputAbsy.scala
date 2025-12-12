@@ -43,8 +43,8 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
-import ap.parser.ApInput._
-import ap.parser.ApInput.Absyn._
+import ap.parser.ap_input._
+import ap.parser.ap_input.Absyn._
 import ap.theories.{ADT, ModuloArithmetic}
 import IExpression.Sort
 import ap.types.{MonoSortedIFunction, SortedIFunction,
@@ -66,7 +66,7 @@ object ApParser2InputAbsy {
     new ApParser2InputAbsy(new Env, settings)
   
   def parseExpression(input : java.io.Reader, env : Env) : IExpression = {
-    def entry(parser : ApInput.parser) = {
+    def entry(parser : ap_input.parser) = {
       val parseTree = parser.pEntry
       parseTree match {
         case parseTree : ExprEntry => parseTree.expression_
@@ -85,7 +85,7 @@ object ApParser2InputAbsy {
                                 env : Env,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new CRRemover2 (input))
-    val p = new parser(l) {
+    val p = new parser(l, l.getSymbolFactory) {
       override def report_error(message : String, info : Object) : Unit = {
         Console.err.println(message)
       }
@@ -126,7 +126,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
 
   def apply(input : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
-    def entry(parser : ApInput.parser) = {
+    def entry(parser : ap_input.parser) = {
       val parseTree = parser.pEntry
       parseTree match {
         case parseTree : APIEntry => parseTree.api_
