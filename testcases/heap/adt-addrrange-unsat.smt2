@@ -18,10 +18,10 @@
 (declare-const a Addr)
 (declare-const ar Range)
 
-(assert (= h1 (heap.allocRange_first (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
-(assert (= ar (heap.allocRange_second (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
-(assert (= h2 (heap.alloc_first (heap.alloc h1 (Wrappedsimple (simple ar))))))
-(assert (= a  (heap.alloc_second (heap.alloc h1 (Wrappedsimple (simple ar))))))
+(assert (= h1 (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
+(assert (= ar (heap.heapRangePair_2 (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3))))
+(assert (= h2 (heap.heapAddrPair_1 (heap.alloc h1 (Wrappedsimple (simple ar))))))
+(assert (= a  (heap.heapAddrPair_2 (heap.alloc h1 (Wrappedsimple (simple ar))))))
 (assert (not (= (WrappedInt 1) (heap.read h2 (heap.rangeNth (heap.range (getsimple (heap.read h2 a))) 0)))))
 
 (check-sat) ; should be unsat

@@ -131,13 +131,13 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase (
       "All locations on the empty heap are unallocated.",
-      UnsatStep(isAlloc(emptyHeap(), p)),
-      SatStep(!isAlloc(emptyHeap(), p))
-    )
+      UnsatStep(valid(emptyHeap(), p)),
+      SatStep(!valid(emptyHeap(), p))
+      )
 
     TestCase (
       "For all heaps, null pointer always points to an unallocated location.",
-      UnsatStep(isAlloc(h, nullAddr()))
+      UnsatStep(valid(h, nullAddr()))
     )
 
     TestCase(
@@ -156,8 +156,8 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase (
       "After alloc, the returned pointer points to an allocated address.",
       CommonAssert(alloc(h, o) === ar),
-      SatStep(isAlloc(alloc_first(ar), alloc_second(ar))),
-      UnsatStep(!isAlloc(alloc_first(ar), alloc_second(ar)))
+      SatStep(valid(heapAddrPair_1(ar), heapAddrPair_2(ar))),
+      UnsatStep(!valid(heapAddrPair_1(ar), heapAddrPair_2(ar)))
       )
 
     TestCase (
@@ -166,23 +166,23 @@ class HeapTests1 extends Properties("HeapTests1") {
         alloc(h, o) === ar
       ),
       UnsatStep(
-        isAlloc(h, p) & !isAlloc(alloc_first(ar), p)
+        valid(h, p) & !valid(heapAddrPair_1(ar), p)
       ),
       UnsatStep(
-        p =/= alloc_second(ar),
-        !isAlloc(h, p),
-        isAlloc(alloc_first(ar), p)
+        p =/= heapAddrPair_2(ar),
+        !valid(h, p),
+        valid(heapAddrPair_1(ar), p)
         )
     )
 
     TestCase(
       "Deterministic allocation",
       UnsatStep(
-        AddressSort.all(x => isAlloc(h, x) <=> isAlloc(h1, x)),
+        AddressSort.all(x => valid(h, x) <=> valid(h1, x)),
         // heapSize(h) === heapSize(h1),
         alloc(h, o) === ar,
         alloc(h1, o1) === ar1,
-        alloc_second(ar) =/= alloc_second(ar1)
+        heapAddrPair_2(ar) =/= heapAddrPair_2(ar1)
         )
     )
 
@@ -194,7 +194,7 @@ class HeapTests1 extends Properties("HeapTests1") {
       ),
       UnsatStep(
         AddressSort.all(x => (p === x | p1 === x) ==> valid(h, x)),
-        h1 === alloc_first(alloc(h, o)),
+        h1 === heapAddrPair_1(alloc(h, o)),
         !valid(h1, p1)
         )
     )
@@ -204,7 +204,7 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Reading from a previously written (alloc.) " +
       "location returns that value.",
       CommonAssert(
-        isAlloc(h, p)
+        valid(h, p)
       ),
       SatStep(
         read(write(h, p, o), p) === o
@@ -220,10 +220,10 @@ class HeapTests1 extends Properties("HeapTests1") {
         ar === alloc(h, o)
       ),
       SatStep(
-        read(alloc_first(ar), alloc_second(ar)) === o
+        read(heapAddrPair_1(ar), heapAddrPair_2(ar)) === o
       ),
       UnsatStep(
-        read(alloc_first(ar), alloc_second(ar)) =/= o
+        read(heapAddrPair_1(ar), heapAddrPair_2(ar)) =/= o
       )
     )
 
@@ -231,13 +231,13 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Allocation does not modify any of the values on the old heap",
       CommonAssert(
         ar === alloc(h, o),
-        p =/= alloc_second(ar)
+        p =/= heapAddrPair_2(ar)
       ),
       SatStep(
-        read(alloc_first(ar), p) === read(h, p)
+        read(heapAddrPair_1(ar), p) === read(h, p)
       ),
       UnsatStep(
-        read(alloc_first(ar), p) =/= read(h, p)
+        read(heapAddrPair_1(ar), p) =/= read(h, p)
       )
     )
 
@@ -245,8 +245,8 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Reading a newly allocated location returns the allocated value (v2)",
       CommonAssert(
         alloc(h, o) === ar,
-        h1 === alloc_first(ar),
-        p === alloc_second(ar)
+        h1 === heapAddrPair_1(ar),
+        p === heapAddrPair_2(ar)
         ),
       SatStep(
         read(h1, p) === o
@@ -259,7 +259,7 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "Reading an unallocated location returns the defined object",
       CommonAssert(
-        !isAlloc(h, p)
+        !valid(h, p)
       ),
       SatStep(
         read(h, p) === defObj
@@ -273,8 +273,8 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Writing to a location does not modify the rest of the locations",
       CommonAssert(
         p =/= p1,
-        isAlloc(h, p),
-        isAlloc(h, p1)
+        valid(h, p),
+        valid(h, p1)
       ),
       SatStep(
         read(write(h, p1, o), p) === read(h, p)
@@ -286,7 +286,7 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "Writing to an unallocated location returns the same heap.",
-      CommonAssert(!isAlloc(h, p)),
+      CommonAssert(!valid(h, p)),
       SatStep(write(h, p, o) === h),
       UnsatStep(write(h, p, o) =/= h),
 
@@ -302,9 +302,9 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "Allocating and dereferencing pointer to pointer.",
       CommonAssert(alloc(emptyHeap(), wrappedInt(42)) === ar &
-                   p === alloc_second(ar) & h === alloc_first(ar)),
+                   p === heapAddrPair_2(ar) & h === heapAddrPair_1(ar)),
       CommonAssert(alloc(h, wrappedAddr(p)) === ar1 &
-                   p1 === alloc_second(ar1) & h1 === alloc_first(ar1)),
+                   p1 === heapAddrPair_2(ar1) & h1 === heapAddrPair_1(ar1)),
       SatStep(read(h, getAddr(read(h1,p1))) === wrappedInt(42)),
       UnsatStep(read(h, getAddr(read(h1,p1))) =/= wrappedInt(42))
       )
@@ -332,18 +332,18 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "Extensionality over write (only valid writes)",
-      CommonAssert(isAlloc(h, p)),
+      CommonAssert(valid(h, p)),
       SatStep(write(h, p, o) === write(write(h, p, o1), p, o)),
       UnsatStep(write(h, p, o) =/= write(write(h, p, o1), p, o))
-    )
+      )
 
     TestCase(
       "Extensionality",
       CommonAssert(// counter(h) === counter(h1) &
                    h =/= h1),
       SatStep(AddressSort.ex(a =>
-        (isAlloc(h, a) </> isAlloc(h, a)) |
-        (isAlloc(h, a) & isAlloc(h1, a) & read(h, a) =/= read(h1, a))))
+        (valid(h, a) </> valid(h, a)) |
+        (valid(h, a) & valid(h1, a) & read(h, a) =/= read(h1, a))))
         /* ,
       UnsatStep(
         AddressSort.all(a =>
@@ -357,28 +357,28 @@ class HeapTests1 extends Properties("HeapTests1") {
 
     TestCase(
       "ROW-Upward",
-      CommonAssert(isAlloc(h, p) & isAlloc(h, p1) & p =/= p1),
+      CommonAssert(valid(h, p) & valid(h, p1) & p =/= p1),
       SatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) === h1 &
               write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)) === h2),
       UnsatStep(write(write(h, p, wrappedInt(1)), p1, wrappedInt(42)) ===
                 write(write(h, p, wrappedInt(2)), p1, wrappedInt(42)))
-    )
+      )
 
     TestCase(
       "batchAlloc tests - 1",
       CommonAssert(n > 0 & allocRange(emptyHeap(), o, n) === bar),
-      SatStep(rangeNth(allocRange_second(bar), 0) =/= nullAddr()),
-      UnsatStep(rangeNth(allocRange_second(bar), 0) === nullAddr()),
-      SatStep(rangeSize(allocRange_second(bar)) === n),
-      UnsatStep(rangeSize(allocRange_second(bar)) =/= n),
-      UnsatStep(rangeWithin(allocRange_second(bar), nullAddr()))
+      SatStep(rangeNth(heapRangePair_2(bar), 0) =/= nullAddr()),
+      UnsatStep(rangeNth(heapRangePair_2(bar), 0) === nullAddr()),
+      SatStep(rangeSize(heapRangePair_2(bar)) === n),
+      UnsatStep(rangeSize(heapRangePair_2(bar)) =/= n),
+      UnsatStep(rangeWithin(heapRangePair_2(bar), nullAddr()))
       )
 
     TestCase(
       "batchAlloc tests - 2",
       CommonAssert(
-        h1 === allocRange_first(allocRange(h, wrappedInt(3), 10)) &
-        r === allocRange_second(allocRange(h, wrappedInt(3), 10)) &
+        h1 === heapRangePair_1(allocRange(h, wrappedInt(3), 10)) &
+        r === heapRangePair_2(allocRange(h, wrappedInt(3), 10)) &
         write(h1, rangeNth(r, 3), wrappedInt(42)) === h2),
       SatStep(read(h2, rangeNth(r, 0)) === wrappedInt(3)),
       UnsatStep(read(h2, rangeNth(r, 0)) =/= wrappedInt(3)),
@@ -386,10 +386,10 @@ class HeapTests1 extends Properties("HeapTests1") {
       UnsatStep(read(h2, rangeNth(r, 5)) =/= wrappedInt(3)),
       SatStep(read(h2, rangeNth(r, 9)) === wrappedInt(3)),
       UnsatStep(read(h2, rangeNth(r, 9)) =/= wrappedInt(3)),
-      SatStep(isAlloc(h2, rangeNth(r, 9))),
-      UnsatStep(!isAlloc(h2, rangeNth(r, 9))),
-      UnsatStep(isAlloc(h2, rangeNth(r, 10))),
-      SatStep(!isAlloc(h2, rangeNth(r, 10))),
+      SatStep(valid(h2, rangeNth(r, 9))),
+      UnsatStep(!valid(h2, rangeNth(r, 9))),
+      UnsatStep(valid(h2, rangeNth(r, 10))),
+      SatStep(!valid(h2, rangeNth(r, 10))),
       SatStep(rangeNth(r, 10) === nullAddr()),
       UnsatStep(rangeNth(r, 10) =/= nullAddr()),
       SatStep(read(h2, rangeNth(r, 10)) === defObj),
@@ -403,9 +403,9 @@ class HeapTests1 extends Properties("HeapTests1") {
       "Reading from a previously batch-written (alloc.) " +
         "location returns that value.",
       CommonAssert(
-        isAlloc(h, p) & rangeWithin(r, p) &
-        isAlloc(h, rangeNth(r, 0)) &
-        isAlloc(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
+        valid(h, p) & rangeWithin(r, p) &
+        valid(h, rangeNth(r, 0)) &
+        valid(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
         ),
       SatStep(
         read(writeRange(h, r, o), p) === o
@@ -418,8 +418,8 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "batchWrite to a location does not modify the rest of the locations",
       CommonAssert(
-        isAlloc(h, p) & !rangeWithin(r, p) & rangeSize(r) > 0 &
-        isAlloc(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
+        valid(h, p) & !rangeWithin(r, p) & rangeSize(r) > 0 &
+        valid(h, rangeNth(r, rangeSize(r) - 1)) // h is allocated for the whole address range
         ),
       SatStep(
         read(writeRange(h, r, o), p) === read(h, p)
@@ -433,7 +433,7 @@ class HeapTests1 extends Properties("HeapTests1") {
       "batchWrite to a range that contains an unallocated location " +
         "returns the same heap.",
       CommonAssert(
-        rangeWithin(r, p) & !isAlloc(h, p)
+        rangeWithin(r, p) & !valid(h, p)
         ),
       SatStep(writeRange(h, r, o) === h),
       UnsatStep(writeRange(h, r, o) =/= h),
@@ -474,10 +474,10 @@ class HeapTests1 extends Properties("HeapTests1") {
     TestCase(
       "Behaviour of nextAddr",
       SatStep((h === emptyHeap()) ==> (nextAddr(h, 41) === addr(42))),
-      UnsatStep(isAlloc(h, nextAddr(h, 0))),
-      SatStep(isAlloc(h, nextAddr(h, -1))),
-      UnsatStep(alloc_second(alloc(h, o)) =/= nextAddr(h, 0)),
-      SatStep(!isAlloc(h, nextAddr(h, -10)) & isAlloc(h, nextAddr(h, -9)))
+      UnsatStep(valid(h, nextAddr(h, 0))),
+      SatStep(valid(h, nextAddr(h, -1))),
+      UnsatStep(heapAddrPair_2(alloc(h, o)) =/= nextAddr(h, 0)),
+      SatStep(!valid(h, nextAddr(h, -10)) & valid(h, nextAddr(h, -9)))
       )
 
   }}

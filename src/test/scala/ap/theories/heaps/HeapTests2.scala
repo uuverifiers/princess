@@ -132,33 +132,33 @@ class HeapTests2 extends Properties("HeapTests2") {
    TestCase (
      "Reading back written value after chain allocation and a write.",
      CommonAssert(
-        ar === alloc(alloc_first(
+        ar === alloc(heapAddrPair_1(
                              alloc(emptyHeap(), wrappedInt(0)) // h(0)
                      ), wrappedInt(3))                         // h(0, 3)
       ),
-     SatStep(isAlloc(alloc_first(ar), alloc_second(ar))),
-     SatStep(getInt(read(alloc_first(ar), alloc_second(ar))) === 3),
-     UnsatStep(getInt(read(alloc_first(ar), alloc_second(ar))) =/= 3),
-     SatStep(read(alloc_first(ar), alloc_second(ar)) === wrappedInt(3)),
+     SatStep(valid(heapAddrPair_1(ar), heapAddrPair_2(ar))),
+     SatStep(getInt(read(heapAddrPair_1(ar), heapAddrPair_2(ar))) === 3),
+     UnsatStep(getInt(read(heapAddrPair_1(ar), heapAddrPair_2(ar))) =/= 3),
+     SatStep(read(heapAddrPair_1(ar), heapAddrPair_2(ar)) === wrappedInt(3)),
      CommonAssert(
-        h === write(alloc_first(ar), alloc_second(ar), wrappedInt(50))  // h(0, 50)
+        h === write(heapAddrPair_1(ar), heapAddrPair_2(ar), wrappedInt(50))  // h(0, 50)
      ),
-     SatStep(read(h, addr(2)) =/= read(alloc_first(ar), addr(2))),
-     UnsatStep(read(h, addr(2)) === read(alloc_first(ar), addr(2))),
-     SatStep(isAlloc(h, alloc_second(ar))),
-     UnsatStep(getInt(read(h, alloc_second(ar))) === 0),
-     UnsatStep(getInt(read(h, alloc_second(ar))) === 3),
-     SatStep(getInt(read(h, alloc_second(ar))) =/= 3),
-     SatStep(read(h, alloc_second(ar)) =/= wrappedInt(3)),
-     UnsatStep(getInt(read(h, alloc_second(ar))) =/= 50),
-     SatStep(getInt(read(h, alloc_second(ar))) === 50),
-     SatStep(read(h, alloc_second(ar)) === wrappedInt(50))
+     SatStep(read(h, addr(2)) =/= read(heapAddrPair_1(ar), addr(2))),
+     UnsatStep(read(h, addr(2)) === read(heapAddrPair_1(ar), addr(2))),
+     SatStep(valid(h, heapAddrPair_2(ar))),
+     UnsatStep(getInt(read(h, heapAddrPair_2(ar))) === 0),
+     UnsatStep(getInt(read(h, heapAddrPair_2(ar))) === 3),
+     SatStep(getInt(read(h, heapAddrPair_2(ar))) =/= 3),
+     SatStep(read(h, heapAddrPair_2(ar)) =/= wrappedInt(3)),
+     UnsatStep(getInt(read(h, heapAddrPair_2(ar))) =/= 50),
+     SatStep(getInt(read(h, heapAddrPair_2(ar))) === 50),
+     SatStep(read(h, heapAddrPair_2(ar)) === wrappedInt(50))
      )
 
     TestCase(
       "list-001-fail.c-1",
-      CommonAssert(h === alloc_first(alloc(emptyHeap(), wrappedS(struct_S(0))))),
-      CommonAssert(p1 === alloc_second(alloc(emptyHeap(), wrappedS(struct_S(0))))),
+      CommonAssert(h === heapAddrPair_1(alloc(emptyHeap(), wrappedS(struct_S(0))))),
+      CommonAssert(p1 === heapAddrPair_2(alloc(emptyHeap(), wrappedS(struct_S(0))))),
       CommonAssert(p2 === p1),
       SatStep(p1 === p2)
       )
@@ -166,8 +166,8 @@ class HeapTests2 extends Properties("HeapTests2") {
       "list-001-fail.c-2",
       SatStep(
         h1 === emptyHeap() &&&
-        h === alloc_first(alloc(h1, wrappedS(struct_S(0)))) &&&
-        p1 === alloc_second(alloc(h1, wrappedS(struct_S(0)))) &&&
+        h === heapAddrPair_1(alloc(h1, wrappedS(struct_S(0)))) &&&
+        p1 === heapAddrPair_2(alloc(h1, wrappedS(struct_S(0)))) &&&
         p2 === p1 &&&
         x === sel_x(getS(read(h, p2)))// &&&
       )
@@ -175,9 +175,9 @@ class HeapTests2 extends Properties("HeapTests2") {
     TestCase(
       "list-004-fail.c",
       SatStep(
-        h1 === alloc_first(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
-        p1 === alloc_second(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
-        h === alloc_first(alloc(h1, p1)) &&&
+        h1 === heapAddrPair_1(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
+        p1 === heapAddrPair_2(alloc(emptyHeap(), wrappedNode(struct_Node(0)))) &&&
+        h === heapAddrPair_1(alloc(h1, p1)) &&&
         h2 === write(h, p1, wrappedNode(struct_Node(p1)))
       )
     )

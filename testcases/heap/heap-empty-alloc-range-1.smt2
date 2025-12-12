@@ -16,6 +16,6 @@
 
 (declare-const H  Heap)
 
-(assert (= H  (heap.allocRange_first (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 0))))
+(assert (= H  (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 0))))
 
 (check-sat) ; H should equal heap.empty in the model

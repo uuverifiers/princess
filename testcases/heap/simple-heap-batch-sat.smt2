@@ -18,8 +18,8 @@
 (declare-const AR Range)
 (declare-const O HeapObject)
 
-(assert (= H (heap.allocRange_first (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
-(assert (= AR (heap.allocRange_second (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
+(assert (= H (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
+(assert (= AR (heap.heapRangePair_2 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3))))
 (assert (= O (heap.read H (heap.rangeNth AR 1))))
 
 (check-sat) ; should be sat

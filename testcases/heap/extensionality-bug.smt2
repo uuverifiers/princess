@@ -21,7 +21,7 @@
 (declare-const h1 Heap)
 (declare-const h2 Heap)
 
-(assert (= h1 (heap.alloc_first (heap.alloc (as heap.empty Heap) (O_Int 42)))))
+(assert (= h1 (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (O_Int 42)))))
 (assert (= h2 (heap.write h1 ((as heap.addr Addr) 1) (O_Int 42))))
 
 (check-sat)

@@ -259,7 +259,7 @@ class ArrayHeap(heapSortName      : String,
     private lazy val elementLists : Stream[ITerm] =
       emptyHeap() #::
       (for (heap <- elementLists; obj <- ObjectSort.individuals)
-       yield alloc_first(alloc(heap, obj)))
+       yield heapAddrPair_1(alloc(heap, obj)))
 
     /**
      * Translate an array term with <code>heapPair</code> as the top-level
@@ -288,7 +288,7 @@ class ArrayHeap(heapSortName      : String,
       }
 
       contentsAr.foldLeft(emptyHeap()) {
-        case (heap, obj) => alloc_first(alloc(heap, obj)) }
+        case (heap, obj) => heapAddrPair_1(alloc(heap, obj)) }
     }
 
     override def augmentModelTermSet(
@@ -328,12 +328,14 @@ class ArrayHeap(heapSortName      : String,
 
     val ctors =
       List((b("heapAddrPair_ctor"),
-            CtorSignature(List((Heap.Names.Alloc1, OtherSort(HeapSort)),
-                               (Heap.Names.Alloc2, OtherSort(AddressSort))),
+            CtorSignature(List((Heap.Names.HeapAddrPair_1, OtherSort(HeapSort)),
+                               (Heap.Names.HeapAddrPair_2,
+                                 OtherSort(AddressSort))),
                           ADTSort(0))),
            (b("heapRangePair_ctor"),
-            CtorSignature(List((Heap.Names.AllocRange1, OtherSort(HeapSort)),
-                               (Heap.Names.AllocRange2,
+            CtorSignature(List((Heap.Names.HeapRangePair_1,
+                                 OtherSort(HeapSort)),
+                               (Heap.Names.HeapRangePair_2,
                                  OtherSort(RangeSort))),
                           ADTSort(1))))
 
@@ -363,9 +365,9 @@ class ArrayHeap(heapSortName      : String,
   val heapPair = heapSizeADT.constructors(0)
   val Seq(heapAddrPair, heapRangePair) = offHeapADT.constructors
 
-  val Seq(Seq(heapContents,      heapSize))         = heapSizeADT.selectors
-  val Seq(Seq(alloc_first, alloc_second),
-          Seq(allocRange_first, allocRange_second)) = offHeapADT.selectors
+  val Seq(Seq(heapContents,      heapSize))      = heapSizeADT.selectors
+  val Seq(Seq(heapAddrPair_1, heapAddrPair_2),
+          Seq(heapRangePair_1, heapRangePair_2)) = offHeapADT.selectors
 
   private val _heapPair = heapSizeADT.constructorPreds.head
 
@@ -915,9 +917,11 @@ class ArrayHeap(heapSortName      : String,
           meetAllocStatus(addr(-n), h, A_NON_ALLOC)
         case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum >= 0 =>
           throw ContradictionException
-        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum < 0 =>
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL)
+          if n.signum < 0 =>
           meetAllocStatus(addr(-n), h, A_ALLOC)
-        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum >= 0 =>
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL)
+          if n.signum >= 0 =>
           // can be dropped
           this
         case _ => {

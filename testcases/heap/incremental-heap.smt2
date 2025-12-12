@@ -19,16 +19,16 @@
 (declare-const A addr)
 (declare-const A2 addr)
 
-(assert (= H (heap.alloc_first (heap.alloc (as heap.empty heap) (WrappedInt 10)))))
-(assert (= A (heap.alloc_second(heap.alloc (as heap.empty heap) (WrappedInt 10)))))
+(assert (= H (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10)))))
+(assert (= A (heap.heapAddrPair_2(heap.alloc (as heap.empty heap) (WrappedInt 10)))))
 
 (push 1)
 (assert (not (and (is-WrappedInt (heap.read H A)) (= (getInt (heap.read H A)) 10))))
 (check-sat) ; should be unsat
 (pop 1)
 
-(assert (= H2 (heap.alloc_first (heap.alloc H (Wrappedsimple (simple 42))))))
-(assert (= A2 (heap.alloc_second (heap.alloc H (Wrappedsimple (simple 42))))))
+(assert (= H2 (heap.heapAddrPair_1 (heap.alloc H (Wrappedsimple (simple 42))))))
+(assert (= A2 (heap.heapAddrPair_2 (heap.alloc H (Wrappedsimple (simple 42))))))
 
 (push 1)
 (assert (= A A2))

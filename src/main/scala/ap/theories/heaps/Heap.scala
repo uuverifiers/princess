@@ -126,28 +126,28 @@ object Heap {
   }
 
   object Names {
-    val Empty        = "heap.empty"
-    val Null         = "heap.null"
-    val Addr         = "heap.addr"
-    val Range        = "heap.range"
+    val Empty           = "heap.empty"
+    val Null            = "heap.null"
+    val Addr            = "heap.addr"
+    val Range           = "heap.range"
 
-    val Alloc        = "heap.alloc"
-    val Alloc1       = "heap.alloc_first"
-    val Alloc2       = "heap.alloc_second"
+    val Alloc           = "heap.alloc"
+    val HeapAddrPair_1  = "heap.heapAddrPair_1"
+    val HeapAddrPair_2  = "heap.heapAddrPair_2"
 
-    val AllocRange   = "heap.allocRange"
-    val AllocRange1  = "heap.allocRange_first"
-    val AllocRange2  = "heap.allocRange_second"
+    val AllocRange      = "heap.allocRange"
+    val HeapRangePair_1 = "heap.heapRangePair_1"
+    val HeapRangePair_2 = "heap.heapRangePair_2"
 
-    val Read         = "heap.read"
-    val Write        = "heap.write"
-    val WriteRange   = "heap.writeRange"
-    val Valid        = "heap.valid"
-    val NextAddr     = "heap.nextAddr"
+    val Read            = "heap.read"
+    val Write           = "heap.write"
+    val WriteRange      = "heap.writeRange"
+    val Valid           = "heap.valid"
+    val NextAddr        = "heap.nextAddr"
 
-    val RangeNth     = "heap.rangeNth"
-    val RangeSize    = "heap.rangeSize"
-    val RangeWithin  = "heap.rangeWithin"
+    val RangeNth        = "heap.rangeNth"
+    val RangeSize       = "heap.rangeSize"
+    val RangeWithin     = "heap.rangeWithin"
 
     def Pair(first : String, second : String) = first + second + "Pair"
   }
@@ -246,12 +246,12 @@ trait Heap extends Theory with SMTLinearisableTheory {
   /**
    * Function to obtain the new heap after allocation.
    */
-  val alloc_first : IFunction       // HeapAddressPairSort -> Heap
+  val heapAddrPair_1 : IFunction       // HeapAddressPairSort -> Heap
 
   /**
    * Function to obtain the new address after allocation.
    */
-  val alloc_second : IFunction       // HeapAddressPairSort -> Address
+  val heapAddrPair_2 : IFunction       // HeapAddressPairSort -> Address
 
   /**
    * Function to allocate a sequence of objects on the heap.
@@ -261,12 +261,12 @@ trait Heap extends Theory with SMTLinearisableTheory {
   /**
    * Function to obtain the new heap after range allocation.
    */
-  val allocRange_first : IFunction   // HeapRangePairSort -> Heap
+  val heapRangePair_1 : IFunction   // HeapRangePairSort -> Heap
 
   /**
    * Function to obtain the new address range after range allocation.
    */
-  val allocRange_second : IFunction  // HeapRangePairSort -> Range
+  val heapRangePair_2 : IFunction  // HeapRangePairSort -> Range
 
   /**
    * Function to read from the heap.

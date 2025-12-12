@@ -22,10 +22,10 @@
 
 (assert (heap.valid h a))
 (assert (= (heap.read h a) (AnInt2 (- 10))))
-(assert (and (= h2 (heap.alloc_first (heap.alloc h (AnInt 10))))
-             (= a2 (heap.alloc_second (heap.alloc h (AnInt 10))))))
-(assert (and (= h3 (heap.alloc_first (heap.alloc h2 (AnInt 42))))
-             (= a3 (heap.alloc_second (heap.alloc h2 (AnInt 42))))))
+(assert (and (= h2 (heap.heapAddrPair_1 (heap.alloc h (AnInt 10))))
+             (= a2 (heap.heapAddrPair_2 (heap.alloc h (AnInt 10))))))
+(assert (and (= h3 (heap.heapAddrPair_1 (heap.alloc h2 (AnInt 42))))
+             (= a3 (heap.heapAddrPair_2 (heap.alloc h2 (AnInt 42))))))
 (assert (>= (getInt2 (heap.read h3 a)) 0))
 
 (check-sat)

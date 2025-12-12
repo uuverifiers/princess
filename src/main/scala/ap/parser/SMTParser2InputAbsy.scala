@@ -2937,18 +2937,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTHeapADT(heap, heap.objectSortIndex)),
         heap => SMTHeapAllocRes(heap))
 
-    case PlainSymbol(Heap.Names.Alloc1) if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapAddrPair_1) if usingHeap =>
       translateHeapFun(
         0,
-        _.alloc_first,
+        _.heapAddrPair_1,
         args,
         heap => List(SMTHeapAllocRes(heap)),
         heap => SMTHeap(heap))
 
-    case PlainSymbol(Heap.Names.Alloc2) if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapAddrPair_2) if usingHeap =>
       translateHeapFun(
         0,
-        _.alloc_second,
+        _.heapAddrPair_2,
         args,
         heap => List(SMTHeapAllocRes(heap)),
         heap => SMTHeapAddress(heap))
@@ -2963,18 +2963,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                      SMTInteger),
         heap => SMTHeapBatchAllocRes(heap))
 
-    case PlainSymbol(Heap.Names.AllocRange1) if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapRangePair_1) if usingHeap =>
       translateHeapFun(
         0,
-        _.allocRange_first,
+        _.heapRangePair_1,
         args,
         heap => List(SMTHeapBatchAllocRes(heap)),
         heap => SMTHeap(heap))
 
-    case PlainSymbol(Heap.Names.AllocRange2) if usingHeap =>
+    case PlainSymbol(Heap.Names.HeapRangePair_2) if usingHeap =>
       translateHeapFun(
         0,
-        _.allocRange_second,
+        _.heapRangePair_2,
         args,
         heap => List(SMTHeapBatchAllocRes(heap)),
         heap => SMTHeapRange(heap))
@@ -4241,8 +4241,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       env.addFunction(allocHeap, allocHeapType)
       env.addFunction(allocAddr, allocAddrType)
 
-      val allocHeapBody = heap.alloc_first(heap.alloc(v(1), v(0)))
-      val allocAddrBody = heap.alloc_second(heap.alloc(v(1), v(0)))
+      val allocHeapBody = heap.heapAddrPair_1(heap.alloc(v(1), v(0)))
+      val allocAddrBody = heap.heapAddrPair_2(heap.alloc(v(1), v(0)))
       functionDefs =
         functionDefs + (allocHeap -> (allocHeapBody, SMTHeap(heap)))
       functionDefs =

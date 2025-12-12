@@ -115,7 +115,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
     override lazy val individuals : Stream[ITerm] =
       emptyHeap() #:: (for (t <- individuals;
                             obj <- ObjectSort.individuals)
-      yield alloc_first(alloc(t, obj)))
+      yield heapAddrPair_1(alloc(t, obj)))
 
     override def decodeToTerm(
       d : IdealInt,
@@ -169,9 +169,9 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
           case (currentHeap, (objId, count)) =>
             val objTerm = terms.getOrElse((objId, ObjectSort), defaultObject)
             if (count > 1)
-              allocRange_first(allocRange(currentHeap, objTerm, count))
+              heapRangePair_1(allocRange(currentHeap, objTerm, count))
             else
-              alloc_first(alloc(currentHeap, objTerm))
+              heapAddrPair_1(alloc(currentHeap, objTerm))
         }
       }
 
@@ -332,13 +332,16 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
   //////////////////////////////////////////////////////////////////////////////
   val emptyHeap = new MonoSortedIFunction(Heap.Names.Empty,
                                           argSorts = List(),
-                                          resSort = HeapSort, _partial = false, _relational = false)
+                                          resSort = HeapSort,
+                                          _partial = false, _relational = false)
 
   val addr = new MonoSortedIFunction(Heap.Names.Addr,
-                                         List(Sort.Nat), AddressSort, false, false)
+                                     List(Sort.Nat), AddressSort,
+                                     false, false)
   val nextAddr =
     new MonoSortedIFunction(Heap.Names.NextAddr,
-                            List(HeapSort, Sort.Integer), AddressSort, false, false)
+                            List(HeapSort, Sort.Integer), AddressSort,
+                            false, false)
 
   object HeapADTSortId extends Enumeration(initial = sortNames.size) {
     type HeapADTSortId = Value
@@ -367,8 +370,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
 
   /** Create return sort of alloc as an ADT: Heap x Address */
   private val heapAddrPairCtorSignature = ADT.CtorSignature(
-    List((Heap.Names.Alloc1, ADT.OtherSort(HeapSort)),
-         (Heap.Names.Alloc2, ADT.OtherSort(AddressSort))),
+    List((Heap.Names.HeapAddrPair_1, ADT.OtherSort(HeapSort)),
+         (Heap.Names.HeapAddrPair_2, ADT.OtherSort(AddressSort))),
     ADT.ADTSort(heapAddrPairSortId))
 
   /** Create range ADT returned by batchAlloc: start x size */
@@ -378,8 +381,8 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
     ADT.ADTSort(rangeSortId))
   /** Create return sort of batchAlloc as an ADT: Heap x Range */
   private val heapRangePairCtorSignature = ADT.CtorSignature(
-    List((Heap.Names.AllocRange1, ADT.OtherSort(HeapSort)),
-         (Heap.Names.AllocRange2, ADT.ADTSort(rangeSortId))),
+    List((Heap.Names.HeapRangePair_1, ADT.OtherSort(HeapSort)),
+         (Heap.Names.HeapRangePair_2, ADT.ADTSort(rangeSortId))),
     ADT.ADTSort(heapRangePairSortId))
 
   // warning: heap ADTs must be declared last!
@@ -438,18 +441,20 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
   private val theoryADTSels  = heapADTs.selectors.drop(userADTCtors.size)
 
   val HeapAddressPairSort = theoryADTSorts(heapAddrPairSortId - sortNames.size)
-  val heapAddressPairCtor = theoryADTCtors(heapAddrPairSortId - sortNames.size)
-  val alloc_first         = theoryADTSels(heapAddrPairSortId - sortNames.size)(0)
-  val alloc_second        = theoryADTSels(heapAddrPairSortId - sortNames.size)(1)
+  private val heapAddressPairCtor =
+    theoryADTCtors(heapAddrPairSortId - sortNames.size)
+  val heapAddrPair_1 = theoryADTSels(heapAddrPairSortId - sortNames.size)(0)
+  val heapAddrPair_2 = theoryADTSels(heapAddrPairSortId - sortNames.size)(1)
 
   val HeapRangePairSort = theoryADTSorts(heapRangePairSortId - sortNames.size)
-  val heapRangePairCtor = theoryADTCtors(heapRangePairSortId - sortNames.size)
-  val allocRange_first  = theoryADTSels(heapRangePairSortId - sortNames.size)(0)
-  val allocRange_second = theoryADTSels(heapRangePairSortId - sortNames.size)(1)
+  private val heapRangePairCtor =
+    theoryADTCtors(heapRangePairSortId - sortNames.size)
+  val heapRangePair_1 = theoryADTSels(heapRangePairSortId - sortNames.size)(0)
+  val heapRangePair_2 = theoryADTSels(heapRangePairSortId - sortNames.size)(1)
 
   val RangeSort   = theoryADTSorts(rangeSortId-sortNames.size)
-  val rangeCtor   = theoryADTCtors(rangeSortId-sortNames.size)
-  val rangeStart  = theoryADTSels(rangeSortId-sortNames.size)(0)
+  private val rangeCtor   = theoryADTCtors(rangeSortId-sortNames.size)
+  private val rangeStart  = theoryADTSels(rangeSortId-sortNames.size)(0)
   val rangeSize   = theoryADTSels(rangeSortId - sortNames.size)(1)
 
   val range =
@@ -470,45 +475,46 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
    * ***************************************************************************
    * Private functions and predicates
    * ***************************************************************************
-   * heapSize  : Heap                 --> Nat
+   * heapSize        : Heap --> Nat
    *
    * * Below two functions are shorthand functions to get rid of HeapAddrPair.
    * * They return a single value instead of the pair <Heap x Addr>.
    * * This also removes some quantifiers related to the ADT in the generated
    * * interpolants.
-   * alloc<heapSortName>    : Heap x Obj           --> Heap
-   * alloc<addressSortName> : Heap x Obj           --> Address
+   * allocHeap       : Heap x Obj --> Heap
+   * allocAddr       : Heap x Obj --> Address
    *
    * * Below two functions are shorthand functions to get rid of HeapRangePair.
    * * They return a single value instead of the pair <Heap x Range>.
    * * This also removes some quantifiers related to the ADT in the generated
    * * interpolants.
-   * batchAlloc<heapSortName>         : Heap x Obj x Nat --> Heap
-   * batchAlloc<addressSortName>Range : Heap x Obj x Nat --> Range
+   * batchAllocHeap  : Heap x Obj x Nat --> Heap
+   * batchAllocRange : Heap x Obj x Nat --> Range
    * *
    * ***************************************************************************
    * */
   val alloc =
     new MonoSortedIFunction(Heap.Names.Alloc, List(HeapSort, ObjectSort),
                             HeapAddressPairSort, false, false)
-  val allocHeap =
-    new MonoSortedIFunction(Heap.Names.Alloc1, List(HeapSort, ObjectSort),
-                            HeapSort, false, false)
-  val allocAddr =
-    new MonoSortedIFunction(Heap.Names.Alloc2, List(HeapSort, ObjectSort),
-                            AddressSort, false, false)
-  val deAlloc =
+  private val allocHeap =
+    new MonoSortedIFunction("allocHeap",
+                            List(HeapSort, ObjectSort), HeapSort, false, false)
+  private val allocAddr =
+    new MonoSortedIFunction("allocAddr",
+                            List(HeapSort, ObjectSort), AddressSort,
+                            false, false)
+  private val deAlloc =
     new MonoSortedIFunction("deAlloc", List(HeapSort), HeapSort, false, false)
 
   val allocRange =
     new MonoSortedIFunction(Heap.Names.AllocRange,
                             List(HeapSort, ObjectSort, Sort.Nat),
                             HeapRangePairSort, false, false)
-  private val batchAllocHeap = // TODO: eliminate?
+  private val batchAllocHeap =
     new MonoSortedIFunction("rangeAllocHeap",
                             List(HeapSort, ObjectSort, Sort.Nat), HeapSort,
                             false, false)
-  private val batchAllocRange = // TODO: eliminate?
+  private val batchAllocRange =
     new MonoSortedIFunction("rangeAllocAddr",
                             List(HeapSort, ObjectSort, Sort.Nat),
                             RangeSort, false, false)
@@ -529,7 +535,6 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
 
   val valid =
     new MonoSortedPredicate(Heap.Names.Valid, List(HeapSort, AddressSort))
-  override val isAlloc = valid
 
   /**
    * Helper function to write to ADT fields.
@@ -638,7 +643,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
                        nullAddr, heapSize, addr, nextAddr, range,
                        allocRange, batchAllocHeap, batchAllocRange,
                        rangeNth, writeRange)
-  val predefPredicates = List(isAlloc, rangeWithin)
+  val predefPredicates = List(valid, rangeWithin)
 
   val defaultObject : ITerm = defaultObjectCtor(userADTCtors)
 
@@ -958,9 +963,9 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
     import IExpression._
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
-      case IAtom(`isAlloc`, _) if subres(1) == i(0) =>
+      case IAtom(`valid`, _) if subres(1) == i(0) =>
         IBoolLit(false)
-      case IAtom(`isAlloc`, _) =>
+      case IAtom(`valid`, _) =>
         _isAlloc(subres(0).asInstanceOf[ITerm], subres(1).asInstanceOf[ITerm])
       case IFunApp(`nullAddr`, _) =>
         i(0)
@@ -980,14 +985,14 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         emptyHeap()
       case IFunApp(`read`, _) if subres(1) == i(0) =>
         defaultObject
-      case IFunApp(`read`, _) if isFunAndMatches(subres(0), emptyHeap)   =>
+      case IFunApp(`read`, _) if isFunAndMatches(subres(0), emptyHeap) =>
         defaultObject
       case IFunApp(`heapSize`, _) if isFunAndMatches(subres(0), emptyHeap) =>
         i(0)
-      case IFunApp(`alloc_first`, _) if isFunAndMatches(subres(0), alloc)    =>
+      case IFunApp(`heapAddrPair_1`, _) if isFunAndMatches(subres(0), alloc) =>
         val Seq(h, o) = subres(0).asInstanceOf[IFunApp].args
         allocHeap(h, o)
-      case IFunApp(`alloc_second`, _) if isFunAndMatches(subres(0), alloc) =>
+      case IFunApp(`heapAddrPair_2`, _) if isFunAndMatches(subres(0), alloc) =>
         val Seq(h, _) = subres(0).asInstanceOf[IFunApp].args
         heapSize(h) + 1
       case IFunApp(`alloc`, _) =>
@@ -1003,10 +1008,12 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
         heapRangePairCtor(batchAllocHeap(h, o, n),
                           rangeCtor(rangeStartTerm, n))
 
-      case IFunApp(`allocRange_first`, _) if isFunAndMatches(subres(0), allocRange) =>
+      case IFunApp(`heapRangePair_1`, _)
+        if isFunAndMatches(subres(0), allocRange) =>
         val Seq(h, o, n) = subres(0).asInstanceOf[IFunApp].args
         batchAllocHeap(h, o, n)
-      case IFunApp(`allocRange_second`, _) if isFunAndMatches(subres(0), allocRange)     =>
+      case IFunApp(`heapRangePair_2`, _)
+        if isFunAndMatches(subres(0), allocRange) =>
         val Seq(h, _, n) = subres(0).asInstanceOf[IFunApp].args
         val rangeStartTerm = n match {
           case IIntLit(IdealInt(i)) if i > 0 => heapSize(h) + 1

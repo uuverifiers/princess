@@ -21,8 +21,8 @@
 (declare-const A2 Addr)
 (declare-const n Int)
 
-(assert (= H  (heap.allocRange_first (heap.allocRange (as heap.empty Heap) (WrappedInt 3) 3))))
-(assert (= AR (heap.allocRange_second (heap.allocRange (as heap.empty Heap) (WrappedInt 3) 3))))
+(assert (= H  (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 3) 3))))
+(assert (= AR (heap.heapRangePair_2 (heap.allocRange (as heap.empty Heap) (WrappedInt 3) 3))))
 (assert (= H2 (heap.writeRange H AR (WrappedInt 42))))
 (assert (heap.rangeWithin AR A1))
 (assert (and (> n 0) (< n 4)))
