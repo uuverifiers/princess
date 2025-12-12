@@ -40,14 +40,13 @@ import ap.types.{Sort, MonoSortedIFunction, MonoSortedPredicate, ProxySort}
 import ap.parser._
 import ap.terfor.{ConstantTerm, TerForConvenience, TermOrder}
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashSet => MHashSet, Map => MMap, Set => MSet,
-                                 ArrayBuffer, HashMap => MHashMap}
+                                 ArrayBuffer}
 
 object ArrayHeap {
 
@@ -78,16 +77,16 @@ object ArrayHeap {
 /**
  * A theory of heaps implemented using arrays.
  *
- * At the moment, extensionality and the batch operations are not fully
+ * At the moment, extensionality and the range operations are not fully
  * implemented yet.
  */
-class ArrayHeap(heapSortName         : String,
-                addressSortName      : String,
-                addressRangeSortName : String,
-                objectSort           : Heap.ADTSort,
-                userSortNames        : Seq[String],
-                ctorSignatures       : Seq[(String, Heap.CtorSignature)],
-                defaultObjectCtor    : Seq[MonoSortedIFunction] => ITerm)
+class ArrayHeap(heapSortName      : String,
+                addressSortName   : String,
+                rangeSortName     : String,
+                objectSort        : Heap.ADTSort,
+                userSortNames     : Seq[String],
+                ctorSignatures    : Seq[(String, Heap.CtorSignature)],
+                defaultObjectCtor : Seq[MonoSortedIFunction] => ITerm)
       extends Heap {
   import Heap._
   import ArrayHeap._
@@ -97,12 +96,12 @@ class ArrayHeap(heapSortName         : String,
 
   val userHeapCtorSignatures = ctorSignatures
 
-  val userSortNum        = userSortNames.size
-  val addressSortId      = userSortNum
-  val addressRangeSortId = userSortNum + 1
-  val nullAddrCtorId     = ctorSignatures.size
-  val nthAddrCtorId      = ctorSignatures.size + 1
-  val addressRangeCtorId = ctorSignatures.size + 2
+  val userSortNum    = userSortNames.size
+  val addressSortId  = userSortNum
+  val rangeSortId    = userSortNum + 1
+  val nullAddrCtorId = ctorSignatures.size
+  val addrCtorId     = ctorSignatures.size + 1
+  val rangeCtorId    = ctorSignatures.size + 2
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -112,10 +111,10 @@ class ArrayHeap(heapSortName         : String,
   val onHeapADT = {
     def convSort(s : CtorArgSort) : ADT.CtorArgSort =
       s match {
-        case ADTSort(num)  => ADT.ADTSort(num)
-        case OtherSort(s)  => ADT.OtherSort(s)
-        case AddrSort      => ADT.ADTSort(addressSortId)
-        case AddrRangeSort => ADT.ADTSort(addressRangeSortId)
+        case ADTSort(num)       => ADT.ADTSort(num)
+        case OtherSort(s)       => ADT.OtherSort(s)
+        case AddrSort           => ADT.ADTSort(addressSortId)
+        case Heap.AddrRangeSort => ADT.ADTSort(rangeSortId)
       }
 
     val userCtors =
@@ -128,38 +127,37 @@ class ArrayHeap(heapSortName         : String,
     val ONat1 = ADT.OtherSort(Nat1)
 
     val additionalCtors =
-      List(("null" + addressSortName,
+      List((Heap.Names.Null,
             ADT.CtorSignature(List(),
                               ADT.ADTSort(addressSortId))),
-           ("nth" + addressSortName,
-            ADT.CtorSignature(List((addressSortName + "_ord", ONat1)),
+           (Heap.Names.Addr,
+            ADT.CtorSignature(List((addressSortName + "_ord", ONat1)), // TODO: change name?
                               ADT.ADTSort(addressSortId))),
-           ("nth" + addressSortName + "Range",
-            ADT.CtorSignature(List((addressSortName + "_start", ONat1),
-                                   (addressSortName + "_size", ONat)),
-                              ADT.ADTSort(addressRangeSortId))))
+           (Heap.Names.Range,
+            ADT.CtorSignature(List(("heap.rangeStart", ONat1),
+                                   (Heap.Names.RangeSize, ONat)),
+                              ADT.ADTSort(rangeSortId))))
 
     val allCtors = userCtors ++ additionalCtors
 
-    new ADT(userSortNames ++ List(addressSortName, addressRangeSortName),
-            allCtors)
+    new ADT(userSortNames ++ List(addressSortName, rangeSortName), allCtors)
   }
 
   val AddressSort          = onHeapADT.sorts(addressSortId)
-  val AddressRangeSort     = onHeapADT.sorts(addressRangeSortId)
+  val RangeSort            = onHeapADT.sorts(rangeSortId)
   val ObjectSort           = onHeapADT.sorts(objectSort.num)
   val userHeapSorts        = onHeapADT.sorts.take(userSortNum)
   
   val nullAddr             = onHeapADT.constructors(nullAddrCtorId)
-  val nthAddr              = onHeapADT.constructors(nthAddrCtorId)
-  val nthAddrRange         = onHeapADT.constructors(addressRangeCtorId)
+  val addr                 = onHeapADT.constructors(addrCtorId)
+  val range                = onHeapADT.constructors(rangeCtorId)
   val userHeapConstructors = onHeapADT.constructors.take(ctorSignatures.size)
   val userHeapSelectors    = onHeapADT.selectors.take(ctorSignatures.size)
   val userHeapUpdators     = onHeapADT.updators.take(ctorSignatures.size)
 
-  val Seq(addrOrd)         = onHeapADT.selectors(nthAddrCtorId)
-  val Seq(addressRangeStart, addressRangeSize)
-                           = onHeapADT.selectors(addressRangeCtorId)
+  val Seq(addrOrd)         = onHeapADT.selectors(addrCtorId)
+  val Seq(rangeStart, rangeSize)
+                           = onHeapADT.selectors(rangeCtorId)
 
   val defaultObject        = defaultObjectCtor(userHeapConstructors)
 
@@ -199,32 +197,34 @@ class ArrayHeap(heapSortName         : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val OSo     = ObjectSort
-  private val HSo     = HeapSort
-  private val ASo     = AddressSort
-  private val ARSo    = AddressRangeSort
+  private val OSo  = ObjectSort
+  private val HSo  = HeapSort
+  private val ASo  = AddressSort
+  private val ARSo = RangeSort
 
   val emptyHeap =
-    new MonoSortedIFunction("empty" + heapSortName, List(), HSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Empty, List(), HSo, true, false)
   val read =
-    new MonoSortedIFunction("read", List(HSo, ASo), OSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Read, List(HSo, ASo), OSo, true, false)
   val readUnsafe =
-    new MonoSortedIFunction("readUnsafe", List(HSo, ASo), OSo, true, false)
+    new MonoSortedIFunction(Heap.Names.Read + "Unsafe", List(HSo, ASo), OSo,
+                            true, false)
   val write =
-    new MonoSortedIFunction("write", List(HSo, ASo, OSo), HSo, true, false)
-  val batchWrite =
-    new MonoSortedIFunction("batchWrite", List(HSo, ARSo, OSo), HSo,
+    new MonoSortedIFunction(Heap.Names.Write, List(HSo, ASo, OSo), HSo,
+                            true, false)
+  val writeRange =
+    new MonoSortedIFunction(Heap.Names.WriteRange, List(HSo, ARSo, OSo), HSo,
                             true, false)
   val valid =
-    new MonoSortedPredicate("valid", List(HSo, ASo))
-  val nextAddr =
-    new MonoSortedIFunction("next" + addressSortName, List(HSo, Integer), ASo,
+    new MonoSortedPredicate(Heap.Names.Valid, List(HSo, ASo))
+  val nextAddr  =
+    new MonoSortedIFunction(Heap.Names.NextAddr, List(HSo, Integer), ASo,
                             true, false)
-  val addressRangeNth =
-    new MonoSortedIFunction(addressRangeSortName + "Nth", List(ARSo, Integer),
-                            ASo, true, false)
-  val addressRangeWithin =
-    new MonoSortedPredicate(addressRangeSortName + "Within", List(ARSo, ASo))
+  val rangeNth  =
+    new MonoSortedIFunction(Heap.Names.RangeNth, List(ARSo, Integer), ASo,
+                            true, false)
+  val rangeWithin =
+    new MonoSortedPredicate(Heap.Names.RangeWithin, List(ARSo, ASo))
 
   val storeRange =
     new MonoSortedIFunction("storeRange",
@@ -259,7 +259,7 @@ class ArrayHeap(heapSortName         : String,
     private lazy val elementLists : Stream[ITerm] =
       emptyHeap() #::
       (for (heap <- elementLists; obj <- ObjectSort.individuals)
-       yield allocResHeap(alloc(heap, obj)))
+       yield heapAddrPair_1(alloc(heap, obj)))
 
     /**
      * Translate an array term with <code>heapPair</code> as the top-level
@@ -288,7 +288,7 @@ class ArrayHeap(heapSortName         : String,
       }
 
       contentsAr.foldLeft(emptyHeap()) {
-        case (heap, obj) => allocResHeap(alloc(heap, obj)) }
+        case (heap, obj) => heapAddrPair_1(alloc(heap, obj)) }
     }
 
     override def augmentModelTermSet(
@@ -327,15 +327,17 @@ class ArrayHeap(heapSortName         : String,
     def b(n : String) = heapSortName + "_" + n
 
     val ctors =
-      List((b("allocRes_ctor"),
-          CtorSignature(List(("new" + heapSortName, OtherSort(HeapSort)),
-                             ("new" + addressSortName, OtherSort(AddressSort))),
-                        ADTSort(0))),
-         (b("batchAllocRes_ctor"),
-          CtorSignature(List(("newBatch" + heapSortName, OtherSort(HeapSort)),
-                             ("new" + addressRangeSortName,
-                                                  OtherSort(AddressRangeSort))),
-                        ADTSort(1))))
+      List((b("heapAddrPair_ctor"),
+            CtorSignature(List((Heap.Names.HeapAddrPair_1, OtherSort(HeapSort)),
+                               (Heap.Names.HeapAddrPair_2,
+                                 OtherSort(AddressSort))),
+                          ADTSort(0))),
+           (b("heapRangePair_ctor"),
+            CtorSignature(List((Heap.Names.HeapRangePair_1,
+                                 OtherSort(HeapSort)),
+                               (Heap.Names.HeapRangePair_2,
+                                 OtherSort(RangeSort))),
+                          ADTSort(1))))
 
     // We must avoid circular dependencies, therefore the ADT is
     // declared to depend on theories needed for the ADT sorts, but not
@@ -346,27 +348,26 @@ class ArrayHeap(heapSortName         : String,
             if t != this)
       yield t).distinct
 
-    new ADT(List("AllocRes" + heapSortName,
-                 "BatchAllocRes" + heapSortName),
-            ctors,
+    new ADT(List(Heap.Names.Pair(heapSortName, addressSortName),
+                 Heap.Names.Pair(heapSortName, rangeSortName)), ctors,
             overrideDeps = Some(adtDependencies))
   }
 
-  val AllocResSort      = offHeapADT.sorts(0)
-  val BatchAllocResSort = offHeapADT.sorts(1)
+  val HeapAddressPairSort = offHeapADT.sorts(0)
+  val HeapRangePairSort   = offHeapADT.sorts(1)
 
-  val alloc =
-    new MonoSortedIFunction("alloc", List(HSo, OSo), AllocResSort, true, false)
-  val batchAlloc =
-    new MonoSortedIFunction("batchAlloc", List(HSo, OSo, Integer),
-                            BatchAllocResSort, true, false)
+  val alloc = new MonoSortedIFunction(
+    Heap.Names.Alloc, List(HSo, OSo), HeapAddressPairSort, true, false)
+  val allocRange = new MonoSortedIFunction(
+    Heap.Names.AllocRange, List(HSo, OSo, Integer), HeapRangePairSort,
+    true, false)
 
   val heapPair = heapSizeADT.constructors(0)
-  val Seq(allocResPair, batchAllocResPair) = offHeapADT.constructors
+  val Seq(heapAddrPair, heapRangePair) = offHeapADT.constructors
 
-  val Seq(Seq(heapContents,      heapSize))          = heapSizeADT.selectors
-  val Seq(Seq(allocResHeap,      allocResAddr),
-          Seq(batchAllocResHeap, batchAllocResAddr)) = offHeapADT.selectors
+  val Seq(Seq(heapContents,      heapSize))      = heapSizeADT.selectors
+  val Seq(Seq(heapAddrPair_1, heapAddrPair_2),
+          Seq(heapRangePair_1, heapRangePair_2)) = offHeapADT.selectors
 
   private val _heapPair = heapSizeADT.constructorPreds.head
 
@@ -422,10 +423,10 @@ class ArrayHeap(heapSortName         : String,
   }
 
   val functions =
-    List(emptyHeap, alloc, batchAlloc, read, readUnsafe, write, batchWrite,
-         nextAddr, addressRangeNth, storeRange, storeRange2)
+    List(emptyHeap, alloc, allocRange, read, readUnsafe, write, writeRange,
+         nextAddr, rangeNth, storeRange, storeRange2)
   val predefPredicates =
-    List(valid, addressRangeWithin, distinctHeaps, heapConstant)
+    List(valid, rangeWithin, distinctHeaps, heapConstant)
 
   val (predicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions,
@@ -585,8 +586,8 @@ class ArrayHeap(heapSortName         : String,
     import IExpression._
     import arrayTheory.{select, store}
 
-    def postVisit(t : IExpression,
-                  arg : Unit,
+    def postVisit(t      : IExpression,
+                  arg    : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
 
       case IFunApp(`emptyHeap`, _) =>
@@ -601,7 +602,7 @@ class ArrayHeap(heapSortName         : String,
         val cont   = v(2, ArraySort)
         val result = v(4, ObjectSort)
 
-        val (addr, addrDef) =
+        val (a, aDef) =
           saddr match {
             case SimpleTerm(a) => (a, i(true))
             case a             => (v(3, AddressSort), v(3, AddressSort) === a)
@@ -609,11 +610,11 @@ class ArrayHeap(heapSortName         : String,
 
         ObjectSort.eps(AddressSort.ex(ArraySort.ex(ex(ex(
           (heapPair(cont, size) === sheap) &
-          addrDef &
+          aDef &
           (
-            ite(addr === Null,
+            ite(a === Null,
                 result === defaultObject,
-                (addr === nthAddr(ord)) &
+                (a === addr(ord)) &
                 ite((ord >= 1) & (ord <= size),
                     result === select(cont, ord),
                     result === defaultObject))
@@ -622,9 +623,9 @@ class ArrayHeap(heapSortName         : String,
 
       case IFunApp(`readUnsafe`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
-        val addr = subres(1).asInstanceOf[ITerm]
+        val a = subres(1).asInstanceOf[ITerm]
         withEps(heap, ObjectSort, (cont, size) =>
-          select(cont, addrOrd(addr)))
+          select(cont, addrOrd(a)))
       }
 
       case IFunApp(`write`, _) => {
@@ -638,7 +639,7 @@ class ArrayHeap(heapSortName         : String,
         val cont2  = v(3, ArraySort)
         val result = v(5, HeapSort)
 
-        val (addr, addrDef) =
+        val (a, aDef) =
           saddr match {
             case SimpleTerm(a) => (a, i(true))
             case a             => (v(4, AddressSort), v(4, AddressSort) === a)
@@ -647,11 +648,11 @@ class ArrayHeap(heapSortName         : String,
         HeapSort.eps(AddressSort.ex(ArraySort.ex(ArraySort.ex(ex(ex(
           (heapPair(cont, size) === sheap) &
           (heapPair(cont2, size) === result) &
-          addrDef &
+          aDef &
           (
-            ite(addr === Null,
+            ite(a === Null,
                 cont2 === cont,
-                (addr === nthAddr(ord)) & 
+                (a === addr(ord)) &
                 ite(ord >= 1 & ord <= size,
                     cont2 === store(cont, ord, sobj),
                     cont2 === cont))
@@ -661,44 +662,44 @@ class ArrayHeap(heapSortName         : String,
       case IFunApp(`alloc`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val obj  = subres(1).asInstanceOf[ITerm]
-        withEps(heap, AllocResSort, (cont, size) =>
-          allocResPair(heapPair(store(cont, size + 1, obj), size + 1),
-                       nthAddr(size + 1)))
+        withEps(heap, HeapAddressPairSort, (cont, size) =>
+          heapAddrPair(heapPair(store(cont, size + 1, obj), size + 1),
+                       addr(size + 1)))
       }
 
-      case IFunApp(`batchAlloc`, _) => {
+      case IFunApp(`allocRange`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val obj  = subres(1).asInstanceOf[ITerm]
         val num  = subres(2).asInstanceOf[ITerm]
         // TODO: avoid duplicating expressions
-        withEps(heap, AllocResSort, (cont, size) =>
+        withEps(heap, HeapAddressPairSort, (cont, size) =>
           ite(num > 0,
-              batchAllocResPair(
+              heapRangePair(
                 heapPair(
                   storeRange(cont, size + 1, size + 1 + num, obj), size + num),
-                nthAddrRange(size + 1, num)),
-              batchAllocResPair(
-                heap, nthAddrRange(1, 0))))
+                range(size + 1, num)),
+              heapRangePair(
+                heap, range(1, 0))))
       }
 
-      case IFunApp(`batchWrite`, _) => {
+      case IFunApp(`writeRange`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
         val ar   = subres(1).asInstanceOf[ITerm]
         val obj  = subres(2).asInstanceOf[ITerm]
         // TODO: avoid duplicating expressions
         withEps2(heap, (cont, size, cont2, size2) =>
           (size === size2) &
-          (((addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+          (((rangeStart(ar) + rangeSize(ar) - 1 <= size) &
             (cont2 === storeRange(cont,
-                                  addressRangeStart(ar),
-                                  addressRangeStart(ar) + addressRangeSize(ar),
+                                  rangeStart(ar),
+                                  rangeStart(ar) + rangeSize(ar),
                                   obj))) |
-           (!(addressRangeStart(ar) + addressRangeSize(ar) - 1 <= size) &
+           (!(rangeStart(ar) + rangeSize(ar) - 1 <= size) &
             (cont2 === cont)))
         )
       }
 
-      case IFunApp(`nthAddr`, _) =>
+      case IFunApp(`addr`, _) =>
         subres match {
           case Seq(Const(n)) if n >= 1 => {
             t update subres
@@ -709,7 +710,7 @@ class ArrayHeap(heapSortName         : String,
           case _ => {
             // TODO: this check has to happen in the parser
 //            Console.err.println(
-//              s"Warning: ${nthAddr.name} applied to non-constant " +
+//              s"Warning: ${addr.name} applied to non-constant " +
 //              s"argument ${subres(0)}")
             t update subres
           }
@@ -728,51 +729,51 @@ class ArrayHeap(heapSortName         : String,
           }
         }
         withEps(heap, AddressSort, (cont, size) =>
-          ite(size + n >= 0, nthAddr(size + n + 1), Null)
+          ite(size + n >= 0, addr(size + n + 1), Null)
         )
       }
 
-      case IFunApp(`nthAddrRange`, _) =>
+      case IFunApp(`range`, _) =>
         subres match {
           case Seq(Const(n), Const(s)) if n >= 1 && s >= 0 => {
             t update subres
           }
           case Seq(Const(_), Const(_)) => {
-            nthAddrRange(1, 0)
+            range(1, 0)
           }
           case _ => {
             // TODO: this check has to happen in the parser
 //            Console.err.println(
-//              s"Warning: ${nthAddrRange.name} applied to non-constant " +
+//              s"Warning: ${range.name} applied to non-constant " +
 //              s"arguments ${subres.mkString(", ")}")
             t update subres
           }
         }
 
-      case IFunApp(`addressRangeNth`, _) => {
-        val range = subres(0).asInstanceOf[ITerm]
-        val n     = subres(1).asInstanceOf[ITerm]
+      case IFunApp(`rangeNth`, _) => {
+        val r = subres(0).asInstanceOf[ITerm]
+        val n = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        ite((n >= 0) & (n < addressRangeSize(range)),
-            nthAddr(addressRangeStart(range) + n),
+        ite((n >= 0) & (n < rangeSize(r)),
+            addr(rangeStart(r) + n),
             Null)
       }
 
       case IAtom(`valid`, _) => {
         val heap = subres(0).asInstanceOf[ITerm]
-        val addr = subres(1).asInstanceOf[ITerm]
+        val a = subres(1).asInstanceOf[ITerm]
 //  ex((v(0) <= heapSize(shiftVars(heap, 0, 1))) &
-//     (nthAddr(v(0)) === shiftVars(addr, 0, 1)))
-        validTest(heap, addr)
+//     (addr(v(0)) === shiftVars(a, 0, 1)))
+        validTest(heap, a)
       }
 
-      case IAtom(`addressRangeWithin`, _) => {
+      case IAtom(`rangeWithin`, _) => {
         val ar   = subres(0).asInstanceOf[ITerm]
-        val addr = subres(1).asInstanceOf[ITerm]
+        val a = subres(1).asInstanceOf[ITerm]
         // TODO: avoid duplicating terms
-        (addr =/= Null) &
-        (addressRangeStart(ar) <= addrOrd(addr)) &
-        (addrOrd(addr) < addressRangeStart(ar) + addressRangeSize(ar))
+        (a =/= Null) &
+        (rangeStart(ar) <= addrOrd(a)) &
+        (addrOrd(a) < rangeStart(ar) + rangeSize(ar))
       }
 
       case _ =>
@@ -855,7 +856,7 @@ class ArrayHeap(heapSortName         : String,
 
     private def factor(e : IExpression) : IExpression = e match {
       case e@IFunApp(`read` | `write` | `alloc` |
-                     `batchAlloc` | `batchWrite`, _)
+                     `allocRange` | `writeRange`, _)
                 if ContainsSymbol.isClosed(e) => {
         val sort = IExpression.Sort.sortOf(e)
         val c = sort.newConstant("X")
@@ -904,98 +905,100 @@ class ArrayHeap(heapSortName         : String,
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(AC,
-      allocStatus.forall { case ((addr, _), _) => nullStatus.contains(addr) } &&
+      allocStatus.forall { case ((a, _), _) => nullStatus.contains(a) } &&
       nullStatus.forall { case (IFunApp(`nextAddr`, _), _) => false
                           case _ => true })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    def meetNullStatus(addr : ITerm, s : NullStatus) : AddrStatus = {
+    def meetNullStatus(a : ITerm, s : NullStatus) : AddrStatus = {
       import IExpression._
-      (addr, s) match {
+      (a, s) match {
         case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum < 0 =>
-          meetAllocStatus(nthAddr(-n), h, A_NON_ALLOC)
+          meetAllocStatus(addr(-n), h, A_NON_ALLOC)
         case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NULL) if n.signum >= 0 =>
           throw ContradictionException
-        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum < 0 =>
-          meetAllocStatus(nthAddr(-n), h, A_ALLOC)
-        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL) if n.signum >= 0 =>
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL)
+          if n.signum < 0 =>
+          meetAllocStatus(addr(-n), h, A_ALLOC)
+        case (IFunApp(`nextAddr`, Seq(h, Const(n))), N_NON_NULL)
+          if n.signum >= 0 =>
           // can be dropped
           this
         case _ => {
-          val oldS = nullStatus.getOrElse(addr, N_TOP)
+          val oldS = nullStatus.getOrElse(a, N_TOP)
           val newS = oldS & s
           if (newS == 0)
             throw ContradictionException
           if (oldS == newS)
             this
           else
-            AddrStatus(nullStatus + (addr -> newS), allocStatus)
+            AddrStatus(nullStatus + (a -> newS), allocStatus)
         }
       }
     }
 
-    def meetAllocStatus(addr : ITerm, heap : ITerm,
+    def meetAllocStatus(a : ITerm, heap : ITerm,
                         s : AllocStatus) : AddrStatus = {
-      val newNS = nullStatus + (addr -> nullStatus.getOrElse(addr, N_TOP))
-      val oldS = allocStatus.getOrElse((addr, heap), A_TOP)
+      val newNS = nullStatus + (a -> nullStatus.getOrElse(a, N_TOP))
+      val oldS = allocStatus.getOrElse((a, heap), A_TOP)
       val newS = oldS & s
       if (newS == 0)
         throw ContradictionException
       if (oldS == newS)
         this
       else
-        AddrStatus(newNS, allocStatus + ((addr, heap) -> newS))
+        AddrStatus(newNS, allocStatus + ((a, heap) -> newS))
     }
 
-    def maybeNonNull(addr : ITerm) = !mustbeNull(addr)
+    def maybeNonNull(a : ITerm) = !mustbeNull(a)
 
-    def mustbeNull(addr : ITerm) = {
+    def mustbeNull(a : ITerm) = {
       import IExpression._
-      addr match {
+      a match {
         case IFunApp(`nullAddr`, _) =>
           true
-        case IFunApp(`nthAddr`, _) =>
+        case IFunApp(`addr`, _) =>
           false
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n > maxHeapSize.getOrElse(heap, -n)
         case _ =>
-          nullStatus.getOrElse(addr, N_TOP) == N_NULL
+          nullStatus.getOrElse(a, N_TOP) == N_NULL
       }
     }
 
-    def maybeNull(addr : ITerm) = !mustbeNonNull(addr)
+    def maybeNull(a : ITerm) = !mustbeNonNull(a)
 
-    def mustbeNonNull(addr : ITerm) = {
+    def mustbeNonNull(a : ITerm) = {
       import IExpression._
-      addr match {
+      a match {
         case IFunApp(`nullAddr`, _) =>
           false
-        case IFunApp(`nthAddr`, _) =>
+        case IFunApp(`addr`, _) =>
           true
         case IFunApp(`nextAddr`, Seq(heap, Const(n))) =>
           -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
-          nullStatus.getOrElse(addr, N_TOP) == N_NON_NULL
+          nullStatus.getOrElse(a, N_TOP) == N_NON_NULL
       }
     }
 
-    def maybeNonValid(addr : ITerm, heap : ITerm) = !mustbeValid(addr, heap)
+    def maybeNonValid(a : ITerm, heap : ITerm) = !mustbeValid(a, heap)
 
-    def mustbeValid(addr : ITerm, heap : ITerm) = {
+    def mustbeValid(a : ITerm, heap : ITerm) = {
       import IExpression._
-      addr match {
-        case IFunApp(`nthAddr`, Seq(Const(n))) if n.signum > 0 =>
+      a match {
+        case IFunApp(`addr`, Seq(Const(n))) if n.signum > 0 =>
           n <= minHeapSize.getOrElse(heap, 0)
         case IFunApp(`nextAddr`, Seq(`heap`, Const(n))) =>
           n.signum < 0 && -n <= minHeapSize.getOrElse(heap, 0)
         case _ =>
-          allocStatus.getOrElse((addr, heap), A_TOP) == A_ALLOC
+          allocStatus.getOrElse((a, heap), A_TOP) == A_ALLOC
       }
     }
 
     lazy val minHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+      val pairs = (for (((IFunApp(`addr`, Seq(Const(n))), heap),
                          A_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator) yield {
@@ -1005,7 +1008,7 @@ class ArrayHeap(heapSortName         : String,
 
     lazy val maxHeapSize : Map[ITerm, IdealInt] = {
       import IExpression._
-      val pairs = (for (((IFunApp(`nthAddr`, Seq(Const(n))), heap),
+      val pairs = (for (((IFunApp(`addr`, Seq(Const(n))), heap),
                          A_NON_ALLOC) <- allocStatus.iterator)
                    yield (heap, n)).toVector
       (for ((h, ps) <- pairs.groupBy(_._1).iterator; if !ps.isEmpty) yield {
@@ -1029,15 +1032,15 @@ class ArrayHeap(heapSortName         : String,
 
       val newAS =
         allocStatus.transform {
-          case ((addr, heap), oldS) => {
-            val newS = if (mustbeNull(addr)) (oldS & A_NON_ALLOC) else oldS
+          case ((a, heap), oldS) => {
+            val newS = if (mustbeNull(a)) (oldS & A_NON_ALLOC) else oldS
             val newS2 =
-              addr match {
+              a match {
                 case IFunApp(`nextAddr`, Seq(`heap`, Const(n)))
                     if n.signum >= 0 =>
                   newS & A_NON_ALLOC
                 case IFunApp(`nextAddr`, Seq(`heap`, Const(n)))
-                    if n.signum < 0 && mustbeNonNull(addr) =>
+                    if n.signum < 0 && mustbeNonNull(a) =>
                   newS & A_ALLOC
                 case _ =>
                   newS
@@ -1051,8 +1054,8 @@ class ArrayHeap(heapSortName         : String,
 
       val newNS =
         nullStatus.transform {
-          case (addr, oldS) => {
-            val newS = if (allocatedAddrs(addr)) (oldS & N_NON_NULL) else oldS
+          case (a, oldS) => {
+            val newS = if (allocatedAddrs(a)) (oldS & N_NON_NULL) else oldS
             checkChanged(oldS, newS)
           }
         }
@@ -1067,7 +1070,7 @@ class ArrayHeap(heapSortName         : String,
         (for (((a, _), A_ALLOC) <- allocStatus) yield a).toSet
         
       def considerAddrForNull(a : ITerm) = a match {
-        case IFunApp(`nthAddr`, _) => false
+        case IFunApp(`addr`, _) => false
         case a => !validVars(a)
       }
       
@@ -1132,7 +1135,7 @@ class ArrayHeap(heapSortName         : String,
           status = status.meetNullStatus(a, N_NON_NULL)
           List()
         }
-        case Eq(IFunApp(`nthAddr`, Seq(_)), a) => {
+        case Eq(IFunApp(`addr`, Seq(_)), a) => {
           status = status.meetNullStatus(a, N_NON_NULL)
           List(c)
         }
@@ -1175,20 +1178,20 @@ class ArrayHeap(heapSortName         : String,
           List(c)
         }
         case GeqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
-          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
+          status = status.meetAllocStatus(addr(n), h, A_ALLOC)
           List()
         }
         case LeqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
-          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
+          status = status.meetAllocStatus(addr(1), h, A_NON_ALLOC)
           List()
         }
         case EqLit(IFunApp(`heapSize`, Seq(h)), IdealInt.ZERO) => {
-          status = status.meetAllocStatus(nthAddr(1), h, A_NON_ALLOC)
+          status = status.meetAllocStatus(addr(1), h, A_NON_ALLOC)
           List()
         }
         case EqLit(IFunApp(`heapSize`, Seq(h)), n) if n.signum > 0 => {
-          status = status.meetAllocStatus(nthAddr(n), h, A_ALLOC)
-          status = status.meetAllocStatus(nthAddr(n+1), h, A_NON_ALLOC)
+          status = status.meetAllocStatus(addr(n), h, A_ALLOC)
+          status = status.meetAllocStatus(addr(n + 1), h, A_NON_ALLOC)
           List()
         }
 
@@ -1241,20 +1244,20 @@ class ArrayHeap(heapSortName         : String,
               IdealInt.ONE)
           if addrStatus.mustbeNull(a) =>
         a =/= Null
-      case IFunApp(`nthAddr`, Seq(IFunApp(`addrOrd`, Seq(a))))
+      case IFunApp(`addr`, Seq(IFunApp(`addrOrd`, Seq(a))))
           if addrStatus.mustbeNonNull(a) =>
         a
-      case IFunApp(`nthAddr`,
+      case IFunApp(`addr`,
                    Seq(OffsetTerm(IFunApp(`heapSize`, Seq(h)), n))) =>
         nextAddr(h, n-1)
       case Eq(IFunApp(`addrOrd`, Seq(a)), IFunApp(`addrOrd`, Seq(a2)))
           if addrStatus.mustbeNonNull(a) && addrStatus.mustbeNonNull(a2) =>
         a === a2
-      case Eq(IFunApp(`nthAddr`, _), Null) | Eq(Null, IFunApp(`nthAddr`, _)) =>
+      case Eq(IFunApp(`addr`, _), Null) | Eq(Null, IFunApp(`addr`, _)) =>
         false
       case EqLit(IFunApp(`addrOrd`, Seq(a)), n)
           if n.signum > 0 && addrStatus.mustbeNonNull(a) =>
-        a === nthAddr(n)
+        a === addr(n)
       case DiffBound(IFunApp(`heapSize`, Seq(h)),
                      IFunApp(`addrOrd`, Seq(a)),
                      n)
@@ -1293,7 +1296,7 @@ class ArrayHeap(heapSortName         : String,
                    Seq(IFunApp(`heapContents`, Seq(h)),
                        Const(n)))
           if n.signum > 0 =>
-        read(h, nthAddr(n))
+        read(h, addr(n))
       case e =>
         e
     }
@@ -1307,11 +1310,11 @@ class ArrayHeap(heapSortName         : String,
     import IExpression._
     e match {
       // Simplify some cases of formulas with variables
-      case Eq(IFunApp(`nthAddr`, Seq(t : IVariable)), s)
+      case Eq(IFunApp(`addr`, Seq(t : IVariable)), s)
           if !s.isInstanceOf[IVariable] =>
         // TODO: do we need guards to handle negative indices?
         (t === addrOrd(s)) & (s =/= Null)
-      case Eq(s, IFunApp(`nthAddr`, Seq(t : IVariable)))
+      case Eq(s, IFunApp(`addr`, Seq(t : IVariable)))
           if !s.isInstanceOf[IVariable] =>
         // TODO: do we need guards to handle negative indices?
         (t === addrOrd(s)) & (s =/= Null)
@@ -1394,5 +1397,7 @@ class ArrayHeap(heapSortName         : String,
   override def toString = name
   TheoryRegistry register this
   Heap register this
+
+  //////////////////////////////////////////////////////////////////////////////
 
 }

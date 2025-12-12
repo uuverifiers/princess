@@ -2,7 +2,7 @@
 
 (set-option :produce-interpolants true)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  (AnInt 0)
  ((HeapObject 0)) (
   (
@@ -15,6 +15,6 @@
 (declare-const a addr)
 (declare-const o HeapObject)
 
-(assert (and (= h2 (write h a (AnInt 42)))))
-(assert (and (valid h2 a) (= o (read h2 a)) (= o (AnInt 43))))
+(assert (and (= h2 (heap.write h a (AnInt 42)))))
+(assert (and (heap.valid h2 a) (= o (heap.read h2 a)) (= o (AnInt 43))))
 (check-sat)

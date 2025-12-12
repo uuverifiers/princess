@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -16,9 +16,9 @@
 (declare-const H Heap)
 (declare-const A Addr)
 
-; (assert (= (AllocResHeap H A) (alloc emptyHeap (WrappedInt 10))))
-(assert (= H (allocHeap emptyHeap (WrappedInt 42))))
-(assert (= A (allocAddr emptyHeap (WrappedInt 42))))
-(assert (not (and (is-WrappedInt (read H A)) (= (getInt (read H A)) 42))))
+; (assert (= (HeapAddrPair H A) (heap.alloc (as heap.empty Heap) (WrappedInt 10))))
+(assert (= H (allocHeap (as heap.empty Heap) (WrappedInt 42))))
+(assert (= A (allocAddr (as heap.empty Heap) (WrappedInt 42))))
+(assert (not (and (is-WrappedInt (heap.read H A)) (= (getInt (heap.read H A)) 42))))
 
 (check-sat) ; should be unsat

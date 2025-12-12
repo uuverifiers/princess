@@ -1,9 +1,12 @@
 
 
 BASEDIR:=$(shell pwd)
-EXTLIBSDIR:=$(BASEDIR)/extlibs
 
-CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
+# tested with bnfc 2.9.6.1 + JFlex 1.9.1
+JFLEX_PATH:=/usr/share/java/JFLex.jar
+CUP_PATH:=/usr/share/java/java-cup-11b.jar
+
+CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(JFLEX_PATH):$(CUP_PATH)
 
 SCALAC:=scalac
 SCALAC_OPTIONS:=-optimise \
@@ -15,27 +18,19 @@ SCALAC_OPTIONS:=-optimise \
 SCALADOC:=scaladoc
 SCALADOC_OPTIONS:=-doc-title Princess -d $(BASEDIR)/doc -classpath $(CLASSPATH)
 
-JLEX_PATH:=/usr/share/java/JLex.jar
-
 JAVAC:=javac
-JAVAC_FLAGS:=-target 1.5
-
 JAVA:=java
-JAVA_FLAGS:=
 
 # enough memory for the compiler on 64-bit architectures
-JAVA_OPTS=-Xmx1G
+JAVA_OPTS=-Xmx2G
 
 SCALABASEDIR:=/usr/local/scala
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
-JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
-JARSIGNERALIAS:=mykey2015
-
 PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
 
 
-export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
+export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JAVA_OPTS JFLEX_PATH CUP_PATH
 
 
 all: scala-src
@@ -50,7 +45,7 @@ copy-jars-to-dist:
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/java-cup-11b.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors-2*.jar ] && cp $(SCALALIBDIR)/scala-actors-2*.jar dist/scala-actors.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors.jar ] && cp $(SCALALIBDIR)/scala-actors.jar dist/scala-actors.jar)
