@@ -4,7 +4,7 @@ BASEDIR:=$(shell pwd)
 
 # tested with bnfc 2.9.6.1 + JFlex 1.9.1
 JFLEX_PATH:=/usr/share/java/JFLex.jar
-CUP_PATH:=/usr/share/java/java-cup-11b.jar
+CUP_PATH:=/usr/share/java/java-cup-0.11b.jar
 
 CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(JFLEX_PATH):$(CUP_PATH)
 
@@ -45,7 +45,7 @@ copy-jars-to-dist:
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/java-cup-11b.jar dist/)
+	$(shell cp $(CUP_PATH) dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors-2*.jar ] && cp $(SCALALIBDIR)/scala-actors-2*.jar dist/scala-actors.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors.jar ] && cp $(SCALALIBDIR)/scala-actors.jar dist/scala-actors.jar)
