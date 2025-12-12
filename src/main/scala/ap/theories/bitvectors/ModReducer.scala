@@ -59,6 +59,7 @@ import scala.collection.mutable.{HashSet => MHashSet}
 object ModReducer {
 
   import ModuloArithmetic._
+  import LinearCombination.{Constant, CoeffTermWithOffset}
 
   private def getLeadingTerm(a : Atom, order : TermOrder) : Term = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -319,12 +320,9 @@ object ModReducer {
 
                   //////////////////////////////////////////////////////////////
 
-                case `_bv_extract` =>
-                  if (a(2).isConstant) {
-                    val LinearCombination.Constant(ub) = a(0)
-                    val LinearCombination.Constant(lb) = a(1)
-
-                    val newEq = a(3) === evalExtract(ub, lb, a(2).constant)
+                case `_bv_extract` => (a(0), a(1), a(2)) match {
+                  case (Constant(ub), Constant(lb), Constant(constArg)) => {
+                    val newEq = a(3) === evalExtract(ub, lb, constArg)
 
                     //-BEGIN-ASSERTION-/////////////////////////////////////////
                     if (debug) {
@@ -337,9 +335,11 @@ object ModReducer {
                     logger.otherComputation(List(a), newEq, order,
                                             ModuloArithmetic)
                     newEq
-                  } else if (a(0).isConstant &&
-                             canBeReduced(a(2), pow2(a(0).constant + 1))) {
+                  }
 
+                  case (Constant(ub), _, arg)
+                      if canBeReduced(arg, pow2(ub + 1)) => {
+                    // Eliminate large constants within the extract argument
                     val newExtract = _bv_extract(
                       List(a(0), a(1),
                            a(2).moduloKeepingSign(pow2(a(0).constant + 1)),
@@ -356,7 +356,30 @@ object ModReducer {
                     logger.otherComputation(List(a), newExtract, order,
                                             ModuloArithmetic)
                     newExtract
-                  } else {
+                  }
+                  
+                  case (Constant(ub), Constant(lb), lc)
+                      if lc.leadingCoeff.signum < 0 => {
+                    // Make the extract argument positive
+                    val newExtract = _bv_extract(
+                      List(a(0), a(1),
+                           pow2MinusOne(ub + 1) - a(2),
+                           pow2MinusOne(ub - lb + 1) - a(3)))
+
+                    //-BEGIN-ASSERTION-/////////////////////////////////////////
+                    if (debug) {
+                      println("Simplifying bv_extract:")
+                      println("\t" + a)
+                      println("\t" + newExtract)
+                    }
+                    //-END-ASSERTION-///////////////////////////////////////////
+
+                    logger.otherComputation(List(a), newExtract, order,
+                                            ModuloArithmetic)
+                    newExtract
+                  }
+
+                  case (Constant(ub), Constant(lb), arg) => {
                     val (bitBoundary, lower, asses) = bitCache(a(2)) {
                       (reducer.lowerBound(a(2), logging),
                        reducer.upperBound(a(2), logging)) match {
@@ -440,6 +463,7 @@ object ModReducer {
                       a
                     }
                   }
+                }
 
                   //////////////////////////////////////////////////////////////
 

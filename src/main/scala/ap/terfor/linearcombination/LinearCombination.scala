@@ -139,6 +139,22 @@ object LinearCombination {
     }
   }
 
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are just a
+   * single term with some coefficient and a constant offset.
+   */
+  object CoeffTermWithOffset {
+    def unapply(lc : LinearCombination)
+                   : Option[(IdealInt, Term, IdealInt)] = lc match {
+      case lc : LinearCombination0 =>
+        Some((IdealInt.ZERO, OneTerm, lc.constant))
+      case lc : LinearCombination1 =>
+        Some((lc.coeff0, lc.term0, lc.constant))
+      case _ =>
+        None
+    }
+  }
+
   def apply(coeff : IdealInt, t : Term,
             order : TermOrder) : LinearCombination = t match {
     case t : LinearCombination => {
