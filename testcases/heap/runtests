@@ -26,7 +26,8 @@ TESTS="simple-heap.smt2 \
        adt-addrrange-sat.smt2 \
        adt-addrrange-unsat.smt2 \
        extensionality-bug.smt2 \
-       heap-empty-alloc-range.smt2"
+       heap-empty-alloc-range-1.smt2 \
+       heap-empty-alloc-range-2.smt2"
 
 $PRI "$@" -heapSolver=native $TESTS
 $PRI "$@" -heapSolver=array $TESTS

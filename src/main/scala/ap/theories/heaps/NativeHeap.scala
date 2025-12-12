@@ -139,74 +139,40 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       /* Collect the relevant functions and predicates of the theory */
       val writeAtoms = getAtoms(write)
       val allocAtoms = getAtoms(allocHeap)
-      val allAllocRangeAtoms = getAtoms(batchAllocHeap)
-      val allocRangeAtoms = allAllocRangeAtoms.filter(
-        p => p(2).constant.intValue != 0) // allocRange with size 0 is empty
-      val emptyAllocRangeAtoms = allAllocRangeAtoms diff allocRangeAtoms
+      val allocRangeAtoms = getAtoms(batchAllocHeap)
       val writeRangeAtoms = getAtoms(writeRange)
       val rangeStartAtoms = getHeapADTAtoms(rangeStart)
       val rangeSizeAtoms = getHeapADTAtoms(rangeSize)
       val readAtoms = getAtoms(read)
       val heapSizeAtoms = getAtoms(heapSize)
-      val emptyHeapAtoms =
-        getAtoms(emptyHeap) ++
-        emptyAllocRangeAtoms.map( // p(3) is the new heap id for this batchAlloc
-          p => ap.terfor.preds.Atom(heapFunPredMap(emptyHeap), List(p(3)),
-                                    p.order))
+      val emptyHeapAtoms = getAtoms(emptyHeap)
 
       import IExpression.{i, toFunApplier}
 
+      // Turns a sequence of heap contents into a formula using
+      // emptyHeap, alloc and allocRange. Consecutive elements are compressed
+      // using allocRange.
       def createHeapTerm(contents : Seq[IdealInt]) : ITerm = {
-        assume(contents.nonEmpty) // emptyHeap should be handled separately
-        var currentTerm = emptyHeap()
-
-        /* below code tries to group objects by indices, in order to
-        * compact the produced model by making use of batchAllocHeap*/
-        var change = true
-        var l = contents.zipWithIndex.map(c => (c._1, Set(c._2)))
-        while(change) {
-          change = false
-          val res = l.zipWithIndex.map(c => {
-            val thisElem = c._1
-            if (c._2 > 0) {
-              val prevElem = l(c._2 - 1)
-              if (thisElem._1 == prevElem._1) {
-                (thisElem._1, prevElem._2 ++ thisElem._2)
-              } else {
-                thisElem
-              }
-            } else {
-              thisElem
-            }
-          }
-                                       )
-          if (l.zipWithIndex.exists(a => a._1 != res(a._2)))
-            change = true
-          l = res
-        }
-        val groupedContents = (l.foldLeft(List(l.head))((a, b) =>
-          if (a.head._1 == b._1)
-            List(b) ++ a.tail
-          else
-            List(b) ++ a)).sortBy(e => e._2.min)
-
-        for ((objTermId, indices) <- groupedContents) {
-          val objTerm = terms.getOrElse((objTermId, ObjectSort), defaultObject)
-          val n = indices.size // n = object repeat count
-          if (n > 1) {
-            currentTerm = allocRange_first(allocRange(currentTerm, objTerm, n))
-          } else {
-            currentTerm = alloc_first(alloc(currentTerm, objTerm))
+        // Input: [A, A, B, A] -> Output: List((A, 2), (B, 1), (A, 1))
+        def runLengthEncode[T](seq : Seq[T]) : List[(T, Int)] = {
+          seq.foldRight(List.empty[(T, Int)]) {
+            case (e, (hVal, hCount) :: tail) if e == hVal =>
+              (hVal, hCount + 1) :: tail
+            case (e, acc) =>
+              (e, 1) :: acc
           }
         }
-// todo:use only official functions of the theory in the models
-        /*import heapTheory.{defaultObject, alloc, newHeap}
-        for (objTermId <- contents) {
-          val objTerm = terms.getOrElse((objTermId, heapTheory.ObjectSort),
-            heapTheory.defaultObject)
-          currentTerm = newHeap(alloc(currentTerm, objTerm))
-        }*/
-        currentTerm
+
+        val compressedContents = runLengthEncode(contents)
+
+        compressedContents.foldLeft(emptyHeap() : ITerm) {
+          case (currentHeap, (objId, count)) =>
+            val objTerm = terms.getOrElse((objId, ObjectSort), defaultObject)
+            if (count > 1)
+              allocRange_first(allocRange(currentHeap, objTerm, count))
+            else
+              alloc_first(alloc(currentHeap, objTerm))
+        }
       }
 
       val heapContents = new MHashMap[IdealInt, ArrayBuffer[IdealInt]] //[eh->[],h1:[1,2],...]
@@ -229,7 +195,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
 
       // initialize content buffers of non-empty heaps
       // heapSize(heapId, heapSizeVal)
-      for (a <- heapSizeAtoms if a(1).constant.intValue > 0) {
+      for (a <- heapSizeAtoms) {
         val heapId = a(0).constant
         val heapSizeVal = a(1).constant
         val contentBuffer = new ArrayBuffer[IdealInt](heapSizeVal.intValue)
@@ -242,14 +208,14 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       // iterate over non-empty heaps to fixed-point
       while(somethingChanged) {
         somethingChanged = false
-        for (a <- heapSizeAtoms if a(1).constant.intValue > 0) {
+        for (a <- heapSizeAtoms) {
           val heapId = a(0).constant
           val heapSizeVal = a(1).constant
           /*
-        * A heap is either created through an (batch)alloc, or through a write.
+        * A heap is either created through an alloc(Range), or through a write.
         * If it is created through alloc, all locations except the last location
         * (i.e., heapSizeVal), are the same as the original heap.
-        * If it is craeted through batchAlloc, all locations except the last n
+        * If it is craeted through allocRange, all locations except the last n
         * locations are the same as the original heap, where n is the batch size.
         * If it is created through write, all locations except the written
         * location, are the same as the original heap.
@@ -259,7 +225,9 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
           val (prevHeapId, changedAddr, newObj, allocOrWriteFound, changeSize) =
             allocRangeAtoms.find(p => p(3).constant == heapId) match {
               case Some(p) =>
-                (p(0).constant, heapSizeVal, p(1).constant, true, p(2).constant.intValue)
+                val n = p(2).constant.intValue
+                (p(0).constant, heapSizeVal, p(1).constant, true,
+                  if (n > 0) n else 0)
               case None =>
                 // allocHeap(prevHeapId, obj, heapId)
                 allocAtoms.find(p => p(2).constant == heapId) match {
@@ -339,7 +307,7 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       }
 
       // define rest of the heap terms
-      for (a <- heapSizeAtoms if a(1).constant.intValue > 0) {
+      for (a <- heapSizeAtoms) {
         val heapId = a(0).constant
         val heapKey = (heapId, this)
 
