@@ -12,3 +12,9 @@ metals.sbt
 *.class
 *.log
 
+# generated parser directories
+parser/ap/
+smt-parser/ap/
+
+# test output files
+testcases/**/Output*
