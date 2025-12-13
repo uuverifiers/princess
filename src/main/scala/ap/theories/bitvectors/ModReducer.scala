@@ -125,6 +125,15 @@ object ModReducer {
   private def canBeReduced(lc : LinearCombination, modulus : IdealInt) =
     lc.coeffIterator.exists { c => c >= modulus || c <= -modulus }
 
+  private def lowerBitsOne(lc : LinearCombination, bits : Int) = {
+    val p = pow2(bits)
+    (lc.pairIterator.forall {
+       case (_, OneTerm) => true
+       case (coeff, _) => coeff % p == 0
+     }) &&
+     (lc.constant % p) + 1 == p
+  }
+
   private val emptyIteratorFun = (t : Term) => Iterator.empty
 
   object ReducerFactory extends ReducerPluginFactory {
@@ -467,10 +476,24 @@ object ModReducer {
 
                   //////////////////////////////////////////////////////////////
 
-                case `_bv_and` =>
-                  if (a(1).isConstant || a(2).isConstant) {
-                    val LinearCombination.Constant(bits) = a(0)
+                case `_bv_and` => {
+                  val LinearCombination.Constant(bits) = a(0)
+                  if (a(1) == a(2)) {
+                    val newA =
+                      Atom(_bv_extract, List(l(bits - 1), l(0), a(1), a(3)),
+                           order)
+                    //-BEGIN-ASSERTION-///////////////////////////////////////
+                    if (debug) {
+                      println("Eliminating bv_and:")
+                      println("\t" + a)
+                      println("\t" + newA)
+                    }
+                    //-END-ASSERTION-/////////////////////////////////////////
 
+                    logger.otherComputation(List(a), newA, order,
+                                            ModuloArithmetic)
+                    newA
+                  } else if (a(1).isConstant || a(2).isConstant) {
                     if (a(1).isConstant && a(2).isConstant) {
                       val newEq =
                         a(3) === evalExtract(bits - 1, 0,
@@ -488,7 +511,7 @@ object ModReducer {
                                               ModuloArithmetic)
                       newEq
                     } else {
-                      // maybe the bv_and can be replaced by mod_cast
+                      // maybe the bv_and can be replaced by extract
 
                       val (pattern, freeArg) =
                         if (a(1).isConstant)
@@ -532,9 +555,25 @@ object ModReducer {
                           a
                       }
                     }
+
+                  // TODO: faster check?
+                  } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
+                    val newEq = a(3) === 0
+                    //-BEGIN-ASSERTION-///////////////////////////////////////
+                    if (debug) {
+                      println("Eliminating bv_and:")
+                      println("\t" + a)
+                      println("\t" + newEq)
+                    }
+                    //-END-ASSERTION-/////////////////////////////////////////
+
+                    logger.otherComputation(List(a), newEq, order,
+                                            ModuloArithmetic)
+                    newEq
                   } else {
                     a
                   }
+                }
               }
           
         }} orElse {

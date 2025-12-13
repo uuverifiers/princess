@@ -513,8 +513,7 @@ object ModPreprocessor {
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
                                       IIntLit(IdealInt(bits2)), _*)) =>
           if (subres(2).isConstant && subres(3).isConstant) {
-            VisitorRes(subres(2).lowerBound * pow2(bits2) +
-                       subres(3).lowerBound)
+            VisitorRes((subres(2).lowerBound << bits2) + subres(3).lowerBound)
           } else {
             val sort = UnsignedBVSort(bits1+bits2)
 
@@ -532,45 +531,18 @@ object ModPreprocessor {
             val res = sort.eps(bv1 & bv2)
 
             VisitorRes(res,
-                       (subres(2).lowerBoundOrElse(IdealInt.ZERO) * pow2(bits2)) +
+                       (subres(2).lowerBoundOrElse(IdealInt.ZERO) << bits2) +
                          subres(3).lowerBoundOrElse(IdealInt.ZERO),
-                       (subres(2).upperBoundOrElse(pow2(bits1)) * pow2(bits2)) +
+                       (subres(2).upperBoundOrElse(pow2(bits1)) << bits2) +
                          subres(3).upperBoundOrElse(pow2(bits2)))
           }
 
-        case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) =>
-          if (subres(1).isConstant) {
-            VisitorRes(pow2MinusOne(bits) - subres(1).lowerBound)
-          } else {
-            val sort = UnsignedBVSort(bits)
-
-            val rawArg = subres(1).resTerm
-            val simple = isSimpleTerm(rawArg)
-
-            val (arg, resTerm) =
-              if (simple)
-                (shiftVars(rawArg, 1), v(0, sort))
-              else
-                (v(0), v(1, sort))
-
-            val resultDef =
-              and(for (i <- 0 until bits) yield {
-                eqZero(doExtract(i, i, arg, bits) +
-                       doExtract(i, i, resTerm, bits) +
-                       IdealInt.MINUS_ONE)
-              })
-
-            val res =
-              if (simple)
-                sort.eps(resultDef)
-              else
-                sort.eps(ex(v(0) === shiftVars(rawArg, 2) &
-                            resultDef))
-
-            VisitorRes(res,
-                       sort.upper - (subres(1) upperBoundMax sort.upper),
-                       sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
-          }
+        case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) => {
+          val sort = UnsignedBVSort(bits)
+          VisitorRes(sort.upper - subres(1).resTerm,
+                     sort.upper - (subres(1) upperBoundMax sort.upper),
+                     sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
+        }
 
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
           (subres.last * IdealInt.MINUS_ONE).modCastPow2(bits, ctxt)
@@ -733,28 +705,20 @@ object ModPreprocessor {
               oneConstant(subres(1), subres(2).lowerBound)
 
             case (false, false) => {
-              VisitorRes(bv_and(bits, subres(1).resTerm, subres(2).resTerm),
+              val cond =
+                if (bits == 1) {
+                  val res = v(0, sort)
+                  val lhs = shiftVars(subres(1).resTerm, 1)
+                  val rhs = shiftVars(subres(2).resTerm, 1)
+                  sort.eps(
+                    (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1))
+                } else {
+                  bv_and(bits, subres(1).resTerm, subres(2).resTerm)
+                }
+              VisitorRes(cond,
                          IdealInt.ZERO,
                          (subres(1) upperBoundMax sort.upper) min
                            (subres(2) upperBoundMax sort.upper))
-              /*
-              val resultDef = 
-                and(for (i <- 0 until bits) yield{
-                  val res = doExtract(i, i, v(2, sort), bits)
-                  val lhs = doExtract(i, i, v(1), bits)
-                  val rhs = doExtract(i, i, v(0), bits)
-                  (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1)
-                })
-              val res =
-                sort.eps(ex(ex(
-                  v(1) === shiftVars(subres(1).resTerm, 3) &
-                  v(0) === shiftVars(subres(2).resTerm, 3) &
-                  resultDef)))
-              VisitorRes(res,
-                         IdealInt.ZERO,
-                         (subres(1) upperBoundMax sort.upper) min
-                           (subres(2) upperBoundMax sort.upper))
-              */
             }
 
           }

@@ -123,6 +123,20 @@ class TestBitwise extends Properties("TestBitwise") {
     }
    }
 
+  property("bvand5") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(1))
+      val b2 = createConstant("b2", UnsignedBVSort(1))
+      val b3 = createConstant("b3", UnsignedBVSort(1))
+      
+      !! (b1 === bvand(b2, bvnot(b3)))
+      ??? == ProverStatus.Sat
+    }
+   }
+
   property("bvand_add") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
@@ -138,7 +152,7 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
-  property("bvand_bvand") = {
+  property("bvand_nested") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       Debug enableAllAssertions true
@@ -168,6 +182,52 @@ class TestBitwise extends Properties("TestBitwise") {
       !! (b3 === extract(2, 1, b1))
       !! (b4 === extract(2, 1, b2))
       ??? == ProverStatus.Sat
+    }
+  }
+
+  property("bvand_not2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(4))
+      val b3 = createConstant("b3", UnsignedBVSort(2))
+      val b4 = createConstant("b4", UnsignedBVSort(2))
+      
+      !! (b3 === extract(2, 1, b1))
+      !! (b4 === extract(2, 1, bvnot(b1)))
+      assert(??? == ProverStatus.Sat)
+
+      !! (b3 === b4)
+      assert(??? == ProverStatus.Unsat)
+
+      true
+    }
+  }
+
+  property("bvand_rewrites") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(64))
+      val b2 = createConstant("b2", UnsignedBVSort(64))
+      val b3 = createConstant("b3", UnsignedBVSort(64))
+      
+      scope {
+        // idempotence
+        !! (b2 === bvand(b1, b1))
+        !! (b2 =/= b1)
+        assert(??? == ProverStatus.Unsat)
+      }
+      scope {
+        // bvand with complementary arguments
+        !! (b3 === pow2MinusOne(64) - b1)
+        !! (b2 === bvand(b1, b3))
+        !! (b2 > 0)
+        assert(??? == ProverStatus.Unsat)
+      }
+      true
     }
   }
 
