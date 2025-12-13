@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap Heap Addr HeapObject
+(declare-heap Heap Addr Range HeapObject
  (AnInt 0)
  ((HeapObject 0)) (
   (
@@ -14,11 +14,11 @@
 (declare-const x Int)
 (declare-const y Int)
 
-(assert (valid H a1))
-(assert (valid H a2))
+(assert (heap.valid H a1))
+(assert (heap.valid H a2))
 
-(assert (= (write (write H a1 (AnInt x)) a2 (AnInt 42))
-           (write (write H a1 (AnInt y)) a2 (AnInt 42))))
+(assert (= (heap.write (heap.write H a1 (AnInt x)) a2 (AnInt 42))
+           (heap.write (heap.write H a1 (AnInt y)) a2 (AnInt 42))))
 (assert (not (= a1 a2)))
 (assert (not (= x y)))
 

@@ -5,7 +5,7 @@
 
 ; (set-option :produce-interpolants true)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  (AnInt 0)
  ((HeapObject 0)) (
   (
@@ -25,11 +25,11 @@
 (declare-const x Int)
 (declare-const y Int)
 
-(assert (valid h3 a2))
-(assert (valid h3 a3))
+(assert (heap.valid h3 a2))
+(assert (heap.valid h3 a3))
 (assert (distinct a2 a3))
-(assert (= h4 (write h3 a3 (AnInt (- (getInt (read h3 a3)))))))
-(assert (= h5 (write h4 a2 (AnInt (- (getInt (read h4 a2)))))))
-(assert (distinct 0 (+ (getInt (read h5 a2)) (getInt (read h5 a3)) x y)))
+(assert (= h4 (heap.write h3 a3 (AnInt (- (getInt (heap.read h3 a3)))))))
+(assert (= h5 (heap.write h4 a2 (AnInt (- (getInt (heap.read h4 a2)))))))
+(assert (distinct 0 (+ (getInt (heap.read h5 a2)) (getInt (heap.read h5 a3)) x y)))
 
 (check-sat)
