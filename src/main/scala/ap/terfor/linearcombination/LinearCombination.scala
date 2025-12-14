@@ -155,6 +155,23 @@ object LinearCombination {
     }
   }
 
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are sums of
+   * two terms with some coefficients and a constant offset.
+   */
+  object TwoTermsWithOffset {
+    def unapply(lc : LinearCombination)
+                   : Option[(IdealInt, Term, IdealInt, Term, IdealInt)] =
+      lc match {
+      case lc : LinearCombination1 =>
+        Some((lc.coeff0, lc.term0, IdealInt.ZERO, OneTerm, lc.constant))
+      case lc : LinearCombination2 =>
+        Some((lc.coeff0, lc.term0, lc.coeff1, lc.term1, lc.constant))
+      case _ =>
+        None
+    }
+  }
+
   def apply(coeff : IdealInt, t : Term,
             order : TermOrder) : LinearCombination = t match {
     case t : LinearCombination => {

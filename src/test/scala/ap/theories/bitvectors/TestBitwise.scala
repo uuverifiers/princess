@@ -231,6 +231,24 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("bvand_unary") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(1))
+      val b2 = createConstant("b2", UnsignedBVSort(1))
+      val b3 = createConstant("b3", UnsignedBVSort(2))
+      val b4 = createConstant("b4", UnsignedBVSort(2))
+      val q = createRelation("q", 1)
+
+      !! (b2 === bvand(b1, b1))
+      !! (3 === bvand(b3, b4))
+      !! (q(b1))
+      !! (q(b2))
+      ??? == ProverStatus.Sat
+    }
+  }
 }
 
 class TestExtract extends Properties("TestExtract") {
