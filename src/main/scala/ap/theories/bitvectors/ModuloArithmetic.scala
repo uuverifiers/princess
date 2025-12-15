@@ -67,7 +67,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  protected[bitvectors] val debug = true
+  protected[bitvectors] val debug = false
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[bitvectors] val directlyEncodeExtract = false
@@ -110,10 +110,16 @@ object ModuloArithmetic extends Theory {
   protected[bitvectors] def commonBitsLB(a : IdealInt,
                                          b : IdealInt) : Option[Int] =
     (a.signum, b.signum) match {
-      case (1, 1) | (-1, -1) => Some((a ^ b).getHighestSetBit + 1)
-      case (1, 0)            => Some(a.getHighestSetBit + 1)
-      case (0, 1)            => Some(b.getHighestSetBit + 1)
-      case _                 => None
+      case (1, 1) | (-1, -1) =>
+        if (a == b) Some(0) else Some((a ^ b).getHighestSetBit + 1)
+      case (0, 0) =>
+        Some(0)
+      case (1, 0)            =>
+        Some(a.getHighestSetBit + 1)
+      case (0, 1)            =>
+        Some(b.getHighestSetBit + 1)
+      case _                 =>
+        None
     }
 
   //////////////////////////////////////////////////////////////////////////////

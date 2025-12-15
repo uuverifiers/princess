@@ -249,6 +249,25 @@ class TestBitwise extends Properties("TestBitwise") {
       ??? == ProverStatus.Sat
     }
   }
+
+  property("bvand_bounds") = {
+    try {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b2 = createConstant("b2", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+
+      !! (b3 === bvand(b1, b2))
+      !! (b1 >= 11100000)
+      !! (b1 <= 11200000)
+      ??? == ProverStatus.Sat
+    }} catch {
+      case t : Throwable => { t.printStackTrace; throw t }
+    }
+  }
 }
 
 class TestExtract extends Properties("TestExtract") {

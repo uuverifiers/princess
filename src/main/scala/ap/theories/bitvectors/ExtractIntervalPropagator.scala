@@ -56,190 +56,191 @@ object ExtractIntervalPropagator {
 
   import ModuloArithmetic._
 
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-      if (goal.facts.predConj.predicates.contains(_bv_extract)) {
-        fwdPropagation(goal) ++ bwdPropagation(goal)
-      } else {
-        List()
-      }
+  def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+    if (goal.facts.predConj.predicates.contains(_bv_extract)) {
+      fwdPropagation(goal) ++ bwdPropagation(goal)
+    } else {
+      List()
+    }
 
-    /**
-     * Propagate information about extract arguments to the extract result.
-     */
-    def fwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
-      import TerForConvenience._
-      implicit val order : TermOrder = goal.order
+  /**
+   * Propagate information about extract arguments to the extract result.
+   */
+  def fwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
 
-      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      val reducer  = goal.reduceWithFacts
-      val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+    val reducer  = goal.reduceWithFacts
+    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    import reducer.{lowerBound, upperBound}
 
-      val actions  = new ArrayBuffer[Plugin.Action]
+    val actions  = new ArrayBuffer[Plugin.Action]
 
-      // TODO: cache results of lowerBound/upperBound?
-      for (ex@Atom(_, Seq(Constant(ub), Constant(lb), arg, res), _) <-
-             extracts) {
-        (reducer.lowerBound(arg, proofs),
-         reducer.upperBound(arg, proofs)) match {
-          case (Some((argLB, argLBAsses)), Some((argUB, argUBAsses)))
-              if lb <= ub => {
+    // TODO: cache results of lowerBound/upperBound?
+    for (ex@Atom(_, Seq(Constant(ub), Constant(lb), arg, res), _) <-
+            extracts) {
+      (lowerBound(arg, proofs), upperBound(arg, proofs)) match {
+        case (Some((argLB, argLBAsses)), Some((argUB, argUBAsses)))
+            if lb <= ub => {
 
-            commonBitsLB(argLB, argUB) match {
-              case Some(bitBoundary) if ub + 1 >= bitBoundary => {
-                val resLB = evalExtract(ub, lb, argLB)
-                val resUB = evalExtract(ub, lb, argUB)
+          commonBitsLB(argLB, argUB) match {
+            case Some(bitBoundary) if ub + 1 >= bitBoundary => {
+              val resLB = evalExtract(ub, lb, argLB)
+              val resUB = evalExtract(ub, lb, argUB)
 
-                val resConstraints = List(res - resLB, resUB - res) >= 0
-                val redConstraints = reducer(resConstraints)
+              val resConstraints = List(res - resLB, resUB - res) >= 0
+              val redConstraints = reducer(resConstraints)
 
-                if (!redConstraints.isTrue) {
-                  val action =
-                    if (proofs)
-                      Plugin.AddAxiom(argLBAsses ++ argUBAsses ++ List(ex),
-                                      resConstraints,
-                                      ModuloArithmetic)
-                    else
-                      Plugin.AddAxiom(List(),
-                                      redConstraints,
-                                      ModuloArithmetic)
-                  actions += action
-                  //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  if (debug) {
-                    println(
-                      s"Inferred new bounds [$resLB, $resUB] for term $res")
-                    println("\t" + action)
-                  }
-                  //-END-ASSERTION-/////////////////////////////////////////////
+              if (!redConstraints.isTrue) {
+                val action =
+                  if (proofs)
+                    Plugin.AddAxiom(argLBAsses ++ argUBAsses ++ List(ex),
+                                    resConstraints,
+                                    ModuloArithmetic)
+                  else
+                    Plugin.AddAxiom(List(),
+                                    redConstraints,
+                                    ModuloArithmetic)
+                actions += action
+                //-BEGIN-ASSERTION-///////////////////////////////////////////
+                if (debug) {
+                  println(
+                    s"Inferred new bounds [$resLB, $resUB] for term $res")
+                  println("\t" + action)
                 }
+                //-END-ASSERTION-/////////////////////////////////////////////
+              }
+            }
+            case _ =>
+              // nothing can be said
+          }
+        }
+
+        case _ =>
+          // nothing can be said
+      }
+    }
+
+    actions.toSeq
+  }
+
+  /**
+   * Propagate information about extract results to the extract arguments.
+   */
+  def bwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+    val reducer  = goal.reduceWithFacts
+    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    import reducer.{lowerBound, upperBound}
+
+    val actions  = new ArrayBuffer[Plugin.Action]
+
+    // TODO: make sure that the order of actions is deterministic
+    for ((arg, exes) <- extracts.groupBy(_(2))) {
+      lowerBound(arg, proofs) match {
+        case Some((argLB, argLBAssumptions)) => {
+          // check whether we can derive a tighter lower bound based on the
+          // bounds on extracts
+          val allAssumptions = new ArrayBuffer[Formula]
+          allAssumptions ++= argLBAssumptions
+
+          val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
+
+          var lastL = headU + 1
+          var newArgLB = argLB >> lastL
+
+          for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
+                  exes.iterator;
+                if ub < lastL) {
+            lowerBound(res, proofs) match {
+              case Some((resLB, resLBAssumptions)) if resLB.signum > 0 => {
+                newArgLB = (newArgLB << (lastL - lb)) + resLB
+                allAssumptions ++= resLBAssumptions
+                allAssumptions += ex
               }
               case _ =>
-                // nothing can be said
             }
+            lastL = lb
           }
 
-          case _ =>
-            // nothing can be said
+          newArgLB = newArgLB << lastL
+
+          if (newArgLB > argLB) {
+            val action = Plugin.AddAxiom(allAssumptions, arg >= newArgLB,
+                                          ModuloArithmetic)
+            //-BEGIN-ASSERTION-///////////////////////////////////////////////
+            if (debug) {
+              println(s"Inferred new lower bound $newArgLB for term $arg:")
+              println("\t" + action)
+            }
+            //-END-ASSERTION-/////////////////////////////////////////////////
+            actions += action
+          }
         }
+
+        case None => // without an initial lower bound, nothing can be done
       }
 
-      actions.toSeq
-    }
+      upperBound(arg, proofs) match {
+        case Some((argUB, argUBAssumptions)) => {
+          // check whether we can derive a tighter upper bound based on the
+          // bounds on extracts
+          val allAssumptions = new ArrayBuffer[Formula]
+          allAssumptions ++= argUBAssumptions
 
-    /**
-     * Propagate information about extract results to the extract arguments.
-     */
-    def bwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
-      import TerForConvenience._
-      implicit val order : TermOrder = goal.order
+          val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
 
-      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      val reducer  = goal.reduceWithFacts
-      val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+          var lastL = headU + 1
+          var newArgUB = argUB >> lastL
 
-      val actions  = new ArrayBuffer[Plugin.Action]
+          for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
+                  exes.iterator;
+                if ub < lastL) {
+            // add the 1-bits between the last and the current block
+            newArgUB = newArgUB.shiftLeftAddOnes(lastL - ub - 1)
 
-      // TODO: make sure that the order of actions is deterministic
-      for ((arg, exes) <- extracts.groupBy(_(2))) {
-        reducer.lowerBound(arg, proofs) match {
-          case Some((argLB, argLBAssumptions)) => {
-            // check whether we can derive a tighter lower bound based on the
-            // bounds on extracts
-            val allAssumptions = new ArrayBuffer[Formula]
-            allAssumptions ++= argLBAssumptions
-
-            val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
-
-            var lastL = headU + 1
-            var newArgLB = argLB >> lastL
-
-            for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
-                   exes.iterator;
-                 if ub < lastL) {
-              reducer.lowerBound(res, proofs) match {
-                case Some((resLB, resLBAssumptions)) if resLB.signum > 0 => {
-                  newArgLB = (newArgLB << (lastL - lb)) + resLB
-                  allAssumptions ++= resLBAssumptions
-                  allAssumptions += ex
-                }
-                case _ =>
+            upperBound(res, proofs) match {
+              case Some((resUB, resUBAssumptions))
+                  if resUB < pow2MinusOne(ub - lb + 1) => {
+                // add the upper bound on the current block
+                newArgUB = (newArgUB << (ub - lb + 1)) + resUB
+                allAssumptions ++= resUBAssumptions
+                allAssumptions += ex
               }
-              lastL = lb
+              case _ => {
+                // use the worst-case upper bound
+                newArgUB = newArgUB.shiftLeftAddOnes(ub - lb + 1)
+              }
             }
 
-            newArgLB = newArgLB << lastL
-
-            if (newArgLB > argLB) {
-              val action = Plugin.AddAxiom(allAssumptions, arg >= newArgLB,
-                                           ModuloArithmetic)
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              if (debug) {
-                println(s"Inferred new lower bound $newArgLB for term $arg:")
-                println("\t" + action)
-              }
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              actions += action
-            }
+            lastL = lb
           }
 
-          case None => // without an initial lower bound, nothing can be done
-        }
+          // add remaining 1-bits after the last block
+          newArgUB = newArgUB.shiftLeftAddOnes(lastL)
 
-        reducer.upperBound(arg, proofs) match {
-          case Some((argUB, argUBAssumptions)) => {
-            // check whether we can derive a tighter upper bound based on the
-            // bounds on extracts
-            val allAssumptions = new ArrayBuffer[Formula]
-            allAssumptions ++= argUBAssumptions
-
-            val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
-
-            var lastL = headU + 1
-            var newArgUB = argUB >> lastL
-
-            for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
-                   exes.iterator;
-                 if ub < lastL) {
-              // add the 1-bits between the last and the current block
-              newArgUB = newArgUB.shiftLeftAddOnes(lastL - ub - 1)
-
-              reducer.upperBound(res, proofs) match {
-                case Some((resUB, resUBAssumptions))
-                    if resUB < pow2MinusOne(ub - lb + 1) => {
-                  // add the upper bound on the current block
-                  newArgUB = (newArgUB << (ub - lb + 1)) + resUB
-                  allAssumptions ++= resUBAssumptions
-                  allAssumptions += ex
-                }
-                case _ => {
-                  // use the worst-case upper bound
-                  newArgUB = newArgUB.shiftLeftAddOnes(ub - lb + 1)
-                }
-              }
-
-              lastL = lb
+          if (newArgUB < argUB) {
+            val action = Plugin.AddAxiom(allAssumptions, arg <= newArgUB,
+                                          ModuloArithmetic)
+            //-BEGIN-ASSERTION-///////////////////////////////////////////////
+            if (debug) {
+              println(s"Inferred new upper bound $newArgUB for term $arg:")
+              println("\t" + action)
             }
-
-            // add remaining 1-bits after the last block
-            newArgUB = newArgUB.shiftLeftAddOnes(lastL)
-
-            if (newArgUB < argUB) {
-              val action = Plugin.AddAxiom(allAssumptions, arg <= newArgUB,
-                                           ModuloArithmetic)
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              if (debug) {
-                println(s"Inferred new upper bound $newArgUB for term $arg:")
-                println("\t" + action)
-              }
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              actions += action
-            }
+            //-END-ASSERTION-/////////////////////////////////////////////////
+            actions += action
           }
-
-          case None => // without an initial lower bound, nothing can be done
         }
+
+        case None => // without an initial lower bound, nothing can be done
       }
-
-      actions.toSeq
     }
+
+    actions.toSeq
+  }
 
 }
