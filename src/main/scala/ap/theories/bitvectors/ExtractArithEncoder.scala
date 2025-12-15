@@ -59,10 +59,7 @@ object ExtractArithEncoder extends TheoryProcedure {
   import ModuloArithmetic._
   import ModPlugin.hasImpliedIneqConstraints
 
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-      encode(goal, false)
-
-    def encode(goal : Goal, encodeAll : Boolean) : Seq[Plugin.Action] =  {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
       import TerForConvenience._
       implicit val order : TermOrder = goal.order
 
@@ -103,28 +100,16 @@ object ExtractArithEncoder extends TheoryProcedure {
               // no variable needed
               terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
                               nextVarInd, constraints, ex :: atoms))
-            } else if (SingleTerm.unapply(arg).isDefined) {
+            } else {
               // This extract cannot be eliminated, since it
               // overlaps with the last one. In this case we don't
               // eliminate extracts for this term altogether at this
               // point, we wait until the extracts have been split
               terms -= arg
               ignoredTerms += arg
-            } else {
-              // Extract applied to a complex term, and the ranges overlap
-              // with the previous extract. Such extracts will not be
-              // fully split, so we just ignore this literal for the time
-              // being, and translate the other ones to arithmetic.
             }
         }
       }
-
-      val arithExtractedConsts = new MHashSet[ConstantTerm]
-
-      if (encodeAll)
-        arithExtractedConsts ++= goal.facts.constants
-      else
-        arithExtractedConsts ++= arithmeticExtractedConsts(goal)
 
       for (ex <- extracts) ex match {
         case Atom(`_bv_extract`,
@@ -134,17 +119,6 @@ object ExtractArithEncoder extends TheoryProcedure {
                       _),
                   _) if (ignoredTerms contains arg) =>
           // nothing
-        case Atom(`_bv_extract`,
-                  Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
-                      arg@SingleTerm(c : ConstantTerm),
-                      res),
-                  _) =>
-          if ((arithExtractedConsts contains c) ||
-              !hasImpliedIneqConstraints(c, IdealInt.ZERO,
-                                         pow2MinusOne(ub + 1), inEqs)) {
-            arithExtractedConsts += c
-            elimExtract(ex, ub, lb, arg, res)
-          }
         case Atom(`_bv_extract`,
                   Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
                       arg,

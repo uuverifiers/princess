@@ -45,6 +45,7 @@ import ap.proof.theoryPlugins.Plugin
 
 object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
   import ModuloArithmetic._
+  import ModPlugin.enumIntValuesOf
   import TerForConvenience._
 
   type ApplicationPoint = Atom
@@ -83,15 +84,11 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
     if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
       implicit val order = goal.order
       p(0) match {
-        /*
-        case LinearCombination.Constant(IdealInt(bits)) if bits <= 4 => {
-          val f1 =
-            ap.theories.nia.GroebnerMultiplication.valueEnumerator.enumIntValuesOf(p(1), order)
-          val f2 =
-            ap.theories.nia.GroebnerMultiplication.valueEnumerator.enumIntValuesOf(p(2), order)
+        case LinearCombination.Constant(IdealInt(bits)) if bits <= -1 => {
+          val f1 = enumIntValuesOf(p(1), order)
+          val f2 = enumIntValuesOf(p(2), order)
           List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
         }
-        */
         case LinearCombination.Constant(IdealInt(bits)) if bits > 1 => {
           val mid = bits / 2
           val arg1 = p(1)

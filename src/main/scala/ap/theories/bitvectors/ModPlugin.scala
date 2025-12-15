@@ -39,12 +39,13 @@ import ap.theories._
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
-import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm}
+import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
 import LinearCombination.SingleTerm
 import ap.terfor.conjunctions.Conjunction
+import ap.theories.GroebnerMultiplication
 import ap.types.SortedPredicate
 import ap.util.{Debug, Seqs, IdealRange}
 
@@ -81,7 +82,7 @@ object ModPlugin extends Plugin {
 //          ExtractArithEncoder.handleGoal(goal)  elseDo
           modShiftCast(goal)
         case Plugin.GoalState.Final =>
-          ExtractArithEncoder.encode(goal, true)
+          ExtractArithEncoder.handleGoal(goal)
       }
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -91,6 +92,13 @@ object ModPlugin extends Plugin {
 
       actions
     }
+
+  /**
+   * Generate an assertion that will cause all values of the given
+   * term to be enumerated explicitly.
+   */
+  def enumIntValuesOf(t : Term, order : TermOrder) : Formula =
+    GroebnerMultiplication.valueEnumerator.enumIntValuesOf(t, order)
 
   object NEEDS_SPLITTING extends Exception
 

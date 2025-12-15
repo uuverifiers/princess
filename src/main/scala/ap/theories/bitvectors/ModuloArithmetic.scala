@@ -67,7 +67,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  protected[bitvectors] val debug = false
+  protected[bitvectors] val debug = true
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[bitvectors] val directlyEncodeExtract = false
