@@ -2291,12 +2291,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     }
 
     case PlainSymbol(name@"concat") => {
-      val flatArgs =
-        flatten(name, args)
       val transArgs =
-        for (a <- flatArgs) yield translateTerm(a, 0)
+        for (a <- args) yield translateTerm(a, 0)
       val termWidths =
-        for ((p@(_, typ), term) <- transArgs zip flatArgs)
+        for ((p@(_, typ), term) <- transArgs zip args)
         yield (asTerm(p), extractBVWidth(name, typ, term))
       val (finalTerm, finalWidth) =
         termWidths.reduceLeft[(ITerm, Int)] {
