@@ -58,6 +58,7 @@ TESTS="existential.pri \
        bitops1.smt2 \
        concatcore.smt2 \
        concat.smt2 \
+       concat2.smt2 \
        concore.smt2 \
        ext_con_004_001_0016.smt2 \
        extractcore.smt2 \

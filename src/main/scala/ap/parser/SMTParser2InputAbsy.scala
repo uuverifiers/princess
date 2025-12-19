@@ -2290,14 +2290,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (ModuloArithmetic.cast2Sort(t.toSort, IdealInt(value)), t)
     }
 
-    case PlainSymbol("concat") => {
-      checkArgNum("concat", 2, args)
-      val a0@(transArg0, type0) = translateTerm(args(0), 0)
-      val a1@(transArg1, type1) = translateTerm(args(1), 0)
-      val width0 = extractBVWidth("concat", type0, args(0))
-      val width1 = extractBVWidth("concat", type1, args(1))
-      (ModuloArithmetic.bv_concat(i(width0), i(width1), asTerm(a0), asTerm(a1)),
-       SMTBitVec(width0 + width1))
+    case PlainSymbol(name@"concat") => {
+      val flatArgs =
+        flatten(name, args)
+      val transArgs =
+        for (a <- flatArgs) yield translateTerm(a, 0)
+      val termWidths =
+        for ((p@(_, typ), term) <- transArgs zip flatArgs)
+        yield (asTerm(p), extractBVWidth(name, typ, term))
+      val (finalTerm, finalWidth) =
+        termWidths.reduceLeft[(ITerm, Int)] {
+          case ((a0, width0), (a1, width1)) =>
+            (ModuloArithmetic.bv_concat(i(width0), i(width1), a0, a1),
+             width0 + width1)
+        }
+      (finalTerm, SMTBitVec(finalWidth))
     }
 
     case NumIndexedSymbol2("extract", IdealInt(begin), IdealInt(end)) => {
