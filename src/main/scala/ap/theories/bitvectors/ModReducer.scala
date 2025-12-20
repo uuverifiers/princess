@@ -347,7 +347,7 @@ object ModReducer {
                   }
 
                   case (Constant(ub), _, arg)
-                      if canBeReduced(arg, pow2(ub + 1)) => {
+                      if ub < 100000 && canBeReduced(arg, pow2(ub + 1)) => {
                     // Eliminate large constants within the extract argument
                     val newExtract = _bv_extract(
                       List(a(0), a(1),

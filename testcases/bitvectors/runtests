@@ -74,6 +74,7 @@ TESTS="existential.pri \
        bvcomp.smt2 \
        problem_24.smt2 \
        large_shift.smt2 \
+       large_shift2.smt2 \
        bvashr.smt2 \
        bvashr2.smt2 \
        arith-extracts.pri \

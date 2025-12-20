@@ -540,23 +540,26 @@ object ModuloArithmetic extends Theory {
      */
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort)
 
+    def computeSortsII(indexes : Seq[IdealInt]) : (Seq[Sort], Sort) =
+      computeSorts(indexes.map(_.intValueSafe))
+
     private def doIComputeSorts(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val indexes =
-        for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
+        for (IIntLit(n) <- arguments take indexArity) yield n
       if (indexes.size < indexArity) {
         // this means that some of the indexes are symbolic, we just specify
         // argument sorts to be AnySort
         anySorts
       } else {
-        computeSorts(indexes)
+        computeSortsII(indexes)
       }
     }
 
     private def doComputeSorts(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
       val indexes =
         for (lc <- arguments take indexArity)
-        yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-      computeSorts(indexes)
+        yield lc.asInstanceOf[LinearCombination0].constant
+      computeSortsII(indexes)
     }
 
     private lazy val anySorts =
@@ -612,9 +615,11 @@ object ModuloArithmetic extends Theory {
   // Result:    number mod 2^(begin - end + 1)
 
   object BVExtract extends IndexedBVOp("bv_extract", 2, 1, functional = true) {
-    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) =
+      ??? // method not used
+    override def computeSortsII(indexes : Seq[IdealInt]) : (Seq[Sort], Sort) = {
       (List(Sort.Integer, Sort.Integer, Sort.Integer),
-       UnsignedBVSort(indexes(0) - indexes(1) + 1))
+       UnsignedBVSort((indexes(0) - indexes(1) + 1).intValueSafe))
     }
   }
 
