@@ -335,6 +335,11 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt2, ctxt2))
       }
 
+      case IFunApp(`bv_or`, Seq(width, e1, e2)) =>
+        TryAgain(bv_not(width,
+                        bv_and(width, bv_not(width, e1), bv_not(width, e2))),
+                 ctxt)
+
       case IFunApp(`bv_shl`, Seq(IIntLit(n), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
@@ -726,6 +731,7 @@ object ModPreprocessor {
 
         ////////////////////////////////////////////////////////////////////////
 
+/*
         case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
           val sort = UnsignedBVSort(bits)
 
@@ -806,7 +812,7 @@ object ModPreprocessor {
 
           }
         }
-
+*/
         ////////////////////////////////////////////////////////////////////////
 
         case IFunApp(`bv_xor`, Seq(IIntLit(IdealInt(bits)), _*)) => {
@@ -1117,6 +1123,7 @@ object ModPreprocessor {
    * Run-length encoding of a number, starting with the number of
    * least-significant zeroes.
    */
+  /*
   private def runlengths(v : IdealInt) : Seq[Int] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, v.signum >= 0)
@@ -1158,7 +1165,7 @@ object ModPreprocessor {
     else
       lens
   }
-
+*/
   //////////////////////////////////////////////////////////////////////////////
 
   /**

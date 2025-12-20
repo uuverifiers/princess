@@ -337,6 +337,17 @@ object ExtractPartitioner extends TheoryProcedure {
       addCutPoints(arg1, List(0, bits))
     }
 
+    def propagateNot(width : Int, t : Term) : Unit =
+      t match {
+        case t : LinearCombination => {
+          val negT = t.scaleAndAdd(IdealInt.MINUS_ONE, pow2MinusOne(width))
+          val cut1 = getCutPoints(t)
+          val cut2 = getCutPoints(negT)
+          addCutPoints(t, cut2)
+          addCutPoints(negT, cut1)
+        }
+      }
+
     def propagateExtract(extract : Atom) : Unit = {
       val Seq(LinearCombination.Constant(IdealInt(ub)),
               LinearCombination.Constant(IdealInt(lb)),
@@ -350,6 +361,8 @@ object ExtractPartitioner extends TheoryProcedure {
 
       // propagate FROM t2 TO t1
       addCutPoints(t1, cut2.map(_ + lb).filter(c => c <= ub))
+
+//      propagateNot(ub - lb + 1, t2)
     }
 
     /**
@@ -369,6 +382,10 @@ object ExtractPartitioner extends TheoryProcedure {
       addCutPoints(arg1, cut2transformed ++ cut3transformed)
       addCutPoints(arg2, cut1transformed ++ cut3transformed)
       addCutPoints(res,  cut1transformed ++ cut2transformed)
+
+//      propagateNot(bits, arg1)
+//      propagateNot(bits, arg2)
+//      propagateNot(bits, res)
     }
 
   }

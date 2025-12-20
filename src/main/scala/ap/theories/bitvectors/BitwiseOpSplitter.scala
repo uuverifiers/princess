@@ -43,6 +43,10 @@ import ap.util.{Debug, Seqs}
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
 
+/**
+ * Class responsible for splitting bit-wise operators, moving gradually towards
+ * a fully bit-blasted representation of the operator.
+ */
 object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
   import ModuloArithmetic._
   import ModPlugin.enumIntValuesOf
@@ -77,6 +81,7 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
     predConj.positiveLitsWithPred(_bv_and).iterator
   }
   
+  // TODO: tune priority
   def applicationPriority(goal : Goal, p : ApplicationPoint) : Int = 10
 
   def handleApplicationPoint(goal : Goal,
@@ -95,7 +100,8 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
 
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           if (debug) {
-            println(s"Splitting $p into intervals [0, ${mid-1}] and [$mid, ${bits-1}] ...")
+            println(s"Splitting $p into intervals" +
+                    s" [0, ${mid-1}] and [$mid, ${bits-1}] ...")
           }
           //-END-ASSERTION-/////////////////////////////////////////////////////
 

@@ -268,6 +268,64 @@ class TestBitwise extends Properties("TestBitwise") {
       case t : Throwable => { t.printStackTrace; throw t }
     }
   }
+
+  property("bvor1") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      val b2 = createConstant("b2", UnsignedBVSort(8))
+      val b3 = createConstant("b3", UnsignedBVSort(8))
+      
+      !! (b3 === bvor(b1, b2))
+      assert(??? == ProverStatus.Sat)
+
+      !! (b1 =/= bv(8, 0))
+      ?? (b3 =/= bv(8, 0))
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("bvand_or") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val w = 4
+      val b1 = createConstant("b1", UnsignedBVSort(w))
+      val b2 = createConstant("b2", UnsignedBVSort(w))
+      val b3 = createConstant("b3", UnsignedBVSort(w))
+      val x  = createConstant("x", UnsignedBVSort(w))
+      val y  = createConstant("y", UnsignedBVSort(w))
+      
+      // TODO: currently very slow. We need to split the diseqeuality?
+      ?? (bvand(b1, bvor(b2, b3)) === bvor(bvand(b1, b2), bvand(b1, b3)))
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("bvand_or2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val w = 8
+      val b1 = createConstant("b1", UnsignedBVSort(w))
+      val b2 = createConstant("b2", UnsignedBVSort(w))
+      val b3 = createConstant("b3", UnsignedBVSort(w))
+      val x  = createConstant("x", UnsignedBVSort(w))
+      val y  = createConstant("y", UnsignedBVSort(w))
+      
+      !! (x === bvand(b1, bvor(b2, b3)))
+      !! (y === bvor(bvand(b1, b2), bvand(b1, b3)))
+
+      ?? (and((0 until w).map(n => (extract(n, n, x) === extract(n, n, y)))))
+
+      ??? == ProverStatus.Valid
+    }
+  }
+
 }
 
 class TestExtract extends Properties("TestExtract") {
