@@ -60,12 +60,16 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
             (implicit order : TermOrder) : Formula =
     op match {
       case `_bv_and` => doBVAnd(bits, arg1, arg2, res)
+      case `_bv_xor` => doBVXor(bits, arg1, arg2, res)
     }
 
   def doBVAnd(bits : Int,
               arg1 : LinearCombination, arg2 : LinearCombination,
               res : LinearCombination)
              (implicit order : TermOrder) : Formula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, bits > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val f1 =
       if (bits > 1)
         conj(Atom(_bv_and, List(l(bits), arg1, arg2, res), order) /* ,
@@ -76,9 +80,29 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
     f1
   }
 
+  def doBVXor(bits : Int,
+              arg1 : LinearCombination, arg2 : LinearCombination,
+              res : LinearCombination)
+             (implicit order : TermOrder) : Formula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, bits > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val f1 =
+      if (bits > 1)
+        conj(Atom(_bv_xor, List(l(bits), arg1, arg2, res), order) /* ,
+             res <= arg1, res <= arg2 */)
+      else
+        Atom(_mod_cast,
+             List(l(IdealInt.ZERO), l(IdealInt.ONE), arg1 + arg2, res),
+             order)
+
+    f1
+  }
+
   def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
     val predConj = goal.facts.predConj
-    predConj.positiveLitsWithPred(_bv_and).iterator
+    predConj.positiveLitsWithPred(_bv_and).iterator ++
+      predConj.positiveLitsWithPred(_bv_xor).iterator
   }
   
   // TODO: tune priority

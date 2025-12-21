@@ -172,7 +172,8 @@ object ExtractPartitioner extends TheoryProcedure {
     implicit val order = goal.order
     val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
 
-    val binOps = goal.facts.predConj.positiveLitsWithPred(_bv_and)
+    val binOps = goal.facts.predConj.positiveLitsWithPred(_bv_and) ++
+                 goal.facts.predConj.positiveLitsWithPred(_bv_xor)
     val partitions = computeCutPoints(extracts, binOps, extraCutPoints)
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
@@ -366,7 +367,7 @@ object ExtractPartitioner extends TheoryProcedure {
     }
 
     /**
-     * Propagation for operators such as bv_and, bv_or, etc.
+     * Propagation for operators such as bv_and and bv_xor.
      */
     def propagateBinOp(op : Atom) : Unit = {
       val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op

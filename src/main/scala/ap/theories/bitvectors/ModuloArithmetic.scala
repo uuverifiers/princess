@@ -759,6 +759,7 @@ object ModuloArithmetic extends Theory {
 
   val _bv_extract = functionTranslation(bv_extract)
   val _bv_and = functionTranslation(bv_and)
+  val _bv_xor = functionTranslation(bv_xor)
 
   // TODO: Keep the functionality axiom for the bv_extract function? It tends to
   // interfere with the rules for handling bv_extract.

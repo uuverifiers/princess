@@ -326,6 +326,66 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("bvxor1") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      val b2 = createConstant("b2", UnsignedBVSort(8))
+      val b3 = createConstant("b3", UnsignedBVSort(8))
+      
+      !! (b3 === bvxor(b1, b2))
+      !! (b1 =/= bv(8, 0))
+      assert(??? == ProverStatus.Sat)
+
+      !! (b3 === bv(8, 0))
+      ??? == ProverStatus.Sat
+    }
+  }
+
+  property("bvxor2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      val b2 = createConstant("b2", UnsignedBVSort(8))
+      val b3 = createConstant("b3", UnsignedBVSort(8))
+      
+      !! (b3 === bvxor(b1, b2))
+      !! (b3 === bv(8, 0))
+      ?? (b1 === b2)
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("bvxor3") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      val b2 = createConstant("b2", UnsignedBVSort(8))
+      val b3 = createConstant("b3", UnsignedBVSort(8))
+      
+      ?? (bvnot(b1) === bvxor(bv(8, 0xFF), b1))
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("bvxor4") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(8))
+      
+      ?? (b1 === bvxor(bv(8, 0x07), bvxor(b1, bv(8, 0x07))))
+      ??? == ProverStatus.Valid
+    }
+  }
+
 }
 
 class TestExtract extends Properties("TestExtract") {

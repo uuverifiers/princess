@@ -80,9 +80,9 @@ object ModPlugin extends Plugin {
           InEqSimplifier.handleGoal(goal)              elseDo
           ExtractIntervalPropagator.handleGoal(goal)   elseDo
           BitwiseOpIntervalPropagator.handleGoal(goal) elseDo
-//          ExtractArithEncoder.handleGoal(goal)  elseDo
           modShiftCast(goal)
         case Plugin.GoalState.Final =>
+          modShiftCast(goal)                           elseDo
           ExtractArithEncoder.handleGoal(goal)
       }
 
