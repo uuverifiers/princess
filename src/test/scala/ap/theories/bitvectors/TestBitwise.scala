@@ -251,7 +251,6 @@ class TestBitwise extends Properties("TestBitwise") {
   }
 
   property("bvand_bounds") = {
-    try {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
       Debug enableAllAssertions true
@@ -264,8 +263,6 @@ class TestBitwise extends Properties("TestBitwise") {
       !! (b1 >= 11100000)
       !! (b1 <= 11200000)
       ??? == ProverStatus.Sat
-    }} catch {
-      case t : Throwable => { t.printStackTrace; throw t }
     }
   }
 
@@ -417,6 +414,28 @@ class TestBitwise extends Properties("TestBitwise") {
       ??? == ProverStatus.Valid
     }
   }
+
+  property("bvxor_bounds") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b2 = createConstant("b2", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+
+      !! (b3 === bvxor(b1, b2))
+      !! (b1 >= 11100000)
+      !! (b1 <= 11200000)
+      !! (b2 >= 211000000)
+      !! (b2 <= 212000000)
+      assert(??? == ProverStatus.Sat)
+
+      !! (b3 < 10000)
+      ??? == ProverStatus.Unsat
+    }
+  }
+
 }
 
 class TestExtract extends Properties("TestExtract") {

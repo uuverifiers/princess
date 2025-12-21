@@ -42,6 +42,7 @@ import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.conjunctions.Conjunction
 import LinearCombination.Constant
 import ap.util.Debug
 
@@ -56,16 +57,17 @@ object BitwiseOpIntervalPropagator {
   import ModuloArithmetic._
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-    if (goal.facts.predConj.predicates.contains(_bv_and)) {
-      fwdPropagation(goal)
-    } else {
-      List()
-    }
+    fwdAndPropagation(goal) ++ fwdXorPropagation(goal)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Propagate information about arguments to the result.
    */
-  def fwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+  def fwdAndPropagation(goal : Goal) : Seq[Plugin.Action] = {
+    if (!goal.facts.predConj.predicates.contains(_bv_and))
+      return List()
+
     import TerForConvenience._
     implicit val order : TermOrder = goal.order
 
@@ -153,4 +155,72 @@ object BitwiseOpIntervalPropagator {
     actions.toSeq
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Propagate information about arguments to the result.
+   */
+  def fwdXorPropagation(goal : Goal) : Seq[Plugin.Action] = {
+    if (!goal.facts.predConj.predicates.contains(_bv_xor))
+      return List()
+
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val bvops    = goal.facts.predConj.positiveLitsWithPred(_bv_xor)
+    val reducer  = goal.reduceWithFacts
+    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    import reducer.{lowerBound, upperBound}
+
+    val actions  = new ArrayBuffer[Plugin.Action]
+
+    for (atom@Atom(`_bv_xor`, Seq(Constant(bits), arg1, arg2, res), _) <-
+           bvops) {
+      val arg1UBound = upperBound(arg1, proofs)
+      val arg2UBound = upperBound(arg2, proofs)
+      val arg1LBound = lowerBound(arg1, proofs)
+      val arg2LBound = lowerBound(arg2, proofs)
+
+      val arg1BitsLB =
+        for ((lb, assumptions1) <- arg1LBound;
+             (ub, assumptions2) <- arg1UBound;
+             b <- commonBitsLB(lb, ub))
+        yield (b, assumptions1 ++ assumptions2)
+      val arg2BitsLB =
+        for ((lb, assumptions1) <- arg2LBound;
+             (ub, assumptions2) <- arg2UBound;
+             b <- commonBitsLB(lb, ub))
+        yield (b, assumptions1 ++ assumptions2)
+
+      val (bounds, assumptions) =
+        (arg1BitsLB, arg2BitsLB) match {
+          case (Some((b1, asses1)), Some((b2, asses2))) => {
+            val domSize = pow2MinusOne(bits)
+            val b = b1 max b2
+            val fixedBits1 = ((arg1LBound.get._1 >> b) << b) & domSize
+            val fixedBits2 = ((arg2LBound.get._1 >> b) << b) & domSize
+            val fixedBits = fixedBits1 ^ fixedBits2
+            ((res >= fixedBits) & (res <= fixedBits + pow2MinusOne(b)),
+             asses1 ++ asses2)
+          }
+          case _ =>
+           // no useful bound
+           (Conjunction.TRUE, List())
+        }
+
+      if (!reducer(bounds).isTrue) {
+        val action =
+          Plugin.AddAxiom(assumptions ++ List(atom), bounds, ModuloArithmetic)
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println(s"Inferred new bounds for term $res")
+          println("\t" + action)
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        actions += action
+      }
+    }
+
+    actions.toSeq
+  }
 }
