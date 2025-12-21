@@ -686,23 +686,24 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // Arguments: N, number mod 2^N, number mod 2^N
+  // Arguments: N, numbers mod 2^N
 
-  class BVOrder(_name : String) extends SortedPredicate(_name, 3) {
+  class NAryBVPred(_name : String, bvArity : Int)
+      extends SortedPredicate(_name, bvArity + 1) {
     def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] =
       arguments.head match {
         case IIntLit(IdealInt(n)) =>
-          List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+          List(Sort.Integer) ++ (0 until bvArity).map(x => UnsignedBVSort(n))
         case _ =>
           // this means that some of the indexes are symbolic, we just specify
           // argument sorts to be AnySort
-          List(Sort.Integer, Sort.AnySort, Sort.AnySort)
+          List(Sort.Integer) ++ (0 until bvArity).map(x => Sort.AnySort)
       }
-        
+
     def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
       val n = arguments.head.asInstanceOf[LinearCombination0]
                        .constant.intValueSafe
-      List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+      List(Sort.Integer) ++ (0 until bvArity).map(x => UnsignedBVSort(n))
     }
         
     override def sortConstraints(arguments : Seq[Term])
@@ -710,10 +711,19 @@ object ModuloArithmetic extends Theory {
       argumentSorts(arguments).last membershipConstraint arguments.last
   }
 
-  val bv_ult           = new BVOrder("bv_ult")
-  val bv_ule           = new BVOrder("bv_ule")
-  val bv_slt           = new BVOrder("bv_slt")
-  val bv_sle           = new BVOrder("bv_sle")
+  val bv_ult           = new NAryBVPred("bv_ult", 2)
+  val bv_ule           = new NAryBVPred("bv_ule", 2)
+  val bv_slt           = new NAryBVPred("bv_slt", 2)
+  val bv_sle           = new NAryBVPred("bv_sle", 2)
+
+  val bv_nego          = new NAryBVPred("bv_nego", 1)
+  val bv_uaddo         = new NAryBVPred("bv_uaddo", 2)
+  val bv_saddo         = new NAryBVPred("bv_saddo", 2)
+  val bv_umulo         = new NAryBVPred("bv_umulo", 2)
+  val bv_smulo         = new NAryBVPred("bv_smulo", 2)
+  val bv_usubo         = new NAryBVPred("bv_usubo", 2)
+  val bv_ssubo         = new NAryBVPred("bv_ssubo", 2)
+  val bv_sdivo         = new NAryBVPred("bv_sdivo", 2)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -746,7 +756,19 @@ object ModuloArithmetic extends Theory {
 
   private val functionsSet : Set[IFunction] = functions.toSet
 
-  val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
+  val otherPreds = List(
+    bv_ult,
+    bv_ule,
+    bv_slt,
+    bv_sle,
+    bv_nego,
+    bv_uaddo,
+    bv_saddo,
+    bv_umulo,
+    bv_smulo,
+    bv_usubo,
+    bv_ssubo,
+    bv_sdivo)
 
   private val otherPredsSet : Set[Predicate] = otherPreds.toSet
 

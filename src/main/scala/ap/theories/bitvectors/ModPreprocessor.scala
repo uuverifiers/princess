@@ -353,7 +353,8 @@ object ModPreprocessor {
       case IFunApp(`int_cast`, _) =>
         UniSubArgs(ctxt)
 
-      case IAtom(`bv_slt` | `bv_sle`, Seq(IIntLit(n), _*)) =>
+      case IAtom(`bv_slt` | `bv_sle` | `bv_saddo` | `bv_smulo` | `bv_ssubo`,
+                 Seq(IIntLit(n), _*)) =>
         UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
@@ -1082,6 +1083,40 @@ object ModPreprocessor {
             VisitorRes(subres(1).modCastSignedPow2(bits, ctxt).resTerm <=
                        subres(2).modCastSignedPow2(bits, ctxt).resTerm)
           }
+
+        case IAtom(`bv_nego`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm === pow2(bits - 1))
+        case IAtom(`bv_uaddo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm + subres(2).resTerm >= pow2(bits))
+        case IAtom(`bv_saddo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum = subres(1).modCastSignedPow2(bits, ctxt).resTerm +
+                    subres(2).modCastSignedPow2(bits, ctxt).resTerm
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+        case IAtom(`bv_umulo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(MultTheory.mul(subres(1).resTerm,
+                                    subres(2).resTerm) >= pow2(bits))
+        case IAtom(`bv_smulo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum =
+            MultTheory.mul(subres(1).modCastSignedPow2(bits, ctxt).resTerm,
+                           subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+        case IAtom(`bv_usubo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm < subres(2).resTerm)
+        case IAtom(`bv_saddo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum = subres(1).modCastSignedPow2(bits, ctxt).resTerm -
+                    subres(2).modCastSignedPow2(bits, ctxt).resTerm
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+
+        ////////////////////////////////////////////////////////////////////////
 
         case t =>
           VisitorRes.update(t, subres)

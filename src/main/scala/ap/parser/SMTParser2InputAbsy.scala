@@ -2389,6 +2389,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     case PlainSymbol("bvsge") =>
       translateBVBinPredInv("bvsge", ModuloArithmetic.bv_sle, args)
 
+    case PlainSymbol("bvnego") =>
+      translateBVUnPred("bvnego", ModuloArithmetic.bv_nego, args)
+    case PlainSymbol("bvuaddo") =>
+      translateBVBinPred("bvuaddo", ModuloArithmetic.bv_uaddo, args)
+    case PlainSymbol("bvsaddo") =>
+      translateBVBinPred("bvsaddo", ModuloArithmetic.bv_saddo, args)
+    case PlainSymbol("bvumulo") =>
+      translateBVBinPred("bvumulo", ModuloArithmetic.bv_umulo, args)
+    case PlainSymbol("bvsmulo") =>
+      translateBVBinPred("bvsmulo", ModuloArithmetic.bv_smulo, args)
+    case PlainSymbol("bvusubo") =>
+      translateBVBinPred("bvusubo", ModuloArithmetic.bv_usubo, args)
+    case PlainSymbol("bvssubo") =>
+      translateBVBinPred("bvssubo", ModuloArithmetic.bv_ssubo, args)
+    case PlainSymbol("bvsdivo") =>
+      translateBVBinPred("bvsdivo", ModuloArithmetic.bv_sdivo, args)
+
     case NumIndexedSymbol1("zero_extend", IdealInt(digits)) => {
       checkArgNum("zero_extend", 1, args)
       val (transArg0, type0) = translateTerm(args(0), 0)
@@ -3589,6 +3606,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
        (s, t) => f(i(bits), s, t)
      },
      SMTBitVec(bits))
+  }
+
+  private def translateBVUnPred(name : String, p : Predicate, args : Seq[Term])
+                             : (IExpression, SMTType) = {
+    checkArgNum(name, 1, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    val bits = checkArgBVAgreement(name, args, List(type0))
+    (p(i(bits), asTerm(a0)), SMTBool)
   }
 
   private def translateBVBinPred(name : String, p : Predicate, args : Seq[Term])
