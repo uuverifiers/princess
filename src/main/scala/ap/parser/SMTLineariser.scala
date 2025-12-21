@@ -840,7 +840,6 @@ object SMTLineariser {
     ModuloArithmetic.bv_lshr -> "bvlshr",
     ModuloArithmetic.bv_ashr -> "bvashr",
     ModuloArithmetic.bv_xor  -> "bvxor",
-    ModuloArithmetic.bv_xnor -> "bvxnor",
     ModuloArithmetic.bv_comp -> "bvcomp"
   )
 

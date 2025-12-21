@@ -2349,8 +2349,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       translateBVBinOp("bvashr", ModuloArithmetic.bv_ashr, args)
     case PlainSymbol("bvxor") =>
       translateBVBinOp("bvxor",  ModuloArithmetic.bv_xor, args)
-    case PlainSymbol("bvxnor") =>
-      translateBVBinOp("bvxnor", ModuloArithmetic.bv_xnor, args)
 
     case PlainSymbol("bvnand") => {
       val (t, tp) = translateBVBinOp("bvnand", ModuloArithmetic.bv_and, args)
@@ -2358,6 +2356,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     }
     case PlainSymbol("bvnor") => {
       val (t, tp) = translateBVBinOp("bvnor", ModuloArithmetic.bv_or, args)
+      (ModuloArithmetic.bv_not(i(tp.width), t), tp)
+    }
+    case PlainSymbol("bvxnor") => {
+      val (t, tp) = translateBVBinOp("bvxnor", ModuloArithmetic.bv_xor, args)
       (ModuloArithmetic.bv_not(i(tp.width), t), tp)
     }
 

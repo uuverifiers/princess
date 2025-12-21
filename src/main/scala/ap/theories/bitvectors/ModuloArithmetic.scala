@@ -167,8 +167,6 @@ object ModuloArithmetic extends Theory {
     IFunApp(bv_ashr, List(extractBitWidth(t1, t2), t1, t2))
   def bvxor(t1 : ITerm, t2 : ITerm) : ITerm =
     IFunApp(bv_xor, List(extractBitWidth(t1, t2), t1, t2))
-  def bvxnor(t1 : ITerm, t2 : ITerm) : ITerm =
-    IFunApp(bv_xnor, List(extractBitWidth(t1, t2), t1, t2))
   def bvcomp(t1 : ITerm, t2 : ITerm) : ITerm =
     IFunApp(bv_comp, List(extractBitWidth(t1, t2), t1, t2))
 
@@ -672,7 +670,6 @@ object ModuloArithmetic extends Theory {
   val bv_and           = new BVNAryOp ("bv_and", 2)
   val bv_or            = new BVNAryOp ("bv_or",  2)
   val bv_xor           = new BVNAryOp ("bv_xor", 2)
-  val bv_xnor          = new BVNAryOp ("bv_xnor",2)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -743,7 +740,6 @@ object ModuloArithmetic extends Theory {
     bv_lshr,
     bv_ashr,
     bv_xor,
-    bv_xnor,
     bv_comp,
     zero_extend
   )
