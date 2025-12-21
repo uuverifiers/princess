@@ -108,28 +108,50 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
   // TODO: tune priority
   def applicationPriority(goal : Goal, p : ApplicationPoint) : Int = 10
 
+  def computeSplitPoint(pattern : IdealInt, bits : Int) : Int = {
+    val mid = bits / 2
+    val rle = runLengthEnc(pattern, bits)
+    rle.scan(0)(_ + _)
+       .filter(x => x != 0 && x != bits)
+       .sortBy(x => (mid - x).abs)
+       .headOption.getOrElse(mid)
+  }
+
   def handleApplicationPoint(goal : Goal,
                              p : ApplicationPoint) : Seq[Plugin.Action] =
     if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
       implicit val order = goal.order
-      p(0) match {
+      val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = p
+
+      val splitPoint =
+        if (bits <= 1)
+          None
+        else if (arg1.isConstant)
+          Some(computeSplitPoint(arg1.constant, bits))
+        else if (arg2.isConstant)
+          Some(computeSplitPoint(arg2.constant, bits))
+        else
+          Some(bits / 2)
+
+      /*
         case LinearCombination.Constant(IdealInt(bits)) if bits <= -1 => {
           val f1 = enumIntValuesOf(p(1), order)
           val f2 = enumIntValuesOf(p(2), order)
           List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
         }
-        case LinearCombination.Constant(IdealInt(bits)) if bits > 1 => {
-          val mid = bits / 2
-          val arg1 = p(1)
+        */
 
+      splitPoint match {
+        case Some(point) => {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           if (debug) {
             println(s"Splitting $p into intervals" +
-                    s" [0, ${mid-1}] and [$mid, ${bits-1}] ...")
+                    s" [0, ${point-1}] and [$point, ${bits-1}] ...")
           }
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
-          ExtractPartitioner.splitActions(goal, List((arg1, List(mid))))
+          val nonConstArg = if (arg1.isConstant) arg2 else arg1
+          ExtractPartitioner.splitActions(goal, List((nonConstArg, List(point))))
         }
         case _ =>
           List()

@@ -216,16 +216,17 @@ object ExtractPartitioner extends TheoryProcedure {
                               : Seq[Plugin.Action] = {
     val res =
       for (op <- binOps;
-           action <- splitBinOp(op, partitions.getOrElse(op(1), List())))
+           action <- splitBinOp(op, partitions.getOrElse(op(1),
+                                    partitions.getOrElse(op(2), List()))))
       yield action
 
-    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     if (!res.isEmpty && debug) {
       println("Splitting binary operator")
       for (t <- res)
         println("\t" + t)
     }
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     res
   }
@@ -336,6 +337,8 @@ object ExtractPartitioner extends TheoryProcedure {
     def setupBinOp(op : Atom) : Unit = {
       val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op
       addCutPoints(arg1, List(0, bits))
+      addCutPoints(arg2, List(0, bits))
+      addCutPoints(res,  List(0, bits))
     }
 
     def propagateNot(width : Int, t : Term) : Unit =
