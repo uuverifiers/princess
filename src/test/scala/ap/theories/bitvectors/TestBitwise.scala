@@ -415,6 +415,22 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("bvxor7") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b2 = createConstant("b2", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+      
+      !! (b3 === bvxor(b1, b2))
+      !! ((b3 === bv(32, 0x0F0F0F0F)) & (b2 === bv(32, 0x0F0F0F0F)))
+      ?? (b1 === 0)
+      ??? == ProverStatus.Valid
+    }
+  }
+
   property("bvxor_bounds") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._

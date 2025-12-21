@@ -594,68 +594,108 @@ object ModReducer {
                     logger.otherComputation(List(a), newEq, order,
                                             ModuloArithmetic)
                     newEq
+
                   } else if (a(1).isConstant || a(2).isConstant) {
-                    if (a(1).isConstant && a(2).isConstant) {
-                      val newEq =
-                        a(3) === evalExtract(bits - 1, 0,
-                                             a(1).constant ^ a(2).constant)
 
-                      //-BEGIN-ASSERTION-///////////////////////////////////////
-                      if (debug) {
-                        println("Evaluating bv_xor:")
-                        println("\t" + a)
-                        println("\t" + newEq)
+                    (a(1).isConstant, a(2).isConstant, a(3).isConstant) match {
+                      case (true, true, _) => {
+                        val newEq =
+                          a(3) === evalExtract(bits - 1, 0,
+                                               a(1).constant ^ a(2).constant)
+
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Evaluating bv_xor:")
+                          println("\t" + a)
+                          println("\t" + newEq)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
+
+                        logger.otherComputation(List(a), newEq, order,
+                                                ModuloArithmetic)
+                        newEq
                       }
-                      //-END-ASSERTION-/////////////////////////////////////////
+                      case (true, _, true) => {
+                        val newA =
+                          extract(bits - 1, 0, a(2),
+                                  evalExtract(bits - 1, 0, a(1).constant) ^
+                                    a(3).constant)
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Simplifying bv_xor:")
+                          println("\t" + a)
+                          println("\t" + newA)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
 
-                      logger.otherComputation(List(a), newEq, order,
-                                              ModuloArithmetic)
-                      newEq
-                    } else {
-                      // maybe the bv_xor can be replaced by extract
+                        logger.otherComputation(List(a), newA, order,
+                                                ModuloArithmetic)
+                        newA
+                      }
+                      case (_, true, true) => {
+                        val newA =
+                          extract(bits - 1, 0, a(1),
+                                  evalExtract(bits - 1, 0, a(2).constant) ^
+                                    a(3).constant)
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Simplifying bv_xor:")
+                          println("\t" + a)
+                          println("\t" + newA)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
 
-                      val (pattern, freeArg) =
-                        if (a(1).isConstant)
-                          (a(1).constant, a(2))
-                        else
-                          (a(2).constant, a(1))
+                        logger.otherComputation(List(a), newA, order,
+                                                ModuloArithmetic)
+                        newA
+                      }
 
-                      val newFormula =
-                        runLengthEnc(pattern, bits.intValueSafe) match {
-                          case Seq(_) => {
+                      case _ => {
+                        // maybe the bv_xor can be replaced by extract
+
+                        val (pattern, freeArg) =
+                          if (a(1).isConstant)
+                            (a(1).constant, a(2))
+                          else
+                            (a(2).constant, a(1))
+
+                        val newFormula =
+                          runLengthEnc(pattern, bits.intValueSafe) match {
+                            case Seq(_) => {
+                              //-BEGIN-ASSERTION-///////////////////////////////
+                              // pattern must be constantly zero
+                              Debug.assertInt(AC,
+                                        evalExtract(bits - 1, 0, pattern).isZero)
+                              //-END-ASSERTION-/////////////////////////////////
+                              Some(extract(bits - 1, 0, freeArg, a(3)))
+                            }
+                            case Seq(0, _) => {
+                              // pattern that is a single block of ones, negation
+                              Some(extract(bits - 1, 0, freeArg,
+                                          a(3).scaleAndAdd(IdealInt.MINUS_ONE,
+                                                            pow2MinusOne(bits))))
+                            }
+                            case _ =>
+                              None
+                          }
+
+                        newFormula match {
+                          case Some(f) => {
                             //-BEGIN-ASSERTION-/////////////////////////////////
-                            // pattern must be constantly zero
-                            Debug.assertInt(AC,
-                                      evalExtract(bits - 1, 0, pattern).isZero)
+                            if (debug) {
+                              println("Simplifying bv_xor:")
+                              println("\t" + a)
+                              println("\t" + f)
+                            }
                             //-END-ASSERTION-///////////////////////////////////
-                            Some(extract(bits - 1, 0, freeArg, a(3)))
-                          }
-                          case Seq(0, _) => {
-                            // pattern that is a single block of ones, negation
-                            Some(extract(bits - 1, 0, freeArg,
-                                         a(3).scaleAndAdd(IdealInt.MINUS_ONE,
-                                                          pow2MinusOne(bits))))
-                          }
-                          case _ =>
-                            None
-                        }
 
-                      newFormula match {
-                        case Some(f) => {
-                          //-BEGIN-ASSERTION-///////////////////////////////////
-                          if (debug) {
-                            println("Simplifying bv_xor:")
-                            println("\t" + a)
-                            println("\t" + f)
+                            logger.otherComputation(List(a), f, order,
+                                                    ModuloArithmetic)
+                            f
                           }
-                          //-END-ASSERTION-/////////////////////////////////////
-
-                          logger.otherComputation(List(a), f, order,
-                                                  ModuloArithmetic)
-                          f
+                          case None =>
+                            a
                         }
-                        case None =>
-                          a
                       }
                     }
 
