@@ -386,6 +386,37 @@ class TestBitwise extends Properties("TestBitwise") {
     }
   }
 
+  property("bvxor5") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b2 = createConstant("b2", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+      
+      !! (b3 === bvxor(b1, b2))
+      !! (b2 === bv(32, 0) | b2 === bv(32, 0xFFFFFFFF))
+      ?? (b1 === b3 | b1 === bvnot(b3))
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("bvxor6") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val b1 = createConstant("b1", UnsignedBVSort(32))
+      val b2 = createConstant("b2", UnsignedBVSort(32))
+      val b3 = createConstant("b3", UnsignedBVSort(32))
+      
+      !! (b3 === bvxor(b1, b2))
+      !! (b1 + b2 === 0xFFFFFFFF)
+      ?? (b3 === 0xFFFFFFFF)
+      ??? == ProverStatus.Valid
+    }
+  }
 }
 
 class TestExtract extends Properties("TestExtract") {

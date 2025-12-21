@@ -21,6 +21,7 @@ TESTS="existential.pri \
        bvshl2.smt2 \
        bvshl3.smt2 \
        bvshl4.smt2 \
+       bvxor.smt2 \
        shift2.pri \
        shift3.pri \
        shift5.pri \

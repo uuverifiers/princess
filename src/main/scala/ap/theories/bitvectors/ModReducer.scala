@@ -210,7 +210,7 @@ object ModReducer {
           ReducerPlugin.rewritePreds(predConj,
                                      List(_mod_cast,
                                           _l_shift_cast, _r_shift_cast,
-                                          _bv_extract, _bv_and),
+                                          _bv_extract, _bv_and, _bv_xor),
                                      order,
                                      logger) { a =>
               a.pred match {
@@ -244,7 +244,7 @@ object ModReducer {
                       a
                   }
 
-                  //////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////
 
                 case `_l_shift_cast` =>
                   if (a(2).isZero) {
@@ -287,7 +287,7 @@ object ModReducer {
                     }
                   }
 
-                  //////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////
 
                 case `_r_shift_cast` =>
                   if (RShiftCastSplitter.isShiftInvariant(a(2))) {
@@ -327,7 +327,7 @@ object ModReducer {
                     a
                   }
 
-                  //////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////
 
                 case `_bv_extract` => (a(0), a(1), a(2)) match {
                   case (Constant(ub), Constant(lb), Constant(constArg)) => {
@@ -474,7 +474,7 @@ object ModReducer {
                   }
                 }
 
-                  //////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////
 
                 case `_bv_and` => {
                   val LinearCombination.Constant(bits) = a(0)
@@ -556,12 +556,117 @@ object ModReducer {
                       }
                     }
 
+                  // If the lowest-value bits of the argument add up to a
+                  // constant one bit-string, the result of bv_and must be zero
                   // TODO: faster check?
                   } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
                     val newEq = a(3) === 0
                     //-BEGIN-ASSERTION-///////////////////////////////////////
                     if (debug) {
                       println("Eliminating bv_and:")
+                      println("\t" + a)
+                      println("\t" + newEq)
+                    }
+                    //-END-ASSERTION-/////////////////////////////////////////
+
+                    logger.otherComputation(List(a), newEq, order,
+                                            ModuloArithmetic)
+                    newEq
+                  } else {
+                    a
+                  }
+                }
+
+                ////////////////////////////////////////////////////////////////
+
+                case `_bv_xor` => {
+                  val LinearCombination.Constant(bits) = a(0)
+                  if (a(1) == a(2)) {
+                    val newEq = a(3) === 0
+                    //-BEGIN-ASSERTION-///////////////////////////////////////
+                    if (debug) {
+                      println("Eliminating bv_xor:")
+                      println("\t" + a)
+                      println("\t" + newEq)
+                    }
+                    //-END-ASSERTION-/////////////////////////////////////////
+
+                    logger.otherComputation(List(a), newEq, order,
+                                            ModuloArithmetic)
+                    newEq
+                  } else if (a(1).isConstant || a(2).isConstant) {
+                    if (a(1).isConstant && a(2).isConstant) {
+                      val newEq =
+                        a(3) === evalExtract(bits - 1, 0,
+                                             a(1).constant ^ a(2).constant)
+
+                      //-BEGIN-ASSERTION-///////////////////////////////////////
+                      if (debug) {
+                        println("Evaluating bv_xor:")
+                        println("\t" + a)
+                        println("\t" + newEq)
+                      }
+                      //-END-ASSERTION-/////////////////////////////////////////
+
+                      logger.otherComputation(List(a), newEq, order,
+                                              ModuloArithmetic)
+                      newEq
+                    } else {
+                      // maybe the bv_xor can be replaced by extract
+
+                      val (pattern, freeArg) =
+                        if (a(1).isConstant)
+                          (a(1).constant, a(2))
+                        else
+                          (a(2).constant, a(1))
+
+                      val newFormula =
+                        runLengthEnc(pattern, bits.intValueSafe) match {
+                          case Seq(_) => {
+                            //-BEGIN-ASSERTION-/////////////////////////////////
+                            // pattern must be constantly zero
+                            Debug.assertInt(AC,
+                                      evalExtract(bits - 1, 0, pattern).isZero)
+                            //-END-ASSERTION-///////////////////////////////////
+                            Some(extract(bits - 1, 0, freeArg, a(3)))
+                          }
+                          case Seq(0, _) => {
+                            // pattern that is a single block of ones, negation
+                            Some(extract(bits - 1, 0, freeArg,
+                                         a(3).scaleAndAdd(IdealInt.MINUS_ONE,
+                                                          pow2MinusOne(bits))))
+                          }
+                          case _ =>
+                            None
+                        }
+
+                      newFormula match {
+                        case Some(f) => {
+                          //-BEGIN-ASSERTION-///////////////////////////////////
+                          if (debug) {
+                            println("Simplifying bv_xor:")
+                            println("\t" + a)
+                            println("\t" + f)
+                          }
+                          //-END-ASSERTION-/////////////////////////////////////
+
+                          logger.otherComputation(List(a), f, order,
+                                                  ModuloArithmetic)
+                          f
+                        }
+                        case None =>
+                          a
+                      }
+                    }
+
+                  // If the lowest-value bits of the argument add up to a
+                  // constant one bit-string, the result of bv_xor must be one
+                  // TODO: faster check?
+                  } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
+                    val newEq = a(3) === pow2MinusOne(bits)
+                    //-BEGIN-ASSERTION-///////////////////////////////////////
+                    if (debug) {
+                      println("Eliminating bv_xor:")
                       println("\t" + a)
                       println("\t" + newEq)
                     }
