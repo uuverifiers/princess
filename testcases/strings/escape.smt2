@@ -8,3 +8,4 @@
 
 (assert (not (= x y)))
 (check-sat)
+(get-model)
