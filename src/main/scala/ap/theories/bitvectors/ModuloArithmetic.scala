@@ -135,6 +135,21 @@ object ModuloArithmetic extends Theory {
   def extract(begin : Int, end : Int, t : ITerm) : ITerm =
     IFunApp(bv_extract, List(begin, end, t))
 
+  def repeat(n : Int, t : ITerm) : ITerm = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, n >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    import IExpression._
+    val width = extractBitWidth(t)
+    val argSort = UnsignedBVSort(width)
+    val resSort = UnsignedBVSort(n * width)
+    resSort.eps(argSort.ex(
+      (v(0, argSort) === shiftVars(t, 2)) &
+      and((0 until n).map(k =>
+        extract((k+1)*width - 1, k*width, v(1, resSort)) === v(0, argSort)))
+    ))
+  }
+
   def bvnot(t : ITerm) : ITerm =
     IFunApp(bv_not, List(extractBitWidth(t), t))
   def bvneg(t : ITerm) : ITerm =
@@ -184,12 +199,34 @@ object ModuloArithmetic extends Theory {
   def bvsgt(t1 : ITerm, t2 : ITerm) : IFormula = bvslt(t2, t1)
   def bvsge(t1 : ITerm, t2 : ITerm) : IFormula = bvsle(t2, t1)
 
+  def bvnego(t : ITerm) : IFormula =
+    IAtom(bv_nego, List(extractBitWidth(t), t))
+  def bvuaddo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_uaddo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsaddo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_saddo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvumulo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_umulo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsmulo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_smulo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvusubo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_usubo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvssubo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_ssubo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsdivo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_sdivo, List(extractBitWidth(t1, t2), t1, t2))
+
   def zero_extend(addWidth : Int, t : ITerm) : ITerm =
     IFunApp(zero_extend, List(extractBitWidth(t), addWidth, t))
   def sign_extend(addWidth : Int, t : ITerm) : ITerm = {
     val w = extractBitWidth(t)
     cast2UnsignedBV(w + addWidth, cast2SignedBV(w, t))
   }
+
+  def rotateleft(t : ITerm, bits : ITerm) : ITerm =
+    IFunApp(rotate_left, List(extractBitWidth(t, bits), t, bits))
+  def rotateright(t : ITerm, bits : ITerm) : ITerm =
+    IFunApp(rotate_right, List(extractBitWidth(t, bits), t, bits))
 
   //////////////////////////////////////////////////////////////////////////////
 

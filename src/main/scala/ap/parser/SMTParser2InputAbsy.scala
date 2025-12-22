@@ -2316,6 +2316,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
         resType)
     }
 
+    case NumIndexedSymbol1("repeat", IdealInt(n)) => {
+      checkArgNum("repeat", 1, args)
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val width0 = extractBVWidth("extract", type0, args(0))
+      val resType = SMTBitVec(n*width0)
+      (ModuloArithmetic.repeat(n, asTerm(a0)), resType)
+    }
+
     case PlainSymbol("bvnot") =>
       translateBVUnaryOp("bvnot", ModuloArithmetic.bv_not, args)
     case PlainSymbol("bvneg") =>

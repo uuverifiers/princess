@@ -4,7 +4,7 @@
 
 (assert (= z ((_ rotate_right 8) x)))
 (assert (distinct x (_ bv0 32)))
-(assert (distinct x #xffffffff))
+(assert (distinct x ((_ repeat 32) (_ bv1 1))))
 (assert (= x z))
 
 (check-sat)

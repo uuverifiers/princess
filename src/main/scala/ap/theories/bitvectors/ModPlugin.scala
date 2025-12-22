@@ -73,16 +73,16 @@ object ModPlugin extends Plugin {
       val actions =
       goalState(goal) match {
         case Plugin.GoalState.Eager =>
-          negPreds(goal)                               elseDo
-          elimAtoms(goal)                              elseDo
+          negPreds(goal)                                  elseDo
+          elimAtoms(goal)                                 elseDo
           ExtractPartitioner.handleGoal(goal)
         case Plugin.GoalState.Intermediate =>
-          InEqSimplifier.handleGoal(goal)              elseDo
-          ExtractIntervalPropagator.handleGoal(goal)   elseDo
-          BitwiseOpIntervalPropagator.handleGoal(goal) elseDo
-          modShiftCast(goal)
+          InEqSimplifier.handleGoal(goal)                 elseDo
+          modShiftCast(goal)                              elseDo
+          (ExtractIntervalPropagator.handleGoal(goal) ++
+           BitwiseOpIntervalPropagator.handleGoal(goal))
         case Plugin.GoalState.Final =>
-          modShiftCast(goal)                           elseDo
+          modShiftCast(goal)                              elseDo
           ExtractArithEncoder.handleGoal(goal)
       }
 
