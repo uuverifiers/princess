@@ -1115,6 +1115,9 @@ object ModPreprocessor {
           val sort = SignedBVSort(bits)
           VisitorRes(sum < sort.lower | sum > sort.upper)
         }
+        case IAtom(`bv_sdivo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes((subres(1).resTerm === pow2(bits - 1)) &
+                     (subres(2).resTerm === pow2MinusOne(bits)))
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -1123,53 +1126,6 @@ object ModPreprocessor {
       }
   }
 
-  /**
-   * Run-length encoding of a number, starting with the number of
-   * least-significant zeroes.
-   */
-  /*
-  private def runlengths(v : IdealInt) : Seq[Int] = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, v.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    val two = IdealInt(2)
-    val res = new ArrayBuffer[Int]
-
-    var curBit = IdealInt.ZERO
-    var curNum = 0
-
-    var rem = v
-
-    while (!rem.isZero) {
-      val (newRem, bit) = rem /% two
-      if (bit == curBit) {
-        curNum = curNum + 1
-      } else {
-        res += curNum
-        curNum = 1
-        curBit = bit
-      }
-
-      rem = newRem
-    }
-
-    res += curNum
-    res
-  }
-
-  private def completedRunlengths(lens : Seq[Int],
-                                  totalLen : Int) : Seq[Int] = {
-    val lensSum = lens.sum
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, lensSum <= totalLen)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (lensSum < totalLen)
-      lens ++ List(totalLen - lensSum)
-    else
-      lens
-  }
-*/
   //////////////////////////////////////////////////////////////////////////////
 
   /**
