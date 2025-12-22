@@ -234,6 +234,23 @@ object SMTLineariser {
       charBuffer.clear
     }
 
+    // aborting an incomplete escape sequence \\udddd
+    def flushBuffer1 : Unit = {
+      res += 92
+      res += 117
+      res ++= charBuffer.iterator.map(_.toInt)
+      charBuffer.clear
+    }
+
+    // aborting an incomplete escape sequence \\u{dd...}
+    def flushBuffer2 : Unit = {
+      res += 92
+      res += 117
+      res += 123
+      res ++= charBuffer.iterator.map(_.toInt)
+      charBuffer.clear
+    }
+
     def isHex(c : Int) : Boolean =
       (48 <= c && c <= 57) ||
       (65 <= c && c <= 70) ||
@@ -243,31 +260,91 @@ object SMTLineariser {
       (state, it.next) match {
         case (0, 92) =>                                   // \
           state = 1
+        case (0, 34) =>                                   // "
+          state = 20
 
         case (1, 117) =>                                  // u
           state = 2
+        case (1, 34) => {                                 // "
+          // then we have already seen a \
+          state = 20
+          res += 92
+        }
+        case (1, 92) => {                                 // \
+          // then we have already seen a \
+          state = 1
+          res += 92
+        }
+        case (1, c) => {
+          // then we have already seen a \
+          state = 0
+          res += 92
+          res += c
+        }
 
         case (2, 123) =>                                  // {
           state = 3
+        case (2, 92) => {                                 // \
+          flushBuffer1
+          state = 1
+        }
+        case (2, 34) => {                                 // "
+          flushBuffer1
+          state = 20
+        }
         case (2, c) if isHex(c) => {                      // [0-9a-fA-F]
           charBuffer += c.toChar
           state = 7
         }
-        case (3, c) if isHex(c) =>                        // [0-9a-fA-F]
+        case (2, c) => {                                  // any other character
+          flushBuffer1
+          charBuffer += c.toChar
+          state = 0
+        }
+
+        case (3, c) if isHex(c) && charBuffer.size < 5 => // [0-9a-fA-F]
           charBuffer += c.toChar
         case (3, 125) => {                                // }
           parseHex
           state = 0
         }
-
-        case (7, c) if isHex(c) => {                      // [0-9a-fA-F]
-          charBuffer += c.toChar
-          parseHex
+        case (3, 92) => {                                 // \
+          flushBuffer2
+          state = 1
+        }
+        case (3, 34) => {                                 // "
+          flushBuffer2
+          state = 20
+        }
+        case (3, c) => {                                  // any other character
+          flushBuffer2
+          res += c
           state = 0
         }
 
-        case (0, 34) =>                                   // "
+        case (7, c) if isHex(c) && charBuffer.size < 4 => {  // [0-9a-fA-F]
+          charBuffer += c.toChar
+          if (charBuffer.size == 4) {
+            parseHex
+            state = 0
+          } else {
+            state = 7
+          }
+        }
+        case (7, 92) => {                                 // \
+          flushBuffer1
+          state = 1
+        }
+        case (7, 34) => {                                 // "
+          flushBuffer1
           state = 20
+        }
+        case (7, c) => {                                  // any other character
+          flushBuffer1
+          res += c
+          state = 0
+        }
+
         case (20, 34) => {                                // "
           state = 0
           res += 34
@@ -275,19 +352,6 @@ object SMTLineariser {
 
         case (0, c) =>
           res += c
-
-        case (1, 34) => {                                 // "
-          // then we have already seen a \
-          state = 20
-          res += 92
-        }
-
-        case (1, c) => {
-          // then we have already seen a \
-          state = 0
-          res += 92
-          res += c
-        }
 
         case _ =>
           throw new IllegalStringException
@@ -297,8 +361,19 @@ object SMTLineariser {
       case 0 =>
         // ok
       case 1 =>
-        // then we have already seen a \
+        // then we have already seen a \\
         res += 92
+      case 2 => {
+        // then we have already seen a \\u
+        res += 92
+        res += 117
+      }
+      case 3 => {
+        flushBuffer2
+      }
+      case 7 => {
+        flushBuffer1
+      }
       case _ =>
         throw new IllegalStringException
     }
