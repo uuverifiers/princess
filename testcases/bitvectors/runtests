@@ -90,7 +90,9 @@ TESTS="existential.pri \
        bvand2.pri \
        overflow.smt2 \
        overflow2.smt2 \
-       overflow3.smt2"
+       overflow3.smt2 \
+       rotate.smt2 \
+       rotate2.smt2"
 
 $PRI "$@" $TESTS
 

@@ -2363,6 +2363,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (ModuloArithmetic.bv_not(i(tp.width), t), tp)
     }
 
+    case NumIndexedSymbol1("rotate_left", digits) => {
+      checkArgNum("rotate_left", 1, args)
+      val p@(transArg0, type0) = translateTerm(args(0), 0)
+      val width = extractBVWidth("rotate_left", type0, args(0))
+      (ModuloArithmetic.rotate_left(width, asTerm(p), digits % width), type0)
+    }
+    case NumIndexedSymbol1("rotate_right", digits) => {
+      checkArgNum("rotate_right", 1, args)
+      val p@(transArg0, type0) = translateTerm(args(0), 0)
+      val width = extractBVWidth("rotate_right", type0, args(0))
+      (ModuloArithmetic.rotate_right(width, asTerm(p), digits % width), type0)
+    }
+
     case PlainSymbol("bvcomp") => {
       checkArgNum("bvcomp", 2, args)
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
@@ -2447,7 +2460,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
        SMTBitVec(digits))
     }
 
-    // Not supported yet: repeat, rotate_left, rotate_right
+    // Not supported yet: repeat
 
     ////////////////////////////////////////////////////////////////////////////
     // Finite field operations

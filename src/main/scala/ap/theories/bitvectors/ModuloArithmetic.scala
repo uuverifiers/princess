@@ -673,6 +673,16 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // Arguments: N, x : number mod 2^N, y : number mod 2^N
+  // Result:    x rotated y bits to the left
+  val rotate_left      = new BVNAryOp ("rotate_left", 2)
+
+  // Arguments: N, x : number mod 2^N, y : number mod 2^N
+  // Result:    x rotated y bits to the right
+  val rotate_right     = new BVNAryOp ("rotate_right", 2)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   // Arguments: N, number mod 2^N, number mod 2^N
   // Result:    number mod 2
   object BVComp extends IndexedBVOp("bv_comp", 1, 2) {
@@ -750,6 +760,8 @@ object ModuloArithmetic extends Theory {
     bv_lshr,
     bv_ashr,
     bv_xor,
+    rotate_left,
+    rotate_right,
     bv_comp,
     zero_extend
   )

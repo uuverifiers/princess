@@ -350,6 +350,10 @@ object ModPreprocessor {
       case IFunApp(`bv_shl`, Seq(IIntLit(n), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
+      case IFunApp(`rotate_right`, Seq(width, e1, e2)) =>
+        TryAgain(rotate_left(width, e1, width - e2),
+                 ctxt)
+
       case IFunApp(`int_cast`, _) =>
         UniSubArgs(ctxt)
 
@@ -800,6 +804,29 @@ object ModPreprocessor {
             }
 
           }
+        }
+
+        ////////////////////////////////////////////////////////////////////////
+
+        case IFunApp(`rotate_left`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          val sort = UnsignedBVSort(bits)
+          import sort.upper
+
+          val cond =
+            sort.eps(
+              sort.ex(sort.ex(
+                (v(0, sort) ===
+                  shiftVars(subres(1).resTerm, 3)) &
+                (v(1, sort) ===
+                  mod_cast(0, bits - 1, shiftVars(subres(2).resTerm, 3))) &
+                (v(2, sort) ===
+                  bv_xor(bits,
+                         l_shift_cast(0, upper, v(0, sort), v(1, sort)),
+                         r_shift_cast(0, upper, v(0, sort), bits - v(1, sort))))
+              ))
+            )
+
+          VisitorRes(cond, IdealInt.ZERO, upper)
         }
 
         ////////////////////////////////////////////////////////////////////////
