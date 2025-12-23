@@ -327,12 +327,16 @@ object ExtractPartitioner extends TheoryProcedure {
       }
     }
 
-    def setupExtract(extract : Atom) : Unit = {
-      val Seq(LinearCombination.Constant(IdealInt(ub)),
-              LinearCombination.Constant(IdealInt(lb)),
-              arg, res) = extract
-      addCutPoints(arg, List(lb, ub+1))
-    }
+    def setupExtract(extract : Atom) : Unit =
+      extract match {
+        case Seq(LinearCombination.Constant(IdealInt(ub)),
+                 LinearCombination.Constant(IdealInt(lb)),
+                 arg, res) =>
+          addCutPoints(arg, List(lb, ub+1))
+        case Seq(_, _, arg, res) =>
+          // bounds currently ignored
+          addCutPoints(arg, List(0))
+      }
 
     def setupBinOp(op : Atom) : Unit = {
       val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = op
@@ -352,21 +356,24 @@ object ExtractPartitioner extends TheoryProcedure {
         }
       }
 
-    def propagateExtract(extract : Atom) : Unit = {
-      val Seq(LinearCombination.Constant(IdealInt(ub)),
-              LinearCombination.Constant(IdealInt(lb)),
-              t1, t2) = extract
+    def propagateExtract(extract : Atom) : Unit =
+      extract match {
+        case Seq(LinearCombination.Constant(IdealInt(ub)),
+                 LinearCombination.Constant(IdealInt(lb)),
+                 t1, t2) => {
+          val cut1 = getCutPoints(t1)
+          val cut2 = getCutPoints(t2)
 
-      val cut1 = getCutPoints(t1)
-      val cut2 = getCutPoints(t2)
+          /// T1 ===> T2
+          addCutPoints(t2, cut1.map(_ - lb).filter(c => c >= 0 && c <= ub - lb + 1))
 
-      /// T1 ===> T2
-      addCutPoints(t2, cut1.map(_ - lb).filter(c => c >= 0 && c <= ub - lb + 1))
+          // propagate FROM t2 TO t1
+          addCutPoints(t1, cut2.map(_ + lb).filter(c => c <= ub))
 
-      // propagate FROM t2 TO t1
-      addCutPoints(t1, cut2.map(_ + lb).filter(c => c <= ub))
-
-//      propagateNot(ub - lb + 1, t2)
+    //      propagateNot(ub - lb + 1, t2)
+        }
+      case _ =>
+        // currently ignored
     }
 
     /**
@@ -425,40 +432,43 @@ object ExtractPartitioner extends TheoryProcedure {
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
   private def splitExtract(extract : Atom, cutPoints : Seq[Int])
-                          (implicit order : TermOrder) : Seq[Plugin.Action] = {
-    import TerForConvenience._
+                          (implicit order : TermOrder) : Seq[Plugin.Action] =
+    extract match {
+      case Seq(LinearCombination.Constant(IdealInt(upper)),
+               LinearCombination.Constant(IdealInt(lower)),
+               t1, t2) => {
+        import TerForConvenience._
+        var filterCutPoints = cutPoints.filter(x => x >= lower && x <= upper)
 
-    val Seq(LinearCombination.Constant(IdealInt(upper)),
-            LinearCombination.Constant(IdealInt(lower)),
-            t1, t2) = extract
+        if (filterCutPoints.length < 2) {
+          List()
+        } else {
+          var curPoint = upper
+          var newExtracts = new ArrayBuffer[Conjunction]
 
-    var filterCutPoints = cutPoints.filter(x => x >= lower && x <= upper)
+          while (!filterCutPoints.isEmpty) {
+            val (ub, lb) = (curPoint, filterCutPoints.head)
+            filterCutPoints = filterCutPoints.tail
+            curPoint = lb - 1
 
-    if (filterCutPoints.length < 2) {
-      List()
-    } else {
-      var curPoint = upper
-      var newExtracts = new ArrayBuffer[Conjunction]
-
-      while (!filterCutPoints.isEmpty) {
-        val (ub, lb) = (curPoint, filterCutPoints.head)
-        filterCutPoints = filterCutPoints.tail
-        curPoint = lb - 1
-
-        val bv1 =
-          Atom(_bv_extract,
-               List(l(ub),       l(lb),       l(t1), l(v(0))), order)
-        val bv2 =
-          Atom(_bv_extract,
-               List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order)
-        val domain = List(l(v(0)) >= 0, l(v(0)) < pow2(ub-lb+1))
-        newExtracts += forall(!conj(bv1 :: bv2 :: domain))
+            val bv1 =
+              Atom(_bv_extract,
+                  List(l(ub),       l(lb),       l(t1), l(v(0))), order)
+            val bv2 =
+              Atom(_bv_extract,
+                  List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order)
+            val domain = List(l(v(0)) >= 0, l(v(0)) < pow2(ub-lb+1))
+            newExtracts += forall(!conj(bv1 :: bv2 :: domain))
+          }
+          Plugin.RemoveFacts(extract) +:
+          (for (c <- newExtracts.toSeq)
+          yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic))
+        }
       }
-      Plugin.RemoveFacts(extract) +:
-      (for (c <- newExtracts.toSeq)
-       yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic))
+      case _ =>
+        // nothing to split
+        List()
     }
-  }
 
   private def splitBinOp(op : Atom, cutPoints : Seq[Int])
                         (implicit order : TermOrder) : Seq[Plugin.Action] = {

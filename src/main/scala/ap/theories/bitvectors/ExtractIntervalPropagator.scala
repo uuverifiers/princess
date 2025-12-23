@@ -148,37 +148,41 @@ object ExtractIntervalPropagator {
           val allAssumptions = new ArrayBuffer[Formula]
           allAssumptions ++= argLBAssumptions
 
-          val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
+          exes.head match {
+          case Atom(_, Seq(Constant(IdealInt(headU)), _, _, _), _) => {
+            var lastL = headU + 1
+            var newArgLB = argLB >> lastL
 
-          var lastL = headU + 1
-          var newArgLB = argLB >> lastL
-
-          for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
-                  exes.iterator;
-                if ub < lastL) {
-            lowerBound(res, proofs) match {
-              case Some((resLB, resLBAssumptions)) if resLB.signum > 0 => {
-                newArgLB = (newArgLB << (lastL - lb)) + resLB
-                allAssumptions ++= resLBAssumptions
-                allAssumptions += ex
+            for (ex@Atom(_, Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
+                                _, res), _) <- exes.iterator;
+                  if ub < lastL) {
+              lowerBound(res, proofs) match {
+                case Some((resLB, resLBAssumptions)) if resLB.signum > 0 => {
+                  newArgLB = (newArgLB << (lastL - lb)) + resLB
+                  allAssumptions ++= resLBAssumptions
+                  allAssumptions += ex
+                }
+                case _ =>
               }
-              case _ =>
+              lastL = lb
             }
-            lastL = lb
+
+            newArgLB = newArgLB << lastL
+
+            if (newArgLB > argLB) {
+              val action = Plugin.AddAxiom(allAssumptions, arg >= newArgLB,
+                                            ModuloArithmetic)
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              if (debug) {
+                println(s"Inferred new lower bound $newArgLB for term $arg:")
+                println("\t" + action)
+              }
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              actions += action
+            }
           }
-
-          newArgLB = newArgLB << lastL
-
-          if (newArgLB > argLB) {
-            val action = Plugin.AddAxiom(allAssumptions, arg >= newArgLB,
-                                          ModuloArithmetic)
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////
-            if (debug) {
-              println(s"Inferred new lower bound $newArgLB for term $arg:")
-              println("\t" + action)
-            }
-            //-END-ASSERTION-/////////////////////////////////////////////////
-            actions += action
+          case _ =>
+            // bit indexes are too large
           }
         }
 
@@ -192,47 +196,51 @@ object ExtractIntervalPropagator {
           val allAssumptions = new ArrayBuffer[Formula]
           allAssumptions ++= argUBAssumptions
 
-          val Atom(_, Seq(Constant(headU), _, _, _), _) = exes.head
+          exes.head match {
+          case Atom(_, Seq(Constant(IdealInt(headU)), _, _, _), _) => {
+            var lastL = headU + 1
+            var newArgUB = argUB >> lastL
 
-          var lastL = headU + 1
-          var newArgUB = argUB >> lastL
+            for (ex@Atom(_, Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
+                                _, res), _) <- exes.iterator;
+                  if ub < lastL) {
+              // add the 1-bits between the last and the current block
+              newArgUB = newArgUB.shiftLeftAddOnes(lastL - ub - 1)
 
-          for (ex@Atom(_, Seq(Constant(ub), Constant(lb), _, res), _) <-
-                  exes.iterator;
-                if ub < lastL) {
-            // add the 1-bits between the last and the current block
-            newArgUB = newArgUB.shiftLeftAddOnes(lastL - ub - 1)
-
-            upperBound(res, proofs) match {
-              case Some((resUB, resUBAssumptions))
-                  if resUB < pow2MinusOne(ub - lb + 1) => {
-                // add the upper bound on the current block
-                newArgUB = (newArgUB << (ub - lb + 1)) + resUB
-                allAssumptions ++= resUBAssumptions
-                allAssumptions += ex
+              upperBound(res, proofs) match {
+                case Some((resUB, resUBAssumptions))
+                    if resUB < pow2MinusOne(ub - lb + 1) => {
+                  // add the upper bound on the current block
+                  newArgUB = (newArgUB << (ub - lb + 1)) + resUB
+                  allAssumptions ++= resUBAssumptions
+                  allAssumptions += ex
+                }
+                case _ => {
+                  // use the worst-case upper bound
+                  newArgUB = newArgUB.shiftLeftAddOnes(ub - lb + 1)
+                }
               }
-              case _ => {
-                // use the worst-case upper bound
-                newArgUB = newArgUB.shiftLeftAddOnes(ub - lb + 1)
-              }
+
+              lastL = lb
             }
 
-            lastL = lb
+            // add remaining 1-bits after the last block
+            newArgUB = newArgUB.shiftLeftAddOnes(lastL)
+
+            if (newArgUB < argUB) {
+              val action = Plugin.AddAxiom(allAssumptions, arg <= newArgUB,
+                                            ModuloArithmetic)
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              if (debug) {
+                println(s"Inferred new upper bound $newArgUB for term $arg:")
+                println("\t" + action)
+              }
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              actions += action
+            }
           }
-
-          // add remaining 1-bits after the last block
-          newArgUB = newArgUB.shiftLeftAddOnes(lastL)
-
-          if (newArgUB < argUB) {
-            val action = Plugin.AddAxiom(allAssumptions, arg <= newArgUB,
-                                          ModuloArithmetic)
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////
-            if (debug) {
-              println(s"Inferred new upper bound $newArgUB for term $arg:")
-              println("\t" + action)
-            }
-            //-END-ASSERTION-/////////////////////////////////////////////////
-            actions += action
+          case _ =>
+            // bit indexes are too large
           }
         }
 
