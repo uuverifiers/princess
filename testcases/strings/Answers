@@ -74,12 +74,13 @@ sat
   (define-fun nonEmpty ((x!0 Tree)) Bool (ite (= x!0 (node leaf "Hello World" leaf)) true (ite (= x!0 leaf) true true)))
 )
 Loading escape.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 sat
 (model
-  (define-fun y () String "Hell")
+  (define-fun y () String "He\u{5c}u6cl")
   (define-fun x () String "\u{5c}x48\u{5c}145\u{5c}x6cl")
 )
 Loading escape2.smt2 ...
@@ -358,7 +359,32 @@ sat
 (model
   (define-fun x () String "0")
 )
+Loading unicode.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () String "ROOT\u{5c}")
+)
+Loading unicode2.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun d () String "\u{5c}u{1234""")
+  (define-fun c () String "\u{5c}u{123456}")
+  (define-fun b () String "\u{5c}u\u{5c}")
+  (define-fun a () String "\u{5c}\u{5c}")
+  (define-fun z () String "\u{5c}u{5c")
+  (define-fun y () String "\u{5c}u00cg")
+  (define-fun x () String "\u{5c}u005")
+)
 Loading escape.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
