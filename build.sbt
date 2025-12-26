@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name                 := "Princess",
     organization         := "uuverifiers",
-    version              := "2025-06-25",
+    version              := "2025-11-17",
     homepage             := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses             := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
     scmInfo              := Some(ScmInfo(
@@ -44,6 +44,12 @@ lazy val commonSettings = Seq(
                                 name  = "Amanda Stjerna",
                                 email = "mail@amandastjerna.se",
                                 url   = url("https://amandastjerna.se/")
+                              ),
+                              Developer(
+                                id    = "sankalp.gambhir",
+                                name  = "Sankalp Gambhir",
+                                email = "sankalp.gambhir@epfl.ch",
+                                url   = url("https://people.epfl.ch/sankalp.gambhir")
                               )
                             ),
     description          := "Princess is a theorem prover (aka SMT Solver) for Presburger arithmetic, uninterpreted predicates, and various other theories.",
@@ -69,7 +75,8 @@ lazy val parser = (project in file("parser")).
   settings(parserSettings: _*).
   settings(
     name := "Princess-parser",
-    Compile / packageBin := baseDirectory.value / "parser.jar"
+    Compile / packageBin := baseDirectory.value / "parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -78,7 +85,8 @@ lazy val smtParser = (project in file("smt-parser")).
   settings(parserSettings: _*).
   settings(
     name := "Princess-smt-parser",
-    Compile / packageBin := baseDirectory.value / "smt-parser.jar"
+    Compile / packageBin := baseDirectory.value / "smt-parser.jar",
+    Compile / unmanagedJars += baseDirectory.value / "smt-parser.jar"
   ).
   disablePlugins(AssemblyPlugin)
 
@@ -104,7 +112,7 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "2.2.0",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+      "com.github.vbmacher" % "java-cup-runtime" % "11b-20160615-2",
 //
     libraryDependencies +=
       "org.scalacheck" %% "scalacheck" % "1.15.2" % Test)

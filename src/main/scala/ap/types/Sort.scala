@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,7 +61,7 @@ object Sort {
 
     val cardinality : Option[IdealInt] = None
 
-    val individuals : Stream[ITerm] =
+    lazy val individuals : Stream[ITerm] =
       for (n <- Stream.iterate(IdealInt.ZERO){
                   n => if (n.signum <= 0) (-n+1) else -n
                 })
@@ -132,7 +132,7 @@ object Sort {
     val cardinality =
       for (l <- lower; u <- upper) yield (u - l + 1)
 
-    val individuals : Stream[ITerm] =
+    lazy val individuals : Stream[ITerm] =
       (lower, upper) match {
         case (Some(l), Some(u)) =>
           for (n <- ap.util.IdealRange(l, u+1).toStream)
@@ -240,7 +240,7 @@ object Sort {
      */
     def isFalse(t : ITerm) : IFormula = !IExpression.eqZero(t)
 
-    override val individuals : Stream[ITerm] =
+    override lazy val individuals : Stream[ITerm] =
       True #:: False #::
       (for (n <- Stream.iterate(IdealInt.MINUS_ONE){
                    n => if (n.signum <= 0) (-n+1) else -n
@@ -660,7 +660,7 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
                changed = true
                t
              }
-             case None =>
+             case _ =>
                d
            }
          case (arg, _) =>

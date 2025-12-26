@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2025-06-25"
+  val version = "2025-11-17"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -70,10 +70,10 @@ object CmdlMain {
     println()
     println("(c) Philipp Rümmer, 2009-2025")
     println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
-    println("              Amanda Stjerna.")
+    println("              Sankalp Gambhir, Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")
     println()
-    println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
+    println("For more information, visit https://philipp.ruemmer.org/princess.shtml")
   }
   
   def printUsage = {
@@ -205,9 +205,12 @@ object CmdlMain {
     println("                             size:     size of terms                (default)")
     println(" -stringSolver=val         Specify the used string solver")
     println("                             (default: ap.theories.strings.SeqStringTheory)")
+    println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
     println(" -seqSolver=val            Specify the used sequence solver")
     println("                             (default: ap.theories.sequences.ArraySeqTheory)")
-    println(" [+-]stringEscapes         Accept extended set of string escapes    (default: -)")
+    println(" -heapSolver=val           Specify the heap theory solver to use")
+    println("                             native: native heap theory             (default)")
+    println("                             array:  array-backed heap theory")
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -3,14 +3,161 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-Loading read-interpolation.smt2 ...
+Loading simple-heap-sat.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 10))) (Wrappedsimple (simple 42)))))
+  (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 10))))
+)
+Loading read-interpolation-1.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
 Found proof (size 58), simplifying (40), interpolating ...
 
 unsat
 (
-  (= (getInt (read h2 a)) 42)
+  (= (getInt (heap.read h2 a)) 42)
+)
+Loading read-interpolation-1b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 31), simplifying (59), interpolating ...
+
+unsat
+(
+  (or (<= 0 (* (- 1) a)) (or (<= 0 (+ (- 1) (+ (* (- 1) (heap.size h2)) a))) (= (getInt (heap.read h2 a)) 42)))
+)
+Loading read-interpolation-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 43), simplifying (47), interpolating ...
+
+unsat
+(
+  (and (not (= a2 a)) (and (<= 0 (+ (- 1) a2)) (<= 0 (+ (- 1) a))))
+  (and (and (not (= a2 a)) (and (<= 0 (+ (- 1) a2)) (<= 0 (+ (- 1) a)))) (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h a2))))))
+  (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h2 a2)))))
+  (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h2 a2)))))
+)
+Loading read-interpolation-3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 40), simplifying (49), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (<= 0 (+ (- 1) (getInt (heap.read h2 a))))
+)
+Loading read-interpolation-4.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 74), simplifying (49), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (<= 0 (+ (- 1) (getInt (heap.read h2 a))))
+)
+Loading read-interpolation-5.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 116), simplifying (68), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (and (not (= a2 a)) (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a2))) (<= 0 (+ (- 1) a)))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (and (and (not (= a2 a)) (and (and (<= 0 (+ (- 1) x)) (<= 0 (+ (- 1) a2))) (<= 0 (+ (- 1) a)))) (<= 0 (+ (heap.size h) (* (- 1) a))))
+  (and (and (not (= a2 a)) (and (<= 0 (+ (- 1) a2)) (<= 0 (+ (- 1) a)))) (<= 0 (+ (- 1) (getInt (heap.read h2 a)))))
+  (<= 0 (+ (- 1) (getInt (heap.read h3 a))))
+)
+Loading alloc-interpolation-1.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 82), simplifying (84), interpolating ...
+
+unsat
+(
+  true
+  true
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) 10) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (<= 0 (+ (- 1) a2)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (heap.size (allocHeap var2 var1)) a2) (= (allocHeap (allocHeap var2 var1) var0) h3)) (and (= (getInt var1) 10) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))
+)
+Loading alloc-interpolation-1b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 52), simplifying (103), interpolating ...
+
+unsat
+(
+  (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a)))
+  (and (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a))) (getBool (heap.read h a)))
+  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 heap)) (and (= (allocHeap var1 var0) h2) (and (getBool (heap.read var1 a)) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))))))
+  false
+  false
+)
+Loading alloc-interpolation-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 63), simplifying (124), interpolating ...
+
+unsat
+(
+  (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a)))
+  (and (and (<= 0 (+ (heap.size h) (* (- 1) a))) (<= 0 (+ (- 1) a))) (= (getInt2 (heap.read h a)) (- 10)))
+  (and (<= 0 (+ (- 1) a)) (and (<= 0 (+ (- 1) (+ (heap.size h2) (* (- 1) a)))) (exists ((var0 HeapObject) (var1 heap)) (and (and (= (allocHeap var1 var0) h2) (not (= (+ (heap.size var1) (* (- 1) a)) (- 1)))) (= (getInt2 (heap.read var1 a)) (- 10))))))
+  (and (<= 0 (+ (- 1) a)) (exists ((var0 HeapObject) (var1 HeapObject) (var2 heap)) (and (and (= (allocHeap (allocHeap var2 var1) var0) h3) (not (= (+ (heap.size (allocHeap var2 var1)) (* (- 1) a)) (- 1)))) (and (not (= (+ (heap.size var2) (* (- 1) a)) (- 1))) (= (getInt2 (heap.read var2 a)) (- 10))))))
+)
+Loading alloc-interpolation-3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 219), simplifying (266), interpolating ...
+
+unsat
+(
+  (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) x) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
+  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (= (+ (heap.size h3) (* (- 1) a2)) 1)) (exists ((var0 HeapObject)) (and (= (getInt var0) y) (exists ((var1 HeapObject) (var2 heap)) (and (and (= (heap.size (allocHeap var2 var1)) a2) (= (allocHeap (allocHeap var2 var1) var0) h3)) (and (= (getInt var1) x) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))))
+  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (and (= (+ (heap.size h4) (* (- 1) a2)) 1) (= (getInt (heap.read h4 a2)) x))) (= (+ (getInt (heap.read h4 (+ 1 a2))) y) 0))
+  (and (= (+ (getInt (heap.read h5 a3)) y) 0) (= (+ (getInt (heap.read h5 a2)) x) 0))
+)
+Loading alloc-interpolation-3b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () Int 0)
+  (define-fun x () Int 0)
+  (define-fun a3 () addr ((as heap.addr addr) 2))
+  (define-fun a2 () addr ((as heap.addr addr) 1))
+  (define-fun h5 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (AnInt (- 10)))) (AnInt (- 7)))))
+  (define-fun h4 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (ABool false))) (AnInt (- 7)))))
+  (define-fun h3 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (ABool false))) (AnInt 7))))
+)
+Loading alloc-interpolation-3c.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 104), simplifying (187), interpolating ...
+
+unsat
+(
+  (and (<= 0 (+ (heap.size h3) (* (- 1) a2))) (<= 0 (+ (- 1) a2)))
+  (and (and (<= 0 (+ (- 1) a3)) (<= 0 (+ (- 1) a2))) (and (<= 0 (+ (heap.size h3) (* (- 1) a3))) (<= 0 (+ (heap.size h3) (* (- 1) a2)))))
+  (and (and (not (= a3 a2)) (and (<= 0 (+ (- 1) a3)) (<= 0 (+ (- 1) a2)))) (and (<= 0 (+ (heap.size h3) (* (- 1) a3))) (<= 0 (+ (heap.size h3) (* (- 1) a2)))))
+  (and (and (not (= a3 a2)) (and (<= 0 (+ (- 1) a3)) (<= 0 (+ (- 1) a2)))) (and (and (<= 0 (+ (heap.size h3) (* (- 1) a3))) (<= 0 (+ (heap.size h3) (* (- 1) a2)))) (= (getInt (heap.read h3 a2)) x)))
+  (and (and (not (= a3 a2)) (and (<= 0 (+ (- 1) a3)) (<= 0 (+ (- 1) a2)))) (and (and (and (<= 0 (+ (heap.size h3) (* (- 1) a3))) (<= 0 (+ (heap.size h3) (* (- 1) a2)))) (= (getInt (heap.read h3 a3)) y)) (= (getInt (heap.read h3 a2)) x)))
+  (and (and (not (= a3 a2)) (and (<= 0 (+ (- 1) a3)) (<= 0 (+ (- 1) a2)))) (and (and (<= 0 (+ (heap.size h4) (* (- 1) a2))) (= (+ (getInt (heap.read h4 a3)) y) 0)) (= (getInt (heap.read h4 a2)) x)))
+  (and (= (+ (getInt (heap.read h5 a3)) y) 0) (= (+ (getInt (heap.read h5 a2)) x) 0))
 )
 Loading simple-heap-allocAddr.smt2 ...
 Preprocessing ...
@@ -22,11 +169,16 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
-Loading simple-heap-batch-dual.smt2 ...
+Loading simple-heap-batch-sat.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
 
-unsat
+sat
+(model
+  (define-fun O () HeapObject (WrappedInt 42))
+  (define-fun AR () Range (Range ((as heap.addr Addr) 1) 3))
+  (define-fun H () Heap (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3)))
+)
 Loading heap-batch-write-read-1-unsat.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -43,47 +195,410 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun ar () AddrRange (AddrRange (nthAddr 1) 3))
-  (define-fun a () Addr (nthAddr 4))
-  (define-fun h2 () Heap (newHeap (alloc (newBatchHeap (batchAlloc emptyHeap (WrappedInt 1) 3)) (Wrappedsimple (simple (AddrRange (nthAddr 1) 3))))))
-  (define-fun h1 () Heap (newBatchHeap (batchAlloc emptyHeap (WrappedInt 1) 3)))
+  (define-fun ar () Range (Range ((as heap.addr Addr) 1) 3))
+  (define-fun a () Addr ((as heap.addr Addr) 4))
+  (define-fun h2 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3)) (Wrappedsimple (simple (Range ((as heap.addr Addr) 1) 3))))))
+  (define-fun h1 () Heap (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 1) 3)))
 )
 Loading adt-addrrange-unsat.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
+Loading extensionality-bug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun h2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (O_Int 42))))
+  (define-fun h1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (O_Int 42))))
+)
+Loading heap-empty-alloc-range-1.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H () Heap (as heap.empty Heap))
+)
+Loading heap-empty-alloc-range-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+  (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+)
+Loading simple-heap.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading simple-heap-sat.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 10))) (Wrappedsimple (simple 42)))))
+  (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 10))))
+)
+Loading read-interpolation-1.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 34), simplifying (67), interpolating ...
+
+unsat
+(
+  (and (heap.valid h2 a) (= (getInt (heap.read h2 a)) 42))
+)
+Loading read-interpolation-1b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 32), simplifying (65), interpolating ...
+
+unsat
+(
+  (or (not (heap.valid h2 a)) (= (getInt (heap.read h2 a)) 42))
+)
+Loading read-interpolation-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 108), simplifying (194), interpolating ...
+
+unsat
+(
+  (and (and (heap.valid h a) (heap.valid h a2)) (not (= a2 a)))
+  (and (and (heap.valid h a) (heap.valid h a2)) (and (not (= a2 a)) (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h a2)))))))
+  (and (heap.valid h2 a2) (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h2 a2))))))
+  (and (heap.valid h2 a2) (<= 0 (+ (- 1) (* (- 1) (getInt (heap.read h2 a2))))))
+)
+Loading read-interpolation-3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 82), simplifying (153), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (heap.valid h a) (<= 0 (+ (- 1) x)))
+  (and (heap.valid h a) (<= 0 (+ (- 1) x)))
+  (and (heap.valid h2 a) (<= 0 (+ (- 1) (getInt (heap.read h2 a)))))
+)
+Loading read-interpolation-4.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 80), simplifying (153), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (heap.valid h a) (<= 0 (+ (- 1) x)))
+  (and (heap.valid h a) (<= 0 (+ (- 1) x)))
+  (and (heap.valid h2 a) (<= 0 (+ (- 1) (getInt (heap.read h2 a)))))
+)
+Loading read-interpolation-5.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 140), simplifying (245), interpolating ...
+
+unsat
+(
+  (<= 0 (+ (- 1) x))
+  (and (and (heap.valid h a) (heap.valid h a2)) (and (<= 0 (+ (- 1) x)) (not (= a2 a))))
+  (and (and (heap.valid h a) (heap.valid h a2)) (and (not (= a2 a)) (<= 0 (+ (- 1) x))))
+  (and (and (heap.valid h2 a) (heap.valid h2 a2)) (and (not (= a2 a)) (<= 0 (+ (- 1) (getInt (heap.read h2 a))))))
+  (and (heap.valid h3 a) (<= 0 (+ (- 1) (getInt (heap.read h3 a)))))
+)
+Loading alloc-interpolation-1.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 83), simplifying (165), interpolating ...
+
+unsat
+(
+  (heap.valid h ((as heap.addr addr) 1))
+  (heap.valid h ((as heap.addr addr) 1))
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h2 ((as heap.addr addr) 2))) (and (= a2 (heap.nextAddr h2 (- 1))) (= (getInt (heap.read h2 (heap.nextAddr h2 (- 1)))) 10)))
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h2 ((as heap.addr addr) 2))) (and (= a2 (heap.nextAddr h2 (- 1))) (= (getInt (heap.read h2 (heap.nextAddr h2 (- 1)))) 10)))
+  (and (heap.valid h3 a2) (= (getInt (heap.read h3 a2)) 10))
+)
+Loading alloc-interpolation-1b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 95), simplifying (174), interpolating ...
+
+unsat
+(
+  (heap.valid h a)
+  (and (heap.valid h a) (getBool (heap.read h a)))
+  (and (heap.valid h2 a) (getBool (heap.read h2 a)))
+  false
+  false
+)
+Loading alloc-interpolation-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 102), simplifying (188), interpolating ...
+
+unsat
+(
+  (heap.valid h a)
+  (and (heap.valid h a) (= (getInt2 (heap.read h a)) (- 10)))
+  (and (heap.valid h2 a) (= (getInt2 (heap.read h2 a)) (- 10)))
+  (and (heap.valid h3 a) (= (getInt2 (heap.read h3 a)) (- 10)))
+)
+Loading alloc-interpolation-3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 162), simplifying (321), interpolating ...
+
+unsat
+(
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h2 ((as heap.addr addr) 1))) (and (= a2 (heap.nextAddr h2 (- 1))) (= (getInt (heap.read h2 (heap.nextAddr h2 (- 1)))) x)))
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h3 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (getInt (heap.read h3 a3)) y)) (= (getInt (select (heap_contents h3) (+ (- 1) (addr_ord a3)))) x)))
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h4 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (+ (getInt (heap.read h4 a3)) y) 0)) (= (getInt (select (heap_contents h4) (+ (- 1) (addr_ord a3)))) x)))
+  (and (and (not (= a2 (as heap.null addr))) (heap.valid h5 a3)) (and (and (= (+ (addr_ord a2) (* (- 1) (addr_ord a3))) (- 1)) (= (+ (getInt (select (heap_contents h5) (+ (- 1) (addr_ord a3)))) x) 0)) (= (+ (getInt (heap.read h5 a3)) y) 0)))
+)
+Loading alloc-interpolation-3b.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () Int 0)
+  (define-fun x () Int 0)
+  (define-fun a3 () addr ((as heap.addr addr) 2))
+  (define-fun a2 () addr ((as heap.addr addr) 1))
+  (define-fun h5 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (AnInt 11))) (AnInt (- 8)))))
+  (define-fun h4 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (ABool false))) (AnInt (- 8)))))
+  (define-fun h3 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (ABool false))) (AnInt 8))))
+)
+Loading alloc-interpolation-3c.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 257), simplifying (451), interpolating ...
+
+unsat
+(
+  (heap.valid h3 a2)
+  (and (heap.valid h3 a2) (heap.valid h3 a3))
+  (and (and (heap.valid h3 a2) (heap.valid h3 a3)) (not (= a3 a2)))
+  (and (and (heap.valid h3 a2) (heap.valid h3 a3)) (and (not (= a3 a2)) (= (getInt (heap.read h3 a2)) x)))
+  (and (and (heap.valid h3 a2) (heap.valid h3 a3)) (and (and (not (= a3 a2)) (= (getInt (heap.read h3 a3)) y)) (= (getInt (heap.read h3 a2)) x)))
+  (and (and (heap.valid h4 a2) (heap.valid h4 a3)) (and (and (not (= a3 a2)) (= (+ (getInt (heap.read h4 a3)) y) 0)) (= (getInt (heap.read h4 a2)) x)))
+  (and (and (heap.valid h5 a2) (heap.valid h5 a3)) (and (= (+ (getInt (heap.read h5 a2)) x) 0) (= (+ (getInt (heap.read h5 a3)) y) 0)))
+)
+Loading simple-heap-allocAddr.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading simple-heap-batch.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading simple-heap-batch-sat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun O () HeapObject (WrappedInt 42))
+  (define-fun AR () Range ((as heap.range Range) 1 3))
+  (define-fun H () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 42))) (WrappedInt 42))) (WrappedInt 42))))
+)
+Loading heap-batch-write-read-1-unsat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading heap-batch-write-read-2-unsat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading adt-addrrange-sat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun ar () Range ((as heap.range Range) 1 3))
+  (define-fun a () Addr ((as heap.addr Addr) 4))
+  (define-fun h2 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 1))) (WrappedInt 1))) (WrappedInt 1))) (Wrappedsimple (simple ((as heap.range Range) 1 3))))))
+  (define-fun h1 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 1))) (WrappedInt 1))) (WrappedInt 1))))
+)
+Loading adt-addrrange-unsat.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading extensionality-bug.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun h2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (O_Int 42))))
+  (define-fun h1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (O_Int 42))))
+)
+Loading heap-empty-alloc-range-1.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H () Heap (as heap.empty Heap))
+)
+Loading heap-empty-alloc-range-2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+  (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+)
 Loading bug-model-1.smt2 ...
 sat
 (model
-  (define-fun A2 () addr (nthaddr 1))
-  (define-fun A () addr (nthaddr 2))
-  (define-fun H () heap (newBatchheap (batchAlloc emptyheap defObj 2)))
+  (define-fun A2 () addr ((as heap.addr addr) 1))
+  (define-fun A () addr ((as heap.addr addr) 2))
+  (define-fun H () heap (heap.heapRangePair_1 (heap.allocRange (as heap.empty heap) defObj 2)))
 )
 Loading incremental-heap.smt2 ...
 unsat
 unsat
 sat
 (model
-  (define-fun A2 () addr (nthaddr 2))
-  (define-fun A () addr (nthaddr 1))
-  (define-fun H2 () heap (newheap (alloc (newheap (alloc emptyheap (WrappedInt 10))) (Wrappedsimple (simple 42)))))
-  (define-fun H () heap (newheap (alloc emptyheap (WrappedInt 10))))
+  (define-fun A2 () addr ((as heap.addr addr) 2))
+  (define-fun A () addr ((as heap.addr addr) 1))
+  (define-fun H2 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10))) (Wrappedsimple (simple 42)))))
+  (define-fun H () heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10))))
 )
 Loading swap-interpolation.smt2 ...
 unsat
 unsat
-((and (and (and (not (= z y)) (not (= z x))) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (<= 0 (+ (counteraddr H) (* (- 1) z))) (<= 0 (+ (counteraddr H) (* (- 1) y)))) (and (is-WrappedInt (read H y)) (and (<= 0 (+ (counteraddr H) (* (- 1) y))) (<= 0 (+ (counteraddr H) (* (- 1) x)))))))
-(and (and (not (= z x)) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (and (<= 0 (+ (counteraddr H1) (* (- 1) y))) (and (<= 0 (+ (counteraddr H1) (* (- 1) x))) (or (and (= (read H1 z) (read H y)) (= (read H1 y) (read H y))) (and (= (read H1 y) (read H y)) (or (not (= y x)) (not (= (read H x) (read H y)))))))) (= (read H x) (read H1 z))) (is-WrappedInt (read H1 y))))
-(and (<= 0 (+ (- 1) y)) (and (and (<= 0 (+ (counteraddr H2) (* (- 1) y))) (or (and (and (= (read H2 x) (read H y)) (<= 0 (+ (- 1) x))) (or (not (= y x)) (not (= (read H x) (read H y))))) (and (and (= (read H2 x) (read H2 z)) (= (read H y) (read H2 z))) (<= 0 (+ (- 1) x))))) (and (= (read H x) (read H2 z)) (<= 0 (+ (counteraddr H2) (* (- 1) y))))))
-(and (= (read H3 x) (read H y)) (= (read H x) (read H3 y))))
+((and (and (and (not (= z y)) (not (= z x))) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (<= 0 (+ (heap.size H) (* (- 1) z))) (<= 0 (+ (heap.size H) (* (- 1) y)))) (and (is-WrappedInt (heap.read H y)) (and (<= 0 (+ (heap.size H) (* (- 1) y))) (<= 0 (+ (heap.size H) (* (- 1) x)))))))
+(and (and (not (= z x)) (and (and (<= 0 (+ (- 1) z)) (<= 0 (+ (- 1) y))) (<= 0 (+ (- 1) x)))) (and (and (and (<= 0 (+ (heap.size H1) (* (- 1) y))) (and (<= 0 (+ (heap.size H1) (* (- 1) x))) (or (and (= (heap.read H1 z) (heap.read H y)) (= (heap.read H1 y) (heap.read H y))) (and (= (heap.read H1 y) (heap.read H y)) (or (not (= y x)) (not (= (heap.read H x) (heap.read H y)))))))) (= (heap.read H x) (heap.read H1 z))) (is-WrappedInt (heap.read H1 y))))
+(and (<= 0 (+ (- 1) y)) (and (and (<= 0 (+ (heap.size H2) (* (- 1) y))) (or (and (and (= (heap.read H2 x) (heap.read H y)) (<= 0 (+ (- 1) x))) (or (not (= y x)) (not (= (heap.read H x) (heap.read H y))))) (and (and (= (heap.read H2 x) (heap.read H2 z)) (= (heap.read H y) (heap.read H2 z))) (<= 0 (+ (- 1) x))))) (and (= (heap.read H x) (heap.read H2 z)) (<= 0 (+ (heap.size H2) (* (- 1) y))))))
+(and (= (heap.read H3 x) (heap.read H y)) (= (heap.read H x) (heap.read H3 y))))
 Loading heap-batch-write-read-2-sat.smt2 ...
 sat
 (model
   (define-fun n () Int 2)
-  (define-fun A2 () Addr (nthAddr 3))
-  (define-fun A1 () Addr (nthAddr 3))
-  (define-fun AR () AddrRange (AddrRange (nthAddr 1) 3))
-  (define-fun H2 () Heap (newBatchHeap (batchAlloc emptyHeap (WrappedInt 42) 3)))
-  (define-fun H () Heap (newBatchHeap (batchAlloc emptyHeap (WrappedInt 3) 3)))
+  (define-fun A2 () Addr ((as heap.addr Addr) 3))
+  (define-fun A1 () Addr ((as heap.addr Addr) 3))
+  (define-fun AR () Range (Range ((as heap.addr Addr) 1) 3))
+  (define-fun H2 () Heap (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 42) 3)))
+  (define-fun H () Heap (heap.heapRangePair_1 (heap.allocRange (as heap.empty Heap) (WrappedInt 3) 3)))
 )
+Loading queries.smt2 ...
+"query 1"
+unsat
+"query 2"
+unsat
+"query 3"
+unsat
+"query 4"
+unsat
+"query 5"
+unsat
+"query 6"
+unsat
+"query 7"
+unsat
+"query 8"
+unsat
+"query 9"
+unsat
+"query 10"
+unsat
+"query 11"
+unsat
+"query 12"
+unsat
+"query 13"
+unsat
+"query 14"
+unsat
+"query 15"
+unsat
+"query 16"
+unsat
+"query 17"
+unsat
+Loading bug-model-1.smt2 ...
+sat
+(model
+  (define-fun A2 () addr ((as heap.addr addr) 1))
+  (define-fun A () addr ((as heap.addr addr) 2))
+  (define-fun H () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 0))) (WrappedInt 0))))
+)
+Loading incremental-heap.smt2 ...
+unsat
+unsat
+sat
+(model
+  (define-fun A2 () addr ((as heap.addr addr) 2))
+  (define-fun A () addr ((as heap.addr addr) 1))
+  (define-fun H2 () heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10))) (Wrappedsimple (simple 42)))))
+  (define-fun H () heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty heap) (WrappedInt 10))))
+)
+Loading swap-interpolation.smt2 ...
+unsat
+unsat
+((and (and (and (heap.valid H x) (heap.valid H y)) (heap.valid H z)) (and (and (or (not (= y x)) (= (heap.read H y) (heap.read H x))) (not (= z y))) (not (= z x))))
+(and (and (and (heap.valid H1 x) (heap.valid H1 y)) (heap.valid H1 z)) (and (and (and (and (or (not (= y x)) (= (heap.read H1 z) (heap.read H1 y))) (not (= z x))) (= (heap_size H) (heap_size H1))) (= (heap.read H y) (heap.read H1 y))) (= (heap.read H1 z) (heap.read H x))))
+(and (and (and (heap.valid H2 x) (heap.valid H2 y)) (heap.valid H2 z)) (and (and (and (or (not (= x y)) (= (heap.read H y) (heap.read H2 z))) (= (heap_size H) (heap_size H2))) (= (heap.read H2 x) (heap.read H y))) (= (heap.read H x) (heap.read H2 z))))
+(and (and (heap.valid H3 x) (heap.valid H3 y)) (and (and (or (= (select (heap_contents H3) (addr_ord x)) (heap.read H y)) (= (heap.read H3 x) (heap.read H y))) (= (heap_size H) (heap_size H3))) (= (heap.read H3 y) (heap.read H x)))))
+Loading heap-batch-write-read-2-sat.smt2 ...
+sat
+(model
+  (define-fun n () Int 2)
+  (define-fun A2 () Addr ((as heap.addr Addr) 3))
+  (define-fun A1 () Addr ((as heap.addr Addr) 1))
+  (define-fun AR () Range ((as heap.range Range) 1 3))
+  (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 42))) (WrappedInt 42))) (WrappedInt 42))))
+  (define-fun H () Heap (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))) (WrappedInt 3))) (WrappedInt 3))))
+)
+Loading queries.smt2 ...
+"query 1"
+unsat
+"query 2"
+unsat
+"query 3"
+unsat
+"query 4"
+unsat
+"query 5"
+unsat
+"query 6"
+unsat
+"query 7"
+unsat
+"query 8"
+unsat
+"query 9"
+unsat
+"query 10"
+unsat
+"query 11"
+unsat
+"query 12"
+unsat
+"query 13"
+unsat
+"query 14"
+unsat
+"query 15"
+unsat
+"query 16"
+unsat
+"query 17"
+unsat

@@ -11,6 +11,8 @@ else
     pathCmd="realpath"
 fi
 
+JAVACUP=/usr/share/java/java-cup-0.11b.jar
+
 ################################################################################
 
 startDaemon() {
@@ -28,7 +30,6 @@ startDaemon() {
         touch "$lockfile"
 
         BASEDIR=`dirname $($pathCmd $0)`
-        EXTLIBSDIR=$BASEDIR/extlibs
         ASSEMBLY=$BASEDIR/target/scala-2.*/Princess-assembly*
 
         export JAVA_OPTS="-Xss20000k -Xmx1500m"
@@ -40,7 +41,7 @@ startDaemon() {
         if [ -f $ASSEMBLY ]; then
             java $JAVA_OPTS -cp $ASSEMBLY ap.ServerMain >"$tempportfile" &
         else
-            export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+            export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$JAVACUP
             scala ap.ServerMain >"$tempportfile" &
         fi
 

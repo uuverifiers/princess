@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -18,8 +18,8 @@
 (declare-const A addr)
 (declare-const A2 addr)
 
-(assert (valid H A))
-(assert (valid H A2))
+(assert (heap.valid H A))
+(assert (heap.valid H A2))
 
 (assert (distinct A A2))
 

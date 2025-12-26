@@ -1,6 +1,6 @@
 (set-logic Heap)
 
-(declare-heap heap addr HeapObject
+(declare-heap heap addr range HeapObject
  defObj
  ((HeapObject 0) (simple 0)) (
   (
@@ -23,10 +23,10 @@
 (declare-const z addr)
 (declare-const obj HeapObject)
 
-(define-fun is-int ((H heap) (x addr)) Bool (and (valid H x) (is-WrappedInt (read H x))))
+(define-fun is-int ((H heap) (x addr)) Bool (and (heap.valid H x) (is-WrappedInt (heap.read H x))))
 
 (push 1)
-(assert (not (= (is-int H x) (is-WrappedInt (read H x)))))
+(assert (not (= (is-int H x) (is-WrappedInt (heap.read H x)))))
 (check-sat)  ; should be unsat
 (pop 1)
 
@@ -37,11 +37,11 @@
 (assert (! (and (is-int H x) (is-int H y) (is-int H z)) :named P1))
 (assert (! (and (distinct x z) (distinct y z)) :named P2))
 
-(assert (! (= H1 (write H z (read H x))) :named A))
-(assert (! (= H2 (write H1 x (read H1 y))) :named B))
-(assert (! (= H3 (write H2 y (read H2 z))) :named C))
+(assert (! (= H1 (heap.write H z (heap.read H x))) :named A))
+(assert (! (= H2 (heap.write H1 x (heap.read H1 y))) :named B))
+(assert (! (= H3 (heap.write H2 y (heap.read H2 z))) :named C))
 
-(assert (! (not (and (= (read H x) (read H3 y)) (= (read H y) (read H3 x)))) :named Prop))
+(assert (! (not (and (= (heap.read H x) (heap.read H3 y)) (= (heap.read H y) (heap.read H3 x)))) :named Prop))
 
 (check-sat)  ; should be unsat
 

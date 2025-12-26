@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -762,6 +762,13 @@ class ExtArray (val indexSorts : Seq[Sort],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Fully propagate equalities between arrays. This can be disabled by
+   * overriding the method, since propagation is not needed in some
+   * applications of this theory.
+   */
+  protected def equalityPropagationEnabled = true
+
   private val pluginObj = new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
@@ -769,10 +776,11 @@ class ExtArray (val indexSorts : Seq[Sort],
         case Plugin.GoalState.Eager =>
           store2store2Eager(goal)
         case Plugin.GoalState.Intermediate =>
+          negPreds(goal)              elseDo
           expandExtensionality(goal)  elseDo
           store2store2Lazy(goal)
         case Plugin.GoalState.Final =>
-          equalityPropagation(goal)
+          if (equalityPropagationEnabled) equalityPropagation(goal) else List()
       }
 
     override def computeModel(goal : Goal) : Seq[Plugin.Action] =
@@ -787,6 +795,16 @@ class ExtArray (val indexSorts : Seq[Sort],
   }
 
   val plugin = Some(pluginObj)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Replace negated predicates with positive predicates.
+   */
+  private def negPreds(goal : Goal) : Seq[Plugin.Action] =
+    Plugin.makePredicatePositive(_select, goal, this, false) ++
+    Plugin.makePredicatePositive(_store, goal, this, false) ++
+    Plugin.makePredicatePositive(_const, goal, this, false)
 
   //////////////////////////////////////////////////////////////////////////////
 

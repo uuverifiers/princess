@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2021 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.arithconj.ArithConj
-import ap.theories.Heap
+import ap.theories.heaps.NativeHeap
 import ap.types.{SortedIFunction, SortedPredicate}
 import ap.util.Debug
 
@@ -218,9 +218,6 @@ object VariableSortInferenceVisitor
           // nothing
         case oldSort if oldSort != effectiveSort => {
           val newSort = (oldSort, effectiveSort) match {
-            // TODO: remove this hack
-            case (s : Heap.AddressSort, Sort.Integer) => s
-            case (Sort.Integer, s : Heap.AddressSort) => s
             case _ =>
               Debug.whenAssertionsOn(AC) {
                 Console.err.println("Warning: type clash during inference: " +
@@ -240,12 +237,6 @@ object VariableSortInferenceVisitor
     case (ISortedVariable(ind1, AnySort), t2 ::: sort2) =>
       setVariableSort(ind1, sort2)
     case (t1 ::: sort1, ISortedVariable(ind2, AnySort)) =>
-      setVariableSort(ind2, sort1)
-    case (ISortedVariable(ind1, Numeric(_)), t2 ::: sort2)
-        if sort2.isInstanceOf[Heap.AddressSort] =>
-      setVariableSort(ind1, sort2)
-    case (t1 ::: sort1, ISortedVariable(ind2, Numeric(_)))
-        if sort1.isInstanceOf[Heap.AddressSort] =>
       setVariableSort(ind2, sort1)
     case _ =>
       // nothing

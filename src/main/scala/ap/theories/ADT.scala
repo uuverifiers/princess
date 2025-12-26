@@ -217,7 +217,8 @@ object ADT {
 
           for (a <- atoms) {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+            Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty,
+                            s"cannot handle $a in augmentModelTermSet")
             //-END-ASSERTION-///////////////////////////////////////////////////
             val ADTCtorPred(ctorNum, sortNum, _) =
               adtTheory.adtPreds(a.pred)
@@ -1069,11 +1070,10 @@ class ADT (sortNames      : Seq[String],
         if ctorNum1 == ctorNum2 =>
         Some(ctorArgs(selNum))
       case IFunApp(Updator(`adt`, ctorNum1, selNum),
-                   Seq(IFunApp(Constructor(`adt`, ctorNum2), ctorArgs),
+                   Seq(IFunApp(ctor@Constructor(`adt`, ctorNum2), ctorArgs),
                        updatedValue))
         if ctorNum1 == ctorNum2 =>
-        Some(IFunApp(Constructor(adt, ctorNum2),
-                     ctorArgs.updated(selNum, updatedValue)))
+        Some(IFunApp(ctor, ctorArgs.updated(selNum, updatedValue)))
       case IFunApp(CtorId(`adt`, sortNum),
                    Seq(IFunApp(Constructor(`adt`, ctorNum), _)))
         if ctorSignatures(ctorNum)._2.result.num == sortNum =>
@@ -1252,12 +1252,24 @@ class ADT (sortNames      : Seq[String],
   private object Preproc extends CollectingVisitor[Unit, IExpression] {
     import IExpression._
 
+    private val adt = ADT.this
+
     def postVisit(t : IExpression,
                   arg : Unit,
                   subres : Seq[IExpression]) : IExpression = (t, subres) match{
-      case (IFunApp(updator, _), Seq(ctorTerm : ITerm, updatedValue : ITerm))
-          if updators2Index.contains(updator) => {
-        val (ctorNum, selNum) = updators2Index(updator)
+      case (IFunApp(Selector(`adt`, ctorNum1, selNum), _),
+            Seq(IFunApp(Constructor(`adt`, ctorNum2), ctorArgs)))
+          if ctorNum1 == ctorNum2 => {
+        ctorArgs(selNum)
+      }
+      case (IFunApp(Updator(`adt`, ctorNum1, selNum), _),
+            Seq(IFunApp(ctor@Constructor(`adt`, ctorNum2), ctorArgs),
+                updatedValue : ITerm))
+          if ctorNum1 == ctorNum2 => {
+        IFunApp(ctor, ctorArgs.updated(selNum, updatedValue))
+      }
+      case (IFunApp(Updator(`adt`, ctorNum, selNum), _),
+            Seq(ctorTerm : ITerm, updatedValue : ITerm)) => {
         val ctor              = constructors(ctorNum)
         val ctorSels          = selectors(ctorNum)
         val sort              = ctor.resSort
@@ -1282,7 +1294,9 @@ class ADT (sortNames      : Seq[String],
 
   override def iPreprocess(f : IFormula, signature : Signature)
                          : (IFormula, Signature) = {
+//println(f)
     val f1 = Preproc.visit(f, ()).asInstanceOf[IFormula]
+//    println("After: " + f1)
     (f1, signature)
   }
 

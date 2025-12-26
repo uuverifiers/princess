@@ -234,6 +234,10 @@ object GlobalSettings {
           Param.SEQ_THEORY_DESC.set(settings, value)
         case Opt("stringEscapes", value) =>
           Param.STRING_ESCAPES.set(settings, value)
+        case ValueOpt("heapSolver", "native") =>
+          Param.HEAP_THEORY.set(settings, Param.HeapTheory.Native)
+        case ValueOpt("heapSolver", "array") =>
+          Param.HEAP_THEORY.set(settings, Param.HeapTheory.Array)
         case ValueOpt("randomSeed", "off") =>
           Param.RANDOM_SEED.set(settings, None)
         case ValueOpt("randomSeed", IntVal(value)) =>
@@ -296,7 +300,7 @@ object GlobalSettings {
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
          Param.STRING_THEORY_DESC, Param.SEQ_THEORY_DESC,
-         Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
+         Param.HEAP_THEORY, Param.STRING_ESCAPES, Param.TRIGGER_STRATEGY,
          Param.TRIGGERS_IN_CONJECTURE, Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.NONLINEAR_SPLITTING, Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.NONLINEAR_SPLITTING_ORDER,
@@ -340,7 +344,7 @@ object ParserSettings {
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS,
                        Param.STRING_THEORY_DESC, Param.STRING_ESCAPES,
-                       Param.SEQ_THEORY_DESC, Param.LOG_LEVEL,
+                       Param.SEQ_THEORY_DESC, Param.HEAP_THEORY, Param.LOG_LEVEL,
                        Param.INLINE_SIZE_LIMIT, Param.SMTParserExtraTheories)
 
   val DEFAULT =

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -239,7 +239,8 @@ case class IBinFormula(j : IBinJunctor.Value,
  */
 case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-  Debug.assertCtor(IExpression.AC, pred.arity == args.length)
+  Debug.assertCtor(IExpression.AC, pred.arity == args.length,
+                   s"Predicate ${pred.name} needs ${pred.arity} arguments")
   //-END-ASSERTION-///////////////////////////////////////////////////////////  
   override def apply(i : Int) : ITerm = args(i)
   override def length : Int = args.length

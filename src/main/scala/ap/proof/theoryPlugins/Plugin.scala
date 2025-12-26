@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,8 +42,9 @@ import ap.terfor.{Formula, TermOrder, TerForConvenience, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ReducableModelElement
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Predicate, Atom}
 import ap.parameters.{Param, ReducerSettings}
+import ap.types.SortedPredicate
 import ap.util.{Debug, Seqs}
 
 import scala.collection.immutable.VectorBuilder
@@ -157,6 +158,64 @@ object Plugin {
 
   object GoalState extends Enumeration {
     val Eager, Intermediate, Final = Value
+  }
+
+  /**
+   * Find constant terms among <code>consts</code>
+   * that have been asserted to have distinct value.
+   */
+  def findDistinctConstants(consts : Set[ConstantTerm], goal : Goal)
+                          : Seq[(ConstantTerm, ConstantTerm)] =
+    (for (eq <- goal.facts.arithConj.negativeEqs.iterator;
+          (a : ConstantTerm, b : ConstantTerm) <-
+            LinearCombination.Difference.unapply(eq).iterator;
+          if consts(a) && consts(b))
+     yield (a, b)).toVector
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Turn negated applications of a total function into positive
+   * function applications.
+   */
+  def makePredicatePositive(pred       : Predicate,
+                            goal       : Goal,
+                            theory     : Theory,
+                            deleteAtom : Boolean = true) : Seq[Plugin.Action] ={
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val predConj =
+      goal.facts.predConj
+    val negPreds =
+      predConj.negativeLitsWithPred(pred)
+
+    val actions =
+      if (!negPreds.isEmpty) {
+        val actions1 =
+          (for (a <- negPreds;
+                if !predConj.lookupFunctionResult(a).isDefined) yield {
+             val sorts =
+               SortedPredicate.argumentSorts(a)
+             val axiom =
+               existsSorted(
+                 List(sorts.last),
+                 Atom(a.pred, a.init ++ List(l(v(0))), order) &
+                   (v(0) =/= a.last))
+             Plugin.AddAxiom(List(!conj(a)), axiom, theory)
+           })
+        val actions2 =
+          if (deleteAtom)
+            List(Plugin.RemoveFacts(
+                   conj(for (a <- negPreds) yield !conj(a))))
+          else
+            List()
+        actions1 ++ actions2
+      } else {
+        List()
+      }
+
+    actions
   }
 }
 
