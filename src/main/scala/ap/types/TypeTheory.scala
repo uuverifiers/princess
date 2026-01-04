@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,10 +36,13 @@ package ap.types
 import ap.basetypes.IdealInt
 import ap.theories.Theory
 import ap.parser.{ITerm, SizeVisitor}
-import ap.terfor.{Formula, TermOrder, ConstantTerm}
+import ap.terfor.{Formula, TermOrder, ConstantTerm, TerForConvenience}
+import ap.terfor.arithconj.ArithConj
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                ReduceWithConjunction}
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, PredConj}
 import ap.util.Debug
 
 import scala.collection.mutable.{ArrayBuffer,
@@ -55,23 +58,19 @@ object TypeTheory extends Theory {
 
   override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
-    implicit val _ = order
+    implicit val o : TermOrder = order
 
     val membershipConstraints =
-      for (c <- f.constants.iterator;
-           if c.isInstanceOf[SortedConstantTerm])
-      yield (c.asInstanceOf[SortedConstantTerm].sort membershipConstraint c)
+      (for (c <- f.constants.iterator;
+            if c.isInstanceOf[SortedConstantTerm];
+            d = c.asInstanceOf[SortedConstantTerm];
+            constr = d.sort membershipConstraint d;
+            if !constr.isTrue)
+       yield (c, constr)).toMap
 
-    val fWithFunctionConstraints = addResultConstraints(f, false)
-
-    val res =
-      if (membershipConstraints.hasNext)
-        Conjunction.conj(membershipConstraints, order) ==>
-          fWithFunctionConstraints
-      else
-        fWithFunctionConstraints
-
-    ReduceWithConjunction(Conjunction.TRUE, order)(res)
+    val fWithConstraints =
+      addSortConstraints(f, membershipConstraints, false)
+    ReduceWithConjunction(Conjunction.TRUE, order)(fWithConstraints)
   }
 
   override def postprocess(f : Conjunction,
@@ -117,17 +116,35 @@ object TypeTheory extends Theory {
     }
   }
 
-  private def addResultConstraints(f : Conjunction, negated : Boolean)
-                                  (implicit order : TermOrder) : Conjunction = {
-    val newNegConj =
-      f.negatedConjs.update(for (c <- f.negatedConjs)
-                              yield addResultConstraints(c, !negated),
-                            order)
+  private def addSortConstraints(f               : Conjunction,
+                                 constsToDeclare : Map[ConstantTerm, Formula],
+                                 negated         : Boolean)
+                                (implicit order : TermOrder) : Conjunction = {
+    val arithConj = f.arithConj
+    val predConj  = f.predConj
+    val negConjs  = f.negatedConjs
+
     if (negated) {
 
       val newConjuncts = new ArrayBuffer[Formula]
 
-      for (a <- f.predConj.positiveLits) a.pred match {
+      val (localConstsToDeclare, otherConstsToDeclare) =
+        if (constsToDeclare.isEmpty || arithConj.isTrue && predConj.isTrue) {
+          (Map[ConstantTerm, Formula](), constsToDeclare)
+        } else {
+          val localConsts = arithConj.constants ++ predConj.constants
+          constsToDeclare.partition(p => localConsts.contains(p._1))
+        }
+
+      newConjuncts ++= localConstsToDeclare.values
+
+      val newNegConj =
+        negConjs.update(
+          for (c <- negConjs)
+            yield addSortConstraints(c, otherConstsToDeclare, false),
+          order)
+
+      for (a <- predConj.positiveLits) a.pred match {
         case p : SortedPredicate =>
           newConjuncts += p sortConstraints a
         case _ =>
@@ -149,34 +166,91 @@ object TypeTheory extends Theory {
 
     } else { // !negated
 
+      import TerForConvenience.conj
+
+      val newNegConj =
+        negConjs.update(
+          for (c <- negConjs)
+            yield addSortConstraints(c, constsToDeclare, true),
+          order)
+
       val newDisjuncts = new ArrayBuffer[Conjunction]
 
-      val newNegLits = f.predConj.negativeLits filter { a =>
-        a.pred match {
-          case p : SortedPredicate => {
-            val constr = p sortConstraints a
-            if (constr.isTrue) {
-              // just keep this literal
+      val newArithConj =
+        if (constsToDeclare.isEmpty || arithConj.isTrue) {
+          arithConj
+        } else {
+          val newPosEqs = arithConj.positiveEqs filter { lc =>
+            val constraints = lc.constants.collect(constsToDeclare)
+            if (constraints.isEmpty) {
               true
             } else {
-              newDisjuncts += Conjunction.conj(List(a, constr), order)
+              newDisjuncts += conj(constraints + NegEquationConj(lc, order))
               false
             }
           }
-          case _ =>
-            // keep this literal
-            true
+          val newNegEqs = arithConj.negativeEqs filter { lc =>
+            val constraints = lc.constants.collect(constsToDeclare)
+            if (constraints.isEmpty) {
+              true
+            } else {
+              newDisjuncts += conj(constraints + EquationConj(lc, order))
+              false
+            }
+          }
+          val newInEqs = arithConj.inEqs filter { lc =>
+            val constraints = lc.constants.collect(constsToDeclare)
+            if (constraints.isEmpty) {
+              true
+            } else {
+              newDisjuncts += conj(constraints + InEqConj(lc, order).negate)
+              false
+            }
+          }
+          ArithConj(arithConj.positiveEqs.updateEqsSubset(newPosEqs),
+                    arithConj.negativeEqs.updateEqsSubset(newNegEqs),
+                    arithConj.inEqs.updateGeqZeroSubset(newInEqs),
+                    order)
         }
+
+      val newPredConj = {
+        val newPosLits = predConj.positiveLits filter { a =>
+          val constraints = a.constants.collect(constsToDeclare)
+          if (constraints.isEmpty) {
+            true
+          } else {
+            newDisjuncts += conj(constraints + PredConj(List(), List(a), order))
+            false
+          }
+        }
+        val newNegLits = predConj.negativeLits filter { a =>
+          val constraints1 = a.constants.collect(constsToDeclare)
+          val constraints2 =
+            a.pred match {
+              case p : SortedPredicate => {
+                val constr = p sortConstraints a
+                if (constr.isTrue) Set() else Set(constr)
+              }
+              case _ =>
+                Set()
+            }
+          val constraints = constraints1 ++ constraints2
+          if (constraints.isEmpty) {
+            true
+          } else {
+            newDisjuncts += conj(constraints + a)
+            false
+          }
+        }
+        predConj.updateLitsSubset(newPosLits, newNegLits, order)
       }
 
       if (newDisjuncts.isEmpty) {
         f updateNegatedConjs newNegConj
       } else {
-        val newPredConj =
-          f.predConj.updateLits(f.predConj.positiveLits, newNegLits)
         val finalNegConj =
           NegatedConjunctions(newNegConj ++ newDisjuncts, order)
-        Conjunction(f.quans, f.arithConj, newPredConj, finalNegConj, order)
+        Conjunction(f.quans, newArithConj, newPredConj, finalNegConj, order)
       }
     }
   }
