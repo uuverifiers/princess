@@ -302,7 +302,8 @@ object CmdlMain {
     if (Param.COMPUTE_UNSAT_CORE(settings)) {
       Console.err.println()
       Console.err.println("Unsatisfiable core:")
-      val usedNames = (prover getAssumedFormulaParts cert) - PartName.NO_NAME
+      val usedNames =
+        (prover getAssumedFormulaParts cert).filterNot(PartName.predefNamesSet)
       val nameStrings = usedNames map {
         case TPTPTParser.ConjecturePartName(n) => n
         case pn                                => pn.toString

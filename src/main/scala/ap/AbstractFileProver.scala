@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -374,13 +374,13 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
 
         val axiomF2 =
           axiomF mapValues { c => {
-            Theory.preprocess(c, transSignature.theories, order)
+            Theory.preprocess(c, transSignature.theories, transSignature)
           }}
 
         val inputF2 =
           inputF mapValues { c => {
             val (redC, incomp) = Incompleteness.track {
-              Theory.preprocess(c, transSignature.theories, order)
+              Theory.preprocess(c, transSignature.theories, transSignature)
             }
   
             if (incomp)
@@ -427,7 +427,8 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
 
         val (inputRed, incomp) = Incompleteness.track {
           convertQuantifiers(Theory.preprocess(allInputs,
-                                               transSignature.theories, order))
+                                               transSignature.theories,
+                                               transSignature))
         }
   
         if (incomp)

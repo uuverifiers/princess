@@ -4115,7 +4115,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         case FormulaKind.Input | FormulaKind.FunctionAxiom =>
           convertQuantifiers(Theory.preprocess(formula,
                                                theories,
-                                               currentOrder))
+                                               toSignature(currentOrder)))
         case FormulaKind.InputPreproc | FormulaKind.TheoryAxiom =>
           formula
       }

@@ -108,7 +108,7 @@ object Theory {
            Conjunction.conj(InputAbsy2Internal(
              IExpression.or(for (INamedPart(_, f) <- fors.iterator) yield f),
              newOrder), newOrder)),
-        newSig.theories, newOrder)
+        newSig.theories, newSig)
 
     val functionTranslation =
       (for ((p, f) <- functionEnc.predTranslation.iterator) yield (f, p)).toMap
@@ -129,9 +129,9 @@ object Theory {
    * theories, prior to sending the formula to a prover.
    * This method will be called form within <code>ap.parser.Preprocessing</code>
    */
-  def iPreprocess(f : IFormula,
-                  theories : Seq[Theory], signature : Signature)
-                 : (IFormula, Signature) =
+  def iPreprocess(f         : IFormula,
+                  theories  : Seq[Theory],
+                  signature : Signature) : (IFormula, Signature) =
 //  ap.util.Timer.measure("theory iPreprocessing") {
     (theories :\ (f, signature)) { case (t, (f, s)) => t.iPreprocess(f, s) }
 //  }
@@ -140,11 +140,11 @@ object Theory {
    * Apply preprocessing to a formula over some set of
    * theories, prior to sending the formula to a prover.
    */
-  def preprocess(f : Conjunction,
-                 theories : Seq[Theory],
-                 order : TermOrder) : Conjunction =
+  def preprocess(f         : Conjunction,
+                 theories  : Seq[Theory],
+                 signature : Signature) : Conjunction =
 //  ap.util.Timer.measure("theory preprocessing") {
-    (theories :\ f) { case (t, f) => t.preprocess(f, order) }
+    (theories :\ f) { case (t, f) => t.preprocess(f, signature) }
 //  }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -156,9 +156,9 @@ object Theory {
    * This method will be called form within
    * <code>ap.parser.Postprocessing</code>.
    */
-  def iPostprocess(f : IFormula,
-                  theories : Seq[Theory], signature : Signature)
-                 : IFormula =
+  def iPostprocess(f         : IFormula,
+                   theories  : Seq[Theory],
+                   signature : Signature) : IFormula =
 //  ap.util.Timer.measure("theory iPostprocessing") {
     (f /: theories) { case (f, t) => t.iPostprocess(f, signature) }
 //  }
@@ -170,11 +170,11 @@ object Theory {
    * This method will be called form within
    * <code>ap.parser.Postprocessing</code>.
    */
-  def postprocess(f : Conjunction,
-                  theories : Seq[Theory],
-                  order : TermOrder) : Conjunction =
+  def postprocess(f         : Conjunction,
+                  theories  : Seq[Theory],
+                  signature : Signature) : Conjunction =
 //  ap.util.Timer.measure("theory postprocessing") {
-    (f /: theories) { case (f, t) => t.postprocess(f, order) }
+    (f /: theories) { case (f, t) => t.postprocess(f, signature) }
 //  }
 
   /**
@@ -462,7 +462,7 @@ trait Theory {
    * Optionally, a pre-processor that is applied to formulas over this
    * theory, prior to sending the formula to a prover.
    */
-  def preprocess(f : Conjunction, order : TermOrder) : Conjunction = f
+  def preprocess(f : Conjunction, signature : Signature) : Conjunction = f
 
   /**
    * Optionally, a post-processor that is applied to formulas output by the
@@ -470,7 +470,7 @@ trait Theory {
    * elimination. This method will be applied to the raw formulas, before
    * calling <code>Internal2Inputabsy</code>.
    */
-  def postprocess(f : Conjunction, order : TermOrder) : Conjunction = f
+  def postprocess(f : Conjunction, signature : Signature) : Conjunction = f
 
   /**
    * Optionally, a post-processor that is applied to formulas output by the

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -437,6 +437,7 @@ object PresburgerTools {
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
+    val signature = Signature(Set(), Set(), c.constants, order)
     val reducer =
       if (containsBVNonlin(c))
         ReduceWithConjunction(Conjunction.TRUE, order, bvReducerSettings)
@@ -457,14 +458,14 @@ object PresburgerTools {
         case 1 if (quantifiers contains Quantifier.EX) => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
-          val typedC = TypeTheory.preprocess(!c, order)
+          val typedC = TypeTheory.preprocess(!c, signature)
           TypeTheory.filterTypeConstraints(
             !bvExpansionProver(typedC, order).closingConstraint)
         }
         case _ => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
-          val typedC = TypeTheory.preprocess(c, order)
+          val typedC = TypeTheory.preprocess(c, signature)
           TypeTheory.filterTypeConstraints(
             bvExpansionProver(typedC, order).closingConstraint)
         }

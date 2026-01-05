@@ -1131,16 +1131,35 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     
         if (inlineDefinedFuns && !neverInline(body._1)) {
           functionDefs = functionDefs + (f -> body) 
-        } else if (incremental && args.isEmpty) {
-          // use the SimpleAPI abbreviation feature
-          resType match {
-            case SMTBool =>
-              functionDefs =
-                functionDefs + (f -> (prover.abbrev(asFormula(body), name),
-                                      SMTBool))
-            case t =>
-              functionDefs =
-                functionDefs + (f -> (prover.abbrev(asTerm(body), name), t))
+        } else if (args.isEmpty) {
+          if (incremental) {
+            // use the SimpleAPI abbreviation feature
+            resType match {
+              case SMTBool =>
+                functionDefs =
+                  functionDefs + (f -> (prover.abbrev(asFormula(body), name),
+                                        SMTBool))
+             case t =>
+                functionDefs =
+                  functionDefs + (f -> (prover.abbrev(asTerm(body), name), t))
+            }
+          } else if (resType == SMTBool) {
+            // define the expression using a Boolean variable
+            // TODO: use the features we have for handling Boolean variables
+            // that are "abbreviations"
+            val p = new Predicate(name + "_$pred", 0)
+            functionDefs = functionDefs + (f -> (p(), SMTBool))
+            env.addPredicate(p, SMTFunctionType(List(), SMTBool))
+            addAxiom(p() <=> asFormula(body))
+          } else {
+            // define the expression using a unary function
+            val f2 =
+              MonoSortedIFunction(name + "_$const",
+                                  List(TSort.Integer), resType.toSort,
+                                  true, true)
+            env.addFunction(f2, SMTFunctionType(List(SMTInteger), resType))
+            functionDefs = functionDefs + (f -> (f2(0), resType))
+            addAxiomEquation(f2, body)
           }
         } else {
           // set up a defining equation and formula
@@ -4359,12 +4378,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
     val resVar  = v(argNum, resSort)
     val lhs     = IFunApp(f, argVars)
     val axiom =
-      if (argNum == 0)
+      if (argNum == 0) {
         lhs === asTerm(body)
-      else
+      } else {
+        val definition =
+          body._2 match {
+            case SMTBool => asFormula(body) <=> eqZero(resVar)
+            case _       => asTerm(body) === resVar
+          }
         all(argSorts.reverse ++ List(resSort),
             ITrigger(List(lhs),
-                     (lhs === resVar) ==> (asTerm(body) === resVar)))
+                     (lhs === resVar) ==> definition))
+      }
 
     addAxiom(axiom)
   }
