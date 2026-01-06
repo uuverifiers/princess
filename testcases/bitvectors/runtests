@@ -92,7 +92,8 @@ TESTS="existential.pri \
        overflow2.smt2 \
        overflow3.smt2 \
        rotate.smt2 \
-       rotate2.smt2"
+       rotate2.smt2 \
+       disjunction.smt2"
 
 $PRI "$@" $TESTS
 
