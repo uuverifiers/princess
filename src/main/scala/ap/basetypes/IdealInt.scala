@@ -773,10 +773,15 @@ final class IdealInt private (private val longStore : Long,
     if (shift < 0) {
       this << (-shift)
     } else {
-      if (this.usesLong)
-        IdealInt(this.longStore >> shift)
-      else
+      if (this.usesLong) {
+        if (shift >= 64) {
+          if (this.signum >= 0) IdealInt.ZERO else IdealInt.MINUS_ONE
+        } else {
+          IdealInt(this.longStore >> shift)
+        }
+      } else {
         IdealInt(this.getBI.shiftRight(shift))
+      }
     }
 
   /**

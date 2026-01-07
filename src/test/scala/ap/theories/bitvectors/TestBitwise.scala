@@ -684,4 +684,19 @@ class TestExtract extends Properties("TestExtract") {
       ??? == ProverStatus.Valid
     }
   }
+
+  // Check that interval constraint proppagation handles zeros correctly
+  property("extract13") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x = createConstant("x")
+
+      !! (x >= -116)
+      !! (extract(2, 1, 4*x + 1) === 0)
+      !! (x <= -30)
+      ??? == ProverStatus.Sat
+    }
+  }
 }

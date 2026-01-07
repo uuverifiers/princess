@@ -356,7 +356,7 @@ object ModReducer {
 
                     //-BEGIN-ASSERTION-/////////////////////////////////////////
                     if (debug) {
-                      println("Simplifying bv_extract:")
+                      println("Simplifying bv_extract (1):")
                       println("\t" + a)
                       println("\t" + newExtract)
                     }
@@ -377,7 +377,7 @@ object ModReducer {
 
                     //-BEGIN-ASSERTION-/////////////////////////////////////////
                     if (debug) {
-                      println("Simplifying bv_extract:")
+                      println("Simplifying bv_extract (2):")
                       println("\t" + a)
                       println("\t" + newExtract)
                     }
@@ -455,7 +455,7 @@ object ModReducer {
 
                         //-BEGIN-ASSERTION-/////////////////////////////////////
                         if (debug) {
-                          println("Simplifying bv_extract:")
+                          println("Simplifying bv_extract (3):")
                           println("\t" + a)
                           println("\t" + newExtract)
                         }

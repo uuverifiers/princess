@@ -161,10 +161,10 @@ object ExtractIntervalPropagator {
                   newArgLB = (newArgLB << (lastL - lb)) + resLB
                   allAssumptions ++= resLBAssumptions
                   allAssumptions += ex
+                  lastL = lb
                 }
                 case _ =>
               }
-              lastL = lb
             }
 
             newArgLB = newArgLB << lastL
