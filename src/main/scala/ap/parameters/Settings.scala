@@ -265,6 +265,7 @@ object GlobalSettings {
 
   def logFlagFromString(str : String) : Param.LOG_FLAG = str match {
     case "tasks"        => Param.LOG_TASKS
+    case "facts"        => Param.LOG_FACTS
     case "splits"       => Param.LOG_SPLITS
     case "backtracking" => Param.LOG_BACKTRACKING
     case "stats"        => Param.LOG_STATS

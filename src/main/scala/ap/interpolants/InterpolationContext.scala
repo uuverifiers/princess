@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -104,6 +104,9 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
 
   import InterpolationContext._
   
+  override def toString : String =
+    s"InterpolationContext($leftFormulae, $rightFormulae, $commonFormulae, $leftConstants, $rightConstants, $partialInterpolants)"
+
   lazy val leftLocalConstants = leftConstants -- rightConstants
   lazy val rightLocalConstants = rightConstants -- leftConstants
 

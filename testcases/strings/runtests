@@ -46,7 +46,9 @@ TESTS="simple-cycle.smt2 \
        str-from-int.smt2 \
        str-from-int-2.smt2 \
        re-opt.smt2 \
-       is-digit.smt2"
+       is-digit.smt2 \
+       unicode.smt2 \
+       unicode2.smt2"
 
 $PRI "$@" $TESTS
 

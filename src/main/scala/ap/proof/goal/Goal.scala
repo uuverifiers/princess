@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -398,6 +398,9 @@ class Goal private (val facts : Conjunction,
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     val logging = Param.LOG_LEVEL(settings)
+    if (logging contains Param.LOG_FACTS) {
+      Console.err.println(facts)
+    }
     if (logging contains Param.LOG_TASKS) {
       task match {
         case WrappedFormulaTask(t, Seq(simpTask)) =>
