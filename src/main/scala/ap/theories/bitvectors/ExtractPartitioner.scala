@@ -195,7 +195,8 @@ object ExtractPartitioner extends TheoryProcedure {
                                  (implicit order : TermOrder)
                                 : Seq[Plugin.Action] = {
     val res =
-      for (ex <- extracts; action <- splitExtract(ex, partitions(ex(2))))
+      for (ex <- extracts;
+           action <- splitExtract(ex, partitions.getOrElse(ex(2), List())))
       yield action
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
