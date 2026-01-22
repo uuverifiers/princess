@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -231,6 +231,14 @@ trait TheoryProcedure {
    * Apply this procedure to the given goal.
    */
   def handleGoal(goal : Goal) : Seq[Plugin.Action]
+
+  /**
+   * Optionally update the task with possibly new information from the goal.
+   */
+  def updateProcedure(goal          : Goal,
+                      factCollector : Conjunction => Unit)
+                                    : Option[Seq[(TheoryProcedure, Int)]] =
+    None
 
   /**
    * From a theory procedure, determine in which state a given goal
@@ -1067,11 +1075,20 @@ class IntermediatePluginTask(plugin : TheoryProcedure,
  
   /**
    * Update the task with possibly new information from the goal.
-   * Currently, this does not modify the theory procedure.
    */
-  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
-                                                   : Seq[PrioritisedTask] =
-    List(this)
+  def updateTask(goal          : Goal,
+                 factCollector : Conjunction => Unit)
+                               : Seq[PrioritisedTask] =
+    plugin.updateProcedure(goal, factCollector) match {
+      case None =>
+        List(this)
+      case Some(newProcs) =>
+        // we ignore the priorities returned by the method, the priority of
+        // the intermediate plugin tasks is configured using a prover
+        // parameter
+        for ((p, _) <- newProcs)
+        yield new PrioritisedPluginTask(p, basePriority, age)
+    }
 
   override def toString = "IntermediatePluginTask(" + plugin + ")"
 }
@@ -1087,11 +1104,16 @@ class PrioritisedPluginTask(plugin : TheoryProcedure,
  
   /**
    * Update the task with possibly new information from the goal.
-   * Currently, this does not modify the theory procedure.
    */
-  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
-                                                   : Seq[PrioritisedTask] =
-    List(this)
+  def updateTask(goal          : Goal,
+                 factCollector : Conjunction => Unit)
+                               : Seq[PrioritisedTask] =
+    plugin.updateProcedure(goal, factCollector) match {
+      case None =>
+        List(this)
+      case Some(newProcs) =>
+        for ((p, prio) <- newProcs) yield new PrioritisedPluginTask(p, prio, age)
+    }
 
   override def toString = "PrioritisedPluginTask(" + plugin + ")"
 }

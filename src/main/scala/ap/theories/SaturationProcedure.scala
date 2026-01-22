@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2024-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,34 +38,21 @@ import ap.parser.IFunction
 import ap.proof.goal.Goal
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.theoryPlugins.TheoryProcedure
-import ap.terfor.TerForConvenience
+import ap.terfor.{TermOrder, TerForConvenience}
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.preds.Predicate
-import ap.util.Debug
+import ap.terfor.preds.{Predicate, Atom, PredConj}
+import ap.terfor.linearcombination.LinearCombination
+import ap.util.{Debug, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
-object SaturationProcedure {
+object AbstractSaturationProcedure {
 
-  private val AC = Debug.AC_THEORY
+  protected[theories] val AC = Debug.AC_THEORY
 
 }
 
-/**
- * Class to simplify the implementation of saturation procedures as part of
- * theory plugins. A saturation procedure is a procedure waiting for patterns
- * to occur in a proof goal (e.g., formulas of a certain shape), and can apply
- * proof rules for every such occurrence. Saturation will be implemented by
- * adding tasks to the task queue of every goal, so that the prover can globally
- * schedule the different rules to be applied.
- * 
- * This procedure does not take into account that applications points might get
- * rewritten during the proof process; e.g., a variable <code>x</code> could
- * turn into <code>y</code> when the equation <code>x = y</code> appears. In such
- * cases, the saturation rule could get applied repeatedly for the same point.
- */
-abstract class SaturationProcedure(name : String) extends Theory {
-  import SaturationProcedure._
+abstract class AbstractSaturationProcedure(val name : String) extends Theory {
 
   /**
    * Type representing the cases in which the saturation procedure applies.
@@ -87,15 +74,32 @@ abstract class SaturationProcedure(name : String) extends Theory {
 
   /**
    * Actions to be performed for one particular application point. The method
-   * will be called exactly once for each persistent application point, i.e.,
-   * for each application point that does eventually disappear as the result
-   * of some rule applications. The method should check whether the application
+   * should check whether the application
    * point still exists in the goal; in case the application point has already
    * disappeared from the goal at the point of calling this method, the method
    * should return an empty sequence.
    */
   def handleApplicationPoint(goal : Goal,
                              p : ApplicationPoint) : Seq[Plugin.Action]
+
+}
+
+/**
+ * Class to simplify the implementation of saturation procedures as part of
+ * theory plugins. A saturation procedure is a procedure waiting for patterns
+ * to occur in a proof goal (e.g., formulas of a certain shape), and can apply
+ * proof rules for every such occurrence. Saturation will be implemented by
+ * adding tasks to the task queue of every goal, so that the prover can globally
+ * schedule the different rules to be applied.
+ * 
+ * This procedure does not take into account that applications points might get
+ * rewritten during the proof process; e.g., a variable <code>x</code> could
+ * turn into <code>y</code> when the equation <code>x = y</code> appears. In such
+ * cases, the saturation rule could get applied repeatedly for the same point.
+ */
+abstract class SaturationProcedure(_name : String)
+         extends AbstractSaturationProcedure(_name) {
+  import AbstractSaturationProcedure._
 
   /**
    * Scheduled tasks of the saturation procedure. Each of those tasks
@@ -105,7 +109,7 @@ abstract class SaturationProcedure(name : String) extends Theory {
     val saturationProcedure : SaturationProcedure = SaturationProcedure.this
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =
       handleApplicationPoint(goal, point)
-    override def toString = name
+    override def toString = name + "_handler"
   }
 
   override def plugin = Some(
@@ -118,14 +122,14 @@ abstract class SaturationProcedure(name : String) extends Theory {
             import TerForConvenience._
             import Plugin.{AddAxiom, ScheduleTask}
 
-            implicit val order = goal.order
-            val predFacts      = goal.facts.predConj
+            implicit val order : TermOrder = goal.order
+            val predFacts = goal.facts.predConj
 
             val idsInGoal =
               (for (a <- predFacts.positiveLitsWithPred(pointPred)) yield {
                  val t = a(0)
                  //-BEGIN-ASSERTION-///////////////////////////////////////////
-                 Debug.assertPost(AC, t.isConstant)
+                 Debug.assertInt(AC, t.isConstant)
                  //-END-ASSERTION-/////////////////////////////////////////////
                  t.constant.intValueSafe
                }).toSet
@@ -143,7 +147,7 @@ abstract class SaturationProcedure(name : String) extends Theory {
             List()
         }
 
-      override def toString = name
+      override def toString = name + "_scanner"
     }
   )
 
@@ -182,6 +186,190 @@ abstract class SaturationProcedure(name : String) extends Theory {
   override def isSoundForSat(
     theories : Seq[Theory],
     config : Theory.SatSoundnessConfig.Value) : Boolean = true
+
+  override def toString = name
+
+  TheoryRegistry register this
+
+}
+
+/**
+ * Class to simplify the implementation of saturation procedures as part of
+ * theory plugins. A saturation procedure is a procedure waiting for patterns
+ * to occur in a proof goal (e.g., formulas of a certain shape), and can apply
+ * proof rules for every such occurrence. Saturation will be implemented by
+ * adding tasks to the task queue of every goal, so that the prover can globally
+ * schedule the different rules to be applied.
+ * 
+ * This version of a saturation procedure only supports rules whose application
+ * points can be specified using a fixed-arity vector of terms, for instance
+ * the arguments of certain atoms occurring in a proof goal. The procedure
+ * takes simplification of terms occurring in the proof goal into account. It is
+ * defined in such a way that application points that occur repeatedly can also
+ * lead to repeated application of the rule. Application points are handled by
+ * a single task (with priority <code>basePriority</code>) added to the task
+ * queue, which will always pick the application point with the highest
+ * priority and apply the defined handler to it. The flag
+ * <code>priorityUpdates</code> enables continuous updates of the priority of
+ * application points.
+ */
+abstract class TermBasedSaturationProcedure(_name           : String,
+                                            arity           : Int,
+                                            basePriority    : Int,
+                                            priorityUpdates : Boolean = false)
+         extends AbstractSaturationProcedure(_name) {
+  import AbstractSaturationProcedure._
+
+  type ApplicationPoint = Seq[LinearCombination]
+
+  /**
+   * Scheduled tasks of the saturation procedure. Each of those tasks
+   * takes care of one application point.
+   */
+  object PointHandler extends TheoryProcedure {
+    val saturationProcedure : TermBasedSaturationProcedure =
+      TermBasedSaturationProcedure.this
+
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+      // find the application point with the highest priority
+      val order = goal.order
+      val predConj = goal.facts.predConj
+      val po = order.reversePredOrdering
+
+      val nextInd = Seqs.risingEdge(predConj.positiveLits,
+                                    (a:Atom) => po.gt(a.pred, pointPred))
+      if (nextInd >= 1) {
+        val atom = predConj.positiveLits(nextInd - 1)
+        if (atom.pred == pointPred) {
+          val point = atom.toSeq.drop(2)
+          val acts1 = handleApplicationPoint(goal, point)
+          val acts2 = List(Plugin.RemoveFacts(Conjunction.conj(atom, order)))
+          val acts3 =
+            if (nextInd >= 2 &&
+                predConj.positiveLits(nextInd - 2).pred == pointPred)
+              // schedule another handler to take care of the next application
+              // points
+              List(scheduleHandlerAction)
+            else
+              List()
+          acts1 ++ acts2 ++ acts3
+        } else {
+          List()
+        }
+      } else {
+        List()
+      }
+    }
+
+    override def toString = name + "_handler"
+  }
+
+  private val scheduleHandlerAction =
+    Plugin.ScheduleTask(PointHandler, basePriority)
+
+  private def handleApplicationPoints(goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    import Plugin.AddAxiom
+
+    implicit val order : TermOrder = goal.order
+    val predFacts                  = goal.facts.predConj
+    val age                        = goal.age
+
+    val pointAtoms                 = predFacts.positiveLitsWithPred(pointPred)
+    val pointsInGoal               = pointAtoms.map(_.toSeq.drop(2)).toSet
+
+    val newPoints =
+      (for (p <- extractApplicationPoints(goal);
+            if {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(AC, p.size == arity)
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              !(pointsInGoal contains p)
+            };
+            prio = applicationPriority(goal, p);
+            args = List(l(prio + age), l(age)) ++ p;
+            act  = AddAxiom(List(), pointPred(args), this))
+      yield act).toIndexedSeq
+
+    val newTasks =
+      if (pointsInGoal.isEmpty && !newPoints.isEmpty)
+        List(scheduleHandlerAction)
+      else
+        List()
+
+    val updates =
+      if (priorityUpdates && !pointAtoms.isEmpty)
+        updatePriorities(goal, pointAtoms)
+      else
+        List()
+
+    newPoints ++ newTasks ++ updates
+  }
+
+  private def updatePriorities(goal       : Goal,
+                               pointAtoms : Seq[Atom]) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    import Plugin.{AddAxiom, RemoveFacts}
+
+    implicit val order : TermOrder = goal.order
+    val predFacts                  = goal.facts.predConj
+
+    val toRemove                   = new ArrayBuffer[Atom]
+    val actions                    = new ArrayBuffer[Plugin.Action]
+
+    for (a <- pointAtoms) {
+      val LinearCombination.Constant(oldPrio) = a(0)
+      val LinearCombination.Constant(age)     = a(1)
+      val newPrio = age + applicationPriority(goal, a.toSeq.drop(2))
+      if (newPrio != oldPrio) {
+        toRemove += a
+        actions +=
+          AddAxiom(List(), pointPred(List(l(newPrio)) ++ a.toSeq.drop(1)), this)
+      }
+    }
+
+    if (!actions.isEmpty)
+      actions += RemoveFacts(conj(toRemove))
+
+    actions.toSeq
+  }
+
+  override def plugin = Some(
+    new Plugin {
+      override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+        goalState(goal) match {
+          case Plugin.GoalState.Final | Plugin.GoalState.Intermediate => 
+            handleApplicationPoints(goal)
+          case _ =>
+            List()
+        }
+
+      override def toString = name + "_scanner"
+    }
+  )
+
+  /**
+   * Predicate to record, in a proof goal, that a handler has been spawned
+   * for a certain application point. This is done by assigning a unique
+   * id to every application point; the argument of this predicate is the id.
+   */
+  val pointPred                = new Predicate(name + "_tasks", arity + 2)
+
+  val functions                = List()
+  val predicates               = List(pointPred)
+  val axioms                   = Conjunction.TRUE
+  val totalityAxioms           = Conjunction.TRUE
+  val functionPredicateMapping = List()
+
+  val predicateMatchConfig     : Signature.PredicateMatchConfig = Map()
+  val triggerRelevantFunctions : Set[IFunction]                 = Set()
+  val functionalPredicates     : Set[Predicate]                 = Set()
+
+  override def isSoundForSat(
+    theories : Seq[Theory],
+    config : Theory.SatSoundnessConfig.Value) : Boolean = true
+
+  override def toString = name
 
   TheoryRegistry register this
 
