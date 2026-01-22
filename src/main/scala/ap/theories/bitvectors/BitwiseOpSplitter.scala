@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,12 +47,14 @@ import ap.proof.theoryPlugins.Plugin
  * Class responsible for splitting bit-wise operators, moving gradually towards
  * a fully bit-blasted representation of the operator.
  */
-object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
+object BitwiseOpSplitter
+       extends TermBasedSaturationProcedure("BitwiseOpSplitter",
+                                            arity           = 5,
+                                            basePriority    = 10,
+                                            priorityUpdates = true) {
   import ModuloArithmetic._
   import ModPlugin.enumIntValuesOf
   import TerForConvenience._
-
-  type ApplicationPoint = Atom
 
   def doBVOp(op : Predicate, bits : Int,
              arg1 : LinearCombination, arg2 : LinearCombination,
@@ -101,12 +103,20 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
 
   def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
     val predConj = goal.facts.predConj
-    predConj.positiveLitsWithPred(_bv_and).iterator ++
-      predConj.positiveLitsWithPred(_bv_xor).iterator
+    (for (a <- predConj.positiveLitsWithPred(_bv_and).iterator)
+     yield List(l(0)) ++ a.toSeq) ++
+    (for (a <- predConj.positiveLitsWithPred(_bv_xor).iterator)
+     yield List(l(1)) ++ a.toSeq)
   }
   
   // TODO: tune priority
-  def applicationPriority(goal : Goal, p : ApplicationPoint) : Int = 10
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int =
+    if (args(2).isConstant || args(3).isConstant)
+      // prefer to split bit-wise operations that have at least one constant
+      // argument
+      0
+    else
+      50
 
   def computeSplitPoint(pattern : IdealInt, bits : Int) : Int = {
     val mid = bits / 2
@@ -118,9 +128,18 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
   }
 
   def handleApplicationPoint(goal : Goal,
-                             p : ApplicationPoint) : Seq[Plugin.Action] =
+                             args : ApplicationPoint) : Seq[Plugin.Action] = {
+    implicit val order : TermOrder = goal.order
+
+    val p =
+      args(0) match {
+        case LinearCombination.Constant(IdealInt.ZERO) =>
+          Atom(_bv_and, args.drop(1), order)
+        case LinearCombination.Constant(IdealInt.ONE) =>
+          Atom(_bv_xor, args.drop(1), order)
+      }
+
     if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
-      implicit val order = goal.order
       val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = p
 
       val splitPoint =
@@ -159,5 +178,6 @@ object BitwiseOpSplitter extends SaturationProcedure("BitwiseOpSplitter") {
     } else {
       List()
     }
+  }
 
 }
