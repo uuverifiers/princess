@@ -276,7 +276,7 @@ abstract class TermBasedSaturationProcedure(_name           : String,
     val age                        = goal.age
 
     val pointAtoms                 = predFacts.positiveLitsWithPred(pointPred)
-    val pointsInGoal               = pointAtoms.map(_.toSeq.drop(2)).toSet
+    val pointsInGoal : Set[ApplicationPoint] = pointAtoms.map(_.toSeq.drop(2)).toSet
 
     val newPoints =
       (for (p <- extractApplicationPoints(goal);
