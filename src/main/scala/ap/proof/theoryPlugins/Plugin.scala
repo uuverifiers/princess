@@ -944,7 +944,12 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
                            branchInferences : BranchInferenceCollection,
                            ptf : ProofTreeFactory) : ProofTree = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(Plugin.AC, !(actions exists (_.isInstanceOf[SplitGoal])))
+    Debug.assertInt(Plugin.AC,
+                    actions.forall {
+                      case _ : SplitGoal | _ : AxiomSplit | _ : CutSplit => false
+                      case _ => true
+                    },
+                    "actions splitting a goal have to be applied last")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val factsToRemove =
