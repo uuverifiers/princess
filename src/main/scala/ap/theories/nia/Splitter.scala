@@ -55,7 +55,7 @@ import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer, LinkedHashSet
 /**
  * Splitter handles the splitting when no new information can be deduced
  */
-class Splitter(gbCache : GroebnerMultiplication.GBCache)
+class NIASplitter(gbCache : GroebnerMultiplication.GBCache)
       extends TheoryProcedure {
   import GroebnerMultiplication._
 
@@ -141,46 +141,43 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
 
     addFacts(goal.facts.arithConj)
 
-    var contPropLoop = true
-    while (contPropLoop) {
-      contPropLoop = false
+    val intervalSet =
+      new IntervalSet(preds,
+                      ineqPolys.toVector, negeqPolys.toVector,
+                      basicBounds.toVector)
 
-      val intervalSet =
-        new IntervalSet(preds,
-                        ineqPolys.toVector, negeqPolys.toVector,
-                        basicBounds.toVector)
+    for ((_, _, l) <- intervalSet.getInconsistency) {
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+      if (debug)
+        println("ICP found inconsistency: " + label2Assumptions(l))
+      //-END-ASSERTION-///////////////////////////////////////////////////
+      return List(Plugin.CloseByAxiom(label2Assumptions(l),
+                                      GroebnerMultiplication))
+    }
 
-      for ((_, _, l) <- intervalSet.getInconsistency) {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-        if (debug)
-          println("ICP found inconsistency: " + label2Assumptions(l))
-        //-END-ASSERTION-///////////////////////////////////////////////////
-        return List(Plugin.CloseByAxiom(label2Assumptions(l),
-                                        GroebnerMultiplication))
-      }
+    // Determine the constants considered for splitting
+    val splitConstSet =
+      if (MINIMAL_SPLITTING_SET)
+        linearizers(predicates.toList, intervalSet)
+      else
+        (for (a <- predicates.iterator;
+              c <- a(0).constants.iterator ++ a(1).constants.iterator)
+        yield c).toSet
+    val splitConstSeq = new ArrayBuffer[ConstantTerm]
+    splitConstSeq ++= order sort splitConstSet
 
-      // Determine the constants considered for splitting
-      val splitConstSet =
-        if (MINIMAL_SPLITTING_SET)
-          linearizers(predicates.toList, intervalSet)
-        else
-          (for (a <- predicates.iterator;
-                c <- a(0).constants.iterator ++ a(1).constants.iterator)
-          yield c).toSet
-      val splitConstSeq = new ArrayBuffer[ConstantTerm]
-      splitConstSeq ++= order sort splitConstSet
+    if (RANDOMISE_VARIABLE_ORDER)
+      Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(splitConstSeq)
 
-      if (RANDOMISE_VARIABLE_ORDER)
-        Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(splitConstSeq)
+    val alternatives =
+      negeqSplit(intervalSet,
+                  goal.facts.arithConj.negativeEqs, splitConstSet) ++
+      gapSplit(intervalSet, splitConstSet) ++
+      infinitySplit(intervalSet, splitConstSet) ++
+      discreteSplit(intervalSet, splitConstSeq) ++
+      binarySplit(intervalSet, splitConstSeq)
 
-      val alternatives =
-        negeqSplit(intervalSet,
-                    goal.facts.arithConj.negativeEqs, splitConstSet) ++
-        gapSplit(intervalSet, splitConstSet) ++
-        infinitySplit(intervalSet, splitConstSet) ++
-        discreteSplit(intervalSet, splitConstSeq) ++
-        binarySplit(intervalSet, splitConstSeq)
-
+    val splitActions =
       if (alternatives.hasNext) {
         val s@(options, desc, label, actions, canRandomise) =
           alternatives.next()
@@ -206,7 +203,8 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
           //-BEGIN-ASSERTION-///////////////////////////////////////////////
           printActions(desc, res)
           //-END-ASSERTION-/////////////////////////////////////////////////
-          return res
+          
+          res
 
         } else {
 
@@ -223,69 +221,36 @@ class Splitter(gbCache : GroebnerMultiplication.GBCache)
                                   yield List(Plugin.AddFormula(conj(opt)))))
 
 
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           printActions(desc, alt)
-          //-END-ASSERTION-///////////////////////////////////////////////
-          return alt
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          
+          alt
 
-/*
-        TODO: do we still need the below code?
-
-          val opt1act = Conjunction.conj(opt1, order)
-          val opt2act = Conjunction.conj(opt2, order)
-
-          // check whether we might be able to close one of the branches
-          // immediately, in which case we can focus on the other branch
-
-          if ((goal reduceWithFacts opt1).isFalse) {
-            // note that we assume at this point that proof construction
-            // is disabled, so the labels of formulas do not matter
-            addFacts(opt1.negate)
-//                println("one further iteration, adding " + opt1.negate)
-            contPropLoop = true
-          } else if ((goal reduceWithFacts opt2).isFalse) {
-            // note that we assume at this point that proof construction
-            // is disabled, so the labels of formulas do not matter
-            addFacts(opt2.negate)
-//                println("one further iteration, adding " + opt2.negate)
-            contPropLoop = true
-          } else {
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////
-            printActions(desc, lastAlternative)
-            //-END-ASSERTION-///////////////////////////////////////////////
-            return lastAlternative
-          }
-*/
         }
 
-/*
-      } else if (lastAlternative != null) {
-
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-        printActions("Splitting", lastAlternative)
-        //-END-ASSERTION-///////////////////////////////////////////////////
-        return lastAlternative
-*/
       } else {
 
         val intActions =
           filterActions(intervals2Actions(intervalSet, predicates,
                                           goal, label2Assumptions _), order)
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (!intActions.isEmpty) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////
           printActions("Implied intervals", intActions)
-          //-END-ASSERTION-/////////////////////////////////////////////////
-          return intActions
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        intActions
 
       }
-    }
 
-    val retList = handleGoalAux(goal, goalState(goal), true, gbCache)
-    if (retList.isEmpty)
-      throw new Exception("ERROR: No splitting alternatives found")
+    val scheduleActions =
+      List(Plugin.ScheduleTask(this, SPLITTER_BASE_PRIORITY))
 
-    retList
+    if (splitActions.isEmpty)
+      scheduleActions ++ eagerActions(goal, gbCache)
+    else
+      scheduleActions ++ splitActions
   }
 
   /**

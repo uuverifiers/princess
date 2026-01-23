@@ -40,7 +40,7 @@ import ap.basetypes.IdealInt
 import ap.theories._
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
-import ap.proof.goal.Goal
+import ap.proof.goal.{Goal, TaskAggregator}
 import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula, ComputationLogger,
                   Term}
 import ap.terfor.TerForConvenience._
@@ -177,14 +177,15 @@ object GroebnerMultiplication extends MulTheory {
   def plugin = Some(new Plugin {
 
     private val gbCache = new GBCache (5)
+    private val splitter = new NIASplitter(gbCache)
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      val negPreds = goal.facts.predConj.negativeLitsWithPred(_mul)
+      val predConj = goal.facts.predConj
+      val negPreds = predConj.negativeLitsWithPred(_mul)
+      implicit val order : TermOrder = goal.order
 
       if (!negPreds.isEmpty) {
         // replace negated predicates with positive predicates
-
-        implicit val order = goal.order
 
         (for (a <- negPreds) yield {
           val axiom =
@@ -193,21 +194,49 @@ object GroebnerMultiplication extends MulTheory {
           Plugin.AddAxiom(List(!conj(a)), axiom, GroebnerMultiplication.this)
         }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
 
-      } else {
+      } else if (predConj.predicates.contains(_mul)) {
       
-        handleGoalAux(goal, goalState(goal), false, gbCache)
+        val acts1 = eagerActions(goal, gbCache)
 
+        // Schedule a task to take care of splitting
+        val acts2 =
+          if (goalState(goal) == Plugin.GoalState.Intermediate) {
+            if (VALUE_ENUMERATOR(goal)) {
+              val linearizer = simpleLinearizers(goal)
+              val enumAtoms =
+                goal.reduceWithFacts(
+                  conj(linearizer.map(valueEnumerator.enumIntValuesOf(_, order))))
+              if (enumAtoms.isTrue)
+                List()
+              else
+                List(Plugin.AddAxiom(List(), enumAtoms,
+                                     GroebnerMultiplication.this))
+            } else {
+              if (goal.tasks.taskSummaryFor(
+                    TaskAggregator.ScheduledTheoryProcedureCounter).contains(
+                      splitter)) {
+                List()
+              } else {
+                List(Plugin.ScheduleTask(splitter, SPLITTER_BASE_PRIORITY))
+              }
+            }
+          } else {
+            List()
+          }
+
+        acts1 ++ acts2
+
+      } else {
+        List()
       }
     }
   })
 
   /////////////////////////////////////////////////////////////////////////////
 
-  protected[nia] def handleGoalAux(goal                : Goal,
-                                    gState             : Plugin.GoalState.Value,
-                                    calledFromSplitter : Boolean,
-                                    gbCache            : GBCache)
-                                                       : Seq[Plugin.Action] = {
+  protected[nia] def eagerActions(goal        : Goal,
+                                  gbCache     : GBCache)
+                                              : Seq[Plugin.Action] = {
     implicit val order = goal.order
 
     // Fetch all predicates, if none nothing we can do
@@ -391,37 +420,7 @@ object GroebnerMultiplication extends MulTheory {
       return removeFactsActions ++ intActions
     }
 
-    // Do splitting
-
-    if (VALUE_ENUMERATOR(goal)) {
-      val linearizer = simpleLinearizers(goal)
-      val enumAtoms =
-        goal.reduceWithFacts(
-          conj(linearizer.map(valueEnumerator.enumIntValuesOf(_, order))))
-      if (enumAtoms.isTrue)
-        List()
-      else
-        List(Plugin.AddAxiom(List(), enumAtoms, this))
-    } else if (calledFromSplitter) {
-      List()
-    } else {
-      val splitter = new Splitter(gbCache)
-
-      gState match {
-        case Plugin.GoalState.Eager =>
-          List()
-        case Plugin.GoalState.Intermediate => {
-          // Schedule a task to take care of the splitting
-          val scheduleAction =
-            Plugin.ScheduleTask(splitter, SPLITTER_BASE_PRIORITY)
-          removeFactsActions ::: List(scheduleAction)
-        }
-        case Plugin.GoalState.Final =>
-          // Split directly!
-          removeFactsActions ::: (splitter handleGoal goal).toList
-      }
-    }
-
+    removeFactsActions
   }
 
   /////////////////////////////////////////////////////////////////////////////
