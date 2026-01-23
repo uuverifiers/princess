@@ -242,9 +242,8 @@ abstract class TermBasedSaturationProcedure(_name           : String,
         val atom = predConj.positiveLits(nextInd - 1)
         if (atom.pred == pointPred) {
           val point = atom.toSeq.drop(2)
-          val acts1 = handleApplicationPoint(goal, point)
-          val acts2 = List(Plugin.RemoveFacts(Conjunction.conj(atom, order)))
-          val acts3 =
+          val acts1 = List(Plugin.RemoveFacts(Conjunction.conj(atom, order)))
+          val acts2 =
             if (nextInd >= 2 &&
                 predConj.positiveLits(nextInd - 2).pred == pointPred)
               // schedule another handler to take care of the next application
@@ -252,6 +251,7 @@ abstract class TermBasedSaturationProcedure(_name           : String,
               List(scheduleHandlerAction)
             else
               List()
+          val acts3 = handleApplicationPoint(goal, point)
           acts1 ++ acts2 ++ acts3
         } else {
           List()
