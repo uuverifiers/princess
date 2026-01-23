@@ -231,34 +231,44 @@ abstract class TermBasedSaturationProcedure(_name           : String,
       TermBasedSaturationProcedure.this
 
     def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      // find the application point with the highest priority
-      val order = goal.order
+      import TerForConvenience._
+      implicit val order : TermOrder = goal.order
       val predConj = goal.facts.predConj
       val po = order.reversePredOrdering
 
-      val nextInd = Seqs.risingEdge(predConj.positiveLits,
-                                    (a:Atom) => po.gt(a.pred, pointPred))
-      if (nextInd >= 1) {
-        val atom = predConj.positiveLits(nextInd - 1)
-        if (atom.pred == pointPred) {
-          val point = atom.toSeq.drop(2)
-          val acts1 = List(Plugin.RemoveFacts(Conjunction.conj(atom, order)))
-          val acts2 =
-            if (nextInd >= 2 &&
-                predConj.positiveLits(nextInd - 2).pred == pointPred)
-              // schedule another handler to take care of the next application
-              // points
-              List(scheduleHandlerAction)
-            else
-              List()
-          val acts3 = handleApplicationPoint(goal, point)
-          acts1 ++ acts2 ++ acts3
-        } else {
-          List()
-        }
-      } else {
-        List()
+      // find the application point with the highest priority for which
+      // rules are applicable
+      val upperBound = Seqs.risingEdge(predConj.positiveLits,
+                                       (a:Atom) => po.gt(a.pred, pointPred))
+
+      var nextInd = upperBound - 1
+      var actions : Seq[Plugin.Action] = List()
+      val atomsToRemove = new ArrayBuffer[Atom]
+
+      while (actions.isEmpty && nextInd >= 0 &&
+             predConj.positiveLits(nextInd).pred == pointPred) {
+        val atom = predConj.positiveLits(nextInd)
+        val point = atom.toSeq.drop(2)
+        atomsToRemove += atom
+        actions = handleApplicationPoint(goal, point)
+        nextInd = nextInd - 1
       }
+
+      val scheduleActions =
+        if (nextInd >= 0 && predConj.positiveLits(nextInd).pred == pointPred)
+          // schedule another handler to take care of the next application
+          // points
+          List(scheduleHandlerAction)
+        else
+          List()
+
+      val removalActions =
+        if (atomsToRemove.isEmpty)
+          List()
+        else
+          List(Plugin.RemoveFacts(conj(atomsToRemove)))
+
+      removalActions ++ scheduleActions ++ actions
     }
 
     override def toString = name + "_handler"
@@ -349,11 +359,12 @@ abstract class TermBasedSaturationProcedure(_name           : String,
   )
 
   /**
-   * Predicate to record, in a proof goal, that a handler has been spawned
-   * for a certain application point. This is done by assigning a unique
-   * id to every application point; the argument of this predicate is the id.
+   * Predicate to record, in a proof goal, that a vector of terms was identified
+   * as an application point. The predicate also stores the priority of the
+   * application point (first argument, lower number means higher priority) and
+   * the age of the application point (second argument).
    */
-  val pointPred                = new Predicate(name + "_tasks", arity + 2)
+  val pointPred                = new Predicate(name + "_app", arity + 2)
 
   val functions                = List()
   val predicates               = List(pointPred)
