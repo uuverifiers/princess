@@ -1095,7 +1095,7 @@ class IntermediatePluginTask(plugin : TheoryProcedure,
         yield new PrioritisedPluginTask(p, basePriority, age)
     }
 
-  override def toString = "IntermediatePluginTask(" + plugin + ")"
+  override def toString = "IntermediatePluginTask(" + priority + ", " + plugin + ")"
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1120,5 +1120,5 @@ class PrioritisedPluginTask(plugin : TheoryProcedure,
         for ((p, prio) <- newProcs) yield new PrioritisedPluginTask(p, prio, age)
     }
 
-  override def toString = "PrioritisedPluginTask(" + plugin + ")"
+  override def toString = "PrioritisedPluginTask(" + priority + ", " + plugin + ")"
 }

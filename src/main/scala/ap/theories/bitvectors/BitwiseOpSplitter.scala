@@ -48,10 +48,12 @@ import ap.proof.theoryPlugins.Plugin
  * a fully bit-blasted representation of the operator.
  */
 object BitwiseOpSplitter
-       extends TermBasedSaturationProcedure("BitwiseOpSplitter",
-                                            arity           = 5,
-                                            basePriority    = 10,
-                                            priorityUpdates = true) {
+       extends TermBasedSaturationProcedure(
+          "BitwiseOpSplitter",
+          arity           = 5,
+          basePriority    = ModuloArithmetic.BITWISE_OP_SPLITTER_PRIORITY,
+          priorityUpdates = true) {
+
   import ModuloArithmetic._
   import ModPlugin.enumIntValuesOf
   import TerForConvenience._

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2021 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -861,6 +861,7 @@ object SMTLineariser {
       case Some(ModuloArithmetic) => fun match {
         case ModuloArithmetic.int_cast => Some(("bv2nat", ""))
         case ModuloArithmetic.bv_add   => Some(("bvadd", ""))
+        case f                         => Some((f.name, ""))
       }
       case Some(DivZero.IntDivZeroTheory) => fun match {
         case DivZero.IntDivZero => Some(("div", "0"))

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2026 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,9 @@ object GroebnerMultiplication extends MulTheory {
   // Max size of intervals that are considered "small" during ICP
   val SMALL_INTERVAL_BOUND = 100
 
+  // Priority used for the task splitting value ranges
+  val SPLITTER_BASE_PRIORITY = 0
+
   protected[nia] val AC = Debug.AC_NIA
 
   val mul        = new IFunction("mul", 2, true, false)
@@ -121,6 +124,7 @@ object GroebnerMultiplication extends MulTheory {
   val valueEnumerator : IntValueEnumTheory =
       new IntValueEnumTheory("GroebnerMultiplicationValueEnumerator",
                              completeSplitBound = DISCRETE_SPLITTING_LIMIT,
+                             splitterCost = SPLITTER_BASE_PRIORITY,
                              randomiseValues = true)
 
   override val dependencies = List(valueEnumerator)
@@ -404,12 +408,17 @@ object GroebnerMultiplication extends MulTheory {
       val splitter = new Splitter(gbCache)
 
       gState match {
+        case Plugin.GoalState.Eager =>
+          List()
+        case Plugin.GoalState.Intermediate => {
+          // Schedule a task to take care of the splitting
+          val scheduleAction =
+            Plugin.ScheduleTask(splitter, SPLITTER_BASE_PRIORITY)
+          removeFactsActions ::: List(scheduleAction)
+        }
         case Plugin.GoalState.Final =>
           // Split directly!
           removeFactsActions ::: (splitter handleGoal goal).toList
-        case _ =>
-          val scheduleAction = Plugin.ScheduleTask(splitter, 10)
-          removeFactsActions ::: List(scheduleAction)
       }
     }
 

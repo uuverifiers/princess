@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,9 @@ object ModuloArithmetic extends Theory {
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[bitvectors] val directlyEncodeExtract = false
+
+  protected[bitvectors] val MOD_CAST_SPLITTER_PRIORITY   = 0
+  protected[bitvectors] val BITWISE_OP_SPLITTER_PRIORITY = 0
 
   protected[bitvectors] val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -913,7 +916,7 @@ object ModuloArithmetic extends Theory {
   val MultTheory = GroebnerMultiplication
 
   override val dependencies : Iterable[Theory] =
-    List(MultTheory, ModCastSplitter2, BitwiseOpSplitter)
+    List(MultTheory, ModCastSplitter, BitwiseOpSplitter)
 
   val plugin = Some(ModPlugin)
 

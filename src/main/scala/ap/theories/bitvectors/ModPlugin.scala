@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,15 +105,6 @@ object ModPlugin extends Plugin {
 
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
     // check if we have modcast or shiftcast actions
- /*   val actions1 =
-      try {
-        ModCastSplitter.modCastActions(goal, true)
-      } catch {
-        case NEEDS_SPLITTING =>
-          // delayed splitting through a separate task
-          List(Plugin.ScheduleTask(ModCastSplitter, 30))
-      } */
-
     val actions2 =
       try {
         LShiftCastSplitter.shiftCastActions(goal, true)
@@ -133,11 +124,11 @@ object ModPlugin extends Plugin {
       }
 
 
-    val res = /* actions1 ++ */ actions2 ++ actions3
+    val res = actions2 ++ actions3
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
     if (!res.isEmpty && debug) {
-      println("Mod Shift Casting:")
+      println("Shift Casting:")
       for (a <- res)
         println("\t" + a)
     }
