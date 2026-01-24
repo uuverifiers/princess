@@ -37,9 +37,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv127 8))
-  (define-fun d () (_ BitVec 8) (_ bv127 8))
-  (define-fun c () (_ BitVec 8) (_ bv127 8))
+  (define-fun x () (_ BitVec 8) (_ bv64 8))
+  (define-fun d () (_ BitVec 8) (_ bv128 8))
+  (define-fun c () (_ BitVec 8) (_ bv128 8))
 )
 Loading bvsdiv6c.smt2 ...
 Preprocessing ...
@@ -47,7 +47,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv44 8))
+  (define-fun x () (_ BitVec 8) (_ bv11 8))
 )
 Loading bvsdiv7.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
@@ -630,7 +630,7 @@ End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 606)
+Found proof (size 582)
 
 unsat
 Loading bvsrem2.smt2 ...
