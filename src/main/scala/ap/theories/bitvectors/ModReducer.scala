@@ -194,10 +194,11 @@ object ModReducer {
              : ReducerPlugin.ReductionResult =
       {
         Timeout.check
-        val logging = logger.isLogging
+        val log = logger.isLogging
 
         implicit val reducerOrder = order
         import TerForConvenience._
+        import reducer.{lowerBound, upperBound}
 
         // TODO: eliminate mod_cast arguments with large coefficients
 
@@ -215,26 +216,160 @@ object ModReducer {
                                      logger) { a =>
               a.pred match {
                 case `_mod_cast` =>
-                  (reducer.lowerBound(a(2), logging),
-                   reducer.upperBound(a(2), logging)) match {
+                  (lowerBound(a(2), log), upperBound(a(2), log)) match {
 
-                    case (Some((lb, _)), Some((ub, _))) if lb > ub =>
-                      // reducer is in an inconsistent state, no changes
-                      a
-
-                    case (Some((lb, lbAsses)), Some((ub, ubAsses))) => {
+                    case (Some((lb, lbAsses)), Some((ub, ubAsses)))
+                        if lb <= ub => {
                       val sort@ModSort(sortLB, sortUB) =
                         (SortedPredicate argumentSorts a).last
-                
-                      val lowerFactor = (lb - sortLB) / sort.modulus
-                      val upperFactor = -((sortUB - ub) / sort.modulus)
+                      import sort.modulus
+
+                      val lowerFactor = (lb - sortLB) / modulus
+                      val upperFactor = -((sortUB - ub) / modulus)
 
                       if (lowerFactor == upperFactor) {
-                        val newEq = a(2) === a(3) + (lowerFactor * sort.modulus)
+                        // mod_cast only has a single branch and can be
+                        // eliminated directly
+
+                        val newEq = a(2) === a(3) + (lowerFactor * modulus)
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Simplifying mod_cast (1):")
+                          println("\t" + a)
+                          println("\t" + newEq)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
                         logger.otherComputation(lbAsses ++ ubAsses ++ List(a),
                                                 newEq, order,
                                                 ModuloArithmetic)
                         newEq
+
+                      } else if (lowerFactor + 1 == upperFactor) {
+                        // two branches;
+                        // check whether we can use bounds on the result to
+                        // simplify the atom
+
+                        val (newA, allAssumptions) =
+                        (lowerBound(a(3), log), upperBound(a(3), log)) match {
+
+                          case (Some((resLB, reslbAsses)),
+                                Some((resUB, resubAsses))) if resLB <= resUB => {
+                            (resLB > ub - (upperFactor * modulus),
+                             resUB < lb - (lowerFactor * modulus)) match {
+
+                              case (true, true) =>
+                                (Conjunction.FALSE,
+                                 lbAsses ++ ubAsses ++
+                                 reslbAsses ++ resubAsses ++ List(a))
+
+                              case (true, false) => {
+                                (a(2) === a(3) + (lowerFactor * modulus),
+                                 lbAsses ++ ubAsses ++ reslbAsses ++ List(a))
+                              }
+
+                              case (false, true) => {
+                                (a(2) === a(3) + (upperFactor * modulus),
+                                 lbAsses ++ ubAsses ++ resubAsses ++ List(a))
+                              }
+
+                              case _ =>
+                                (a, List())
+                            }
+                          }
+
+                          case _ =>
+                            (a, List())
+                        }
+
+                        if (newA != a) {
+
+                          //-BEGIN-ASSERTION-///////////////////////////////////
+                          if (debug) {
+                            println("Simplifying mod_cast (2):")
+                            println("\t" + a)
+                            println("\t" + newA)
+                          }
+                          //-END-ASSERTION-/////////////////////////////////////
+                          logger.otherComputation(allAssumptions, newA, order,
+                                                  ModuloArithmetic)
+                          newA
+
+                        } else if (sortLB.isZero && sortUB.isOne &&
+                                   lb.isZero && ub == IdealInt(2) &&
+                                   a(3).isZero && a(2).size == 2 &&
+                                   a(2).getCoeff(0).isOne &&
+                                   a(2).getCoeff(1).isOne) {
+
+                          // check whether this is the special case of an
+                          // equation mod_cast(0, 1, x + y) == 0 for
+                          // 0-1 variables x, y, which is equivalent to x == y
+
+                          val x = a(2).getTerm(0)
+                          val y = a(2).getTerm(1)
+
+                          (lowerBound(x, log), upperBound(x, log),
+                           lowerBound(y, log), upperBound(y, log)) match {
+
+                            case (Some((IdealInt.ZERO, a1)),
+                                  Some((IdealInt.ONE,  a2)),
+                                  Some((IdealInt.ZERO, a3)),
+                                  Some((IdealInt.ONE,  a4))) => {
+                              val newEq = x === y
+                              //-BEGIN-ASSERTION-///////////////////////////////
+                              if (debug) {
+                                println("Simplifying mod_cast (3):")
+                                println("\t" + a)
+                                println("\t" + newEq)
+                              }
+                              //-END-ASSERTION-/////////////////////////////////
+                              logger.otherComputation(
+                                a1 ++ a2 ++ a3 ++ a3 ++ List(a), newEq, order,
+                                ModuloArithmetic)
+                              newEq
+                            }
+
+                            case _ =>
+                              a
+                          }
+                          
+                        } else {
+                          a
+                        }
+
+                      } else if (lowerFactor + 2 == upperFactor) {
+                        // three branches;
+                        // check whether we can use bounds on the result to
+                        // simplify the atom
+
+                        (lowerBound(a(3), log), upperBound(a(3), log)) match {
+
+                          case (Some((resLB, reslbAsses)),
+                                Some((resUB, resubAsses)))
+                              if resLB <= resUB &&
+                                 resLB > ub - (upperFactor * modulus) &&
+                                 resUB < lb - (lowerFactor * modulus) => {
+
+                            val newEq =
+                              a(2) === a(3) + ((lowerFactor + 1) * modulus)
+                            val allAssumptions =
+                              lbAsses ++ ubAsses ++ reslbAsses ++ resubAsses ++
+                              List(a)
+
+                            //-BEGIN-ASSERTION-///////////////////////////////////
+                            if (debug) {
+                              println("Simplifying mod_cast (4):")
+                              println("\t" + a)
+                              println("\t" + newEq)
+                            }
+                            //-END-ASSERTION-/////////////////////////////////////
+                            logger.otherComputation(allAssumptions, newEq, order,
+                                                    ModuloArithmetic)
+                            newEq
+                          }
+
+                          case _ =>
+                            a
+                         }
                       } else {
                         a
                       }
@@ -269,7 +404,7 @@ object ModReducer {
                                             ModuloArithmetic)
                     newA
                   } else {
-                    (reducer.lowerBound(a(3), logging)) match {
+                    (lowerBound(a(3), log)) match {
                       case Some((lb, lbAsses)) if lb.signum > 0 => {
                         val sort@ModSort(_, _) =
                           (SortedPredicate argumentSorts a).last
@@ -390,8 +525,7 @@ object ModReducer {
 
                   case (Constant(ub), Constant(lb), arg) => {
                     val (bitBoundary, lower, asses) = bitCache(a(2)) {
-                      (reducer.lowerBound(a(2), logging),
-                       reducer.upperBound(a(2), logging)) match {
+                      (lowerBound(a(2), log), upperBound(a(2), log)) match {
                         case (Some((lb, lbA)), Some((ub, ubA))) if lb > ub =>
                           // reducer is in an inconsistent state, just drop
                           // the extract atom
