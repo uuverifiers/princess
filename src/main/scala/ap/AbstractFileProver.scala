@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -235,8 +235,9 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
    * Class taking care of pre-processing, and translation to
    * internal data-structures.
    */
-  protected class Translation(rawFormula : IFormula,
-                              settings : GlobalSettings) {
+  protected class Translation(preFormula   : IFormula,
+                              preSignature : Signature,
+                              settings     : GlobalSettings) {
     val (inputFormulas, preprocInterpolantSpecs, transSignature,
          gcedFunctions, functionEncoder, incompletePreproc) = {
       var incompletePreproc = false
@@ -249,18 +250,18 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
       
       val genTotality =
         Param.GENERATE_TOTALITY_AXIOMS(settings) &&
-        !IsUniversalFormulaVisitor(rawFormula)
+        !IsUniversalFormulaVisitor(preFormula)
   
       val functionEnc =
         new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings), genTotality)
-      for (t <- rawSignature.theories)
+      for (t <- preSignature.theories)
         functionEnc addTheory t
   
       val ((inputFormulas, interpolantS, sig), incomp) = Incompleteness.track {
         Timeout.withChecker(stoppingCond) {
-          val rawFormula2 =
+          val preFormula2 =
             if (constructProofs) {
-              rawFormula
+              preFormula
             } else {
               // we keep part names that identify TPTP conjectures;
               // otherwise we won't be able to distinguish between
@@ -268,10 +269,10 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
               val elim =
                 new PredPartNameEliminator(
                   name => TPTPTParser.ConjecturePartName.unapply(name).isEmpty)
-              elim(rawFormula)
+              elim(preFormula)
             }
-          Preprocessing(rawFormula2, rawInterpolantSpecs,
-                        rawSignature, preprocSettings, functionEnc)
+          Preprocessing(preFormula2, rawInterpolantSpecs,
+                        preSignature, preprocSettings, functionEnc)
         }
       }
 
@@ -710,7 +711,8 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
     }
 
   protected lazy val posTranslation =
-    catchTranslationTimeout(new Translation(rawInputFormula, settings))
+    catchTranslationTimeout(
+      new Translation(rawInputFormula, rawSignature, settings))
 
   protected lazy val negTranslation = {
     val order =
@@ -735,8 +737,19 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
     val quanFor =
       IExpression.quanConsts(Quantifier.ALL, quantifiedConsts, substFor)
 
+    val negSignature =
+      if (Param.MOST_GENERAL_CONSTRAINT(settings))
+        rawSignature
+      else
+        // we can turn the the existential constants into nullary functions
+        Signature(Set(), Set(), rawSignature.existentialConstants,
+                  rawSignature.predicateMatchConfig,
+                  rawSignature.order,
+                  rawSignature.theories)
+
     catchTranslationTimeout(
       new Translation(!quanFor,
+                      negSignature,
                       Param.CLAUSIFIER.set(settings,
                                            Param.ClausifierOptions.ExMaxiscope))
     )
