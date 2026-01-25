@@ -209,12 +209,31 @@ class IntelliFileProver(reader   : java.io.Reader,
   lazy val negProofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
       import negTranslation._
-      val (tree, validConstraint) =
+      val (tree, _) =
         constructProofTree("Proving negated formula")
-      if (validConstraint) {
+
+      val constraint = tree.closingConstraint
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(IntelliFileProver.AC,
+        constraint.constants subsetOf transSignature.existentialConstants)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      // TODO: find a faster way to check validity that correctly takes
+      // sorts into account?
+      val processedConstraint = processConstraint(!constraint)
+
+      val unsatConstraint =
+        processedConstraint.isFalse || SimpleAPI.withProver({ p =>
+          p.addConstantsRaw(constraint.constants)
+          p.!! (processedConstraint)
+          p.??? == SimpleAPI.ProverStatus.Unsat
+        })
+
+      if (unsatConstraint) {
         Invalid(tree)
       } else if (soundForSat) {
-        Proof(tree, ap.parser.IBoolLit(true))
+        Proof(tree, processedConstraint)
       } else {
         NoProof(tree)
       }
