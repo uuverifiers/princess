@@ -134,6 +134,687 @@ object ModReducer {
      (lc.constant % p) + 1 == p
   }
 
+  private def reduceModCast(a       : Atom,
+                            reducer : ReduceWithConjunction,
+                            logger  : ComputationLogger,
+                            order   : TermOrder) : Formula = {
+    val log = logger.isLogging
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+    import reducer.{lowerBound, upperBound}
+
+    (lowerBound(a(2), log), upperBound(a(2), log)) match {
+
+      case (Some((lb, lbAsses)), Some((ub, ubAsses)))
+          if lb <= ub => {
+        val sort@ModSort(sortLB, sortUB) =
+          (SortedPredicate argumentSorts a).last
+        import sort.modulus
+
+        val lowerFactor = (lb - sortLB) / modulus
+        val upperFactor = -((sortUB - ub) / modulus)
+
+        if (lowerFactor == upperFactor) {
+          // mod_cast only has a single branch and can be
+          // eliminated directly
+
+          val newEq = a(2) === a(3) + (lowerFactor * modulus)
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          if (debug) {
+            println("Simplifying mod_cast (1):")
+            println("\t" + a)
+            println("\t" + newEq)
+          }
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          logger.otherComputation(lbAsses ++ ubAsses ++ List(a),
+                                  newEq, order,
+                                  ModuloArithmetic)
+          newEq
+
+        } else if (lowerFactor + 1 == upperFactor) {
+          // two branches;
+          // check whether we can use bounds on the result to
+          // simplify the atom
+
+          val (newA, allAssumptions) =
+          (lowerBound(a(3), log), upperBound(a(3), log)) match {
+
+            case (Some((resLB, reslbAsses)),
+                  Some((resUB, resubAsses))) if resLB <= resUB => {
+              (resLB > ub - (upperFactor * modulus),
+                resUB < lb - (lowerFactor * modulus)) match {
+
+                case (true, true) =>
+                  (Conjunction.FALSE,
+                    lbAsses ++ ubAsses ++
+                    reslbAsses ++ resubAsses ++ List(a))
+
+                case (true, false) => {
+                  (a(2) === a(3) + (lowerFactor * modulus),
+                    lbAsses ++ ubAsses ++ reslbAsses ++ List(a))
+                }
+
+                case (false, true) => {
+                  (a(2) === a(3) + (upperFactor * modulus),
+                    lbAsses ++ ubAsses ++ resubAsses ++ List(a))
+                }
+
+                case _ =>
+                  (a, List())
+              }
+            }
+
+            case _ =>
+              (a, List())
+          }
+
+          if (newA != a) {
+
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug) {
+              println("Simplifying mod_cast (2):")
+              println("\t" + a)
+              println("\t" + newA)
+            }
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            logger.otherComputation(allAssumptions, newA, order,
+                                    ModuloArithmetic)
+            newA
+
+          } else if (sortLB.isZero && sortUB.isOne &&
+                      lb.isZero && ub == IdealInt(2) &&
+                      a(3).isZero && a(2).size == 2 &&
+                      a(2).getCoeff(0).isOne &&
+                      a(2).getCoeff(1).isOne) {
+
+            // check whether this is the special case of an
+            // equation mod_cast(0, 1, x + y) == 0 for
+            // 0-1 variables x, y, which is equivalent to x == y
+
+            val x = a(2).getTerm(0)
+            val y = a(2).getTerm(1)
+
+            (lowerBound(x, log), upperBound(x, log),
+              lowerBound(y, log), upperBound(y, log)) match {
+
+              case (Some((IdealInt.ZERO, a1)),
+                    Some((IdealInt.ONE,  a2)),
+                    Some((IdealInt.ZERO, a3)),
+                    Some((IdealInt.ONE,  a4))) => {
+                val newEq = x === y
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                if (debug) {
+                  println("Simplifying mod_cast (3):")
+                  println("\t" + a)
+                  println("\t" + newEq)
+                }
+                //-END-ASSERTION-///////////////////////////////////////////////
+                logger.otherComputation(
+                  a1 ++ a2 ++ a3 ++ a3 ++ List(a), newEq, order,
+                  ModuloArithmetic)
+                newEq
+              }
+
+              case _ =>
+                a
+            }
+            
+          } else {
+            a
+          }
+
+        } else if (lowerFactor + 2 == upperFactor) {
+          // three branches;
+          // check whether we can use bounds on the result to
+          // simplify the atom
+
+          (lowerBound(a(3), log), upperBound(a(3), log)) match {
+
+            case (Some((resLB, reslbAsses)),
+                  Some((resUB, resubAsses)))
+                if resLB <= resUB &&
+                    resLB > ub - (upperFactor * modulus) &&
+                    resUB < lb - (lowerFactor * modulus) => {
+
+              val newEq =
+                a(2) === a(3) + ((lowerFactor + 1) * modulus)
+              val allAssumptions =
+                lbAsses ++ ubAsses ++ reslbAsses ++ resubAsses ++
+                List(a)
+
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              if (debug) {
+                println("Simplifying mod_cast (4):")
+                println("\t" + a)
+                println("\t" + newEq)
+              }
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              logger.otherComputation(allAssumptions, newEq, order,
+                                      ModuloArithmetic)
+              newEq
+            }
+
+            case _ =>
+              a
+            }
+        } else {
+          a
+        }
+      }
+
+      case _ =>
+        a
+    }
+  }
+
+  private def reduceLShiftCast(a       : Atom,
+                               reducer : ReduceWithConjunction,
+                               logger  : ComputationLogger,
+                               order   : TermOrder) : Formula = {
+    val log = logger.isLogging
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+    import reducer.lowerBound
+    
+    if (a(2).isZero) {
+      // TODO: use evalModCast
+      val newA =
+        Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+      logger.otherComputation(List(a), newA, order,
+                              ModuloArithmetic)
+      newA
+    } else if (a(3).isConstant) {
+      val sort@ModSort(_, _) =
+        (SortedPredicate argumentSorts a).last
+      val newA =
+        Atom(_mod_cast,
+              Array(a(0), a(1),
+                    a(2) *
+                      pow2Mod(a(3).constant max IdealInt.ZERO,
+                              sort.modulus),
+                    a(4)),
+              order)
+      logger.otherComputation(List(a), newA, order,
+                              ModuloArithmetic)
+      newA
+    } else {
+      (lowerBound(a(3), log)) match {
+        case Some((lb, lbAsses)) if lb.signum > 0 => {
+          val sort@ModSort(_, _) =
+            (SortedPredicate argumentSorts a).last
+          val newA = Atom(_l_shift_cast,
+                          Array(a(0), a(1),
+                                a(2) * pow2Mod(lb, sort.modulus),
+                                a(3) - lb, a(4)),
+                          order)
+          logger.otherComputation(lbAsses ++ List(a), newA, order,
+                                  ModuloArithmetic)
+          newA
+        }
+        case _ =>
+          a
+      }
+    }
+  }
+
+  private def reduceRShiftCast(a       : Atom,
+                               reducer : ReduceWithConjunction,
+                               logger  : ComputationLogger,
+                               order   : TermOrder) : Formula = {
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+
+    if (RShiftCastSplitter.isShiftInvariant(a(2))) {
+      val newA = Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+      logger.otherComputation(List(a), newA, order, ModuloArithmetic)
+      newA
+    } else if (a(3).isConstant) {
+      val shift = a(3).constant
+      if (shift.signum < 0)
+        throw new Exception("negative shift: " + a)
+      (SortedPredicate argumentSorts a).last match {
+        case UnsignedBVSort(bits) => {
+          val newA =
+            Atom(_bv_extract,
+                  Array(l(shift + bits - 1), l(shift), a(2), a(4)),
+                  order)
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          if (debug) {
+            println("Reducing _r_shift_cast:")
+            println("\t" + a)
+            println("\t" + newA)
+          }
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          logger.otherComputation(List(a), newA, order, ModuloArithmetic)
+          newA
+        }
+        case SignedBVSort(bits) =>
+          // TODO
+          a
+        case _ =>
+          a
+      }
+    } else {
+      a
+    }
+  }
+
+  private type BitCache =
+    LRUCache[LinearCombination, (Int, IdealInt, Seq[Formula])]
+
+  private def reduceExtract(a        : Atom,
+                            reducer  : ReduceWithConjunction,
+                            logger   : ComputationLogger,
+                            order    : TermOrder,
+                            bitCache : BitCache) : Formula = {
+    val log = logger.isLogging
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+    import reducer.{lowerBound, upperBound}
+
+    (a(0), a(1), a(2)) match {
+      case (Constant(ub), Constant(lb), Constant(constArg)) => {
+        val newEq = a(3) === evalExtract(ub, lb, constArg)
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println("Evaluating bv_extract:")
+          println("\t" + a)
+          println("\t" + newEq)
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        logger.otherComputation(List(a), newEq, order,
+                                ModuloArithmetic)
+        newEq
+      }
+
+      case (Constant(ub), _, arg)
+          if ub < 100000 && canBeReduced(arg, pow2(ub + 1)) => {
+        // Eliminate large constants within the extract argument
+        val newExtract = _bv_extract(
+          List(a(0), a(1),
+                a(2).moduloKeepingSign(pow2(a(0).constant + 1)),
+                a(3)))
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println("Simplifying bv_extract (1):")
+          println("\t" + a)
+          println("\t" + newExtract)
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        logger.otherComputation(List(a), newExtract, order,
+                                ModuloArithmetic)
+        newExtract
+      }
+      
+      case (Constant(ub), Constant(lb), lc)
+          if lc.leadingCoeff.signum < 0 => {
+        // Make the extract argument positive
+        val newExtract = _bv_extract(
+          List(a(0), a(1),
+                pow2MinusOne(ub + 1) - a(2),
+                pow2MinusOne(ub - lb + 1) - a(3)))
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println("Simplifying bv_extract (2):")
+          println("\t" + a)
+          println("\t" + newExtract)
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        logger.otherComputation(List(a), newExtract, order,
+                                ModuloArithmetic)
+        newExtract
+      }
+
+      case (Constant(ub), Constant(lb), arg) => {
+        val (bitBoundary, lower, asses) = bitCache(a(2)) {
+          (lowerBound(a(2), log), upperBound(a(2), log)) match {
+            case (Some((lb, lbA)), Some((ub, ubA))) if lb > ub =>
+              // reducer is in an inconsistent state, just drop
+              // the extract atom
+              (0, IdealInt.ZERO, lbA ++ ubA)
+            case (Some((lb, lbA)), Some((ub, ubA))) =>
+              commonBitsLB(lb, ub) match {
+                case Some(bb) => (bb, lb, lbA ++ ubA)
+                case None => (-1, IdealInt.ZERO, List())
+              }
+            case _ =>
+              (-1, IdealInt.ZERO, List())
+          }
+        }
+
+        if (bitBoundary >= 0) {
+          val LinearCombination.Constant(lb) = a(1)
+          val LinearCombination.Constant(ub) = a(0)
+
+          if (ub >= bitBoundary - 1 && lb.isZero) {
+            // We can eliminate the extract operation
+
+            val newEq =
+              a(3) === a(2) - (lower - evalExtract(ub, lb, lower))
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug) {
+              println("Eliminating bv_extract:")
+              println("\t" + a)
+              println("\t" + newEq)
+            }
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            logger.otherComputation(List(a) ++ asses, newEq, order,
+                                    ModuloArithmetic)
+            newEq
+          } else if (lb >= bitBoundary) {
+            // The extracted bits are completely determined by the
+            // bounds
+
+            val newEq = a(3) === evalExtract(ub, lb, lower)
+
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug) {
+              println("Evaluating bv_extract:")
+              println("\t" + a)
+              println("\t" + newEq)
+            }
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            logger.otherComputation(List(a) ++ asses, newEq, order,
+                                    ModuloArithmetic)
+            newEq
+          } else if (ub >= bitBoundary) {
+            // The extracted bits are partly determined by the
+            // bounds
+
+            val bb = bitBoundary
+
+            val newRHS =
+              a(3) - evalExtract(ub, bb, lower) * pow2(bb - lb)
+            val newExtract = extract(bb - 1, lb, a(2), newRHS)
+
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug) {
+              println("Simplifying bv_extract (3):")
+              println("\t" + a)
+              println("\t" + newExtract)
+            }
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            logger.otherComputation(List(a) ++ asses,
+                                    newExtract, order,
+                                    ModuloArithmetic)
+            newExtract
+          } else {
+            a
+          }
+        } else {
+          a
+        }
+      }
+    }
+  }
+
+  private def reduceBVAnd(a        : Atom,
+                          reducer  : ReduceWithConjunction,
+                          logger   : ComputationLogger,
+                          order    : TermOrder) : Formula = {
+    val log = logger.isLogging
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+    import reducer.{lowerBound, upperBound}
+
+    val LinearCombination.Constant(bits) = a(0)
+    if (a(1) == a(2)) {
+      val newA =
+        Atom(_bv_extract, List(l(bits - 1), l(0), a(1), a(3)),
+              order)
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug) {
+        println("Eliminating bv_and:")
+        println("\t" + a)
+        println("\t" + newA)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      logger.otherComputation(List(a), newA, order,
+                              ModuloArithmetic)
+      newA
+    } else if (a(1).isConstant || a(2).isConstant) {
+      if (a(1).isConstant && a(2).isConstant) {
+        val newEq =
+          a(3) === evalExtract(bits - 1, 0,
+                                a(1).constant & a(2).constant)
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println("Evaluating bv_and:")
+          println("\t" + a)
+          println("\t" + newEq)
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        logger.otherComputation(List(a), newEq, order,
+                                ModuloArithmetic)
+        newEq
+      } else {
+        // maybe the bv_and can be replaced by extract
+
+        val (pattern, freeArg) =
+          if (a(1).isConstant)
+            (a(1).constant, a(2))
+          else
+            (a(2).constant, a(1))
+
+        val newFormula =
+          runLengthEnc(pattern, bits.intValueSafe) match {
+            case Seq(_) => {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              // pattern must be constantly zero
+              Debug.assertInt(AC,
+                        evalExtract(bits - 1, 0, pattern).isZero)
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              Some(a(3) === 0)
+            }
+            case rle@(Seq(0, _) | Seq(0, _, _)) => {
+              // pattern starting with a single block of ones
+              Some(extract(rle(1) - 1, 0, freeArg, a(3)))
+            }
+            case _ =>
+              None
+          }
+
+        newFormula match {
+          case Some(f) => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug) {
+              println("Simplifying bv_and:")
+              println("\t" + a)
+              println("\t" + f)
+            }
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
+            logger.otherComputation(List(a), f, order,
+                                    ModuloArithmetic)
+            f
+          }
+          case None =>
+            a
+        }
+      }
+
+    // If the lowest-value bits of the argument add up to a
+    // constant one bit-string, the result of bv_and must be zero
+    // TODO: faster check?
+    } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
+      val newEq = a(3) === 0
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug) {
+        println("Eliminating bv_and:")
+        println("\t" + a)
+        println("\t" + newEq)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      logger.otherComputation(List(a), newEq, order,
+                              ModuloArithmetic)
+      newEq
+    } else {
+      a
+    }
+  }
+
+  private def reduceBVXor(a        : Atom,
+                          reducer  : ReduceWithConjunction,
+                          logger   : ComputationLogger,
+                          order    : TermOrder) : Formula = {
+    val log = logger.isLogging
+    implicit val o : TermOrder = order
+    import TerForConvenience._
+    import reducer.{lowerBound, upperBound}
+
+    val LinearCombination.Constant(bits) = a(0)
+    if (a(1) == a(2)) {
+      val newEq = a(3) === 0
+      //-BEGIN-ASSERTION-///////////////////////////////////////
+      if (debug) {
+        println("Eliminating bv_xor:")
+        println("\t" + a)
+        println("\t" + newEq)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////
+
+      logger.otherComputation(List(a), newEq, order,
+                              ModuloArithmetic)
+      newEq
+
+    } else if (a(1).isConstant || a(2).isConstant) {
+
+      (a(1).isConstant, a(2).isConstant, a(3).isConstant) match {
+        case (true, true, _) => {
+          val newEq =
+            a(3) === evalExtract(bits - 1, 0,
+                                  a(1).constant ^ a(2).constant)
+
+          //-BEGIN-ASSERTION-/////////////////////////////////////
+          if (debug) {
+            println("Evaluating bv_xor:")
+            println("\t" + a)
+            println("\t" + newEq)
+          }
+          //-END-ASSERTION-///////////////////////////////////////
+
+          logger.otherComputation(List(a), newEq, order,
+                                  ModuloArithmetic)
+          newEq
+        }
+        case (true, _, true) => {
+          val newA =
+            extract(bits - 1, 0, a(2),
+                    evalExtract(bits - 1, 0, a(1).constant) ^
+                      a(3).constant)
+          //-BEGIN-ASSERTION-/////////////////////////////////////
+          if (debug) {
+            println("Simplifying bv_xor:")
+            println("\t" + a)
+            println("\t" + newA)
+          }
+          //-END-ASSERTION-///////////////////////////////////////
+
+          logger.otherComputation(List(a), newA, order,
+                                  ModuloArithmetic)
+          newA
+        }
+        case (_, true, true) => {
+          val newA =
+            extract(bits - 1, 0, a(1),
+                    evalExtract(bits - 1, 0, a(2).constant) ^
+                      a(3).constant)
+          //-BEGIN-ASSERTION-/////////////////////////////////////
+          if (debug) {
+            println("Simplifying bv_xor:")
+            println("\t" + a)
+            println("\t" + newA)
+          }
+          //-END-ASSERTION-///////////////////////////////////////
+
+          logger.otherComputation(List(a), newA, order,
+                                  ModuloArithmetic)
+          newA
+        }
+
+        case _ => {
+          // maybe the bv_xor can be replaced by extract
+
+          val (pattern, freeArg) =
+            if (a(1).isConstant)
+              (a(1).constant, a(2))
+            else
+              (a(2).constant, a(1))
+
+          val newFormula =
+            runLengthEnc(pattern, bits.intValueSafe) match {
+              case Seq(_) => {
+                //-BEGIN-ASSERTION-///////////////////////////////
+                // pattern must be constantly zero
+                Debug.assertInt(AC,
+                          evalExtract(bits - 1, 0, pattern).isZero)
+                //-END-ASSERTION-/////////////////////////////////
+                Some(extract(bits - 1, 0, freeArg, a(3)))
+              }
+              case Seq(0, _) => {
+                // pattern that is a single block of ones, negation
+                Some(extract(bits - 1, 0, freeArg,
+                            a(3).scaleAndAdd(IdealInt.MINUS_ONE,
+                                              pow2MinusOne(bits))))
+              }
+              case _ =>
+                None
+            }
+
+          newFormula match {
+            case Some(f) => {
+              //-BEGIN-ASSERTION-/////////////////////////////////
+              if (debug) {
+                println("Simplifying bv_xor:")
+                println("\t" + a)
+                println("\t" + f)
+              }
+              //-END-ASSERTION-///////////////////////////////////
+
+              logger.otherComputation(List(a), f, order,
+                                      ModuloArithmetic)
+              f
+            }
+            case None =>
+              a
+          }
+        }
+      }
+
+    // If the lowest-value bits of the argument add up to a
+    // constant one bit-string, the result of bv_xor must be one
+    // TODO: faster check?
+    } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
+      val newEq = a(3) === pow2MinusOne(bits)
+      //-BEGIN-ASSERTION-///////////////////////////////////////
+      if (debug) {
+        println("Eliminating bv_xor:")
+        println("\t" + a)
+        println("\t" + newEq)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////
+
+      logger.otherComputation(List(a), newEq, order,
+                              ModuloArithmetic)
+      newEq
+    } else {
+      a
+    }
+  }
+
   private val emptyIteratorFun = (t : Term) => Iterator.empty
 
   object ReducerFactory extends ReducerPluginFactory {
@@ -204,8 +885,7 @@ object ModReducer {
 
         {
           // Cache for uniquely defined bits of given lcs
-          val bitCache = new LRUCache[LinearCombination,
-                                      (Int, IdealInt, Seq[Formula])](32)
+          val bitCache = new BitCache(32)
 
           // First eliminate some atoms that can be evaluated
           ReducerPlugin.rewritePreds(predConj,
@@ -216,643 +896,17 @@ object ModReducer {
                                      logger) { a =>
               a.pred match {
                 case `_mod_cast` =>
-                  (lowerBound(a(2), log), upperBound(a(2), log)) match {
-
-                    case (Some((lb, lbAsses)), Some((ub, ubAsses)))
-                        if lb <= ub => {
-                      val sort@ModSort(sortLB, sortUB) =
-                        (SortedPredicate argumentSorts a).last
-                      import sort.modulus
-
-                      val lowerFactor = (lb - sortLB) / modulus
-                      val upperFactor = -((sortUB - ub) / modulus)
-
-                      if (lowerFactor == upperFactor) {
-                        // mod_cast only has a single branch and can be
-                        // eliminated directly
-
-                        val newEq = a(2) === a(3) + (lowerFactor * modulus)
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Simplifying mod_cast (1):")
-                          println("\t" + a)
-                          println("\t" + newEq)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-                        logger.otherComputation(lbAsses ++ ubAsses ++ List(a),
-                                                newEq, order,
-                                                ModuloArithmetic)
-                        newEq
-
-                      } else if (lowerFactor + 1 == upperFactor) {
-                        // two branches;
-                        // check whether we can use bounds on the result to
-                        // simplify the atom
-
-                        val (newA, allAssumptions) =
-                        (lowerBound(a(3), log), upperBound(a(3), log)) match {
-
-                          case (Some((resLB, reslbAsses)),
-                                Some((resUB, resubAsses))) if resLB <= resUB => {
-                            (resLB > ub - (upperFactor * modulus),
-                             resUB < lb - (lowerFactor * modulus)) match {
-
-                              case (true, true) =>
-                                (Conjunction.FALSE,
-                                 lbAsses ++ ubAsses ++
-                                 reslbAsses ++ resubAsses ++ List(a))
-
-                              case (true, false) => {
-                                (a(2) === a(3) + (lowerFactor * modulus),
-                                 lbAsses ++ ubAsses ++ reslbAsses ++ List(a))
-                              }
-
-                              case (false, true) => {
-                                (a(2) === a(3) + (upperFactor * modulus),
-                                 lbAsses ++ ubAsses ++ resubAsses ++ List(a))
-                              }
-
-                              case _ =>
-                                (a, List())
-                            }
-                          }
-
-                          case _ =>
-                            (a, List())
-                        }
-
-                        if (newA != a) {
-
-                          //-BEGIN-ASSERTION-///////////////////////////////////
-                          if (debug) {
-                            println("Simplifying mod_cast (2):")
-                            println("\t" + a)
-                            println("\t" + newA)
-                          }
-                          //-END-ASSERTION-/////////////////////////////////////
-                          logger.otherComputation(allAssumptions, newA, order,
-                                                  ModuloArithmetic)
-                          newA
-
-                        } else if (sortLB.isZero && sortUB.isOne &&
-                                   lb.isZero && ub == IdealInt(2) &&
-                                   a(3).isZero && a(2).size == 2 &&
-                                   a(2).getCoeff(0).isOne &&
-                                   a(2).getCoeff(1).isOne) {
-
-                          // check whether this is the special case of an
-                          // equation mod_cast(0, 1, x + y) == 0 for
-                          // 0-1 variables x, y, which is equivalent to x == y
-
-                          val x = a(2).getTerm(0)
-                          val y = a(2).getTerm(1)
-
-                          (lowerBound(x, log), upperBound(x, log),
-                           lowerBound(y, log), upperBound(y, log)) match {
-
-                            case (Some((IdealInt.ZERO, a1)),
-                                  Some((IdealInt.ONE,  a2)),
-                                  Some((IdealInt.ZERO, a3)),
-                                  Some((IdealInt.ONE,  a4))) => {
-                              val newEq = x === y
-                              //-BEGIN-ASSERTION-///////////////////////////////
-                              if (debug) {
-                                println("Simplifying mod_cast (3):")
-                                println("\t" + a)
-                                println("\t" + newEq)
-                              }
-                              //-END-ASSERTION-/////////////////////////////////
-                              logger.otherComputation(
-                                a1 ++ a2 ++ a3 ++ a3 ++ List(a), newEq, order,
-                                ModuloArithmetic)
-                              newEq
-                            }
-
-                            case _ =>
-                              a
-                          }
-                          
-                        } else {
-                          a
-                        }
-
-                      } else if (lowerFactor + 2 == upperFactor) {
-                        // three branches;
-                        // check whether we can use bounds on the result to
-                        // simplify the atom
-
-                        (lowerBound(a(3), log), upperBound(a(3), log)) match {
-
-                          case (Some((resLB, reslbAsses)),
-                                Some((resUB, resubAsses)))
-                              if resLB <= resUB &&
-                                 resLB > ub - (upperFactor * modulus) &&
-                                 resUB < lb - (lowerFactor * modulus) => {
-
-                            val newEq =
-                              a(2) === a(3) + ((lowerFactor + 1) * modulus)
-                            val allAssumptions =
-                              lbAsses ++ ubAsses ++ reslbAsses ++ resubAsses ++
-                              List(a)
-
-                            //-BEGIN-ASSERTION-///////////////////////////////////
-                            if (debug) {
-                              println("Simplifying mod_cast (4):")
-                              println("\t" + a)
-                              println("\t" + newEq)
-                            }
-                            //-END-ASSERTION-/////////////////////////////////////
-                            logger.otherComputation(allAssumptions, newEq, order,
-                                                    ModuloArithmetic)
-                            newEq
-                          }
-
-                          case _ =>
-                            a
-                         }
-                      } else {
-                        a
-                      }
-                    }
-            
-                    case _ =>
-                      a
-                  }
-
-                ////////////////////////////////////////////////////////////////
-
+                  reduceModCast(a, reducer, logger, order)
                 case `_l_shift_cast` =>
-                  if (a(2).isZero) {
-                    // TODO: use evalModCast
-                    val newA =
-                      Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
-                    logger.otherComputation(List(a), newA, order,
-                                            ModuloArithmetic)
-                    newA
-                  } else if (a(3).isConstant) {
-                    val sort@ModSort(_, _) =
-                      (SortedPredicate argumentSorts a).last
-                    val newA =
-                      Atom(_mod_cast,
-                           Array(a(0), a(1),
-                                 a(2) *
-                                   pow2Mod(a(3).constant max IdealInt.ZERO,
-                                           sort.modulus),
-                                 a(4)),
-                           order)
-                    logger.otherComputation(List(a), newA, order,
-                                            ModuloArithmetic)
-                    newA
-                  } else {
-                    (lowerBound(a(3), log)) match {
-                      case Some((lb, lbAsses)) if lb.signum > 0 => {
-                        val sort@ModSort(_, _) =
-                          (SortedPredicate argumentSorts a).last
-                        val newA = Atom(_l_shift_cast,
-                                        Array(a(0), a(1),
-                                              a(2) * pow2Mod(lb, sort.modulus),
-                                              a(3) - lb, a(4)),
-                                        order)
-                        logger.otherComputation(lbAsses ++ List(a), newA, order,
-                                                ModuloArithmetic)
-                        newA
-                      }
-                      case _ =>
-                        a
-                    }
-                  }
-
-                ////////////////////////////////////////////////////////////////
-
+                  reduceLShiftCast(a, reducer, logger, order)
                 case `_r_shift_cast` =>
-                  if (RShiftCastSplitter.isShiftInvariant(a(2))) {
-                    val newA =
-                      Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
-                    logger.otherComputation(List(a), newA, order,
-                                            ModuloArithmetic)
-                    newA
-                  } else if (a(3).isConstant) {
-                    val shift = a(3).constant
-                    if (shift.signum < 0)
-                      throw new Exception("negative shift: " + a)
-                    (SortedPredicate argumentSorts a).last match {
-                      case UnsignedBVSort(bits) => {
-                        val newA =
-                          Atom(_bv_extract,
-                               Array(l(shift + bits - 1), l(shift), a(2), a(4)),
-                               order)
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Reducing _r_shift_cast:")
-                          println("\t" + a)
-                          println("\t" + newA)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-                        logger.otherComputation(List(a), newA, order,
-                                                ModuloArithmetic)
-                        newA
-                      }
-                      case SignedBVSort(bits) =>
-                        // TODO
-                        a
-                      case _ =>
-                        a
-                    }
-                  } else {
-                    a
-                  }
-
-                ////////////////////////////////////////////////////////////////
-
-                case `_bv_extract` => (a(0), a(1), a(2)) match {
-                  case (Constant(ub), Constant(lb), Constant(constArg)) => {
-                    val newEq = a(3) === evalExtract(ub, lb, constArg)
-
-                    //-BEGIN-ASSERTION-/////////////////////////////////////////
-                    if (debug) {
-                      println("Evaluating bv_extract:")
-                      println("\t" + a)
-                      println("\t" + newEq)
-                    }
-                    //-END-ASSERTION-///////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newEq, order,
-                                            ModuloArithmetic)
-                    newEq
-                  }
-
-                  case (Constant(ub), _, arg)
-                      if ub < 100000 && canBeReduced(arg, pow2(ub + 1)) => {
-                    // Eliminate large constants within the extract argument
-                    val newExtract = _bv_extract(
-                      List(a(0), a(1),
-                           a(2).moduloKeepingSign(pow2(a(0).constant + 1)),
-                           a(3)))
-
-                    //-BEGIN-ASSERTION-/////////////////////////////////////////
-                    if (debug) {
-                      println("Simplifying bv_extract (1):")
-                      println("\t" + a)
-                      println("\t" + newExtract)
-                    }
-                    //-END-ASSERTION-///////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newExtract, order,
-                                            ModuloArithmetic)
-                    newExtract
-                  }
-                  
-                  case (Constant(ub), Constant(lb), lc)
-                      if lc.leadingCoeff.signum < 0 => {
-                    // Make the extract argument positive
-                    val newExtract = _bv_extract(
-                      List(a(0), a(1),
-                           pow2MinusOne(ub + 1) - a(2),
-                           pow2MinusOne(ub - lb + 1) - a(3)))
-
-                    //-BEGIN-ASSERTION-/////////////////////////////////////////
-                    if (debug) {
-                      println("Simplifying bv_extract (2):")
-                      println("\t" + a)
-                      println("\t" + newExtract)
-                    }
-                    //-END-ASSERTION-///////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newExtract, order,
-                                            ModuloArithmetic)
-                    newExtract
-                  }
-
-                  case (Constant(ub), Constant(lb), arg) => {
-                    val (bitBoundary, lower, asses) = bitCache(a(2)) {
-                      (lowerBound(a(2), log), upperBound(a(2), log)) match {
-                        case (Some((lb, lbA)), Some((ub, ubA))) if lb > ub =>
-                          // reducer is in an inconsistent state, just drop
-                          // the extract atom
-                          (0, IdealInt.ZERO, lbA ++ ubA)
-                        case (Some((lb, lbA)), Some((ub, ubA))) =>
-                          commonBitsLB(lb, ub) match {
-                            case Some(bb) => (bb, lb, lbA ++ ubA)
-                            case None => (-1, IdealInt.ZERO, List())
-                          }
-                        case _ =>
-                          (-1, IdealInt.ZERO, List())
-                      }
-                    }
-
-                    if (bitBoundary >= 0) {
-                      val LinearCombination.Constant(lb) = a(1)
-                      val LinearCombination.Constant(ub) = a(0)
-
-                      if (ub >= bitBoundary - 1 && lb.isZero) {
-                        // We can eliminate the extract operation
-
-                        val newEq =
-                          a(3) === a(2) - (lower - evalExtract(ub, lb, lower))
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Eliminating bv_extract:")
-                          println("\t" + a)
-                          println("\t" + newEq)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a) ++ asses, newEq, order,
-                                                ModuloArithmetic)
-                        newEq
-                      } else if (lb >= bitBoundary) {
-                        // The extracted bits are completely determined by the
-                        // bounds
-
-                        val newEq = a(3) === evalExtract(ub, lb, lower)
-
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Evaluating bv_extract:")
-                          println("\t" + a)
-                          println("\t" + newEq)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a) ++ asses, newEq, order,
-                                                ModuloArithmetic)
-                        newEq
-                      } else if (ub >= bitBoundary) {
-                        // The extracted bits are partly determined by the
-                        // bounds
-
-                        val bb = bitBoundary
-
-                        val newRHS =
-                          a(3) - evalExtract(ub, bb, lower) * pow2(bb - lb)
-                        val newExtract = extract(bb - 1, lb, a(2), newRHS)
-
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Simplifying bv_extract (3):")
-                          println("\t" + a)
-                          println("\t" + newExtract)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a) ++ asses,
-                                                newExtract, order,
-                                                ModuloArithmetic)
-                        newExtract
-                      } else {
-                        a
-                      }
-                    } else {
-                      a
-                    }
-                  }
-                }
-
-                ////////////////////////////////////////////////////////////////
-
-                case `_bv_and` => {
-                  val LinearCombination.Constant(bits) = a(0)
-                  if (a(1) == a(2)) {
-                    val newA =
-                      Atom(_bv_extract, List(l(bits - 1), l(0), a(1), a(3)),
-                           order)
-                    //-BEGIN-ASSERTION-///////////////////////////////////////
-                    if (debug) {
-                      println("Eliminating bv_and:")
-                      println("\t" + a)
-                      println("\t" + newA)
-                    }
-                    //-END-ASSERTION-/////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newA, order,
-                                            ModuloArithmetic)
-                    newA
-                  } else if (a(1).isConstant || a(2).isConstant) {
-                    if (a(1).isConstant && a(2).isConstant) {
-                      val newEq =
-                        a(3) === evalExtract(bits - 1, 0,
-                                             a(1).constant & a(2).constant)
-
-                      //-BEGIN-ASSERTION-///////////////////////////////////////
-                      if (debug) {
-                        println("Evaluating bv_and:")
-                        println("\t" + a)
-                        println("\t" + newEq)
-                      }
-                      //-END-ASSERTION-/////////////////////////////////////////
-
-                      logger.otherComputation(List(a), newEq, order,
-                                              ModuloArithmetic)
-                      newEq
-                    } else {
-                      // maybe the bv_and can be replaced by extract
-
-                      val (pattern, freeArg) =
-                        if (a(1).isConstant)
-                          (a(1).constant, a(2))
-                        else
-                          (a(2).constant, a(1))
-
-                      val newFormula =
-                        runLengthEnc(pattern, bits.intValueSafe) match {
-                          case Seq(_) => {
-                            //-BEGIN-ASSERTION-/////////////////////////////////
-                            // pattern must be constantly zero
-                            Debug.assertInt(AC,
-                                      evalExtract(bits - 1, 0, pattern).isZero)
-                            //-END-ASSERTION-///////////////////////////////////
-                            Some(a(3) === 0)
-                          }
-                          case rle@(Seq(0, _) | Seq(0, _, _)) => {
-                            // pattern starting with a single block of ones
-                            Some(extract(rle(1) - 1, 0, freeArg, a(3)))
-                          }
-                          case _ =>
-                            None
-                        }
-
-                      newFormula match {
-                        case Some(f) => {
-                          //-BEGIN-ASSERTION-///////////////////////////////////
-                          if (debug) {
-                            println("Simplifying bv_and:")
-                            println("\t" + a)
-                            println("\t" + f)
-                          }
-                          //-END-ASSERTION-/////////////////////////////////////
-
-                          logger.otherComputation(List(a), f, order,
-                                                  ModuloArithmetic)
-                          f
-                        }
-                        case None =>
-                          a
-                      }
-                    }
-
-                  // If the lowest-value bits of the argument add up to a
-                  // constant one bit-string, the result of bv_and must be zero
-                  // TODO: faster check?
-                  } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
-                    val newEq = a(3) === 0
-                    //-BEGIN-ASSERTION-///////////////////////////////////////
-                    if (debug) {
-                      println("Eliminating bv_and:")
-                      println("\t" + a)
-                      println("\t" + newEq)
-                    }
-                    //-END-ASSERTION-/////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newEq, order,
-                                            ModuloArithmetic)
-                    newEq
-                  } else {
-                    a
-                  }
-                }
-
-                ////////////////////////////////////////////////////////////////
-
-                case `_bv_xor` => {
-                  val LinearCombination.Constant(bits) = a(0)
-                  if (a(1) == a(2)) {
-                    val newEq = a(3) === 0
-                    //-BEGIN-ASSERTION-///////////////////////////////////////
-                    if (debug) {
-                      println("Eliminating bv_xor:")
-                      println("\t" + a)
-                      println("\t" + newEq)
-                    }
-                    //-END-ASSERTION-/////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newEq, order,
-                                            ModuloArithmetic)
-                    newEq
-
-                  } else if (a(1).isConstant || a(2).isConstant) {
-
-                    (a(1).isConstant, a(2).isConstant, a(3).isConstant) match {
-                      case (true, true, _) => {
-                        val newEq =
-                          a(3) === evalExtract(bits - 1, 0,
-                                               a(1).constant ^ a(2).constant)
-
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Evaluating bv_xor:")
-                          println("\t" + a)
-                          println("\t" + newEq)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a), newEq, order,
-                                                ModuloArithmetic)
-                        newEq
-                      }
-                      case (true, _, true) => {
-                        val newA =
-                          extract(bits - 1, 0, a(2),
-                                  evalExtract(bits - 1, 0, a(1).constant) ^
-                                    a(3).constant)
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Simplifying bv_xor:")
-                          println("\t" + a)
-                          println("\t" + newA)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a), newA, order,
-                                                ModuloArithmetic)
-                        newA
-                      }
-                      case (_, true, true) => {
-                        val newA =
-                          extract(bits - 1, 0, a(1),
-                                  evalExtract(bits - 1, 0, a(2).constant) ^
-                                    a(3).constant)
-                        //-BEGIN-ASSERTION-/////////////////////////////////////
-                        if (debug) {
-                          println("Simplifying bv_xor:")
-                          println("\t" + a)
-                          println("\t" + newA)
-                        }
-                        //-END-ASSERTION-///////////////////////////////////////
-
-                        logger.otherComputation(List(a), newA, order,
-                                                ModuloArithmetic)
-                        newA
-                      }
-
-                      case _ => {
-                        // maybe the bv_xor can be replaced by extract
-
-                        val (pattern, freeArg) =
-                          if (a(1).isConstant)
-                            (a(1).constant, a(2))
-                          else
-                            (a(2).constant, a(1))
-
-                        val newFormula =
-                          runLengthEnc(pattern, bits.intValueSafe) match {
-                            case Seq(_) => {
-                              //-BEGIN-ASSERTION-///////////////////////////////
-                              // pattern must be constantly zero
-                              Debug.assertInt(AC,
-                                        evalExtract(bits - 1, 0, pattern).isZero)
-                              //-END-ASSERTION-/////////////////////////////////
-                              Some(extract(bits - 1, 0, freeArg, a(3)))
-                            }
-                            case Seq(0, _) => {
-                              // pattern that is a single block of ones, negation
-                              Some(extract(bits - 1, 0, freeArg,
-                                          a(3).scaleAndAdd(IdealInt.MINUS_ONE,
-                                                            pow2MinusOne(bits))))
-                            }
-                            case _ =>
-                              None
-                          }
-
-                        newFormula match {
-                          case Some(f) => {
-                            //-BEGIN-ASSERTION-/////////////////////////////////
-                            if (debug) {
-                              println("Simplifying bv_xor:")
-                              println("\t" + a)
-                              println("\t" + f)
-                            }
-                            //-END-ASSERTION-///////////////////////////////////
-
-                            logger.otherComputation(List(a), f, order,
-                                                    ModuloArithmetic)
-                            f
-                          }
-                          case None =>
-                            a
-                        }
-                      }
-                    }
-
-                  // If the lowest-value bits of the argument add up to a
-                  // constant one bit-string, the result of bv_xor must be one
-                  // TODO: faster check?
-                  } else if (lowerBitsOne(a(1) + a(2), bits.intValueSafe)) {
-                    val newEq = a(3) === pow2MinusOne(bits)
-                    //-BEGIN-ASSERTION-///////////////////////////////////////
-                    if (debug) {
-                      println("Eliminating bv_xor:")
-                      println("\t" + a)
-                      println("\t" + newEq)
-                    }
-                    //-END-ASSERTION-/////////////////////////////////////////
-
-                    logger.otherComputation(List(a), newEq, order,
-                                            ModuloArithmetic)
-                    newEq
-                  } else {
-                    a
-                  }
-                }
+                  reduceRShiftCast(a, reducer, logger, order)
+                case `_bv_extract` =>
+                  reduceExtract(a, reducer, logger, order, bitCache)
+                case `_bv_and` =>
+                  reduceBVAnd(a, reducer, logger, order)
+                case `_bv_xor` =>
+                  reduceBVXor(a, reducer, logger, order)
               }
           
         }} orElse {
