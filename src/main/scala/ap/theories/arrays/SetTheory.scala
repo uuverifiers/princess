@@ -75,6 +75,21 @@ object SetTheory {
     instances.getOrElseUpdate(elSort, new SetTheory(elSort))
   }
 
+  /**
+    * Extractor for set sorts of any base type.
+    */
+  object Sort {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case ps : Theory.TheorySort =>
+        ps.theory match {
+          case ss : SetTheory => Some(ss.elementSort)
+          case _              => None
+        }
+      case _ =>
+        None
+    }
+  }
+
 }
 
 /**
@@ -94,6 +109,8 @@ class SetTheory(val elementSort : Sort)
   object SetSort extends ProxySort(arTheory.sort) with Theory.TheorySort {
     import IExpression._
     val theory = SetTheory.this
+
+    override val name: String = s"Set[${elementSort.name}]"
 
     // TODO: implement further methods. In particular, we have to translate
     // back array terms to set terms, similar to how it is done in
