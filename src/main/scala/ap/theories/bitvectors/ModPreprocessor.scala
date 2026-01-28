@@ -266,6 +266,7 @@ object ModPreprocessor {
                               List(this, that))
 
     def not(bits : Int) : VisitorRes = {
+      val sortUpper = pow2MinusOne(bits)
       VisitorRes(sortUpper - resTerm,
                  if (upperBound == null) null else sortUpper - upperBound,
                  if (lowerBound == null) null else sortUpper - lowerBound)
@@ -740,7 +741,7 @@ object ModPreprocessor {
                 }
               val (_, ub1) = subres(1).nbitBounds(bits)
               val (_, ub2) = subres(2).nbitBounds(bits)
-              VisitorRes(res, IdealInt.ZERO, ub1 min ub2)
+              VisitorRes(cond, IdealInt.ZERO, ub1 min ub2)
             }
 
           }
