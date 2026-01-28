@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,6 +185,12 @@ object ModPreprocessor {
                         lowerBound : IdealInt,   // maybe null
                         upperBound : IdealInt) { // maybe null
     import IExpression._
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(AC,
+                     lowerBound == null || upperBound == null ||
+                     lowerBound <= upperBound)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     def resTerm = res.asInstanceOf[ITerm]
 
@@ -388,7 +394,7 @@ object ModPreprocessor {
           VisitorRes(
             res,
             (arg.lowerBoundMin(IdealInt.ZERO) % f1) * f2,
-            (arg.upperBoundMax(pow2MinusOne(bits+1)) % f1) * f2)
+            (arg.upperBoundMax(pow2MinusOne(bits)) % f1) * f2)
         }
         case _ =>
           VisitorRes(IdealInt.ZERO)
@@ -406,7 +412,7 @@ object ModPreprocessor {
           VisitorRes(
             doExtract(bits-1, shift, arg.resTerm, bits),
             arg.lowerBoundMin(IdealInt.ZERO) / divisor,
-            arg.upperBoundMax(pow2MinusOne(bits+1)) / divisor)
+            arg.upperBoundMax(pow2MinusOne(bits)) / divisor)
         }
         case _ =>
           VisitorRes(IdealInt.ZERO)
@@ -432,14 +438,14 @@ object ModPreprocessor {
           val divisor = pow2(shift)
           ((arg.lowerBound - pow2bits) / divisor +
              pow2bits,
-           (arg.upperBoundMax(pow2MinusOne(bits+1)) - pow2bits) / divisor +
+           (arg.upperBoundMax(pow2MinusOne(bits)) - pow2bits) / divisor +
              pow2bits)
         } else {
-          (pow2MinusOne(bits+1), pow2MinusOne(bits+1))
+          (pow2MinusOne(bits), pow2MinusOne(bits))
         }
       } else {
         // trivial bounds, nothing can be said about the result
-        (IdealInt.ZERO, pow2MinusOne(bits+1))
+        (IdealInt.ZERO, pow2MinusOne(bits))
       }
     }
 
