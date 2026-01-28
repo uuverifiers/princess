@@ -289,19 +289,22 @@ object ModPreprocessor {
       case b    => b
     }
 
-    def lowerBoundMin(minimum : IdealInt) : IdealInt = lowerBound match {
-      case null => minimum
-      case b    => b max minimum
-    }
-
     def upperBoundOrElse(that : IdealInt) : IdealInt = upperBound match {
       case null => that
       case b    => b
     }
 
-    def upperBoundMax(maximum : IdealInt) : IdealInt = upperBound match {
-      case null => maximum
-      case b    => b min maximum
+    /**
+     * Derive upper and lower bounds for the lower bits of a number.
+     */
+    def nbitBounds(bits : Int) : (IdealInt, IdealInt) = {
+      val maybeBounds =
+        for (lb <- Option(lowerBound);
+             ub <- Option(upperBound);
+             b  <- commonBitsLB(lb, ub);
+             if b <= bits)
+        yield (evalExtract(bits - 1, 0, lb), evalExtract(bits - 1, 0, ub))
+      maybeBounds.getOrElse(IdealInt.ZERO, pow2MinusOne(bits))
     }
   }
 
@@ -383,18 +386,20 @@ object ModPreprocessor {
         case IdealInt(shift) if shift < bits => {
           val sort =
             UnsignedBVSort(bits)
+          val sbits =
+            bits - shift
           val res =
             sort.eps(eqZero(doExtract(shift - 1, 0, v(0, sort), bits)) &
                      (doExtract(bits - 1, shift, v(0, sort), bits) ===
                       doExtract(bits - shift - 1, 0,
                                 shiftVars(arg.resTerm, 1), bits)))
 
-          val f1 = pow2(bits - shift)
-          val f2 = pow2(shift)
-          VisitorRes(
-            res,
-            (arg.lowerBoundMin(IdealInt.ZERO) % f1) * f2,
-            (arg.upperBoundMax(pow2MinusOne(bits)) % f1) * f2)
+          val (shiftedPartLB, shiftedPartUB) =
+            arg.nbitBounds(sbits)
+
+          val f = pow2(shift)
+
+          VisitorRes(res, shiftedPartLB * f, shiftedPartUB * f)
         }
         case _ =>
           VisitorRes(IdealInt.ZERO)
@@ -409,10 +414,10 @@ object ModPreprocessor {
           throw new Exception("negative shift")
         case IdealInt(shift) if shift < bits => {
           val divisor = pow2(shift)
+          val (lb, ub) = arg.nbitBounds(bits)
           VisitorRes(
             doExtract(bits-1, shift, arg.resTerm, bits),
-            arg.lowerBoundMin(IdealInt.ZERO) / divisor,
-            arg.upperBoundMax(pow2MinusOne(bits)) / divisor)
+            lb / divisor, ub / divisor)
         }
         case _ =>
           VisitorRes(IdealInt.ZERO)
@@ -420,32 +425,32 @@ object ModPreprocessor {
 
     def boundsBVASHR(bits : Int, arg : VisitorRes,
                      shift : IdealInt) : (IdealInt, IdealInt) = {
-      val threshold = pow2(bits - 1)
-      val pow2bits =  pow2(bits)
+      val threshold  = pow2(bits - 1)
+      val pow2bits   = pow2(bits)
+      val pow2bitsMO = pow2bits - IdealInt.ONE
 
-      if (arg.upperBound != null && arg.upperBound < threshold) {
+      if (arg.lowerBound != null && arg.lowerBound.signum >= 0 &&
+          arg.upperBound != null && arg.upperBound < threshold) {
         // the complete interval of values is in the positive range
         if (shift < bits) {
           val divisor = pow2(shift)
-          (arg.lowerBoundMin(IdealInt.ZERO) / divisor,
-           arg.upperBound / divisor)
+          (arg.lowerBound / divisor, arg.upperBound / divisor)
         } else {
           (IdealInt.ZERO, IdealInt.ZERO)
         }
-      } else if (arg.lowerBound != null && arg.lowerBound >= threshold) {
+      } else if (arg.lowerBound != null && arg.lowerBound >= threshold &&
+                 arg.upperBound != null && arg.upperBound < pow2bits) {
         // the complete interval of values is in the negative range
         if (shift < bits) {
           val divisor = pow2(shift)
-          ((arg.lowerBound - pow2bits) / divisor +
-             pow2bits,
-           (arg.upperBoundMax(pow2MinusOne(bits)) - pow2bits) / divisor +
-             pow2bits)
+          ((arg.lowerBound - pow2bits) / divisor + pow2bits,
+           (arg.upperBound - pow2bits) / divisor + pow2bits)
         } else {
-          (pow2MinusOne(bits), pow2MinusOne(bits))
+          (pow2bitsMO, pow2bitsMO)
         }
       } else {
         // trivial bounds, nothing can be said about the result
-        (IdealInt.ZERO, pow2MinusOne(bits))
+        (IdealInt.ZERO, pow2bitsMO)
       }
     }
 
@@ -571,9 +576,9 @@ object ModPreprocessor {
                 sort.eps(ex(v(0) === shiftVars(rawArg, 2) &
                             resultDef))
 
-            VisitorRes(res,
-                       sort.upper - (subres(1) upperBoundMax sort.upper),
-                       sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
+            val (lb, ub) = subres(1).nbitBounds(bits)
+
+            VisitorRes(res, sort.upper - ub, sort.upper - lb)
           }
 
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
@@ -754,10 +759,9 @@ object ModPreprocessor {
                   v(1) === shiftVars(subres(1).resTerm, 3) &
                   v(0) === shiftVars(subres(2).resTerm, 3) &
                   resultDef)))
-              VisitorRes(res,
-                         IdealInt.ZERO,
-                         (subres(1) upperBoundMax sort.upper) min
-                           (subres(2) upperBoundMax sort.upper))
+              val (_, ub1) = subres(1).nbitBounds(bits)
+              val (_, ub2) = subres(2).nbitBounds(bits)
+              VisitorRes(res, IdealInt.ZERO, ub1 min ub2)
             }
 
           }
@@ -837,10 +841,10 @@ object ModPreprocessor {
                     v(0) === shiftVars(subres(2).resTerm, 3) &
                     resultDef)))
     
-              VisitorRes(res,
-                         (subres(1) lowerBoundMin IdealInt.ZERO) max
-                           (subres(2) lowerBoundMin IdealInt.ZERO),
-                         sort.upper)
+              val (lb1, _) = subres(1).nbitBounds(bits)
+              val (lb2, _) = subres(2).nbitBounds(bits)
+
+              VisitorRes(res, lb1 max lb2, sort.upper)
             }
 
           }
