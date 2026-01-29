@@ -1,0 +1,64 @@
+#!/bin/sh
+
+TO=30000
+
+rm counter-stats.txt
+rm */Output*
+
+./rundir sequences ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+./rundir arrays ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+#./rundir heap ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+./rundir rationals ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+./rundir strings ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+./rundir bitvectors ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO
+./rundir nia ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution
+
+#./rundir api ""
+
+./rundir smtlib-parser ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution
+./rundir adt ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution
+./rundir tptp-parser ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution
+
+./rundir interpolation ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
+
+./rundir allSettings "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
+./rundir allSettings "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
+./rundir allSettings "3"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
+./rundir allSettings "3"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
+
+./rundir onlyUnitResolution "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir onlyUnitResolution "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
+
+./rundir onlyClausification ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=simple +posUnitResolution -generateTriggers=none
+
+./rundir mostGeneralConstraint ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO +posUnitResolution +mostGeneralConstraint -generateTriggers=none
+
+./rundir special ""  -logo +warmup -assert -logging=countersCont +model -generateTriggers=none
+
+./rundir lira ""  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
+
+echo
+echo "Running soundness checks (this will take a while)"
+echo
+
+./rundir unprovable "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=fair -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=fair -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=fair -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=fair -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=lemmas -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "1"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=lemmas -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=lemmas -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "2"  -logo +warmup -assert -logging=countersCont +model -timeout=$TO -simplifyConstraints=lemmas -clausifier=simple +posUnitResolution -generateTriggers=none
+
+grep -h '^Loading\|Milliseconds' */Output-* */Output[0-9]-* >>counter-stats.txt
+
