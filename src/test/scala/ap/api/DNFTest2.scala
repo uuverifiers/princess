@@ -47,7 +47,7 @@ import ap.util.Prop._
 
 class DNFTest2 extends Properties("DNFTest2") with ExtraAssertions {
 
-  val expectedOutput = """ArrayBuffer(((60 + -1 * x) >= 0), ((x + -62) >= 0))
+  val expectedOutput = """Vector(((60 + -1 * x) >= 0), ((x + -62) >= 0))
 """
 
   property("main") = checkOutput(expectedOutput) {
@@ -58,7 +58,7 @@ SimpleAPI.withProver(enableAssert = true) { p =>
   
   val x = createConstant("x", ModuloArithmetic.UnsignedBVSort(8))
   val f = (x <= 60 | x >= 62)
-  println(DNFConverter mbDNF f)
+  println(DNFConverter.mbDNF(f).toVector)
 }
 }
 }
