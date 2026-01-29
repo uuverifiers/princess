@@ -1,0 +1,66 @@
+{
+  "reflection": [
+    {
+      "type": "ap.basetypes.IdealInt[]"
+    },
+    {
+      "type": "ap.parser.IFormula[]"
+    },
+    {
+      "type": "ap.parser.ITerm[]"
+    },
+    {
+      "type": "ap.terfor.ConstantTerm[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Conjunction[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Quantifier$ALL$[]"
+    },
+    {
+      "type": "ap.terfor.conjunctions.Quantifier$EX$[]"
+    },
+    {
+      "type": "ap.terfor.linearcombination.LinearCombination[]"
+    },
+    {
+      "type": "ap.terfor.preds.Atom[]"
+    },
+    {
+      "type": "ap.theories.sequences.ArraySeqTheoryBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "ap.theories.strings.SeqStringTheoryBuilder",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "scala.Function1[]"
+    },
+    {
+      "type": "scala.Option[]"
+    },
+    {
+      "type": "scala.Tuple2[]"
+    },
+    {
+      "type": "scala.Tuple3[]"
+    }
+  ],
+  "resources": [
+    {
+      "glob": "library.properties"
+    }
+  ]
+}
