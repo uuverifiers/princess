@@ -93,6 +93,7 @@ lazy val smtParser = (project in file("smt-parser")).
 // Actual project
 
 lazy val root = (project in file(".")).
+  enablePlugins(NativeImagePlugin).
   aggregate(parser, smtParser).
   dependsOn(parser, smtParser).
   settings(commonSettings: _*).
@@ -115,5 +116,17 @@ lazy val root = (project in file(".")).
       "com.github.vbmacher" % "java-cup-runtime" % "11b-20160615-2",
 //
     libraryDependencies +=
-      "org.scalacheck" %% "scalacheck" % "1.15.2" % Test)
+      "org.scalacheck" %% "scalacheck" % "1.15.2" % Test,
+//
+    nativeImageInstalled := true,
+    // point to your GraalVM (recommended via env var)
+    //nativeImageGraalHome := file(sys.env("GRAALVM_HOME")).toPath,
+
+    nativeImageOptions ++= Seq(
+      "--no-fallback",
+      "-H:+ReportExceptionStackTraces"
+    ),
+
+    nativeImageAgentMerge := true
+)
 
