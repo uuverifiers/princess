@@ -35,6 +35,7 @@ package ap.api
 
 import ap._
 import ap.parser._
+import SimpleAPI.ProverStatus
 
 import org.scalacheck.Properties
 import ap.util.ExtraAssertions
@@ -53,7 +54,7 @@ class Nonlinear extends Properties("Nonlinear") with ExtraAssertions {
 5: Valid
 """
 
-  property("main") = checkOutput(expectedOutput) {
+  property("solving") = checkOutput(expectedOutput) {
 
 SimpleAPI.withProver(enableAssert = true) { p =>
 import p._
@@ -95,4 +96,32 @@ println("5: " + ???)
 
 }}
   }
+
+
+property("interpolation") = {
+SimpleAPI.withProver(enableAssert = true) { p =>
+import p._
+import IExpression._
+{
+
+val x, y = createConstant
+
+setConstructProofs(true)
+
+setPartitionNumber(1)
+!! (x === 2)
+setPartitionNumber(2)
+!! (y === 3)
+setPartitionNumber(3)
+!! (x ** y < 0)
+
+assert(??? == ProverStatus.Unsat)
+
+assert(getInterpolants(List(Set(1, 3), Set(2)))(0).toString == 
+         "!(c1 = 3)")
+
+}}
+
+true
+}
 }
