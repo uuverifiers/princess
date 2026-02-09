@@ -607,15 +607,15 @@ object ModPreprocessor {
           }
 
         // TODO: move this clause to the multiplication theory?
-        case IFunApp(MulTheory.Mul(), Seq(IIntLit(IdealInt(bits)), _*)) =>
-          (subres(1).isConstant, subres(2).isConstant) match {
+        case IFunApp(MulTheory.Mul(), _) =>
+          (subres(0).isConstant, subres(1).isConstant) match {
             case (true, true) =>
-              VisitorRes(subres(1).lowerBound *
-                         subres(2).lowerBound).modCastPow2(bits, ctxt)
+              VisitorRes(subres(0).lowerBound *
+                         subres(1).lowerBound)
             case (true, false) =>
-              subres(2) * subres(1).lowerBound
+              subres(1) * subres(0).lowerBound
             case (false, true) =>
-              subres(1) * subres(2).lowerBound
+              subres(0) * subres(1).lowerBound
             case (false, false) =>
               VisitorRes.update(t, subres)
           }
