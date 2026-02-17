@@ -63,7 +63,7 @@ class Postprocessing(signature : Signature,
 
     var formula = f
 
-    formula = Theory.postprocess(formula, theories, order)
+    formula = Theory.postprocess(formula, theories, signature)
 
     if (maskTheoryConjuncts)
       formula = filterNonTheoryParts(formula)

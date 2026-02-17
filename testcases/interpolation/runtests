@@ -27,7 +27,7 @@ TESTS="columnRed.pri cryptarithm.pri \
        bv-interpolation-4.smt2 bv-interpolation-5.pri bv-interpolation-6.smt2 \
        bv-interpolation-8.pri sorts.pri quadraticInEq6-interpolation.pri \
        sequences1.smt2 sequences2.smt2 sequences3.smt2 sequences4.smt2 \
-       sequences5.smt2 sequences6.smt2 sequences7.smt2"
+       sequences5.smt2 sequences6.smt2 sequences7.smt2 definitions.smt2"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
@@ -45,7 +45,8 @@ $PRI "$@" -genTotalityAxioms $TESTS
 
 TESTS="pred-unify-bug.smt2 rule60_list2.c_false-unreach-call_1.cil.c.smt2 \
        function-bug3.smt2 simplifier.smt2 smtTyping.smt2 matchCheckBug.smt2 \
-       treeInterpolation1.smt2 enum-interpolation.smt2 assertion-problem.smt2"
+       treeInterpolation1.smt2 enum-interpolation.smt2 assertion-problem.smt2 \
+       definitions.smt2"
 
 $PRI "$@" +incremental $TESTS
 

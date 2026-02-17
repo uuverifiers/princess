@@ -109,17 +109,17 @@ Loading unsat-core.p ...
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
-Found proof (size 289)
+Found proof (size 645)
 
 % SZS status Theorem for unsat-core.p
 
 Unsatisfiable core:
-{DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-someRawTable, EQ-tcons, FunctionAxioms, attachColToFrontRaw-INV, attachColToFrontRaw0, dropFirstColRaw0, dropFirstColRaw1, isSomeRawTable-true-INV, isSomeRawTable1, projectEmptyCol0, projectEmptyCol1, projectFirstRaw0, projectFirstRaw1, rawDifference-INV, rawDifference2, rawDifference3, rawDifference4, rowIn-true-INV, rowIn0, rowIn1, singleRowSelect-INV, test-4}
+{DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-tcons, attachColToFrontRaw-INV, dropFirstColRaw-INV, dropFirstColRaw0, dropFirstColRaw1, projectEmptyCol0, projectEmptyCol1, projectFirstRaw0, projectFirstRaw1, projectFirstRaw2, rawDifference-INV, rawDifference2, rawDifference3, rawDifference4, rowIn-true-INV, rowIn0, rowIn1, test-4}
 Loading unsat-core.p ...
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
-Found proof (size 289)
+Found proof (size 645)
 
 % SZS status Theorem for unsat-core.p
 
@@ -140,39 +140,41 @@ Assumptions after simplification:
   $i(vtempty) &  ! [v0: $i] :  ! [v1: $i] : ( ~ (vtcons(v0, v1) = vtempty) |  ~
     $i(v1) |  ~ $i(v0))
 
-  (EQ-someRawTable)
-   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~ (vsomeRawTable(v1) =
-      v2) |  ~ (vsomeRawTable(v0) = v2) |  ~ $i(v1) |  ~ $i(v0))
-
   (EQ-tcons)
    ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] :  ! [v4: $i] : ( ~
     (vtcons(v1, v3) = v4) |  ~ (vtcons(v0, v2) = v4) |  ~ $i(v3) |  ~ $i(v2) | 
     ~ $i(v1) |  ~ $i(v0) | (v3 = v2 & v1 = v0))
 
   (attachColToFrontRaw-INV)
-  $i(vnoRawTable) & $i(vtempty) & $i(vrempty) &  ? [v0: $i] :
-  (vsomeRawTable(vtempty) = v0 & $i(v0) &  ! [v1: $i] :  ! [v2: $i] :  ! [v3:
-      $i] : ( ~ (vattachColToFrontRaw(v1, v2) = v3) |  ~ $i(v3) |  ~ $i(v2) |  ~
-      $i(v1) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8:
-        $i] :  ? [v9: $i] :  ? [v10: $i] :  ? [v11: $i] :  ? [v12: $i] :
-      (vattachColToFrontRaw(v4, v8) = v5 & vgetSomeRawTable(v5) = v11 &
-        visSomeRawTable(v5) = 0 & vsomeRawTable(v12) = v3 & vtcons(v10, v11) =
-        v12 & vtcons(v9, v4) = v1 & vtcons(v6, v8) = v2 & vrcons(v7, v6) = v10 &
-        vrcons(v7, vrempty) = v9 & $i(v12) & $i(v11) & $i(v10) & $i(v9) & $i(v8)
-        & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |  ? [v4: $i] :  ? [v5: $i] :  ?
-      [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: int] :  ? [v10: $i] : (v3 =
-        vnoRawTable &  ~ (v9 = 0) & vattachColToFrontRaw(v4, v8) = v5 &
-        visSomeRawTable(v5) = v9 & vtcons(v10, v4) = v1 & vtcons(v6, v8) = v2 &
-        vrcons(v7, vrempty) = v10 & $i(v10) & $i(v8) & $i(v7) & $i(v6) & $i(v5)
-        & $i(v4)) | (v3 = v0 & v2 = vtempty & v1 = vtempty) | (v3 = vnoRawTable
-        & ( ~ (v2 = vtempty) |  ~ (v1 = vtempty)) & ( ! [v4: $i] :  ! [v5: $i] :
-           ! [v6: $i] : ( ~ (vtcons(v6, v5) = v1) |  ~ (vrcons(v4, vrempty) =
-              v6) |  ~ $i(v5) |  ~ $i(v4)) |  ! [v4: $i] :  ! [v5: $i] : ( ~
-            (vtcons(v4, v5) = v2) |  ~ $i(v5) |  ~ $i(v4))))))
+   ? [v0: $i] : (vsomeRawTable(vtempty) = v0 & $i(v0) & $i(vtempty) &  ! [v1:
+      $i] :  ! [v2: $i] :  ! [v3: $i] : ( ~ (vattachColToFrontRaw(v1, v2) = v3)
+      |  ~ $i(v3) |  ~ $i(v2) |  ~ $i(v1) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6:
+        $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: $i] :  ? [v10: $i] :  ? [v11:
+        $i] :  ? [v12: $i] : (vattachColToFrontRaw(v4, v8) = v5 &
+        vgetSomeRawTable(v5) = v11 & visSomeRawTable(v5) = 0 &
+        vsomeRawTable(v12) = v3 & vtcons(v10, v11) = v12 & vtcons(v9, v4) = v1 &
+        vtcons(v6, v8) = v2 & vrcons(v7, v6) = v10 & vrcons(v7, vrempty) = v9 &
+        $i(v12) & $i(v11) & $i(v10) & $i(v9) & $i(v8) & $i(v7) & $i(v6) & $i(v5)
+        & $i(v4) & $i(vrempty)) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ?
+      [v7: $i] :  ? [v8: $i] :  ? [v9: int] :  ? [v10: $i] : (v3 = vnoRawTable &
+         ~ (v9 = 0) & vattachColToFrontRaw(v4, v8) = v5 & visSomeRawTable(v5) =
+        v9 & vtcons(v10, v4) = v1 & vtcons(v6, v8) = v2 & vrcons(v7, vrempty) =
+        v10 & $i(v10) & $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4) &
+        $i(vnoRawTable) & $i(vrempty)) | (v3 = v0 & v2 = vtempty & v1 = vtempty)
+      | (v3 = vnoRawTable & $i(vnoRawTable) & ( ~ (v2 = vtempty) |  ~ (v1 =
+            vtempty)) & ( ! [v4: $i] :  ! [v5: $i] : ( ~ (vtcons(v4, v5) = v2) |
+             ~ $i(v5) |  ~ $i(v4)) | ($i(vrempty) &  ! [v4: $i] :  ! [v5: $i] : 
+            ! [v6: $i] : ( ~ (vtcons(v6, v5) = v1) |  ~ (vrcons(v4, vrempty) =
+                v6) |  ~ $i(v5) |  ~ $i(v4)))))))
 
-  (attachColToFrontRaw0)
-  $i(vtempty) &  ? [v0: $i] : (vattachColToFrontRaw(vtempty, vtempty) = v0 &
-    vsomeRawTable(vtempty) = v0 & $i(v0))
+  (dropFirstColRaw-INV)
+   ! [v0: $i] :  ! [v1: $i] : ( ~ (vdropFirstColRaw(v0) = v1) |  ~ $i(v1) |  ~
+    $i(v0) |  ? [v2: $i] :  ? [v3: $i] :  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i]
+    : (vdropFirstColRaw(v4) = v6 & vtcons(v5, v4) = v0 & vtcons(v3, v6) = v1 &
+      vrcons(v2, v3) = v5 & $i(v6) & $i(v5) & $i(v4) & $i(v3) & $i(v2)) |  ?
+    [v2: $i] :  ? [v3: $i] : (vdropFirstColRaw(v2) = v3 & vtcons(vrempty, v3) =
+      v1 & vtcons(vrempty, v2) = v0 & $i(v3) & $i(v2) & $i(vrempty)) | (v1 =
+      vtempty & v0 = vtempty & $i(vtempty)))
 
   (dropFirstColRaw0)
   vdropFirstColRaw(vtempty) = vtempty & $i(vtempty)
@@ -182,22 +184,14 @@ Assumptions after simplification:
     $i(v0) |  ? [v2: $i] :  ? [v3: $i] : (vdropFirstColRaw(v1) = v2 &
       vdropFirstColRaw(v0) = v3 & vtcons(vrempty, v3) = v2 & $i(v3) & $i(v2)))
 
-  (isSomeRawTable-true-INV)
-   ! [v0: $i] : ( ~ (visSomeRawTable(v0) = 0) |  ~ $i(v0) |  ? [v1: $i] :
-    (vsomeRawTable(v1) = v0 & $i(v1)))
-
-  (isSomeRawTable1)
-   ! [v0: $i] :  ! [v1: $i] : ( ~ (vsomeRawTable(v0) = v1) |  ~ $i(v0) |
-    visSomeRawTable(v1) = 0)
-
   (projectEmptyCol0)
   vprojectEmptyCol(vtempty) = vtempty & $i(vtempty)
 
   (projectEmptyCol1)
-  $i(vrempty) &  ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vtcons(v0, v1) =
-      v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4: $i] :
-    (vprojectEmptyCol(v2) = v3 & vprojectEmptyCol(v1) = v4 & vtcons(vrempty, v4)
-      = v3 & $i(v4) & $i(v3)))
+   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vtcons(v0, v1) = v2) |  ~
+    $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4: $i] : (vprojectEmptyCol(v2) = v3
+      & vprojectEmptyCol(v1) = v4 & vtcons(vrempty, v4) = v3 & $i(v4) & $i(v3) &
+      $i(vrempty)))
 
   (projectFirstRaw0)
   vprojectFirstRaw(vtempty) = vtempty & $i(vtempty)
@@ -207,18 +201,25 @@ Assumptions after simplification:
     $i(v0) |  ? [v2: $i] :  ? [v3: $i] : (vprojectFirstRaw(v1) = v2 &
       vprojectFirstRaw(v0) = v3 & vtcons(vrempty, v3) = v2 & $i(v3) & $i(v2)))
 
+  (projectFirstRaw2)
+   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] :  ! [v4: $i] : ( ~
+    (vtcons(v3, v2) = v4) |  ~ (vrcons(v0, v1) = v3) |  ~ $i(v2) |  ~ $i(v1) | 
+    ~ $i(v0) |  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] : (vprojectFirstRaw(v4) =
+      v5 & vprojectFirstRaw(v2) = v7 & vtcons(v6, v7) = v5 & vrcons(v0, vrempty)
+      = v6 & $i(v7) & $i(v6) & $i(v5) & $i(vrempty)))
+
   (rawDifference-INV)
-  $i(vtempty) &  ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~
-    (vrawDifference(v0, v1) = v2) |  ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3:
-      $i] :  ? [v4: $i] :  ? [v5: $i] :  ? [v6: int] : ( ~ (v6 = 0) &  ~ (v4 =
-        vtempty) & vrawDifference(v4, v1) = v3 & vrowIn(v5, v1) = v6 &
-      vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2 & $i(v5) & $i(v4) & $i(v3)) |  ?
-    [v3: $i] :  ? [v4: int] : (v2 = v0 &  ~ (v4 = 0) & vrowIn(v3, v1) = v4 &
-      vtcons(v3, vtempty) = v0 & $i(v3)) |  ? [v3: $i] :  ? [v4: $i] : ( ~ (v3 =
-        vtempty) & vrawDifference(v3, v1) = v2 & vrowIn(v4, v1) = 0 & vtcons(v4,
-        v3) = v0 & $i(v4) & $i(v3)) |  ? [v3: $i] : (v2 = vtempty & vrowIn(v3,
-        v1) = 0 & vtcons(v3, vtempty) = v0 & $i(v3)) | (v2 = v0 & v1 = vtempty)
-    | (v2 = vtempty & v0 = vtempty))
+   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vrawDifference(v0, v1) = v2) | 
+    ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4: $i] :  ? [v5: $i] :
+     ? [v6: int] : ( ~ (v6 = 0) &  ~ (v4 = vtempty) & vrawDifference(v4, v1) =
+      v3 & vrowIn(v5, v1) = v6 & vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2 &
+      $i(v5) & $i(v4) & $i(v3) & $i(vtempty)) |  ? [v3: $i] :  ? [v4: int] : (v2
+      = v0 &  ~ (v4 = 0) & vrowIn(v3, v1) = v4 & vtcons(v3, vtempty) = v0 &
+      $i(v3) & $i(vtempty)) |  ? [v3: $i] :  ? [v4: $i] : ( ~ (v3 = vtempty) &
+      vrawDifference(v3, v1) = v2 & vrowIn(v4, v1) = 0 & vtcons(v4, v3) = v0 &
+      $i(v4) & $i(v3) & $i(vtempty)) |  ? [v3: $i] : (v2 = vtempty & vrowIn(v3,
+        v1) = 0 & vtcons(v3, vtempty) = v0 & $i(v3) & $i(vtempty)) | (v2 = v0 &
+      v1 = vtempty & $i(vtempty)) | (v2 = vtempty & v0 = vtempty & $i(vtempty)))
 
   (rawDifference2)
   $i(vtempty) &  ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v3 = v2
@@ -231,12 +232,12 @@ Assumptions after simplification:
      ~ $i(v1) |  ~ $i(v0) |  ? [v4: int] : ( ~ (v4 = 0) & vrowIn(v0, v1) = v4))
 
   (rawDifference4)
-  $i(vtempty) &  ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] :  ! [v4:
-    $i] :  ! [v5: $i] :  ! [v6: $i] : (v6 = v5 | v1 = vtempty |  ~
-    (vrawDifference(v4, v2) = v5) |  ~ (vtcons(v3, v1) = v4) |  ~ (vtcons(v3,
-        v0) = v6) |  ~ $i(v3) |  ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v7: $i]
-    :  ? [v8: int] : ((v8 = 0 & vrowIn(v3, v2) = 0) | ( ~ (v7 = v0) &
-        vrawDifference(v1, v2) = v7 & $i(v7))))
+   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] :  ! [v4: $i] :  ! [v5:
+    $i] :  ! [v6: $i] : (v6 = v5 |  ~ (vrawDifference(v4, v2) = v5) |  ~
+    (vtcons(v3, v1) = v4) |  ~ (vtcons(v3, v0) = v6) |  ~ $i(v3) |  ~ $i(v2) | 
+    ~ $i(v1) |  ~ $i(v0) |  ? [v7: $i] :  ? [v8: int] : ((v8 = 0 & vrowIn(v3,
+          v2) = 0) | ( ~ (v7 = v0) & vrawDifference(v1, v2) = v7 & $i(v7))) |
+    (v1 = vtempty & $i(vtempty)))
 
   (rowIn-true-INV)
    ! [v0: $i] :  ! [v1: $i] : ( ~ (vrowIn(v0, v1) = 0) |  ~ $i(v1) |  ~ $i(v0) |
@@ -254,76 +255,12 @@ Assumptions after simplification:
   [v3: $i] : (v1 = v0 |  ~ (vrowIn(v0, v3) = 0) |  ~ (vtcons(v1, v2) = v3) |  ~
     $i(v2) |  ~ $i(v1) |  ~ $i(v0) | vrowIn(v0, v2) = 0)
 
-  (singleRowSelect-INV)
-  $i(visFalse) & $i(verror) & $i(visTrue) & $i(vrempty) & $i(vaempty) &  ! [v0:
-    $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : ( ~ (vsingleRowSelect(v0,
-        v1, v2) = v3) |  ~ $i(v3) |  ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v4:
-      $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: int]
-    : (v3 = visFalse &  ~ (v9 = 0) & vle(v8, v7) = v9 & vVSmaller(v4, v7) = v1 &
-      vrcons(v8, v6) = v2 & vacons(v4, v5) = v0 & $i(v8) & $i(v7) & $i(v6) &
-      $i(v5) & $i(v4) & ( ~ (v6 = vrempty) |  ~ (v5 = vaempty))) |  ? [v4: $i] :
-     ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: int] : (v3 =
-      visFalse &  ~ (v9 = 0) & vge(v8, v7) = v9 & vVGreater(v4, v7) = v1 &
-      vrcons(v8, v6) = v2 & vacons(v4, v5) = v0 & $i(v8) & $i(v7) & $i(v6) &
-      $i(v5) & $i(v4) & ( ~ (v6 = vrempty) |  ~ (v5 = vaempty))) |  ? [v4: $i] :
-     ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: $i] : ( ~
-      (v5 = v4) & vsingleRowSelect(v6, v1, v7) = v3 & vVSmaller(v5, v8) = v1 &
-      vrcons(v9, v7) = v2 & vacons(v4, v6) = v0 & $i(v9) & $i(v8) & $i(v7) &
-      $i(v6) & $i(v5) & $i(v4) & ( ~ (v7 = vrempty) |  ~ (v6 = vaempty))) |  ?
-    [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9:
-      $i] : ( ~ (v5 = v4) & vsingleRowSelect(v6, v1, v7) = v3 & vVGreater(v5,
-        v8) = v1 & vrcons(v9, v7) = v2 & vacons(v4, v6) = v0 & $i(v9) & $i(v8) &
-      $i(v7) & $i(v6) & $i(v5) & $i(v4) & ( ~ (v7 = vrempty) |  ~ (v6 =
-          vaempty))) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] : 
-    ? [v8: $i] :  ? [v9: $i] : ( ~ (v5 = v4) & vsingleRowSelect(v6, v1, v7) = v3
-      & vVEquals(v5, v8) = v1 & vrcons(v9, v7) = v2 & vacons(v4, v6) = v0 &
-      $i(v9) & $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4) & ( ~ (v7 = vrempty) |
-         ~ (v6 = vaempty))) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7:
-      $i] :  ? [v8: $i] : (v3 = visFalse &  ~ (v8 = v7) & vVEquals(v4, v7) = v1
-      & vrcons(v8, v6) = v2 & vacons(v4, v5) = v0 & $i(v8) & $i(v7) & $i(v6) &
-      $i(v5) & $i(v4) & ( ~ (v6 = vrempty) |  ~ (v5 = vaempty))) |  ? [v4: $i] :
-     ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] : (v3 = visTrue &
-      vle(v8, v7) = 0 & vVSmaller(v4, v7) = v1 & vrcons(v8, v6) = v2 &
-      vacons(v4, v5) = v0 & $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4) & ( ~ (v6
-          = vrempty) |  ~ (v5 = vaempty))) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6:
-      $i] :  ? [v7: $i] :  ? [v8: $i] : (v3 = visTrue & vge(v8, v7) = 0 &
-      vVGreater(v4, v7) = v1 & vrcons(v8, v6) = v2 & vacons(v4, v5) = v0 &
-      $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4) & ( ~ (v6 = vrempty) |  ~ (v5 =
-          vaempty))) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: int] :
-    (v3 = visFalse &  ~ (v7 = 0) & vle(v5, v6) = v7 & vVSmaller(v4, v6) = v1 &
-      vrcons(v5, vrempty) = v2 & vacons(v4, vaempty) = v0 & $i(v6) & $i(v5) &
-      $i(v4)) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: int] : (v3 =
-      visFalse &  ~ (v7 = 0) & vge(v5, v6) = v7 & vVGreater(v4, v6) = v1 &
-      vrcons(v5, vrempty) = v2 & vacons(v4, vaempty) = v0 & $i(v6) & $i(v5) &
-      $i(v4)) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] : (v3 =
-      verror &  ~ (v5 = v4) & vVSmaller(v5, v6) = v1 & vrcons(v7, vrempty) = v2
-      & vacons(v4, vaempty) = v0 & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |  ? [v4:
-      $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] : (v3 = verror &  ~ (v5 =
-        v4) & vVGreater(v5, v6) = v1 & vrcons(v7, vrempty) = v2 & vacons(v4,
-        vaempty) = v0 & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |  ? [v4: $i] :  ?
-    [v5: $i] :  ? [v6: $i] :  ? [v7: $i] : (v3 = verror &  ~ (v5 = v4) &
-      vVEquals(v5, v6) = v1 & vrcons(v7, vrempty) = v2 & vacons(v4, vaempty) =
-      v0 & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |  ? [v4: $i] :  ? [v5: $i] :  ?
-    [v6: $i] :  ? [v7: $i] : (v3 = visTrue & vVEquals(v4, v7) = v1 & vrcons(v7,
-        v6) = v2 & vacons(v4, v5) = v0 & $i(v7) & $i(v6) & $i(v5) & $i(v4) & ( ~
-        (v6 = vrempty) |  ~ (v5 = vaempty))) |  ? [v4: $i] :  ? [v5: $i] :  ?
-    [v6: $i] : (v3 = visFalse &  ~ (v6 = v5) & vVEquals(v4, v6) = v1 &
-      vrcons(v5, vrempty) = v2 & vacons(v4, vaempty) = v0 & $i(v6) & $i(v5) &
-      $i(v4)) |  ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] : (v3 = visTrue &
-      vle(v5, v6) = 0 & vVSmaller(v4, v6) = v1 & vrcons(v5, vrempty) = v2 &
-      vacons(v4, vaempty) = v0 & $i(v6) & $i(v5) & $i(v4)) |  ? [v4: $i] :  ?
-    [v5: $i] :  ? [v6: $i] : (v3 = visTrue & vge(v5, v6) = 0 & vVGreater(v4, v6)
-      = v1 & vrcons(v5, vrempty) = v2 & vacons(v4, vaempty) = v0 & $i(v6) &
-      $i(v5) & $i(v4)) |  ? [v4: $i] :  ? [v5: $i] : (v3 = visTrue &
-      vVEquals(v4, v5) = v1 & vrcons(v5, vrempty) = v2 & vacons(v4, vaempty) =
-      v0 & $i(v5) & $i(v4)))
-
   (test-4)
-  $i(vrow3) & $i(vrow1) & $i(vrow2) & $i(vtempty) &  ? [v0: $i] :  ? [v1: $i] : 
-  ? [v2: $i] :  ? [v3: $i] : (vtcons(vrow3, v2) = v3 & vtcons(vrow1, v0) = v1 &
-    vtcons(vrow1, vtempty) = v2 & vtcons(vrow2, vtempty) = v0 & $i(v3) & $i(v2)
-    & $i(v1) & $i(v0) &  ? [v4: $i] : ( ~ (v4 = v0) & vrawDifference(v1, v3) =
-      v4 & $i(v4)))
+   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] : (vtcons(vrow3, v2) =
+    v3 & vtcons(vrow1, v0) = v1 & vtcons(vrow1, vtempty) = v2 & vtcons(vrow2,
+      vtempty) = v0 & $i(v3) & $i(v2) & $i(v1) & $i(v0) & $i(vrow3) & $i(vrow1)
+    & $i(vrow2) & $i(vtempty) &  ? [v4: $i] : ( ~ (v4 = v0) & vrawDifference(v1,
+        v3) = v4 & $i(v4)))
 
   (function-axioms)
    ! [v0: MultipleValueBool] :  ! [v1: MultipleValueBool] :  ! [v2: $i] :  !
@@ -559,39 +496,40 @@ DIFF-rempty-rcons, DIFF-rtempty-rtcons, DIFF-ttempty-ttcons, EQ-Difference,
 EQ-Intersection, EQ-Ref, EQ-SelectAllFrom, EQ-SelectAllFromWhere,
 EQ-SelectSomeFrom, EQ-SelectSomeFromWhere, EQ-Tvalue, EQ-Union, EQ-VEquals,
 EQ-VGreater, EQ-VSmaller, EQ-acons, EQ-bindContext, EQ-bindStore, EQ-conf,
-EQ-ctype, EQ-rcons, EQ-rtcons, EQ-someConf, EQ-someFType, EQ-someTType,
-EQ-someTable, EQ-table, EQ-ttcons, StoreContext-Lookup-WT,
+EQ-ctype, EQ-rcons, EQ-rtcons, EQ-someConf, EQ-someFType, EQ-someRawTable,
+EQ-someTType, EQ-someTable, EQ-table, EQ-ttcons, StoreContext-Lookup-WT,
 StoreContextConsistent-false-INV, StoreContextConsistent-true-INV,
 StoreContextConsistent0, StoreContextConsistent1, StoreContextConsistent2,
 T-Difference, T-Intersection, T-SelectAllFrom, T-SelectAllFromWhere,
 T-SelectSomeFrom, T-SelectSomeFromWhere, T-TTContext-Duplicate,
 T-TTContext-Swap, T-Tvalue, T-Union, append-INV, append0, append1,
-attachColToFrontRaw1, attachColToFrontRaw2, attachColToFrontRaw3,
-checkPValidity-false-INV, checkPValidity-true-INV, checkPValidity0,
-checkPValidity1, checkPValidity2, ctypeIn-false-INV, ctypeIn-true-INV, ctypeIn0,
-ctypeIn1, difference-INV, difference0, difference1, dropFirstColRaw-INV,
+attachColToFrontRaw0, attachColToFrontRaw1, attachColToFrontRaw2,
+attachColToFrontRaw3, checkPValidity-false-INV, checkPValidity-true-INV,
+checkPValidity0, checkPValidity1, checkPValidity2, ctypeIn-false-INV,
+ctypeIn-true-INV, ctypeIn0, ctypeIn1, difference-INV, difference0, difference1,
 dropFirstColRaw2, findCol-INV, findCol0, findCol1, findCol2, findColType0,
 findColType1, findColType2, getAL0, getQuery0, getRaw0, getSomeConf0,
 getSomeFType0, getSomeRawTable0, getSomeTType0, getSomeTable0, intersect-INV,
 intersect0, intersect1, isSomeConf-false-INV, isSomeConf-true-INV, isSomeConf0,
 isSomeConf1, isSomeFType-false-INV, isSomeFType-true-INV, isSomeFType0,
-isSomeFType1, isSomeRawTable-false-INV, isSomeRawTable0, isSomeTType-false-INV,
-isSomeTType-true-INV, isSomeTType0, isSomeTType1, isSomeTable-false-INV,
-isSomeTable-true-INV, isSomeTable0, isSomeTable1, isValue-false-INV,
-isValue-true-INV, isValue0, isValue1, isValue2, isValue3, isValue4, isValue5,
-isValue6, isValue7, lookupContext-INV, lookupContext0, lookupContext1,
-lookupContext2, lookupStore-INV, lookupStore0, lookupStore1, lookupStore2,
+isSomeFType1, isSomeRawTable-false-INV, isSomeRawTable-true-INV,
+isSomeRawTable0, isSomeRawTable1, isSomeTType-false-INV, isSomeTType-true-INV,
+isSomeTType0, isSomeTType1, isSomeTable-false-INV, isSomeTable-true-INV,
+isSomeTable0, isSomeTable1, isValue-false-INV, isValue-true-INV, isValue0,
+isValue1, isValue2, isValue3, isValue4, isValue5, isValue6, isValue7,
+lookupContext-INV, lookupContext0, lookupContext1, lookupContext2,
+lookupStore-INV, lookupStore0, lookupStore1, lookupStore2,
 matchingAList-false-INV, matchingAList-true-INV, matchingAList0, matchingAList1,
-matchingAList2, project-INV, project0, project1, project2, projectFirstRaw2,
-projectType0, projectType1, projectType2, rawDifference0, rawDifference1,
-rawDifference5, rawIntersection-INV, rawIntersection0, rawIntersection1,
-rawIntersection2, rawIntersection3, rawIntersection4, rawIntersection5,
-rawType-INV, rawType0, rawType1, rawUnion-INV, rawUnion0, rawUnion1, rawUnion2,
-rawUnion3, reduce-INV, reduce0, reduce1, reduce10, reduce11, reduce12, reduce13,
-reduce14, reduce15, reduce16, reduce17, reduce18, reduce19, reduce2, reduce20,
-reduce21, reduce22, reduce23, reduce24, reduce25, reduce26, reduce27, reduce28,
-reduce29, reduce3, reduce30, reduce4, reduce5, reduce6, reduce7, reduce8,
-reduce9, rowIn-false-INV, select-INV, select0, select1, select2, select3,
+matchingAList2, project-INV, project0, project1, project2, projectType0,
+projectType1, projectType2, rawDifference0, rawDifference1, rawDifference5,
+rawIntersection-INV, rawIntersection0, rawIntersection1, rawIntersection2,
+rawIntersection3, rawIntersection4, rawIntersection5, rawType-INV, rawType0,
+rawType1, rawUnion-INV, rawUnion0, rawUnion1, rawUnion2, rawUnion3, reduce-INV,
+reduce0, reduce1, reduce10, reduce11, reduce12, reduce13, reduce14, reduce15,
+reduce16, reduce17, reduce18, reduce19, reduce2, reduce20, reduce21, reduce22,
+reduce23, reduce24, reduce25, reduce26, reduce27, reduce28, reduce29, reduce3,
+reduce30, reduce4, reduce5, reduce6, reduce7, reduce8, reduce9, rowIn-false-INV,
+select-INV, select0, select1, select2, select3, singleRowSelect-INV,
 singleRowSelect0, singleRowSelect1, singleRowSelect10, singleRowSelect11,
 singleRowSelect12, singleRowSelect13, singleRowSelect14, singleRowSelect15,
 singleRowSelect16, singleRowSelect17, singleRowSelect2, singleRowSelect3,
@@ -641,1162 +579,2564 @@ Begin of proof
 |            vdropFirstColRaw(v0) = v3 & vtcons(vrempty, v3) = v2 & $i(v3) &
 |            $i(v2)))
 | 
-| ALPHA: (attachColToFrontRaw0) implies:
-|   (9)   ? [v0: $i] : (vattachColToFrontRaw(vtempty, vtempty) = v0 &
-|          vsomeRawTable(vtempty) = v0 & $i(v0))
-| 
-| ALPHA: (attachColToFrontRaw-INV) implies:
-|   (10)   ? [v0: $i] : (vsomeRawTable(vtempty) = v0 & $i(v0) &  ! [v1: $i] :  !
-|           [v2: $i] :  ! [v3: $i] : ( ~ (vattachColToFrontRaw(v1, v2) = v3) | 
-|             ~ $i(v3) |  ~ $i(v2) |  ~ $i(v1) |  ? [v4: $i] :  ? [v5: $i] :  ?
-|             [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: $i] :  ? [v10: $i]
-|             :  ? [v11: $i] :  ? [v12: $i] : (vattachColToFrontRaw(v4, v8) = v5
-|               & vgetSomeRawTable(v5) = v11 & visSomeRawTable(v5) = 0 &
-|               vsomeRawTable(v12) = v3 & vtcons(v10, v11) = v12 & vtcons(v9,
-|                 v4) = v1 & vtcons(v6, v8) = v2 & vrcons(v7, v6) = v10 &
-|               vrcons(v7, vrempty) = v9 & $i(v12) & $i(v11) & $i(v10) & $i(v9)
-|               & $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |  ? [v4: $i] :  ?
-|             [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: int]
-|             :  ? [v10: $i] : (v3 = vnoRawTable &  ~ (v9 = 0) &
-|               vattachColToFrontRaw(v4, v8) = v5 & visSomeRawTable(v5) = v9 &
-|               vtcons(v10, v4) = v1 & vtcons(v6, v8) = v2 & vrcons(v7, vrempty)
-|               = v10 & $i(v10) & $i(v8) & $i(v7) & $i(v6) & $i(v5) & $i(v4)) |
-|             (v3 = v0 & v2 = vtempty & v1 = vtempty) | (v3 = vnoRawTable & ( ~
-|                 (v2 = vtempty) |  ~ (v1 = vtempty)) & ( ! [v4: $i] :  ! [v5:
-|                   $i] :  ! [v6: $i] : ( ~ (vtcons(v6, v5) = v1) |  ~
-|                   (vrcons(v4, vrempty) = v6) |  ~ $i(v5) |  ~ $i(v4)) |  !
-|                 [v4: $i] :  ! [v5: $i] : ( ~ (vtcons(v4, v5) = v2) |  ~ $i(v5)
-|                   |  ~ $i(v4))))))
-| 
 | ALPHA: (rawDifference2) implies:
-|   (11)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v3 = v2 |  ~
-|           (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) |  ~
-|           $i(v1) |  ~ $i(v0) | vrowIn(v0, v1) = 0)
+|   (9)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v3 = v2 |  ~
+|          (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) |  ~
+|          $i(v1) |  ~ $i(v0) | vrowIn(v0, v1) = 0)
 | 
 | ALPHA: (rawDifference3) implies:
-|   (12)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v3 = vtempty
+|   (10)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v3 = vtempty
 |           |  ~ (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) |
 |            ~ $i(v1) |  ~ $i(v0) |  ? [v4: int] : ( ~ (v4 = 0) & vrowIn(v0, v1)
 |             = v4))
 | 
-| ALPHA: (rawDifference4) implies:
-|   (13)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] :  ! [v4: $i] : 
-|         ! [v5: $i] :  ! [v6: $i] : (v6 = v5 | v1 = vtempty |  ~
-|           (vrawDifference(v4, v2) = v5) |  ~ (vtcons(v3, v1) = v4) |  ~
-|           (vtcons(v3, v0) = v6) |  ~ $i(v3) |  ~ $i(v2) |  ~ $i(v1) |  ~
-|           $i(v0) |  ? [v7: $i] :  ? [v8: int] : ((v8 = 0 & vrowIn(v3, v2) = 0)
-|             | ( ~ (v7 = v0) & vrawDifference(v1, v2) = v7 & $i(v7))))
-| 
-| ALPHA: (rawDifference-INV) implies:
-|   (14)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vrawDifference(v0, v1)
-|             = v2) |  ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4:
-|             $i] :  ? [v5: $i] :  ? [v6: int] : ( ~ (v6 = 0) &  ~ (v4 =
-|               vtempty) & vrawDifference(v4, v1) = v3 & vrowIn(v5, v1) = v6 &
-|             vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2 & $i(v5) & $i(v4) &
-|             $i(v3)) |  ? [v3: $i] :  ? [v4: int] : (v2 = v0 &  ~ (v4 = 0) &
-|             vrowIn(v3, v1) = v4 & vtcons(v3, vtempty) = v0 & $i(v3)) |  ? [v3:
-|             $i] :  ? [v4: $i] : ( ~ (v3 = vtempty) & vrawDifference(v3, v1) =
-|             v2 & vrowIn(v4, v1) = 0 & vtcons(v4, v3) = v0 & $i(v4) & $i(v3)) |
-|            ? [v3: $i] : (v2 = vtempty & vrowIn(v3, v1) = 0 & vtcons(v3,
-|               vtempty) = v0 & $i(v3)) | (v2 = v0 & v1 = vtempty) | (v2 =
-|             vtempty & v0 = vtempty))
-| 
 | ALPHA: (projectEmptyCol0) implies:
-|   (15)  vprojectEmptyCol(vtempty) = vtempty
-| 
-| ALPHA: (projectEmptyCol1) implies:
-|   (16)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vtcons(v0, v1) = v2) | 
-|           ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4: $i] :
-|           (vprojectEmptyCol(v2) = v3 & vprojectEmptyCol(v1) = v4 &
-|             vtcons(vrempty, v4) = v3 & $i(v4) & $i(v3)))
-| 
-| ALPHA: (singleRowSelect-INV) implies:
-|   (17)  $i(vrempty)
+|   (11)  vprojectEmptyCol(vtempty) = vtempty
 | 
 | ALPHA: (DIFF-row1-row2) implies:
-|   (18)   ~ (vrow1 = vrow2)
+|   (12)   ~ (vrow1 = vrow2)
 | 
 | ALPHA: (DIFF-row1-row3) implies:
-|   (19)   ~ (vrow3 = vrow1)
+|   (13)   ~ (vrow3 = vrow1)
 | 
 | ALPHA: (DIFF-row2-row3) implies:
-|   (20)   ~ (vrow3 = vrow2)
-| 
-| ALPHA: (test-4) implies:
-|   (21)  $i(vtempty)
-|   (22)  $i(vrow2)
-|   (23)  $i(vrow1)
-|   (24)  $i(vrow3)
-|   (25)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] : (vtcons(vrow3,
-|             v2) = v3 & vtcons(vrow1, v0) = v1 & vtcons(vrow1, vtempty) = v2 &
-|           vtcons(vrow2, vtempty) = v0 & $i(v3) & $i(v2) & $i(v1) & $i(v0) &  ?
-|           [v4: $i] : ( ~ (v4 = v0) & vrawDifference(v1, v3) = v4 & $i(v4)))
+|   (14)   ~ (vrow3 = vrow2)
 | 
 | ALPHA: (function-axioms) implies:
-|   (26)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
+|   (15)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
 |           (vprojectFirstRaw(v2) = v1) |  ~ (vprojectFirstRaw(v2) = v0))
-|   (27)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
+|   (16)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
 |           (vdropFirstColRaw(v2) = v1) |  ~ (vdropFirstColRaw(v2) = v0))
-|   (28)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
-|           (vsomeRawTable(v2) = v1) |  ~ (vsomeRawTable(v2) = v0))
-|   (29)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
+|   (17)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
 |           (vprojectEmptyCol(v2) = v1) |  ~ (vprojectEmptyCol(v2) = v0))
-|   (30)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v1 = v0 |  ~
+|   (18)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v1 = v0 |  ~
+|           (vrcons(v3, v2) = v1) |  ~ (vrcons(v3, v2) = v0))
+|   (19)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v1 = v0 |  ~
 |           (vtcons(v3, v2) = v1) |  ~ (vtcons(v3, v2) = v0))
-|   (31)   ! [v0: MultipleValueBool] :  ! [v1: MultipleValueBool] :  ! [v2: $i]
+|   (20)   ! [v0: MultipleValueBool] :  ! [v1: MultipleValueBool] :  ! [v2: $i]
 |         :  ! [v3: $i] : (v1 = v0 |  ~ (vrowIn(v3, v2) = v1) |  ~ (vrowIn(v3,
 |               v2) = v0))
+|   (21)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] :  ! [v3: $i] : (v1 = v0 |  ~
+|           (vrawDifference(v3, v2) = v1) |  ~ (vrawDifference(v3, v2) = v0))
 | 
-| DELTA: instantiating (9) with fresh symbol all_422_0 gives:
-|   (32)  vattachColToFrontRaw(vtempty, vtempty) = all_422_0 &
-|         vsomeRawTable(vtempty) = all_422_0 & $i(all_422_0)
-| 
-| ALPHA: (32) implies:
-|   (33)  vsomeRawTable(vtempty) = all_422_0
-| 
-| DELTA: instantiating (25) with fresh symbols all_427_0, all_427_1, all_427_2,
-|        all_427_3 gives:
+| DELTA: instantiating (test-4) with fresh symbols all_433_0, all_433_1,
+|        all_433_2, all_433_3 gives:
 Warning: type clash during inference: int vs $i
-|   (34)  vtcons(vrow3, all_427_1) = all_427_0 & vtcons(vrow1, all_427_3) =
-|         all_427_2 & vtcons(vrow1, vtempty) = all_427_1 & vtcons(vrow2,
-|           vtempty) = all_427_3 & $i(all_427_0) & $i(all_427_1) & $i(all_427_2)
-|         & $i(all_427_3) &  ? [v0: any] : ( ~ (v0 = all_427_3) &
-|           vrawDifference(all_427_2, all_427_0) = v0 & $i(v0))
+|   (22)  vtcons(vrow3, all_433_1) = all_433_0 & vtcons(vrow1, all_433_3) =
+|         all_433_2 & vtcons(vrow1, vtempty) = all_433_1 & vtcons(vrow2,
+|           vtempty) = all_433_3 & $i(all_433_0) & $i(all_433_1) & $i(all_433_2)
+|         & $i(all_433_3) & $i(vrow3) & $i(vrow1) & $i(vrow2) & $i(vtempty) &  ?
+|         [v0: any] : ( ~ (v0 = all_433_3) & vrawDifference(all_433_2,
+|             all_433_0) = v0 & $i(v0))
 | 
-| ALPHA: (34) implies:
-|   (35)  $i(all_427_3)
-|   (36)  $i(all_427_2)
-|   (37)  $i(all_427_1)
-|   (38)  $i(all_427_0)
-|   (39)  vtcons(vrow2, vtempty) = all_427_3
-|   (40)  vtcons(vrow1, vtempty) = all_427_1
-|   (41)  vtcons(vrow1, all_427_3) = all_427_2
-|   (42)  vtcons(vrow3, all_427_1) = all_427_0
+| ALPHA: (22) implies:
+|   (23)  $i(vrow2)
+|   (24)  $i(vrow1)
+|   (25)  $i(vrow3)
+|   (26)  $i(all_433_3)
+|   (27)  $i(all_433_2)
+|   (28)  $i(all_433_1)
+|   (29)  $i(all_433_0)
+|   (30)  vtcons(vrow2, vtempty) = all_433_3
+|   (31)  vtcons(vrow1, vtempty) = all_433_1
+|   (32)  vtcons(vrow1, all_433_3) = all_433_2
+|   (33)  vtcons(vrow3, all_433_1) = all_433_0
 Warning: type clash during inference: int vs $i
-|   (43)   ? [v0: any] : ( ~ (v0 = all_427_3) & vrawDifference(all_427_2,
-|             all_427_0) = v0 & $i(v0))
+|   (34)   ? [v0: any] : ( ~ (v0 = all_433_3) & vrawDifference(all_433_2,
+|             all_433_0) = v0 & $i(v0))
 | 
-| DELTA: instantiating (10) with fresh symbol all_439_0 gives:
-|   (44)  vsomeRawTable(vtempty) = all_439_0 & $i(all_439_0) &  ! [v0: $i] :  !
-|         [v1: $i] :  ! [v2: $i] : ( ~ (vattachColToFrontRaw(v0, v1) = v2) |  ~
-|           $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ? [v4: $i] :  ? [v5:
-|             $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] :  ? [v9: $i] :  ?
-|           [v10: $i] :  ? [v11: $i] : (vattachColToFrontRaw(v3, v7) = v4 &
-|             vgetSomeRawTable(v4) = v10 & visSomeRawTable(v4) = 0 &
-|             vsomeRawTable(v11) = v2 & vtcons(v9, v10) = v11 & vtcons(v8, v3) =
-|             v0 & vtcons(v5, v7) = v1 & vrcons(v6, v5) = v9 & vrcons(v6,
+| DELTA: instantiating (attachColToFrontRaw-INV) with fresh symbol all_439_0
+|        gives:
+|   (35)  vsomeRawTable(vtempty) = all_439_0 & $i(all_439_0) & $i(vtempty) &  !
+|         [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : ( ~ (vattachColToFrontRaw(v0,
+|               v1) = v2) |  ~ $i(v2) |  ~ $i(v1) |  ~ $i(v0) |  ? [v3: $i] :  ?
+|           [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: $i] : 
+|           ? [v9: $i] :  ? [v10: $i] :  ? [v11: $i] : (vattachColToFrontRaw(v3,
+|               v7) = v4 & vgetSomeRawTable(v4) = v10 & visSomeRawTable(v4) = 0
+|             & vsomeRawTable(v11) = v2 & vtcons(v9, v10) = v11 & vtcons(v8, v3)
+|             = v0 & vtcons(v5, v7) = v1 & vrcons(v6, v5) = v9 & vrcons(v6,
 |               vrempty) = v8 & $i(v11) & $i(v10) & $i(v9) & $i(v8) & $i(v7) &
-|             $i(v6) & $i(v5) & $i(v4) & $i(v3)) |  ? [v3: $i] :  ? [v4: $i] : 
-|           ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: int] :  ? [v9: $i]
-|           : (v2 = vnoRawTable &  ~ (v8 = 0) & vattachColToFrontRaw(v3, v7) =
-|             v4 & visSomeRawTable(v4) = v8 & vtcons(v9, v3) = v0 & vtcons(v5,
-|               v7) = v1 & vrcons(v6, vrempty) = v9 & $i(v9) & $i(v7) & $i(v6) &
-|             $i(v5) & $i(v4) & $i(v3)) | (v2 = all_439_0 & v1 = vtempty & v0 =
-|             vtempty) | (v2 = vnoRawTable & ( ~ (v1 = vtempty) |  ~ (v0 =
-|                 vtempty)) & ( ! [v3: $i] :  ! [v4: $i] :  ! [v5: $i] : ( ~
-|                 (vtcons(v5, v4) = v0) |  ~ (vrcons(v3, vrempty) = v5) |  ~
-|                 $i(v4) |  ~ $i(v3)) |  ! [v3: $i] :  ! [v4: $i] : ( ~
-|                 (vtcons(v3, v4) = v1) |  ~ $i(v4) |  ~ $i(v3)))))
+|             $i(v6) & $i(v5) & $i(v4) & $i(v3) & $i(vrempty)) |  ? [v3: $i] : 
+|           ? [v4: $i] :  ? [v5: $i] :  ? [v6: $i] :  ? [v7: $i] :  ? [v8: int]
+|           :  ? [v9: $i] : (v2 = vnoRawTable &  ~ (v8 = 0) &
+|             vattachColToFrontRaw(v3, v7) = v4 & visSomeRawTable(v4) = v8 &
+|             vtcons(v9, v3) = v0 & vtcons(v5, v7) = v1 & vrcons(v6, vrempty) =
+|             v9 & $i(v9) & $i(v7) & $i(v6) & $i(v5) & $i(v4) & $i(v3) &
+|             $i(vnoRawTable) & $i(vrempty)) | (v2 = all_439_0 & v1 = vtempty &
+|             v0 = vtempty) | (v2 = vnoRawTable & $i(vnoRawTable) & ( ~ (v1 =
+|                 vtempty) |  ~ (v0 = vtempty)) & ( ! [v3: $i] :  ! [v4: $i] : (
+|                 ~ (vtcons(v3, v4) = v1) |  ~ $i(v4) |  ~ $i(v3)) |
+|               ($i(vrempty) &  ! [v3: $i] :  ! [v4: $i] :  ! [v5: $i] : ( ~
+|                   (vtcons(v5, v4) = v0) |  ~ (vrcons(v3, vrempty) = v5) |  ~
+|                   $i(v4) |  ~ $i(v3))))))
 | 
-| ALPHA: (44) implies:
-|   (45)  $i(all_439_0)
-|   (46)  vsomeRawTable(vtempty) = all_439_0
+| ALPHA: (35) implies:
+|   (36)  $i(vtempty)
 | 
-| DELTA: instantiating (43) with fresh symbol all_442_0 gives:
-|   (47)   ~ (all_442_0 = all_427_3) & vrawDifference(all_427_2, all_427_0) =
+| DELTA: instantiating (34) with fresh symbol all_442_0 gives:
+|   (37)   ~ (all_442_0 = all_433_3) & vrawDifference(all_433_2, all_433_0) =
 |         all_442_0 & $i(all_442_0)
 | 
-| ALPHA: (47) implies:
-|   (48)   ~ (all_442_0 = all_427_3)
-|   (49)  $i(all_442_0)
-|   (50)  vrawDifference(all_427_2, all_427_0) = all_442_0
+| ALPHA: (37) implies:
+|   (38)   ~ (all_442_0 = all_433_3)
+|   (39)  $i(all_442_0)
+|   (40)  vrawDifference(all_433_2, all_433_0) = all_442_0
 | 
-| GROUND_INST: instantiating (28) with all_422_0, all_439_0, vtempty,
-|              simplifying with (33), (46) gives:
-|   (51)  all_439_0 = all_422_0
-| 
-| REDUCE: (45), (51) imply:
-|   (52)  $i(all_422_0)
-| 
-| GROUND_INST: instantiating (16) with vrow2, vtempty, all_427_3, simplifying
-|              with (21), (22), (39) gives:
-|   (53)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_427_3) = v0 &
+| GROUND_INST: instantiating (projectEmptyCol1) with vrow2, vtempty, all_433_3,
+|              simplifying with (23), (30), (36) gives:
+|   (41)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_433_3) = v0 &
 |           vprojectEmptyCol(vtempty) = v1 & vtcons(vrempty, v1) = v0 & $i(v1) &
-|           $i(v0))
+|           $i(v0) & $i(vrempty))
 | 
-| GROUND_INST: instantiating (16) with vrow1, vtempty, all_427_1, simplifying
-|              with (21), (23), (40) gives:
-|   (54)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_427_1) = v0 &
+| GROUND_INST: instantiating (projectEmptyCol1) with vrow1, vtempty, all_433_1,
+|              simplifying with (24), (31), (36) gives:
+|   (42)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_433_1) = v0 &
 |           vprojectEmptyCol(vtempty) = v1 & vtcons(vrempty, v1) = v0 & $i(v1) &
-|           $i(v0))
+|           $i(v0) & $i(vrempty))
 | 
-| GROUND_INST: instantiating (16) with vrow1, all_427_3, all_427_2, simplifying
-|              with (23), (35), (41) gives:
-|   (55)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_427_2) = v0 &
-|           vprojectEmptyCol(all_427_3) = v1 & vtcons(vrempty, v1) = v0 & $i(v1)
-|           & $i(v0))
+| GROUND_INST: instantiating (projectEmptyCol1) with vrow1, all_433_3,
+|              all_433_2, simplifying with (24), (26), (32) gives:
+|   (43)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_433_2) = v0 &
+|           vprojectEmptyCol(all_433_3) = v1 & vtcons(vrempty, v1) = v0 & $i(v1)
+|           & $i(v0) & $i(vrempty))
 | 
-| GROUND_INST: instantiating (16) with vrow3, all_427_1, all_427_0, simplifying
-|              with (24), (37), (42) gives:
-|   (56)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_427_0) = v0 &
-|           vprojectEmptyCol(all_427_1) = v1 & vtcons(vrempty, v1) = v0 & $i(v1)
-|           & $i(v0))
+| GROUND_INST: instantiating (projectEmptyCol1) with vrow3, all_433_1,
+|              all_433_0, simplifying with (25), (28), (33) gives:
+|   (44)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_433_0) = v0 &
+|           vprojectEmptyCol(all_433_1) = v1 & vtcons(vrempty, v1) = v0 & $i(v1)
+|           & $i(v0) & $i(vrempty))
 | 
-| GROUND_INST: instantiating (isSomeRawTable1) with vtempty, all_422_0,
-|              simplifying with (21), (33) gives:
-|   (57)  visSomeRawTable(all_422_0) = 0
+| GROUND_INST: instantiating (rawDifference4) with all_433_3, all_433_3,
+|              all_433_0, vrow1, all_433_2, all_442_0, all_433_2, simplifying
+|              with (24), (26), (29), (32), (40) gives:
+Warning: type clash during inference: int vs $i
+|   (45)  all_442_0 = all_433_2 |  ? [v0: any] :  ? [v1: int] : ((v1 = 0 &
+|             vrowIn(vrow1, all_433_0) = 0) | ( ~ (v0 = all_433_3) &
+|             vrawDifference(all_433_3, all_433_0) = v0 & $i(v0))) | (all_433_3
+|           = vtempty & $i(vtempty))
 | 
-| GROUND_INST: instantiating (13) with vtempty, all_427_3, all_427_0, vrow1,
-|              all_427_2, all_442_0, all_427_1, simplifying with (21), (23),
-|              (35), (38), (40), (41), (50) gives:
-|   (58)  all_442_0 = all_427_1 | all_427_3 = vtempty |  ? [v0: $i] :  ? [v1:
-|           int] : ((v1 = 0 & vrowIn(vrow1, all_427_0) = 0) | ( ~ (v0 = vtempty)
-|             & vrawDifference(all_427_3, all_427_0) = v0 & $i(v0)))
+| GROUND_INST: instantiating (rawDifference4) with vtempty, all_433_3,
+|              all_433_0, vrow1, all_433_2, all_442_0, all_433_1, simplifying
+|              with (24), (26), (29), (31), (32), (36), (40) gives:
+|   (46)  all_442_0 = all_433_1 | all_433_3 = vtempty |  ? [v0: $i] :  ? [v1:
+|           int] : ((v1 = 0 & vrowIn(vrow1, all_433_0) = 0) | ( ~ (v0 = vtempty)
+|             & vrawDifference(all_433_3, all_433_0) = v0 & $i(v0)))
 | 
-| GROUND_INST: instantiating (14) with all_427_2, all_427_0, all_442_0,
-|              simplifying with (36), (38), (49), (50) gives:
-|   (59)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~ (v3 = 0)
-|           &  ~ (v1 = vtempty) & vrawDifference(v1, all_427_0) = v0 &
-|           vrowIn(v2, all_427_0) = v3 & vtcons(v2, v1) = all_427_2 & vtcons(v2,
-|             v0) = all_442_0 & $i(v2) & $i(v1) & $i(v0)) |  ? [v0: $i] :  ?
-|         [v1: int] : (all_442_0 = all_427_2 &  ~ (v1 = 0) & vrowIn(v0,
-|             all_427_0) = v1 & vtcons(v0, vtempty) = all_427_2 & $i(v0)) |  ?
-|         [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) & vrawDifference(v0,
-|             all_427_0) = all_442_0 & vrowIn(v1, all_427_0) = 0 & vtcons(v1,
-|             v0) = all_427_2 & $i(v1) & $i(v0)) |  ? [v0: $i] : (all_442_0 =
-|           vtempty & vrowIn(v0, all_427_0) = 0 & vtcons(v0, vtempty) =
-|           all_427_2 & $i(v0)) | (all_442_0 = all_427_2 & all_427_0 = vtempty)
-|         | (all_442_0 = vtempty & all_427_2 = vtempty)
+| GROUND_INST: instantiating (rawDifference-INV) with all_433_2, all_433_0,
+|              all_442_0, simplifying with (27), (29), (39), (40) gives:
+|   (47)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~ (v3 = 0)
+|           &  ~ (v1 = vtempty) & vrawDifference(v1, all_433_0) = v0 &
+|           vrowIn(v2, all_433_0) = v3 & vtcons(v2, v1) = all_433_2 & vtcons(v2,
+|             v0) = all_442_0 & $i(v2) & $i(v1) & $i(v0) & $i(vtempty)) |  ?
+|         [v0: $i] :  ? [v1: int] : (all_442_0 = all_433_2 &  ~ (v1 = 0) &
+|           vrowIn(v0, all_433_0) = v1 & vtcons(v0, vtempty) = all_433_2 &
+|           $i(v0) & $i(vtempty)) |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 =
+|             vtempty) & vrawDifference(v0, all_433_0) = all_442_0 & vrowIn(v1,
+|             all_433_0) = 0 & vtcons(v1, v0) = all_433_2 & $i(v1) & $i(v0) &
+|           $i(vtempty)) |  ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
+|             all_433_0) = 0 & vtcons(v0, vtempty) = all_433_2 & $i(v0) &
+|           $i(vtempty)) | (all_442_0 = all_433_2 & all_433_0 = vtempty &
+|           $i(vtempty)) | (all_442_0 = vtempty & all_433_2 = vtempty &
+|           $i(vtempty))
 | 
-| DELTA: instantiating (56) with fresh symbols all_454_0, all_454_1 gives:
-|   (60)  vprojectEmptyCol(all_427_0) = all_454_1 & vprojectEmptyCol(all_427_1)
+| DELTA: instantiating (44) with fresh symbols all_454_0, all_454_1 gives:
+|   (48)  vprojectEmptyCol(all_433_0) = all_454_1 & vprojectEmptyCol(all_433_1)
 |         = all_454_0 & vtcons(vrempty, all_454_0) = all_454_1 & $i(all_454_0) &
-|         $i(all_454_1)
+|         $i(all_454_1) & $i(vrempty)
 | 
-| ALPHA: (60) implies:
-|   (61)  vtcons(vrempty, all_454_0) = all_454_1
-|   (62)  vprojectEmptyCol(all_427_1) = all_454_0
+| ALPHA: (48) implies:
+|   (49)  vtcons(vrempty, all_454_0) = all_454_1
+|   (50)  vprojectEmptyCol(all_433_1) = all_454_0
+|   (51)  vprojectEmptyCol(all_433_0) = all_454_1
 | 
-| DELTA: instantiating (55) with fresh symbols all_456_0, all_456_1 gives:
-|   (63)  vprojectEmptyCol(all_427_2) = all_456_1 & vprojectEmptyCol(all_427_3)
+| DELTA: instantiating (43) with fresh symbols all_456_0, all_456_1 gives:
+|   (52)  vprojectEmptyCol(all_433_2) = all_456_1 & vprojectEmptyCol(all_433_3)
 |         = all_456_0 & vtcons(vrempty, all_456_0) = all_456_1 & $i(all_456_0) &
-|         $i(all_456_1)
+|         $i(all_456_1) & $i(vrempty)
 | 
-| ALPHA: (63) implies:
-|   (64)  vtcons(vrempty, all_456_0) = all_456_1
-|   (65)  vprojectEmptyCol(all_427_3) = all_456_0
-|   (66)  vprojectEmptyCol(all_427_2) = all_456_1
+| ALPHA: (52) implies:
+|   (53)  vtcons(vrempty, all_456_0) = all_456_1
+|   (54)  vprojectEmptyCol(all_433_3) = all_456_0
+|   (55)  vprojectEmptyCol(all_433_2) = all_456_1
 | 
-| DELTA: instantiating (54) with fresh symbols all_458_0, all_458_1 gives:
-|   (67)  vprojectEmptyCol(all_427_1) = all_458_1 & vprojectEmptyCol(vtempty) =
+| DELTA: instantiating (42) with fresh symbols all_458_0, all_458_1 gives:
+|   (56)  vprojectEmptyCol(all_433_1) = all_458_1 & vprojectEmptyCol(vtempty) =
 |         all_458_0 & vtcons(vrempty, all_458_0) = all_458_1 & $i(all_458_0) &
-|         $i(all_458_1)
+|         $i(all_458_1) & $i(vrempty)
 | 
-| ALPHA: (67) implies:
-|   (68)  $i(all_458_0)
-|   (69)  vtcons(vrempty, all_458_0) = all_458_1
-|   (70)  vprojectEmptyCol(vtempty) = all_458_0
-|   (71)  vprojectEmptyCol(all_427_1) = all_458_1
+| ALPHA: (56) implies:
+|   (57)  $i(all_458_0)
+|   (58)  vtcons(vrempty, all_458_0) = all_458_1
+|   (59)  vprojectEmptyCol(vtempty) = all_458_0
+|   (60)  vprojectEmptyCol(all_433_1) = all_458_1
 | 
-| DELTA: instantiating (53) with fresh symbols all_460_0, all_460_1 gives:
-|   (72)  vprojectEmptyCol(all_427_3) = all_460_1 & vprojectEmptyCol(vtempty) =
+| DELTA: instantiating (41) with fresh symbols all_460_0, all_460_1 gives:
+|   (61)  vprojectEmptyCol(all_433_3) = all_460_1 & vprojectEmptyCol(vtempty) =
 |         all_460_0 & vtcons(vrempty, all_460_0) = all_460_1 & $i(all_460_0) &
-|         $i(all_460_1)
+|         $i(all_460_1) & $i(vrempty)
 | 
-| ALPHA: (72) implies:
-|   (73)  $i(all_460_1)
-|   (74)  vtcons(vrempty, all_460_0) = all_460_1
-|   (75)  vprojectEmptyCol(vtempty) = all_460_0
-|   (76)  vprojectEmptyCol(all_427_3) = all_460_1
+| ALPHA: (61) implies:
+|   (62)  $i(vrempty)
+|   (63)  $i(all_460_1)
+|   (64)  vtcons(vrempty, all_460_0) = all_460_1
+|   (65)  vprojectEmptyCol(vtempty) = all_460_0
+|   (66)  vprojectEmptyCol(all_433_3) = all_460_1
 | 
-| GROUND_INST: instantiating (29) with vtempty, all_460_0, vtempty, simplifying
-|              with (15), (75) gives:
-|   (77)  all_460_0 = vtempty
+| GROUND_INST: instantiating (17) with vtempty, all_460_0, vtempty, simplifying
+|              with (11), (65) gives:
+|   (67)  all_460_0 = vtempty
 | 
-| GROUND_INST: instantiating (29) with all_458_0, all_460_0, vtempty,
-|              simplifying with (70), (75) gives:
-|   (78)  all_460_0 = all_458_0
+| GROUND_INST: instantiating (17) with all_458_0, all_460_0, vtempty,
+|              simplifying with (59), (65) gives:
+|   (68)  all_460_0 = all_458_0
 | 
-| GROUND_INST: instantiating (29) with all_456_0, all_460_1, all_427_3,
-|              simplifying with (65), (76) gives:
-|   (79)  all_460_1 = all_456_0
+| GROUND_INST: instantiating (17) with all_456_0, all_460_1, all_433_3,
+|              simplifying with (54), (66) gives:
+|   (69)  all_460_1 = all_456_0
 | 
-| GROUND_INST: instantiating (29) with all_454_0, all_458_1, all_427_1,
-|              simplifying with (62), (71) gives:
-|   (80)  all_458_1 = all_454_0
+| GROUND_INST: instantiating (17) with all_454_0, all_458_1, all_433_1,
+|              simplifying with (50), (60) gives:
+|   (70)  all_458_1 = all_454_0
 | 
-| COMBINE_EQS: (77), (78) imply:
-|   (81)  all_458_0 = vtempty
+| COMBINE_EQS: (67), (68) imply:
+|   (71)  all_458_0 = vtempty
 | 
-| REDUCE: (74), (77), (79) imply:
-|   (82)  vtcons(vrempty, vtempty) = all_456_0
+| REDUCE: (64), (67), (69) imply:
+|   (72)  vtcons(vrempty, vtempty) = all_456_0
 | 
-| REDUCE: (69), (80), (81) imply:
-|   (83)  vtcons(vrempty, vtempty) = all_454_0
+| REDUCE: (58), (70), (71) imply:
+|   (73)  vtcons(vrempty, vtempty) = all_454_0
 | 
-| REDUCE: (73), (79) imply:
-|   (84)  $i(all_456_0)
+| REDUCE: (63), (69) imply:
+|   (74)  $i(all_456_0)
 | 
-| GROUND_INST: instantiating (30) with all_454_0, all_456_0, vtempty, vrempty,
-|              simplifying with (82), (83) gives:
-|   (85)  all_456_0 = all_454_0
+| GROUND_INST: instantiating (19) with all_454_0, all_456_0, vtempty, vrempty,
+|              simplifying with (72), (73) gives:
+|   (75)  all_456_0 = all_454_0
 | 
-| REDUCE: (65), (85) imply:
-|   (86)  vprojectEmptyCol(all_427_3) = all_454_0
+| REDUCE: (54), (75) imply:
+|   (76)  vprojectEmptyCol(all_433_3) = all_454_0
 | 
-| REDUCE: (64), (85) imply:
-|   (87)  vtcons(vrempty, all_454_0) = all_456_1
+| REDUCE: (53), (75) imply:
+|   (77)  vtcons(vrempty, all_454_0) = all_456_1
 | 
-| REDUCE: (84), (85) imply:
-|   (88)  $i(all_454_0)
+| REDUCE: (74), (75) imply:
+|   (78)  $i(all_454_0)
 | 
-| GROUND_INST: instantiating (30) with all_454_1, all_456_1, all_454_0, vrempty,
-|              simplifying with (61), (87) gives:
-|   (89)  all_456_1 = all_454_1
+| GROUND_INST: instantiating (19) with all_454_1, all_456_1, all_454_0, vrempty,
+|              simplifying with (49), (77) gives:
+|   (79)  all_456_1 = all_454_1
 | 
-| REDUCE: (66), (89) imply:
-|   (90)  vprojectEmptyCol(all_427_2) = all_454_1
+| REDUCE: (55), (79) imply:
+|   (80)  vprojectEmptyCol(all_433_2) = all_454_1
 | 
-| GROUND_INST: instantiating (8) with vtempty, all_454_0, simplifying with (21),
-|              (83) gives:
-|   (91)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(all_454_0) = v0 &
+| GROUND_INST: instantiating (8) with vtempty, all_454_0, simplifying with (36),
+|              (73) gives:
+|   (81)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(all_454_0) = v0 &
 |           vdropFirstColRaw(vtempty) = v1 & vtcons(vrempty, v1) = v0 & $i(v1) &
 |           $i(v0))
 | 
-| GROUND_INST: instantiating (6) with vtempty, all_454_0, simplifying with (21),
-|              (83) gives:
-|   (92)   ? [v0: $i] :  ? [v1: $i] : (vprojectFirstRaw(all_454_0) = v0 &
+| GROUND_INST: instantiating (6) with vtempty, all_454_0, simplifying with (36),
+|              (73) gives:
+|   (82)   ? [v0: $i] :  ? [v1: $i] : (vprojectFirstRaw(all_454_0) = v0 &
 |           vprojectFirstRaw(vtempty) = v1 & vtcons(vrempty, v1) = v0 & $i(v1) &
 |           $i(v0))
 | 
-| GROUND_INST: instantiating (16) with vrempty, vtempty, all_454_0, simplifying
-|              with (17), (21), (83) gives:
-|   (93)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_454_0) = v0 &
+| GROUND_INST: instantiating (projectEmptyCol1) with vrempty, vtempty,
+|              all_454_0, simplifying with (36), (62), (73) gives:
+|   (83)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_454_0) = v0 &
 |           vprojectEmptyCol(vtempty) = v1 & vtcons(vrempty, v1) = v0 & $i(v1) &
 |           $i(v0))
 | 
 | GROUND_INST: instantiating (8) with all_454_0, all_454_1, simplifying with
-|              (61), (88) gives:
-|   (94)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(all_454_0) = v1 &
+|              (49), (78) gives:
+|   (84)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(all_454_0) = v1 &
 |           vdropFirstColRaw(all_454_1) = v0 & vtcons(vrempty, v1) = v0 & $i(v1)
 |           & $i(v0))
 | 
 | GROUND_INST: instantiating (6) with all_454_0, all_454_1, simplifying with
-|              (61), (88) gives:
-|   (95)   ? [v0: $i] :  ? [v1: $i] : (vprojectFirstRaw(all_454_0) = v1 &
+|              (49), (78) gives:
+|   (85)   ? [v0: $i] :  ? [v1: $i] : (vprojectFirstRaw(all_454_0) = v1 &
 |           vprojectFirstRaw(all_454_1) = v0 & vtcons(vrempty, v1) = v0 & $i(v1)
 |           & $i(v0))
 | 
-| GROUND_INST: instantiating (16) with vrempty, all_454_0, all_454_1,
-|              simplifying with (17), (61), (88) gives:
-|   (96)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_454_0) = v1 &
+| GROUND_INST: instantiating (projectEmptyCol1) with vrempty, all_454_0,
+|              all_454_1, simplifying with (49), (62), (78) gives:
+|   (86)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_454_0) = v1 &
 |           vprojectEmptyCol(all_454_1) = v0 & vtcons(vrempty, v1) = v0 & $i(v1)
 |           & $i(v0))
 | 
-| GROUND_INST: instantiating (isSomeRawTable-true-INV) with all_422_0,
-|              simplifying with (52), (57) gives:
-|   (97)   ? [v0: $i] : (vsomeRawTable(v0) = all_422_0 & $i(v0))
+| DELTA: instantiating (84) with fresh symbols all_483_0, all_483_1 gives:
+|   (87)  vdropFirstColRaw(all_454_0) = all_483_0 & vdropFirstColRaw(all_454_1)
+|         = all_483_1 & vtcons(vrempty, all_483_0) = all_483_1 & $i(all_483_0) &
+|         $i(all_483_1)
 | 
-| DELTA: instantiating (97) with fresh symbol all_481_0 gives:
-|   (98)  vsomeRawTable(all_481_0) = all_422_0 & $i(all_481_0)
+| ALPHA: (87) implies:
+|   (88)  $i(all_483_1)
+|   (89)  vtcons(vrempty, all_483_0) = all_483_1
+|   (90)  vdropFirstColRaw(all_454_1) = all_483_1
+|   (91)  vdropFirstColRaw(all_454_0) = all_483_0
 | 
-| ALPHA: (98) implies:
-|   (99)  $i(all_481_0)
-|   (100)  vsomeRawTable(all_481_0) = all_422_0
+| DELTA: instantiating (82) with fresh symbols all_485_0, all_485_1 gives:
+|   (92)  vprojectFirstRaw(all_454_0) = all_485_1 & vprojectFirstRaw(vtempty) =
+|         all_485_0 & vtcons(vrempty, all_485_0) = all_485_1 & $i(all_485_0) &
+|         $i(all_485_1)
 | 
-| DELTA: instantiating (94) with fresh symbols all_483_0, all_483_1 gives:
-|   (101)  vdropFirstColRaw(all_454_0) = all_483_0 & vdropFirstColRaw(all_454_1)
-|          = all_483_1 & vtcons(vrempty, all_483_0) = all_483_1 & $i(all_483_0)
-|          & $i(all_483_1)
+| ALPHA: (92) implies:
+|   (93)  vtcons(vrempty, all_485_0) = all_485_1
+|   (94)  vprojectFirstRaw(vtempty) = all_485_0
+|   (95)  vprojectFirstRaw(all_454_0) = all_485_1
 | 
-| ALPHA: (101) implies:
-|   (102)  $i(all_483_1)
-|   (103)  vtcons(vrempty, all_483_0) = all_483_1
-|   (104)  vdropFirstColRaw(all_454_0) = all_483_0
+| DELTA: instantiating (86) with fresh symbols all_487_0, all_487_1 gives:
+|   (96)  vprojectEmptyCol(all_454_0) = all_487_0 & vprojectEmptyCol(all_454_1)
+|         = all_487_1 & vtcons(vrempty, all_487_0) = all_487_1 & $i(all_487_0) &
+|         $i(all_487_1)
 | 
-| DELTA: instantiating (92) with fresh symbols all_485_0, all_485_1 gives:
-|   (105)  vprojectFirstRaw(all_454_0) = all_485_1 & vprojectFirstRaw(vtempty) =
-|          all_485_0 & vtcons(vrempty, all_485_0) = all_485_1 & $i(all_485_0) &
-|          $i(all_485_1)
+| ALPHA: (96) implies:
+|   (97)  vtcons(vrempty, all_487_0) = all_487_1
+|   (98)  vprojectEmptyCol(all_454_0) = all_487_0
 | 
-| ALPHA: (105) implies:
-|   (106)  $i(all_485_0)
-|   (107)  vtcons(vrempty, all_485_0) = all_485_1
-|   (108)  vprojectFirstRaw(vtempty) = all_485_0
-|   (109)  vprojectFirstRaw(all_454_0) = all_485_1
+| DELTA: instantiating (85) with fresh symbols all_489_0, all_489_1 gives:
+|   (99)  vprojectFirstRaw(all_454_0) = all_489_0 & vprojectFirstRaw(all_454_1)
+|         = all_489_1 & vtcons(vrempty, all_489_0) = all_489_1 & $i(all_489_0) &
+|         $i(all_489_1)
 | 
-| DELTA: instantiating (96) with fresh symbols all_487_0, all_487_1 gives:
-|   (110)  vprojectEmptyCol(all_454_0) = all_487_0 & vprojectEmptyCol(all_454_1)
-|          = all_487_1 & vtcons(vrempty, all_487_0) = all_487_1 & $i(all_487_0)
-|          & $i(all_487_1)
+| ALPHA: (99) implies:
+|   (100)  vtcons(vrempty, all_489_0) = all_489_1
+|   (101)  vprojectFirstRaw(all_454_0) = all_489_0
 | 
-| ALPHA: (110) implies:
-|   (111)  vtcons(vrempty, all_487_0) = all_487_1
-|   (112)  vprojectEmptyCol(all_454_0) = all_487_0
-| 
-| DELTA: instantiating (95) with fresh symbols all_489_0, all_489_1 gives:
-|   (113)  vprojectFirstRaw(all_454_0) = all_489_0 & vprojectFirstRaw(all_454_1)
-|          = all_489_1 & vtcons(vrempty, all_489_0) = all_489_1 & $i(all_489_0)
-|          & $i(all_489_1)
-| 
-| ALPHA: (113) implies:
-|   (114)  vtcons(vrempty, all_489_0) = all_489_1
-|   (115)  vprojectFirstRaw(all_454_0) = all_489_0
-| 
-| DELTA: instantiating (91) with fresh symbols all_491_0, all_491_1 gives:
-|   (116)  vdropFirstColRaw(all_454_0) = all_491_1 & vdropFirstColRaw(vtempty) =
+| DELTA: instantiating (81) with fresh symbols all_491_0, all_491_1 gives:
+|   (102)  vdropFirstColRaw(all_454_0) = all_491_1 & vdropFirstColRaw(vtempty) =
 |          all_491_0 & vtcons(vrempty, all_491_0) = all_491_1 & $i(all_491_0) &
 |          $i(all_491_1)
 | 
-| ALPHA: (116) implies:
-|   (117)  vtcons(vrempty, all_491_0) = all_491_1
-|   (118)  vdropFirstColRaw(vtempty) = all_491_0
-|   (119)  vdropFirstColRaw(all_454_0) = all_491_1
+| ALPHA: (102) implies:
+|   (103)  $i(all_491_1)
+|   (104)  vtcons(vrempty, all_491_0) = all_491_1
+|   (105)  vdropFirstColRaw(vtempty) = all_491_0
+|   (106)  vdropFirstColRaw(all_454_0) = all_491_1
 | 
-| DELTA: instantiating (93) with fresh symbols all_493_0, all_493_1 gives:
-|   (120)  vprojectEmptyCol(all_454_0) = all_493_1 & vprojectEmptyCol(vtempty) =
+| DELTA: instantiating (83) with fresh symbols all_493_0, all_493_1 gives:
+|   (107)  vprojectEmptyCol(all_454_0) = all_493_1 & vprojectEmptyCol(vtempty) =
 |          all_493_0 & vtcons(vrempty, all_493_0) = all_493_1 & $i(all_493_0) &
 |          $i(all_493_1)
 | 
-| ALPHA: (120) implies:
-|   (121)  vtcons(vrempty, all_493_0) = all_493_1
-|   (122)  vprojectEmptyCol(vtempty) = all_493_0
-|   (123)  vprojectEmptyCol(all_454_0) = all_493_1
+| ALPHA: (107) implies:
+|   (108)  vtcons(vrempty, all_493_0) = all_493_1
+|   (109)  vprojectEmptyCol(vtempty) = all_493_0
+|   (110)  vprojectEmptyCol(all_454_0) = all_493_1
 | 
-| GROUND_INST: instantiating (26) with vtempty, all_485_0, vtempty, simplifying
-|              with (5), (108) gives:
-|   (124)  all_485_0 = vtempty
+| GROUND_INST: instantiating (15) with vtempty, all_485_0, vtempty, simplifying
+|              with (5), (94) gives:
+|   (111)  all_485_0 = vtempty
 | 
-| GROUND_INST: instantiating (26) with all_485_1, all_489_0, all_454_0,
-|              simplifying with (109), (115) gives:
-|   (125)  all_489_0 = all_485_1
+| GROUND_INST: instantiating (15) with all_485_1, all_489_0, all_454_0,
+|              simplifying with (95), (101) gives:
+|   (112)  all_489_0 = all_485_1
 | 
-| GROUND_INST: instantiating (27) with vtempty, all_491_0, vtempty, simplifying
-|              with (7), (118) gives:
-|   (126)  all_491_0 = vtempty
+| GROUND_INST: instantiating (16) with vtempty, all_491_0, vtempty, simplifying
+|              with (7), (105) gives:
+|   (113)  all_491_0 = vtempty
 | 
-| GROUND_INST: instantiating (27) with all_483_0, all_491_1, all_454_0,
-|              simplifying with (104), (119) gives:
-|   (127)  all_491_1 = all_483_0
+| GROUND_INST: instantiating (16) with all_483_0, all_491_1, all_454_0,
+|              simplifying with (91), (106) gives:
+|   (114)  all_491_1 = all_483_0
 | 
-| GROUND_INST: instantiating (29) with vtempty, all_493_0, vtempty, simplifying
-|              with (15), (122) gives:
-|   (128)  all_493_0 = vtempty
+| GROUND_INST: instantiating (17) with vtempty, all_493_0, vtempty, simplifying
+|              with (11), (109) gives:
+|   (115)  all_493_0 = vtempty
 | 
-| GROUND_INST: instantiating (29) with all_487_0, all_493_1, all_454_0,
-|              simplifying with (112), (123) gives:
-|   (129)  all_493_1 = all_487_0
+| GROUND_INST: instantiating (17) with all_487_0, all_493_1, all_454_0,
+|              simplifying with (98), (110) gives:
+|   (116)  all_493_1 = all_487_0
 | 
-| REDUCE: (121), (128), (129) imply:
-|   (130)  vtcons(vrempty, vtempty) = all_487_0
+| REDUCE: (108), (115), (116) imply:
+|   (117)  vtcons(vrempty, vtempty) = all_487_0
 | 
-| REDUCE: (117), (126), (127) imply:
-|   (131)  vtcons(vrempty, vtempty) = all_483_0
+| REDUCE: (104), (113), (114) imply:
+|   (118)  vtcons(vrempty, vtempty) = all_483_0
 | 
-| REDUCE: (114), (125) imply:
-|   (132)  vtcons(vrempty, all_485_1) = all_489_1
+| REDUCE: (100), (112) imply:
+|   (119)  vtcons(vrempty, all_485_1) = all_489_1
 | 
-| REDUCE: (107), (124) imply:
-|   (133)  vtcons(vrempty, vtempty) = all_485_1
+| REDUCE: (93), (111) imply:
+|   (120)  vtcons(vrempty, vtempty) = all_485_1
 | 
-| GROUND_INST: instantiating (30) with all_454_0, all_485_1, vtempty, vrempty,
-|              simplifying with (83), (133) gives:
-|   (134)  all_485_1 = all_454_0
+| REDUCE: (103), (114) imply:
+|   (121)  $i(all_483_0)
 | 
-| GROUND_INST: instantiating (30) with all_485_1, all_487_0, vtempty, vrempty,
-|              simplifying with (130), (133) gives:
-|   (135)  all_487_0 = all_485_1
+| GROUND_INST: instantiating (19) with all_454_0, all_485_1, vtempty, vrempty,
+|              simplifying with (73), (120) gives:
+|   (122)  all_485_1 = all_454_0
 | 
-| GROUND_INST: instantiating (30) with all_483_0, all_487_0, vtempty, vrempty,
-|              simplifying with (130), (131) gives:
-|   (136)  all_487_0 = all_483_0
+| GROUND_INST: instantiating (19) with all_485_1, all_487_0, vtempty, vrempty,
+|              simplifying with (117), (120) gives:
+|   (123)  all_487_0 = all_485_1
 | 
-| COMBINE_EQS: (135), (136) imply:
-|   (137)  all_485_1 = all_483_0
+| GROUND_INST: instantiating (19) with all_483_0, all_487_0, vtempty, vrempty,
+|              simplifying with (117), (118) gives:
+|   (124)  all_487_0 = all_483_0
 | 
-| SIMP: (137) implies:
-|   (138)  all_485_1 = all_483_0
+| COMBINE_EQS: (123), (124) imply:
+|   (125)  all_485_1 = all_483_0
 | 
-| COMBINE_EQS: (134), (138) imply:
-|   (139)  all_483_0 = all_454_0
+| SIMP: (125) implies:
+|   (126)  all_485_1 = all_483_0
 | 
-| COMBINE_EQS: (136), (139) imply:
-|   (140)  all_487_0 = all_454_0
+| COMBINE_EQS: (122), (126) imply:
+|   (127)  all_483_0 = all_454_0
 | 
-| REDUCE: (111), (140) imply:
-|   (141)  vtcons(vrempty, all_454_0) = all_487_1
+| COMBINE_EQS: (124), (127) imply:
+|   (128)  all_487_0 = all_454_0
 | 
-| REDUCE: (132), (134) imply:
-|   (142)  vtcons(vrempty, all_454_0) = all_489_1
+| REDUCE: (98), (128) imply:
+|   (129)  vprojectEmptyCol(all_454_0) = all_454_0
 | 
-| REDUCE: (103), (139) imply:
-|   (143)  vtcons(vrempty, all_454_0) = all_483_1
+| REDUCE: (91), (127) imply:
+|   (130)  vdropFirstColRaw(all_454_0) = all_454_0
 | 
-| GROUND_INST: instantiating (30) with all_454_1, all_487_1, all_454_0, vrempty,
-|              simplifying with (61), (141) gives:
-|   (144)  all_487_1 = all_454_1
+| REDUCE: (95), (122) imply:
+|   (131)  vprojectFirstRaw(all_454_0) = all_454_0
 | 
-| GROUND_INST: instantiating (30) with all_487_1, all_489_1, all_454_0, vrempty,
+| REDUCE: (97), (128) imply:
+|   (132)  vtcons(vrempty, all_454_0) = all_487_1
+| 
+| REDUCE: (119), (122) imply:
+|   (133)  vtcons(vrempty, all_454_0) = all_489_1
+| 
+| REDUCE: (89), (127) imply:
+|   (134)  vtcons(vrempty, all_454_0) = all_483_1
+| 
+| GROUND_INST: instantiating (19) with all_454_1, all_487_1, all_454_0, vrempty,
+|              simplifying with (49), (132) gives:
+|   (135)  all_487_1 = all_454_1
+| 
+| GROUND_INST: instantiating (19) with all_487_1, all_489_1, all_454_0, vrempty,
+|              simplifying with (132), (133) gives:
+|   (136)  all_489_1 = all_487_1
+| 
+| GROUND_INST: instantiating (19) with all_483_1, all_489_1, all_454_0, vrempty,
+|              simplifying with (133), (134) gives:
+|   (137)  all_489_1 = all_483_1
+| 
+| COMBINE_EQS: (136), (137) imply:
+|   (138)  all_487_1 = all_483_1
+| 
+| SIMP: (138) implies:
+|   (139)  all_487_1 = all_483_1
+| 
+| COMBINE_EQS: (135), (139) imply:
+|   (140)  all_483_1 = all_454_1
+| 
+| REDUCE: (90), (140) imply:
+|   (141)  vdropFirstColRaw(all_454_1) = all_454_1
+| 
+| REDUCE: (88), (140) imply:
+|   (142)  $i(all_454_1)
+| 
+| GROUND_INST: instantiating (dropFirstColRaw-INV) with all_454_1, all_454_1,
 |              simplifying with (141), (142) gives:
-|   (145)  all_489_1 = all_487_1
+|   (143)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] :  ? [v4: $i] :
+|          (vdropFirstColRaw(v2) = v4 & vtcons(v3, v2) = all_454_1 & vtcons(v1,
+|              v4) = all_454_1 & vrcons(v0, v1) = v3 & $i(v4) & $i(v3) & $i(v2)
+|            & $i(v1) & $i(v0)) |  ? [v0: $i] :  ? [v1: $i] :
+|          (vdropFirstColRaw(v0) = v1 & vtcons(vrempty, v1) = all_454_1 &
+|            vtcons(vrempty, v0) = all_454_1 & $i(v1) & $i(v0) & $i(vrempty)) |
+|          (all_454_1 = vtempty & $i(vtempty))
 | 
-| GROUND_INST: instantiating (30) with all_483_1, all_489_1, all_454_0, vrempty,
-|              simplifying with (142), (143) gives:
-|   (146)  all_489_1 = all_483_1
+| GROUND_INST: instantiating (dropFirstColRaw-INV) with all_454_0, all_454_0,
+|              simplifying with (78), (130) gives:
+|   (144)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] :  ? [v4: $i] :
+|          (vdropFirstColRaw(v2) = v4 & vtcons(v3, v2) = all_454_0 & vtcons(v1,
+|              v4) = all_454_0 & vrcons(v0, v1) = v3 & $i(v4) & $i(v3) & $i(v2)
+|            & $i(v1) & $i(v0)) |  ? [v0: $i] :  ? [v1: $i] :
+|          (vdropFirstColRaw(v0) = v1 & vtcons(vrempty, v1) = all_454_0 &
+|            vtcons(vrempty, v0) = all_454_0 & $i(v1) & $i(v0) & $i(vrempty)) |
+|          (all_454_0 = vtempty & $i(vtempty))
 | 
-| COMBINE_EQS: (145), (146) imply:
-|   (147)  all_487_1 = all_483_1
-| 
-| SIMP: (147) implies:
-|   (148)  all_487_1 = all_483_1
-| 
-| COMBINE_EQS: (144), (148) imply:
-|   (149)  all_483_1 = all_454_1
-| 
-| REDUCE: (102), (149) imply:
-|   (150)  $i(all_454_1)
-| 
-| GROUND_INST: instantiating (EQ-someRawTable) with vtempty, all_481_0,
-|              all_422_0, simplifying with (21), (33), (99), (100) gives:
-|   (151)  all_481_0 = vtempty
-| 
-| BETA: splitting (58) gives:
+| BETA: splitting (45) gives:
 | 
 | Case 1:
 | | 
-| |   (152)  all_427_3 = vtempty
+| |   (145)  all_442_0 = all_433_2
 | | 
-| | REDUCE: (86), (152) imply:
-| |   (153)  vprojectEmptyCol(vtempty) = all_454_0
+| | REDUCE: (38), (145) imply:
+| |   (146)   ~ (all_433_2 = all_433_3)
 | | 
-| | REDUCE: (41), (152) imply:
-| |   (154)  vtcons(vrow1, vtempty) = all_427_2
-| | 
-| | REDUCE: (39), (152) imply:
-| |   (155)  vtcons(vrow2, vtempty) = vtempty
-| | 
-| | GROUND_INST: instantiating (30) with all_427_1, all_427_2, vtempty, vrow1,
-| |              simplifying with (40), (154) gives:
-| |   (156)  all_427_1 = all_427_2
-| | 
-| | GROUND_INST: instantiating (29) with vtempty, all_454_0, vtempty,
-| |              simplifying with (15), (153) gives:
-| |   (157)  all_454_0 = vtempty
-| | 
-| | REDUCE: (62), (156), (157) imply:
-| |   (158)  vprojectEmptyCol(all_427_2) = vtempty
-| | 
-| | GROUND_INST: instantiating (29) with all_454_1, vtempty, all_427_2,
-| |              simplifying with (90), (158) gives:
-| |   (159)  all_454_1 = vtempty
-| | 
-| | GROUND_INST: instantiating (1) with vrow2, vtempty, simplifying with (21),
-| |              (22), (155) gives:
-| |   (160)  $false
-| | 
-| | CLOSE: (160) is inconsistent.
-| | 
-| Case 2:
-| | 
-| |   (161)   ~ (all_427_3 = vtempty)
-| | 
-| | BETA: splitting (59) gives:
+| | BETA: splitting (46) gives:
 | | 
 | | Case 1:
 | | | 
-| | |   (162)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~ (v3
-| | |              = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_427_0) = v0
-| | |            & vrowIn(v2, all_427_0) = v3 & vtcons(v2, v1) = all_427_2 &
-| | |            vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) & $i(v0)) |  ?
-| | |          [v0: $i] :  ? [v1: int] : (all_442_0 = all_427_2 &  ~ (v1 = 0) &
-| | |            vrowIn(v0, all_427_0) = v1 & vtcons(v0, vtempty) = all_427_2 &
-| | |            $i(v0)) |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
-| | |            vrawDifference(v0, all_427_0) = all_442_0 & vrowIn(v1,
-| | |              all_427_0) = 0 & vtcons(v1, v0) = all_427_2 & $i(v1) &
-| | |            $i(v0))
+| | |   (147)  all_433_3 = vtempty
 | | | 
-| | | BETA: splitting (162) gives:
+| | | REDUCE: (30), (147) imply:
+| | |   (148)  vtcons(vrow2, vtempty) = vtempty
+| | | 
+| | | GROUND_INST: instantiating (1) with vrow2, vtempty, simplifying with (23),
+| | |              (36), (148) gives:
+| | |   (149)  $false
+| | | 
+| | | CLOSE: (149) is inconsistent.
+| | | 
+| | Case 2:
+| | | 
+| | |   (150)   ~ (all_433_3 = vtempty)
+| | | 
+| | | BETA: splitting (47) gives:
 | | | 
 | | | Case 1:
 | | | | 
-| | | |   (163)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~
-| | | |            (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_427_0)
-| | | |            = v0 & vrowIn(v2, all_427_0) = v3 & vtcons(v2, v1) =
-| | | |            all_427_2 & vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
-| | | |            $i(v0))
+| | | |   (151)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~
+| | | |            (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_433_0)
+| | | |            = v0 & vrowIn(v2, all_433_0) = v3 & vtcons(v2, v1) =
+| | | |            all_433_2 & vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
+| | | |            $i(v0) & $i(vtempty)) |  ? [v0: $i] :  ? [v1: int] :
+| | | |          (all_442_0 = all_433_2 &  ~ (v1 = 0) & vrowIn(v0, all_433_0) =
+| | | |            v1 & vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty))
+| | | |          |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
+| | | |            vrawDifference(v0, all_433_0) = all_442_0 & vrowIn(v1,
+| | | |              all_433_0) = 0 & vtcons(v1, v0) = all_433_2 & $i(v1) &
+| | | |            $i(v0) & $i(vtempty))
 | | | | 
-| | | | DELTA: instantiating (163) with fresh symbols all_755_0, all_755_1,
-| | | |        all_755_2, all_755_3 gives:
-| | | |   (164)   ~ (all_755_0 = 0) &  ~ (all_755_2 = vtempty) &
-| | | |          vrawDifference(all_755_2, all_427_0) = all_755_3 &
-| | | |          vrowIn(all_755_1, all_427_0) = all_755_0 & vtcons(all_755_1,
-| | | |            all_755_2) = all_427_2 & vtcons(all_755_1, all_755_3) =
-| | | |          all_442_0 & $i(all_755_1) & $i(all_755_2) & $i(all_755_3)
-| | | | 
-| | | | ALPHA: (164) implies:
-| | | |   (165)   ~ (all_755_0 = 0)
-| | | |   (166)  $i(all_755_2)
-| | | |   (167)  $i(all_755_1)
-| | | |   (168)  vtcons(all_755_1, all_755_2) = all_427_2
-| | | |   (169)  vrowIn(all_755_1, all_427_0) = all_755_0
-| | | | 
-| | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_755_1, all_427_3,
-| | | |              all_755_2, all_427_2, simplifying with (23), (35), (41),
-| | | |              (166), (167), (168) gives:
-| | | |   (170)  all_755_1 = vrow1 & all_755_2 = all_427_3
-| | | | 
-| | | | ALPHA: (170) implies:
-| | | |   (171)  all_755_1 = vrow1
-| | | | 
-| | | | GROUND_INST: instantiating (4) with all_755_1, vrow3, all_427_1,
-| | | |              all_427_0, all_755_0, simplifying with (24), (37), (42),
-| | | |              (167), (169) gives:
-| | | |   (172)  all_755_0 = 0 | ( ~ (all_755_1 = vrow3) &  ? [v0: int] : ( ~
-| | | |              (v0 = 0) & vrowIn(all_755_1, all_427_1) = v0))
-| | | | 
-| | | | BETA: splitting (172) gives:
+| | | | BETA: splitting (151) gives:
 | | | | 
 | | | | Case 1:
 | | | | | 
-| | | | |   (173)  all_755_0 = 0
-| | | | | 
-| | | | | REDUCE: (165), (173) imply:
-| | | | |   (174)  $false
-| | | | | 
-| | | | | CLOSE: (174) is inconsistent.
-| | | | | 
-| | | | Case 2:
-| | | | | 
-| | | | |   (175)   ~ (all_755_1 = vrow3) &  ? [v0: int] : ( ~ (v0 = 0) &
-| | | | |            vrowIn(all_755_1, all_427_1) = v0)
-| | | | | 
-| | | | | ALPHA: (175) implies:
-| | | | |   (176)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(all_755_1, all_427_1) =
-| | | | |            v0)
-| | | | | 
-| | | | | DELTA: instantiating (176) with fresh symbol all_783_0 gives:
-| | | | |   (177)   ~ (all_783_0 = 0) & vrowIn(all_755_1, all_427_1) = all_783_0
-| | | | | 
-| | | | | ALPHA: (177) implies:
-| | | | |   (178)   ~ (all_783_0 = 0)
-| | | | |   (179)  vrowIn(all_755_1, all_427_1) = all_783_0
-| | | | | 
-| | | | | REDUCE: (171), (179) imply:
-| | | | |   (180)  vrowIn(vrow1, all_427_1) = all_783_0
-| | | | | 
-| | | | | GROUND_INST: instantiating (4) with vrow1, vrow1, vtempty, all_427_1,
-| | | | |              all_783_0, simplifying with (21), (23), (40), (180)
-| | | | |              gives:
-| | | | |   (181)  all_783_0 = 0
-| | | | | 
-| | | | | REDUCE: (178), (181) imply:
-| | | | |   (182)  $false
-| | | | | 
-| | | | | CLOSE: (182) is inconsistent.
-| | | | | 
-| | | | End of split
-| | | | 
-| | | Case 2:
-| | | | 
-| | | |   (183)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_427_2 &  ~ (v1 =
-| | | |              0) & vrowIn(v0, all_427_0) = v1 & vtcons(v0, vtempty) =
-| | | |            all_427_2 & $i(v0)) |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 =
-| | | |              vtempty) & vrawDifference(v0, all_427_0) = all_442_0 &
-| | | |            vrowIn(v1, all_427_0) = 0 & vtcons(v1, v0) = all_427_2 &
-| | | |            $i(v1) & $i(v0))
-| | | | 
-| | | | BETA: splitting (183) gives:
-| | | | 
-| | | | Case 1:
-| | | | | 
-| | | | |   (184)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_427_2 &  ~ (v1
-| | | | |              = 0) & vrowIn(v0, all_427_0) = v1 & vtcons(v0, vtempty) =
-| | | | |            all_427_2 & $i(v0))
-| | | | | 
-| | | | | DELTA: instantiating (184) with fresh symbols all_755_0, all_755_1
-| | | | |        gives:
-| | | | |   (185)  all_442_0 = all_427_2 &  ~ (all_755_0 = 0) &
-| | | | |          vrowIn(all_755_1, all_427_0) = all_755_0 & vtcons(all_755_1,
-| | | | |            vtempty) = all_427_2 & $i(all_755_1)
-| | | | | 
-| | | | | ALPHA: (185) implies:
-| | | | |   (186)  $i(all_755_1)
-| | | | |   (187)  vtcons(all_755_1, vtempty) = all_427_2
-| | | | | 
-| | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_755_1,
-| | | | |              all_427_3, vtempty, all_427_2, simplifying with (21),
-| | | | |              (23), (35), (41), (186), (187) gives:
-| | | | |   (188)  all_755_1 = vrow1 & all_427_3 = vtempty
-| | | | | 
-| | | | | ALPHA: (188) implies:
-| | | | |   (189)  all_427_3 = vtempty
-| | | | | 
-| | | | | REDUCE: (161), (189) imply:
-| | | | |   (190)  $false
-| | | | | 
-| | | | | CLOSE: (190) is inconsistent.
-| | | | | 
-| | | | Case 2:
-| | | | | 
-| | | | |   (191)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
-| | | | |            vrawDifference(v0, all_427_0) = all_442_0 & vrowIn(v1,
-| | | | |              all_427_0) = 0 & vtcons(v1, v0) = all_427_2 & $i(v1) &
-| | | | |            $i(v0))
-| | | | | 
-| | | | | DELTA: instantiating (191) with fresh symbols all_755_0, all_755_1
-| | | | |        gives:
-| | | | |   (192)   ~ (all_755_1 = vtempty) & vrawDifference(all_755_1,
-| | | | |            all_427_0) = all_442_0 & vrowIn(all_755_0, all_427_0) = 0 &
-| | | | |          vtcons(all_755_0, all_755_1) = all_427_2 & $i(all_755_0) &
-| | | | |          $i(all_755_1)
-| | | | | 
-| | | | | ALPHA: (192) implies:
-| | | | |   (193)  $i(all_755_1)
-| | | | |   (194)  $i(all_755_0)
-| | | | |   (195)  vtcons(all_755_0, all_755_1) = all_427_2
-| | | | |   (196)  vrowIn(all_755_0, all_427_0) = 0
-| | | | |   (197)  vrawDifference(all_755_1, all_427_0) = all_442_0
-| | | | | 
-| | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_755_0,
-| | | | |              all_427_3, all_755_1, all_427_2, simplifying with (23),
-| | | | |              (35), (41), (193), (194), (195) gives:
-| | | | |   (198)  all_755_0 = vrow1 & all_755_1 = all_427_3
-| | | | | 
-| | | | | ALPHA: (198) implies:
-| | | | |   (199)  all_755_1 = all_427_3
-| | | | |   (200)  all_755_0 = vrow1
-| | | | | 
-| | | | | GROUND_INST: instantiating (3) with all_755_0, vrow3, all_427_1,
-| | | | |              all_427_0, simplifying with (24), (37), (42), (194),
-| | | | |              (196) gives:
-| | | | |   (201)  all_755_0 = vrow3 | vrowIn(all_755_0, all_427_1) = 0
-| | | | | 
-| | | | | GROUND_INST: instantiating (rowIn-true-INV) with all_755_0, all_427_0,
-| | | | |              simplifying with (38), (194), (196) gives:
-| | | | |   (202)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: int] : (vtcons(v0, v1) =
-| | | | |            all_427_0 & $i(v1) & $i(v0) & (v0 = all_755_0 | (v2 = 0 &
-| | | | |                vrowIn(all_755_0, v1) = 0)))
-| | | | | 
-| | | | | GROUND_INST: instantiating (14) with all_755_1, all_427_0, all_442_0,
-| | | | |              simplifying with (38), (49), (193), (197) gives:
-| | | | |   (203)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~
+| | | | |   (152)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~
 | | | | |            (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1,
-| | | | |              all_427_0) = v0 & vrowIn(v2, all_427_0) = v3 & vtcons(v2,
-| | | | |              v1) = all_755_1 & vtcons(v2, v0) = all_442_0 & $i(v2) &
-| | | | |            $i(v1) & $i(v0)) |  ? [v0: $i] :  ? [v1: int] : (all_755_1
-| | | | |            = all_442_0 &  ~ (v1 = 0) & vrowIn(v0, all_427_0) = v1 &
-| | | | |            vtcons(v0, vtempty) = all_442_0 & $i(v0)) |  ? [v0: $i] : 
-| | | | |          ? [v1: $i] : ( ~ (v0 = vtempty) & vrawDifference(v0,
-| | | | |              all_427_0) = all_442_0 & vrowIn(v1, all_427_0) = 0 &
-| | | | |            vtcons(v1, v0) = all_755_1 & $i(v1) & $i(v0)) |  ? [v0: $i]
-| | | | |          : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0 &
-| | | | |            vtcons(v0, vtempty) = all_755_1 & $i(v0)) | (all_755_1 =
-| | | | |            all_442_0 & all_427_0 = vtempty) | (all_755_1 = vtempty &
-| | | | |            all_442_0 = vtempty)
+| | | | |              all_433_0) = v0 & vrowIn(v2, all_433_0) = v3 & vtcons(v2,
+| | | | |              v1) = all_433_2 & vtcons(v2, v0) = all_442_0 & $i(v2) &
+| | | | |            $i(v1) & $i(v0) & $i(vtempty))
 | | | | | 
-| | | | | DELTA: instantiating (202) with fresh symbols all_777_0, all_777_1,
-| | | | |        all_777_2 gives:
-| | | | |   (204)  vtcons(all_777_2, all_777_1) = all_427_0 & $i(all_777_1) &
-| | | | |          $i(all_777_2) & (all_777_2 = all_755_0 | (all_777_0 = 0 &
-| | | | |              vrowIn(all_755_0, all_777_1) = 0))
+| | | | | DELTA: instantiating (152) with fresh symbols all_763_0, all_763_1,
+| | | | |        all_763_2, all_763_3 gives:
+| | | | |   (153)   ~ (all_763_0 = 0) &  ~ (all_763_2 = vtempty) &
+| | | | |          vrawDifference(all_763_2, all_433_0) = all_763_3 &
+| | | | |          vrowIn(all_763_1, all_433_0) = all_763_0 & vtcons(all_763_1,
+| | | | |            all_763_2) = all_433_2 & vtcons(all_763_1, all_763_3) =
+| | | | |          all_442_0 & $i(all_763_1) & $i(all_763_2) & $i(all_763_3) &
+| | | | |          $i(vtempty)
 | | | | | 
-| | | | | ALPHA: (204) implies:
-| | | | |   (205)  $i(all_777_2)
-| | | | |   (206)  $i(all_777_1)
-| | | | |   (207)  vtcons(all_777_2, all_777_1) = all_427_0
+| | | | | ALPHA: (153) implies:
+| | | | |   (154)   ~ (all_763_0 = 0)
+| | | | |   (155)  $i(all_763_2)
+| | | | |   (156)  $i(all_763_1)
+| | | | |   (157)  vtcons(all_763_1, all_763_2) = all_433_2
+| | | | |   (158)  vrowIn(all_763_1, all_433_0) = all_763_0
 | | | | | 
-| | | | | REDUCE: (197), (199) imply:
-| | | | |   (208)  vrawDifference(all_427_3, all_427_0) = all_442_0
+| | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_763_1,
+| | | | |              all_433_3, all_763_2, all_433_2, simplifying with (24),
+| | | | |              (26), (32), (155), (156), (157) gives:
+| | | | |   (159)  all_763_1 = vrow1 & all_763_2 = all_433_3
 | | | | | 
-| | | | | BETA: splitting (201) gives:
+| | | | | ALPHA: (159) implies:
+| | | | |   (160)  all_763_1 = vrow1
+| | | | | 
+| | | | | GROUND_INST: instantiating (4) with all_763_1, vrow3, all_433_1,
+| | | | |              all_433_0, all_763_0, simplifying with (25), (28), (33),
+| | | | |              (156), (158) gives:
+| | | | |   (161)  all_763_0 = 0 | ( ~ (all_763_1 = vrow3) &  ? [v0: int] : ( ~
+| | | | |              (v0 = 0) & vrowIn(all_763_1, all_433_1) = v0))
+| | | | | 
+| | | | | BETA: splitting (161) gives:
 | | | | | 
 | | | | | Case 1:
 | | | | | | 
-| | | | | |   (209)  vrowIn(all_755_0, all_427_1) = 0
+| | | | | |   (162)  all_763_0 = 0
 | | | | | | 
-| | | | | | REDUCE: (200), (209) imply:
-| | | | | |   (210)  vrowIn(vrow1, all_427_1) = 0
+| | | | | | REDUCE: (154), (162) imply:
+| | | | | |   (163)  $false
 | | | | | | 
-| | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow3, all_777_2,
-| | | | | |              all_427_1, all_777_1, all_427_0, simplifying with (24),
-| | | | | |              (37), (42), (205), (206), (207) gives:
-| | | | | |   (211)  all_777_1 = all_427_1 & all_777_2 = vrow3
+| | | | | | CLOSE: (163) is inconsistent.
 | | | | | | 
-| | | | | | ALPHA: (211) implies:
-| | | | | |   (212)  all_777_2 = vrow3
-| | | | | |   (213)  all_777_1 = all_427_1
+| | | | | Case 2:
 | | | | | | 
-| | | | | | GROUND_INST: instantiating (rowIn-true-INV) with vrow1, all_427_1,
-| | | | | |              simplifying with (23), (37), (210) gives:
-| | | | | |   (214)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: int] : (vtcons(v0, v1)
-| | | | | |            = all_427_1 & $i(v1) & $i(v0) & (v0 = vrow1 | (v2 = 0 &
-| | | | | |                vrowIn(vrow1, v1) = 0)))
+| | | | | |   (164)   ~ (all_763_1 = vrow3) &  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | |            vrowIn(all_763_1, all_433_1) = v0)
 | | | | | | 
-| | | | | | GROUND_INST: instantiating (11) with vrow2, all_427_0, all_427_3,
-| | | | | |              all_442_0, simplifying with (22), (38), (39), (208)
-| | | | | |              gives:
-| | | | | |   (215)  all_442_0 = all_427_3 | vrowIn(vrow2, all_427_0) = 0
+| | | | | | ALPHA: (164) implies:
+| | | | | |   (165)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(all_763_1, all_433_1)
+| | | | | |            = v0)
 | | | | | | 
-| | | | | | GROUND_INST: instantiating (12) with vrow2, all_427_0, all_427_3,
-| | | | | |              all_442_0, simplifying with (22), (38), (39), (208)
-| | | | | |              gives:
-| | | | | |   (216)  all_442_0 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
-| | | | | |            vrowIn(vrow2, all_427_0) = v0)
+| | | | | | DELTA: instantiating (165) with fresh symbol all_791_0 gives:
+| | | | | |   (166)   ~ (all_791_0 = 0) & vrowIn(all_763_1, all_433_1) =
+| | | | | |          all_791_0
 | | | | | | 
-| | | | | | DELTA: instantiating (214) with fresh symbols all_847_0, all_847_1,
-| | | | | |        all_847_2 gives:
-| | | | | |   (217)  vtcons(all_847_2, all_847_1) = all_427_1 & $i(all_847_1) &
-| | | | | |          $i(all_847_2) & (all_847_2 = vrow1 | (all_847_0 = 0 &
-| | | | | |              vrowIn(vrow1, all_847_1) = 0))
+| | | | | | ALPHA: (166) implies:
+| | | | | |   (167)   ~ (all_791_0 = 0)
+| | | | | |   (168)  vrowIn(all_763_1, all_433_1) = all_791_0
 | | | | | | 
-| | | | | | ALPHA: (217) implies:
-| | | | | |   (218)  $i(all_847_2)
-| | | | | |   (219)  $i(all_847_1)
-| | | | | |   (220)  vtcons(all_847_2, all_847_1) = all_427_1
+| | | | | | REDUCE: (160), (168) imply:
+| | | | | |   (169)  vrowIn(vrow1, all_433_1) = all_791_0
 | | | | | | 
-| | | | | | BETA: splitting (215) gives:
+| | | | | | GROUND_INST: instantiating (4) with vrow1, vrow1, vtempty,
+| | | | | |              all_433_1, all_791_0, simplifying with (24), (31),
+| | | | | |              (36), (169) gives:
+| | | | | |   (170)  all_791_0 = 0
+| | | | | | 
+| | | | | | REDUCE: (167), (170) imply:
+| | | | | |   (171)  $false
+| | | | | | 
+| | | | | | CLOSE: (171) is inconsistent.
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (172)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_433_2 &  ~ (v1
+| | | | |              = 0) & vrowIn(v0, all_433_0) = v1 & vtcons(v0, vtempty) =
+| | | | |            all_433_2 & $i(v0) & $i(vtempty)) |  ? [v0: $i] :  ? [v1:
+| | | | |            $i] : ( ~ (v0 = vtempty) & vrawDifference(v0, all_433_0) =
+| | | | |            all_442_0 & vrowIn(v1, all_433_0) = 0 & vtcons(v1, v0) =
+| | | | |            all_433_2 & $i(v1) & $i(v0) & $i(vtempty))
+| | | | | 
+| | | | | BETA: splitting (172) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (173)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_433_2 &  ~
+| | | | | |            (v1 = 0) & vrowIn(v0, all_433_0) = v1 & vtcons(v0,
+| | | | | |              vtempty) = all_433_2 & $i(v0) & $i(vtempty))
+| | | | | | 
+| | | | | | DELTA: instantiating (173) with fresh symbols all_763_0, all_763_1
+| | | | | |        gives:
+| | | | | |   (174)  all_442_0 = all_433_2 &  ~ (all_763_0 = 0) &
+| | | | | |          vrowIn(all_763_1, all_433_0) = all_763_0 &
+| | | | | |          vtcons(all_763_1, vtempty) = all_433_2 & $i(all_763_1) &
+| | | | | |          $i(vtempty)
+| | | | | | 
+| | | | | | ALPHA: (174) implies:
+| | | | | |   (175)  $i(all_763_1)
+| | | | | |   (176)  vtcons(all_763_1, vtempty) = all_433_2
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_763_1,
+| | | | | |              all_433_3, vtempty, all_433_2, simplifying with (24),
+| | | | | |              (26), (32), (36), (175), (176) gives:
+| | | | | |   (177)  all_763_1 = vrow1 & all_433_3 = vtempty
+| | | | | | 
+| | | | | | ALPHA: (177) implies:
+| | | | | |   (178)  all_433_3 = vtempty
+| | | | | | 
+| | | | | | REDUCE: (150), (178) imply:
+| | | | | |   (179)  $false
+| | | | | | 
+| | | | | | CLOSE: (179) is inconsistent.
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (180)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
+| | | | | |            vrawDifference(v0, all_433_0) = all_442_0 & vrowIn(v1,
+| | | | | |              all_433_0) = 0 & vtcons(v1, v0) = all_433_2 & $i(v1) &
+| | | | | |            $i(v0) & $i(vtempty))
+| | | | | | 
+| | | | | | DELTA: instantiating (180) with fresh symbols all_763_0, all_763_1
+| | | | | |        gives:
+| | | | | |   (181)   ~ (all_763_1 = vtempty) & vrawDifference(all_763_1,
+| | | | | |            all_433_0) = all_442_0 & vrowIn(all_763_0, all_433_0) = 0
+| | | | | |          & vtcons(all_763_0, all_763_1) = all_433_2 & $i(all_763_0)
+| | | | | |          & $i(all_763_1) & $i(vtempty)
+| | | | | | 
+| | | | | | ALPHA: (181) implies:
+| | | | | |   (182)  $i(all_763_1)
+| | | | | |   (183)  $i(all_763_0)
+| | | | | |   (184)  vtcons(all_763_0, all_763_1) = all_433_2
+| | | | | |   (185)  vrowIn(all_763_0, all_433_0) = 0
+| | | | | |   (186)  vrawDifference(all_763_1, all_433_0) = all_442_0
+| | | | | | 
+| | | | | | REDUCE: (145), (186) imply:
+| | | | | |   (187)  vrawDifference(all_763_1, all_433_0) = all_433_2
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_763_0,
+| | | | | |              all_433_3, all_763_1, all_433_2, simplifying with (24),
+| | | | | |              (26), (32), (182), (183), (184) gives:
+| | | | | |   (188)  all_763_0 = vrow1 & all_763_1 = all_433_3
+| | | | | | 
+| | | | | | ALPHA: (188) implies:
+| | | | | |   (189)  all_763_1 = all_433_3
+| | | | | |   (190)  all_763_0 = vrow1
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_763_0,
+| | | | | |              all_763_1, all_433_2, simplifying with (182), (183),
+| | | | | |              (184) gives:
+| | | | | |   (191)   ? [v0: $i] :  ? [v1: $i] : (vprojectEmptyCol(all_763_1) =
+| | | | | |            v1 & vprojectEmptyCol(all_433_2) = v0 & vtcons(vrempty,
+| | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (rowIn-true-INV) with all_763_0,
+| | | | | |              all_433_0, simplifying with (29), (183), (185) gives:
+| | | | | |   (192)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: int] : (vtcons(v0, v1)
+| | | | | |            = all_433_0 & $i(v1) & $i(v0) & (v0 = all_763_0 | (v2 = 0
+| | | | | |                & vrowIn(all_763_0, v1) = 0)))
+| | | | | | 
+| | | | | | DELTA: instantiating (191) with fresh symbols all_783_0, all_783_1
+| | | | | |        gives:
+| | | | | |   (193)  vprojectEmptyCol(all_763_1) = all_783_0 &
+| | | | | |          vprojectEmptyCol(all_433_2) = all_783_1 & vtcons(vrempty,
+| | | | | |            all_783_0) = all_783_1 & $i(all_783_0) & $i(all_783_1) &
+| | | | | |          $i(vrempty)
+| | | | | | 
+| | | | | | ALPHA: (193) implies:
+| | | | | |   (194)  $i(all_783_0)
+| | | | | |   (195)  vtcons(vrempty, all_783_0) = all_783_1
+| | | | | |   (196)  vprojectEmptyCol(all_433_2) = all_783_1
+| | | | | |   (197)  vprojectEmptyCol(all_763_1) = all_783_0
+| | | | | | 
+| | | | | | DELTA: instantiating (192) with fresh symbols all_785_0, all_785_1,
+| | | | | |        all_785_2 gives:
+| | | | | |   (198)  vtcons(all_785_2, all_785_1) = all_433_0 & $i(all_785_1) &
+| | | | | |          $i(all_785_2) & (all_785_2 = all_763_0 | (all_785_0 = 0 &
+| | | | | |              vrowIn(all_763_0, all_785_1) = 0))
+| | | | | | 
+| | | | | | ALPHA: (198) implies:
+| | | | | |   (199)  $i(all_785_2)
+| | | | | |   (200)  $i(all_785_1)
+| | | | | |   (201)  vtcons(all_785_2, all_785_1) = all_433_0
+| | | | | |   (202)  all_785_2 = all_763_0 | (all_785_0 = 0 & vrowIn(all_763_0,
+| | | | | |              all_785_1) = 0)
+| | | | | | 
+| | | | | | REDUCE: (189), (197) imply:
+| | | | | |   (203)  vprojectEmptyCol(all_433_3) = all_783_0
+| | | | | | 
+| | | | | | REDUCE: (187), (189) imply:
+| | | | | |   (204)  vrawDifference(all_433_3, all_433_0) = all_433_2
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (17) with all_454_0, all_783_0,
+| | | | | |              all_433_3, simplifying with (76), (203) gives:
+| | | | | |   (205)  all_783_0 = all_454_0
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (17) with all_454_1, all_783_1,
+| | | | | |              all_433_2, simplifying with (80), (196) gives:
+| | | | | |   (206)  all_783_1 = all_454_1
+| | | | | | 
+| | | | | | BETA: splitting (143) gives:
 | | | | | | 
 | | | | | | Case 1:
 | | | | | | | 
-| | | | | | |   (221)  vrowIn(vrow2, all_427_0) = 0
+| | | | | | |   (207)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] : 
+| | | | | | |          ? [v4: $i] : (vdropFirstColRaw(v2) = v4 & vtcons(v3, v2)
+| | | | | | |            = all_454_1 & vtcons(v1, v4) = all_454_1 & vrcons(v0,
+| | | | | | |              v1) = v3 & $i(v4) & $i(v3) & $i(v2) & $i(v1) &
+| | | | | | |            $i(v0))
 | | | | | | | 
-| | | | | | | BETA: splitting (216) gives:
+| | | | | | | DELTA: instantiating (207) with fresh symbols all_800_0,
+| | | | | | |        all_800_1, all_800_2, all_800_3, all_800_4 gives:
+| | | | | | |   (208)  vdropFirstColRaw(all_800_2) = all_800_0 &
+| | | | | | |          vtcons(all_800_1, all_800_2) = all_454_1 &
+| | | | | | |          vtcons(all_800_3, all_800_0) = all_454_1 &
+| | | | | | |          vrcons(all_800_4, all_800_3) = all_800_1 & $i(all_800_0)
+| | | | | | |          & $i(all_800_1) & $i(all_800_2) & $i(all_800_3) &
+| | | | | | |          $i(all_800_4)
+| | | | | | | 
+| | | | | | | ALPHA: (208) implies:
+| | | | | | |   (209)  $i(all_800_4)
+| | | | | | |   (210)  $i(all_800_3)
+| | | | | | |   (211)  $i(all_800_2)
+| | | | | | |   (212)  $i(all_800_1)
+| | | | | | |   (213)  $i(all_800_0)
+| | | | | | |   (214)  vrcons(all_800_4, all_800_3) = all_800_1
+| | | | | | |   (215)  vtcons(all_800_3, all_800_0) = all_454_1
+| | | | | | |   (216)  vtcons(all_800_1, all_800_2) = all_454_1
+| | | | | | | 
+| | | | | | | BETA: splitting (144) gives:
 | | | | | | | 
 | | | | | | | Case 1:
 | | | | | | | | 
-| | | | | | | |   (222)  all_442_0 = vtempty
+| | | | | | | |   (217)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i] :
+| | | | | | | |           ? [v4: $i] : (vdropFirstColRaw(v2) = v4 & vtcons(v3,
+| | | | | | | |              v2) = all_454_0 & vtcons(v1, v4) = all_454_0 &
+| | | | | | | |            vrcons(v0, v1) = v3 & $i(v4) & $i(v3) & $i(v2) &
+| | | | | | | |            $i(v1) & $i(v0))
 | | | | | | | | 
-| | | | | | | | REDUCE: (48), (222) imply:
-| | | | | | | |   (223)   ~ (all_427_3 = vtempty)
+| | | | | | | | DELTA: instantiating (217) with fresh symbols all_807_0,
+| | | | | | | |        all_807_1, all_807_2, all_807_3, all_807_4 gives:
+| | | | | | | |   (218)  vdropFirstColRaw(all_807_2) = all_807_0 &
+| | | | | | | |          vtcons(all_807_1, all_807_2) = all_454_0 &
+| | | | | | | |          vtcons(all_807_3, all_807_0) = all_454_0 &
+| | | | | | | |          vrcons(all_807_4, all_807_3) = all_807_1 &
+| | | | | | | |          $i(all_807_0) & $i(all_807_1) & $i(all_807_2) &
+| | | | | | | |          $i(all_807_3) & $i(all_807_4)
 | | | | | | | | 
-| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_847_2,
-| | | | | | | |              vtempty, all_847_1, all_427_1, simplifying with
-| | | | | | | |              (21), (23), (40), (218), (219), (220) gives:
-| | | | | | | |   (224)  all_847_1 = vtempty & all_847_2 = vrow1
+| | | | | | | | ALPHA: (218) implies:
+| | | | | | | |   (219)  $i(all_807_4)
+| | | | | | | |   (220)  $i(all_807_3)
+| | | | | | | |   (221)  $i(all_807_2)
+| | | | | | | |   (222)  $i(all_807_1)
+| | | | | | | |   (223)  $i(all_807_0)
+| | | | | | | |   (224)  vrcons(all_807_4, all_807_3) = all_807_1
+| | | | | | | |   (225)  vtcons(all_807_3, all_807_0) = all_454_0
+| | | | | | | |   (226)  vtcons(all_807_1, all_807_2) = all_454_0
 | | | | | | | | 
-| | | | | | | | ALPHA: (224) implies:
-| | | | | | | |   (225)  all_847_2 = vrow1
-| | | | | | | |   (226)  all_847_1 = vtempty
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_800_3,
+| | | | | | | |              all_454_0, all_800_0, all_454_1, simplifying with
+| | | | | | | |              (49), (62), (78), (210), (213), (215) gives:
+| | | | | | | |   (227)  all_800_0 = all_454_0 & all_800_3 = vrempty
 | | | | | | | | 
-| | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow3, all_427_1,
-| | | | | | | |              all_427_0, simplifying with (22), (24), (37), (42),
-| | | | | | | |              (221) gives:
-| | | | | | | |   (227)  vrow3 = vrow2 | vrowIn(vrow2, all_427_1) = 0
+| | | | | | | | ALPHA: (227) implies:
+| | | | | | | |   (228)  all_800_0 = all_454_0
 | | | | | | | | 
-| | | | | | | | BETA: splitting (227) gives:
+| | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_800_3,
+| | | | | | | |              all_800_0, all_454_1, simplifying with (210),
+| | | | | | | |              (213), (215) gives:
+| | | | | | | |   (229)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | |          (vprojectEmptyCol(all_800_0) = v1 &
+| | | | | | | |            vprojectEmptyCol(all_454_1) = v0 & vtcons(vrempty,
+| | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_800_1,
+| | | | | | | |              all_454_0, all_800_2, all_454_1, simplifying with
+| | | | | | | |              (49), (62), (78), (211), (212), (216) gives:
+| | | | | | | |   (230)  all_800_1 = vrempty & all_800_2 = all_454_0
+| | | | | | | | 
+| | | | | | | | ALPHA: (230) implies:
+| | | | | | | |   (231)  all_800_1 = vrempty
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with all_800_3, all_800_1,
+| | | | | | | |              all_800_0, all_800_2, all_454_1, simplifying with
+| | | | | | | |              (210), (211), (212), (213), (215), (216) gives:
+| | | | | | | |   (232)  all_800_0 = all_800_2 & all_800_1 = all_800_3
+| | | | | | | | 
+| | | | | | | | ALPHA: (232) implies:
+| | | | | | | |   (233)  all_800_1 = all_800_3
+| | | | | | | |   (234)  all_800_0 = all_800_2
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_800_1,
+| | | | | | | |              all_800_2, all_454_1, simplifying with (211),
+| | | | | | | |              (212), (216) gives:
+| | | | | | | |   (235)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | |          (vprojectEmptyCol(all_800_2) = v1 &
+| | | | | | | |            vprojectEmptyCol(all_454_1) = v0 & vtcons(vrempty,
+| | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_807_3,
+| | | | | | | |              vtempty, all_807_0, all_454_0, simplifying with
+| | | | | | | |              (36), (62), (73), (220), (223), (225) gives:
+| | | | | | | |   (236)  all_807_0 = vtempty & all_807_3 = vrempty
+| | | | | | | | 
+| | | | | | | | ALPHA: (236) implies:
+| | | | | | | |   (237)  all_807_0 = vtempty
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_807_3,
+| | | | | | | |              all_807_0, all_454_0, simplifying with (220),
+| | | | | | | |              (223), (225) gives:
+| | | | | | | |   (238)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | |          (vprojectEmptyCol(all_807_0) = v1 &
+| | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (projectFirstRaw2) with all_807_4,
+| | | | | | | |              all_807_3, all_807_2, all_807_1, all_454_0,
+| | | | | | | |              simplifying with (219), (220), (221), (224), (226)
+| | | | | | | |              gives:
+| | | | | | | |   (239)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :
+| | | | | | | |          (vprojectFirstRaw(all_807_2) = v2 &
+| | | | | | | |            vprojectFirstRaw(all_454_0) = v0 & vtcons(v1, v2) =
+| | | | | | | |            v0 & vrcons(all_807_4, vrempty) = v1 & $i(v2) &
+| | | | | | | |            $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_807_1,
+| | | | | | | |              vtempty, all_807_2, all_454_0, simplifying with
+| | | | | | | |              (36), (62), (73), (221), (222), (226) gives:
+| | | | | | | |   (240)  all_807_1 = vrempty & all_807_2 = vtempty
+| | | | | | | | 
+| | | | | | | | ALPHA: (240) implies:
+| | | | | | | |   (241)  all_807_1 = vrempty
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with all_807_3, all_807_1,
+| | | | | | | |              all_807_0, all_807_2, all_454_0, simplifying with
+| | | | | | | |              (220), (221), (222), (223), (225), (226) gives:
+| | | | | | | |   (242)  all_807_0 = all_807_2 & all_807_1 = all_807_3
+| | | | | | | | 
+| | | | | | | | ALPHA: (242) implies:
+| | | | | | | |   (243)  all_807_1 = all_807_3
+| | | | | | | |   (244)  all_807_0 = all_807_2
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_807_1,
+| | | | | | | |              all_807_2, all_454_0, simplifying with (221),
+| | | | | | | |              (222), (226) gives:
+| | | | | | | |   (245)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | |          (vprojectEmptyCol(all_807_2) = v1 &
+| | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (9) with vrow2, all_433_0, all_433_3,
+| | | | | | | |              all_433_2, simplifying with (23), (29), (30), (204)
+| | | | | | | |              gives:
+| | | | | | | |   (246)  all_433_2 = all_433_3 | vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (10) with vrow2, all_433_0,
+| | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | |              (30), (204) gives:
+| | | | | | | |   (247)  all_433_2 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | | | |            vrowIn(vrow2, all_433_0) = v0)
+| | | | | | | | 
+| | | | | | | | COMBINE_EQS: (237), (244) imply:
+| | | | | | | |   (248)  all_807_2 = vtempty
+| | | | | | | | 
+| | | | | | | | COMBINE_EQS: (241), (243) imply:
+| | | | | | | |   (249)  all_807_3 = vrempty
+| | | | | | | | 
+| | | | | | | | SIMP: (249) implies:
+| | | | | | | |   (250)  all_807_3 = vrempty
+| | | | | | | | 
+| | | | | | | | COMBINE_EQS: (228), (234) imply:
+| | | | | | | |   (251)  all_800_2 = all_454_0
+| | | | | | | | 
+| | | | | | | | COMBINE_EQS: (231), (233) imply:
+| | | | | | | |   (252)  all_800_3 = vrempty
+| | | | | | | | 
+| | | | | | | | SIMP: (252) implies:
+| | | | | | | |   (253)  all_800_3 = vrempty
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (245) with fresh symbols all_879_0,
+| | | | | | | |        all_879_1 gives:
+| | | | | | | |   (254)  vprojectEmptyCol(all_807_2) = all_879_0 &
+| | | | | | | |          vprojectEmptyCol(all_454_0) = all_879_1 &
+| | | | | | | |          vtcons(vrempty, all_879_0) = all_879_1 & $i(all_879_0)
+| | | | | | | |          & $i(all_879_1) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (254) implies:
+| | | | | | | |   (255)  $i(all_879_1)
+| | | | | | | |   (256)  vprojectEmptyCol(all_454_0) = all_879_1
+| | | | | | | |   (257)  vprojectEmptyCol(all_807_2) = all_879_0
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (238) with fresh symbols all_883_0,
+| | | | | | | |        all_883_1 gives:
+| | | | | | | |   (258)  vprojectEmptyCol(all_807_0) = all_883_0 &
+| | | | | | | |          vprojectEmptyCol(all_454_0) = all_883_1 &
+| | | | | | | |          vtcons(vrempty, all_883_0) = all_883_1 & $i(all_883_0)
+| | | | | | | |          & $i(all_883_1) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (258) implies:
+| | | | | | | |   (259)  vprojectEmptyCol(all_454_0) = all_883_1
+| | | | | | | |   (260)  vprojectEmptyCol(all_807_0) = all_883_0
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (235) with fresh symbols all_885_0,
+| | | | | | | |        all_885_1 gives:
+| | | | | | | |   (261)  vprojectEmptyCol(all_800_2) = all_885_0 &
+| | | | | | | |          vprojectEmptyCol(all_454_1) = all_885_1 &
+| | | | | | | |          vtcons(vrempty, all_885_0) = all_885_1 & $i(all_885_0)
+| | | | | | | |          & $i(all_885_1) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (261) implies:
+| | | | | | | |   (262)  vprojectEmptyCol(all_800_2) = all_885_0
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (229) with fresh symbols all_887_0,
+| | | | | | | |        all_887_1 gives:
+| | | | | | | |   (263)  vprojectEmptyCol(all_800_0) = all_887_0 &
+| | | | | | | |          vprojectEmptyCol(all_454_1) = all_887_1 &
+| | | | | | | |          vtcons(vrempty, all_887_0) = all_887_1 & $i(all_887_0)
+| | | | | | | |          & $i(all_887_1) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (263) implies:
+| | | | | | | |   (264)  vprojectEmptyCol(all_800_0) = all_887_0
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (239) with fresh symbols all_889_0,
+| | | | | | | |        all_889_1, all_889_2 gives:
+| | | | | | | |   (265)  vprojectFirstRaw(all_807_2) = all_889_0 &
+| | | | | | | |          vprojectFirstRaw(all_454_0) = all_889_2 &
+| | | | | | | |          vtcons(all_889_1, all_889_0) = all_889_2 &
+| | | | | | | |          vrcons(all_807_4, vrempty) = all_889_1 & $i(all_889_0)
+| | | | | | | |          & $i(all_889_1) & $i(all_889_2) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (265) implies:
+| | | | | | | |   (266)  $i(all_889_1)
+| | | | | | | |   (267)  vrcons(all_807_4, vrempty) = all_889_1
+| | | | | | | | 
+| | | | | | | | REDUCE: (237), (260) imply:
+| | | | | | | |   (268)  vprojectEmptyCol(vtempty) = all_883_0
+| | | | | | | | 
+| | | | | | | | REDUCE: (248), (257) imply:
+| | | | | | | |   (269)  vprojectEmptyCol(vtempty) = all_879_0
+| | | | | | | | 
+| | | | | | | | REDUCE: (228), (264) imply:
+| | | | | | | |   (270)  vprojectEmptyCol(all_454_0) = all_887_0
+| | | | | | | | 
+| | | | | | | | REDUCE: (251), (262) imply:
+| | | | | | | |   (271)  vprojectEmptyCol(all_454_0) = all_885_0
+| | | | | | | | 
+| | | | | | | | REDUCE: (224), (241), (250) imply:
+| | | | | | | |   (272)  vrcons(all_807_4, vrempty) = vrempty
+| | | | | | | | 
+| | | | | | | | BETA: splitting (246) gives:
 | | | | | | | | 
 | | | | | | | | Case 1:
 | | | | | | | | | 
-| | | | | | | | |   (228)  vrowIn(vrow2, all_427_1) = 0
+| | | | | | | | |   (273)  vrowIn(vrow2, all_433_0) = 0
 | | | | | | | | | 
-| | | | | | | | | BETA: splitting (203) gives:
+| | | | | | | | | BETA: splitting (247) gives:
 | | | | | | | | | 
 | | | | | | | | | Case 1:
 | | | | | | | | | | 
-| | | | | | | | | |   (229)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3:
-| | | | | | | | | |            int] : ( ~ (v3 = 0) &  ~ (v1 = vtempty) &
-| | | | | | | | | |            vrawDifference(v1, all_427_0) = v0 & vrowIn(v2,
-| | | | | | | | | |              all_427_0) = v3 & vtcons(v2, v1) = all_755_1 &
-| | | | | | | | | |            vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
-| | | | | | | | | |            $i(v0)) |  ? [v0: $i] :  ? [v1: int] : (all_755_1
-| | | | | | | | | |            = all_442_0 &  ~ (v1 = 0) & vrowIn(v0, all_427_0)
-| | | | | | | | | |            = v1 & vtcons(v0, vtempty) = all_442_0 & $i(v0))
-| | | | | | | | | |          |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
-| | | | | | | | | |            vrawDifference(v0, all_427_0) = all_442_0 &
-| | | | | | | | | |            vrowIn(v1, all_427_0) = 0 & vtcons(v1, v0) =
-| | | | | | | | | |            all_755_1 & $i(v1) & $i(v0))
+| | | | | | | | | |   (274)  all_433_2 = vtempty
 | | | | | | | | | | 
-| | | | | | | | | | BETA: splitting (229) gives:
+| | | | | | | | | | REDUCE: (80), (274) imply:
+| | | | | | | | | |   (275)  vprojectEmptyCol(vtempty) = all_454_1
 | | | | | | | | | | 
-| | | | | | | | | | Case 1:
-| | | | | | | | | | | 
-| | | | | | | | | | |   (230)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3:
-| | | | | | | | | | |            int] : ( ~ (v3 = 0) &  ~ (v1 = vtempty) &
-| | | | | | | | | | |            vrawDifference(v1, all_427_0) = v0 & vrowIn(v2,
-| | | | | | | | | | |              all_427_0) = v3 & vtcons(v2, v1) = all_755_1 &
-| | | | | | | | | | |            vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
-| | | | | | | | | | |            $i(v0))
-| | | | | | | | | | | 
-| | | | | | | | | | | DELTA: instantiating (230) with fresh symbols all_973_0,
-| | | | | | | | | | |        all_973_1, all_973_2, all_973_3 gives:
-| | | | | | | | | | |   (231)   ~ (all_973_0 = 0) &  ~ (all_973_2 = vtempty) &
-| | | | | | | | | | |          vrawDifference(all_973_2, all_427_0) = all_973_3 &
-| | | | | | | | | | |          vrowIn(all_973_1, all_427_0) = all_973_0 &
-| | | | | | | | | | |          vtcons(all_973_1, all_973_2) = all_755_1 &
-| | | | | | | | | | |          vtcons(all_973_1, all_973_3) = all_442_0 &
-| | | | | | | | | | |          $i(all_973_1) & $i(all_973_2) & $i(all_973_3)
-| | | | | | | | | | | 
-| | | | | | | | | | | ALPHA: (231) implies:
-| | | | | | | | | | |   (232)  $i(all_973_3)
-| | | | | | | | | | |   (233)  $i(all_973_1)
-| | | | | | | | | | |   (234)  vtcons(all_973_1, all_973_3) = all_442_0
-| | | | | | | | | | | 
-| | | | | | | | | | | REDUCE: (222), (234) imply:
-| | | | | | | | | | |   (235)  vtcons(all_973_1, all_973_3) = vtempty
-| | | | | | | | | | | 
-| | | | | | | | | | | GROUND_INST: instantiating (1) with all_973_1, all_973_3,
-| | | | | | | | | | |              simplifying with (232), (233), (235) gives:
-| | | | | | | | | | |   (236)  $false
-| | | | | | | | | | | 
-| | | | | | | | | | | CLOSE: (236) is inconsistent.
-| | | | | | | | | | | 
-| | | | | | | | | | Case 2:
-| | | | | | | | | | | 
-| | | | | | | | | | |   (237)   ? [v0: $i] :  ? [v1: int] : (all_755_1 =
-| | | | | | | | | | |            all_442_0 &  ~ (v1 = 0) & vrowIn(v0, all_427_0)
-| | | | | | | | | | |            = v1 & vtcons(v0, vtempty) = all_442_0 & $i(v0))
-| | | | | | | | | | |          |  ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
-| | | | | | | | | | |            vrawDifference(v0, all_427_0) = all_442_0 &
-| | | | | | | | | | |            vrowIn(v1, all_427_0) = 0 & vtcons(v1, v0) =
-| | | | | | | | | | |            all_755_1 & $i(v1) & $i(v0))
-| | | | | | | | | | | 
-| | | | | | | | | | | BETA: splitting (237) gives:
-| | | | | | | | | | | 
-| | | | | | | | | | | Case 1:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (238)   ? [v0: $i] :  ? [v1: int] : (all_755_1 =
-| | | | | | | | | | | |            all_442_0 &  ~ (v1 = 0) & vrowIn(v0, all_427_0)
-| | | | | | | | | | | |            = v1 & vtcons(v0, vtempty) = all_442_0 & $i(v0))
-| | | | | | | | | | | | 
-| | | | | | | | | | | | DELTA: instantiating (238) with fresh symbols all_973_0,
-| | | | | | | | | | | |        all_973_1 gives:
-| | | | | | | | | | | |   (239)  all_755_1 = all_442_0 &  ~ (all_973_0 = 0) &
-| | | | | | | | | | | |          vrowIn(all_973_1, all_427_0) = all_973_0 &
-| | | | | | | | | | | |          vtcons(all_973_1, vtempty) = all_442_0 &
-| | | | | | | | | | | |          $i(all_973_1)
-| | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (239) implies:
-| | | | | | | | | | | |   (240)  all_755_1 = all_442_0
-| | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (199), (240) imply:
-| | | | | | | | | | | |   (241)  all_442_0 = all_427_3
-| | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (222), (241) imply:
-| | | | | | | | | | | |   (242)  all_427_3 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (242) implies:
-| | | | | | | | | | | |   (243)  all_427_3 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (243) imply:
-| | | | | | | | | | | |   (244)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (244) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | Case 2:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (245)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
-| | | | | | | | | | | |            vrawDifference(v0, all_427_0) = all_442_0 &
-| | | | | | | | | | | |            vrowIn(v1, all_427_0) = 0 & vtcons(v1, v0) =
-| | | | | | | | | | | |            all_755_1 & $i(v1) & $i(v0))
-| | | | | | | | | | | | 
-| | | | | | | | | | | | DELTA: instantiating (245) with fresh symbols all_973_0,
-| | | | | | | | | | | |        all_973_1 gives:
-| | | | | | | | | | | |   (246)   ~ (all_973_1 = vtempty) &
-| | | | | | | | | | | |          vrawDifference(all_973_1, all_427_0) = all_442_0 &
-| | | | | | | | | | | |          vrowIn(all_973_0, all_427_0) = 0 &
-| | | | | | | | | | | |          vtcons(all_973_0, all_973_1) = all_755_1 &
-| | | | | | | | | | | |          $i(all_973_0) & $i(all_973_1)
-| | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (246) implies:
-| | | | | | | | | | | |   (247)   ~ (all_973_1 = vtempty)
-| | | | | | | | | | | |   (248)  $i(all_973_1)
-| | | | | | | | | | | |   (249)  $i(all_973_0)
-| | | | | | | | | | | |   (250)  vtcons(all_973_0, all_973_1) = all_755_1
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (199), (250) imply:
-| | | | | | | | | | | |   (251)  vtcons(all_973_0, all_973_1) = all_427_3
-| | | | | | | | | | | | 
-| | | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_973_0,
-| | | | | | | | | | | |              vtempty, all_973_1, all_427_3, simplifying with
-| | | | | | | | | | | |              (21), (22), (39), (248), (249), (251) gives:
-| | | | | | | | | | | |   (252)  all_973_0 = vrow2 & all_973_1 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (252) implies:
-| | | | | | | | | | | |   (253)  all_973_1 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (247), (253) imply:
-| | | | | | | | | | | |   (254)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (254) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | End of split
-| | | | | | | | | | | 
-| | | | | | | | | | End of split
+| | | | | | | | | | GROUND_INST: instantiating (18) with vrempty, all_889_1,
+| | | | | | | | | |              vrempty, all_807_4, simplifying with (267), (272)
+| | | | | | | | | |              gives:
+| | | | | | | | | |   (276)  all_889_1 = vrempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with vtempty, all_883_0,
+| | | | | | | | | |              vtempty, simplifying with (11), (268) gives:
+| | | | | | | | | |   (277)  all_883_0 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_879_0, all_883_0,
+| | | | | | | | | |              vtempty, simplifying with (268), (269) gives:
+| | | | | | | | | |   (278)  all_883_0 = all_879_0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_454_1, all_883_0,
+| | | | | | | | | |              vtempty, simplifying with (268), (275) gives:
+| | | | | | | | | |   (279)  all_883_0 = all_454_1
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_454_0, all_883_1,
+| | | | | | | | | |              all_454_0, simplifying with (129), (259) gives:
+| | | | | | | | | |   (280)  all_883_1 = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_885_0, all_887_0,
+| | | | | | | | | |              all_454_0, simplifying with (270), (271) gives:
+| | | | | | | | | |   (281)  all_887_0 = all_885_0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_883_1, all_887_0,
+| | | | | | | | | |              all_454_0, simplifying with (259), (270) gives:
+| | | | | | | | | |   (282)  all_887_0 = all_883_1
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (17) with all_879_1, all_887_0,
+| | | | | | | | | |              all_454_0, simplifying with (256), (270) gives:
+| | | | | | | | | |   (283)  all_887_0 = all_879_1
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (281), (283) imply:
+| | | | | | | | | |   (284)  all_885_0 = all_879_1
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (281), (282) imply:
+| | | | | | | | | |   (285)  all_885_0 = all_883_1
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (284), (285) imply:
+| | | | | | | | | |   (286)  all_883_1 = all_879_1
+| | | | | | | | | | 
+| | | | | | | | | | SIMP: (286) implies:
+| | | | | | | | | |   (287)  all_883_1 = all_879_1
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (277), (278) imply:
+| | | | | | | | | |   (288)  all_879_0 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (278), (279) imply:
+| | | | | | | | | |   (289)  all_879_0 = all_454_1
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (280), (287) imply:
+| | | | | | | | | |   (290)  all_879_1 = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (288), (289) imply:
+| | | | | | | | | |   (291)  all_454_1 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (49), (291) imply:
+| | | | | | | | | |   (292)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0,
+| | | | | | | | | |              simplifying with (62), (78), (292) gives:
+| | | | | | | | | |   (293)  $false
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (293) is inconsistent.
 | | | | | | | | | | 
 | | | | | | | | | Case 2:
 | | | | | | | | | | 
-| | | | | | | | | |   (255)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
-| | | | | | | | | |              all_427_0) = 0 & vtcons(v0, vtempty) =
-| | | | | | | | | |            all_755_1 & $i(v0)) | (all_755_1 = all_442_0 &
-| | | | | | | | | |            all_427_0 = vtempty) | (all_755_1 = vtempty &
-| | | | | | | | | |            all_442_0 = vtempty)
+| | | | | | | | | |   (294)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2,
+| | | | | | | | | |              all_433_0) = v0)
 | | | | | | | | | | 
-| | | | | | | | | | BETA: splitting (255) gives:
-| | | | | | | | | | 
-| | | | | | | | | | Case 1:
-| | | | | | | | | | | 
-| | | | | | | | | | |   (256)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0,
-| | | | | | | | | | |              all_427_0) = 0 & vtcons(v0, vtempty) =
-| | | | | | | | | | |            all_755_1 & $i(v0))
-| | | | | | | | | | | 
-| | | | | | | | | | | DELTA: instantiating (256) with fresh symbol all_973_0
-| | | | | | | | | | |        gives:
-| | | | | | | | | | |   (257)  all_442_0 = vtempty & vrowIn(all_973_0, all_427_0)
-| | | | | | | | | | |          = 0 & vtcons(all_973_0, vtempty) = all_755_1 &
-| | | | | | | | | | |          $i(all_973_0)
-| | | | | | | | | | | 
-| | | | | | | | | | | ALPHA: (257) implies:
-| | | | | | | | | | |   (258)  $i(all_973_0)
-| | | | | | | | | | |   (259)  vtcons(all_973_0, vtempty) = all_755_1
-| | | | | | | | | | | 
-| | | | | | | | | | | REDUCE: (199), (259) imply:
-| | | | | | | | | | |   (260)  vtcons(all_973_0, vtempty) = all_427_3
-| | | | | | | | | | | 
-| | | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow2, all_973_0,
-| | | | | | | | | | |              vtempty, vtempty, all_427_3, simplifying with
-| | | | | | | | | | |              (21), (22), (39), (258), (260) gives:
-| | | | | | | | | | |   (261)  all_973_0 = vrow2
-| | | | | | | | | | | 
-| | | | | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow1, vtempty,
-| | | | | | | | | | |              all_427_1, simplifying with (21), (22), (23),
-| | | | | | | | | | |              (40), (228) gives:
-| | | | | | | | | | |   (262)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
-| | | | | | | | | | | 
-| | | | | | | | | | | BETA: splitting (262) gives:
-| | | | | | | | | | | 
-| | | | | | | | | | | Case 1:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (263)  vrowIn(vrow2, vtempty) = 0
-| | | | | | | | | | | | 
-| | | | | | | | | | | | GROUND_INST: instantiating (2) with vrow2, simplifying with
-| | | | | | | | | | | |              (22), (263) gives:
-| | | | | | | | | | | |   (264)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (264) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | Case 2:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (265)  vrow1 = vrow2
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (18), (265) imply:
-| | | | | | | | | | | |   (266)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (266) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | End of split
-| | | | | | | | | | | 
-| | | | | | | | | | Case 2:
-| | | | | | | | | | | 
-| | | | | | | | | | |   (267)  (all_755_1 = all_442_0 & all_427_0 = vtempty) |
-| | | | | | | | | | |          (all_755_1 = vtempty & all_442_0 = vtempty)
-| | | | | | | | | | | 
-| | | | | | | | | | | BETA: splitting (267) gives:
-| | | | | | | | | | | 
-| | | | | | | | | | | Case 1:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (268)  all_755_1 = all_442_0 & all_427_0 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (268) implies:
-| | | | | | | | | | | |   (269)  all_755_1 = all_442_0
-| | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (199), (269) imply:
-| | | | | | | | | | | |   (270)  all_442_0 = all_427_3
-| | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (270) implies:
-| | | | | | | | | | | |   (271)  all_442_0 = all_427_3
-| | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (222), (271) imply:
-| | | | | | | | | | | |   (272)  all_427_3 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | SIMP: (272) implies:
-| | | | | | | | | | | |   (273)  all_427_3 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (273) imply:
-| | | | | | | | | | | |   (274)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (274) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | Case 2:
-| | | | | | | | | | | | 
-| | | | | | | | | | | |   (275)  all_755_1 = vtempty & all_442_0 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | ALPHA: (275) implies:
-| | | | | | | | | | | |   (276)  all_755_1 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | COMBINE_EQS: (199), (276) imply:
-| | | | | | | | | | | |   (277)  all_427_3 = vtempty
-| | | | | | | | | | | | 
-| | | | | | | | | | | | REDUCE: (161), (277) imply:
-| | | | | | | | | | | |   (278)  $false
-| | | | | | | | | | | | 
-| | | | | | | | | | | | CLOSE: (278) is inconsistent.
-| | | | | | | | | | | | 
-| | | | | | | | | | | End of split
-| | | | | | | | | | | 
-| | | | | | | | | | End of split
+| | | | | | | | | | REF_CLOSE: (20), (273), (294) are inconsistent by sub-proof
+| | | | | | | | | |            #3.
 | | | | | | | | | | 
 | | | | | | | | | End of split
 | | | | | | | | | 
 | | | | | | | | Case 2:
 | | | | | | | | | 
-| | | | | | | | |   (279)  vrow3 = vrow2
+| | | | | | | | |   (295)  all_433_2 = all_433_3
 | | | | | | | | | 
-| | | | | | | | | REDUCE: (20), (279) imply:
-| | | | | | | | |   (280)  $false
+| | | | | | | | | REDUCE: (146), (295) imply:
+| | | | | | | | |   (296)  $false
 | | | | | | | | | 
-| | | | | | | | | CLOSE: (280) is inconsistent.
+| | | | | | | | | CLOSE: (296) is inconsistent.
 | | | | | | | | | 
 | | | | | | | | End of split
 | | | | | | | | 
 | | | | | | | Case 2:
 | | | | | | | | 
-| | | | | | | |   (281)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2, all_427_0)
-| | | | | | | |            = v0)
+| | | | | | | |   (297)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) = v1
+| | | | | | | |            & vtcons(vrempty, v1) = all_454_0 & vtcons(vrempty,
+| | | | | | | |              v0) = all_454_0 & $i(v1) & $i(v0) & $i(vrempty)) |
+| | | | | | | |          (all_454_0 = vtempty & $i(vtempty))
 | | | | | | | | 
-| | | | | | | | DELTA: instantiating (281) with fresh symbol all_867_0 gives:
-| | | | | | | |   (282)   ~ (all_867_0 = 0) & vrowIn(vrow2, all_427_0) =
-| | | | | | | |          all_867_0
+| | | | | | | | BETA: splitting (297) gives:
 | | | | | | | | 
-| | | | | | | | ALPHA: (282) implies:
-| | | | | | | |   (283)   ~ (all_867_0 = 0)
-| | | | | | | |   (284)  vrowIn(vrow2, all_427_0) = all_867_0
-| | | | | | | | 
-| | | | | | | | GROUND_INST: instantiating (31) with 0, all_867_0, all_427_0,
-| | | | | | | |              vrow2, simplifying with (221), (284) gives:
-| | | | | | | |   (285)  all_867_0 = 0
-| | | | | | | | 
-| | | | | | | | REDUCE: (283), (285) imply:
-| | | | | | | |   (286)  $false
-| | | | | | | | 
-| | | | | | | | CLOSE: (286) is inconsistent.
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (298)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) =
+| | | | | | | | |            v1 & vtcons(vrempty, v1) = all_454_0 &
+| | | | | | | | |            vtcons(vrempty, v0) = all_454_0 & $i(v1) & $i(v0) &
+| | | | | | | | |            $i(vrempty))
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (298) with fresh symbols all_807_0,
+| | | | | | | | |        all_807_1 gives:
+| | | | | | | | |   (299)  vdropFirstColRaw(all_807_1) = all_807_0 &
+| | | | | | | | |          vtcons(vrempty, all_807_0) = all_454_0 &
+| | | | | | | | |          vtcons(vrempty, all_807_1) = all_454_0 &
+| | | | | | | | |          $i(all_807_0) & $i(all_807_1) & $i(vrempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (299) implies:
+| | | | | | | | |   (300)  $i(all_807_1)
+| | | | | | | | |   (301)  $i(all_807_0)
+| | | | | | | | |   (302)  vtcons(vrempty, all_807_1) = all_454_0
+| | | | | | | | |   (303)  vtcons(vrempty, all_807_0) = all_454_0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (6) with all_807_1, all_454_0,
+| | | | | | | | |              simplifying with (300), (302) gives:
+| | | | | | | | |   (304)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_807_1) = v1 &
+| | | | | | | | |            vprojectFirstRaw(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with vrempty,
+| | | | | | | | |              all_807_1, all_454_0, simplifying with (62),
+| | | | | | | | |              (300), (302) gives:
+| | | | | | | | |   (305)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectEmptyCol(all_807_1) = v1 &
+| | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | |              vtempty, all_807_0, all_454_0, simplifying with
+| | | | | | | | |              (36), (62), (73), (301), (303) gives:
+| | | | | | | | |   (306)  all_807_0 = vtempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | |              all_807_1, all_807_0, all_454_0, simplifying with
+| | | | | | | | |              (62), (300), (301), (302), (303) gives:
+| | | | | | | | |   (307)  all_807_0 = all_807_1
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (6) with all_807_0, all_454_0,
+| | | | | | | | |              simplifying with (301), (303) gives:
+| | | | | | | | |   (308)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_807_0) = v1 &
+| | | | | | | | |            vprojectFirstRaw(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with vrempty,
+| | | | | | | | |              all_807_0, all_454_0, simplifying with (62),
+| | | | | | | | |              (301), (303) gives:
+| | | | | | | | |   (309)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectEmptyCol(all_807_0) = v1 &
+| | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow3, all_785_2,
+| | | | | | | | |              all_433_1, all_785_1, all_433_0, simplifying with
+| | | | | | | | |              (25), (28), (33), (199), (200), (201) gives:
+| | | | | | | | |   (310)  all_785_1 = all_433_1 & all_785_2 = vrow3
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (310) implies:
+| | | | | | | | |   (311)  all_785_2 = vrow3
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_800_3,
+| | | | | | | | |              all_454_0, all_800_0, all_454_1, simplifying with
+| | | | | | | | |              (49), (62), (78), (210), (213), (215) gives:
+| | | | | | | | |   (312)  all_800_0 = all_454_0 & all_800_3 = vrempty
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (312) implies:
+| | | | | | | | |   (313)  all_800_0 = all_454_0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectFirstRaw2) with all_800_4,
+| | | | | | | | |              all_800_3, all_800_2, all_800_1, all_454_1,
+| | | | | | | | |              simplifying with (209), (210), (211), (214), (216)
+| | | | | | | | |              gives:
+| | | | | | | | |   (314)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_800_2) = v2 &
+| | | | | | | | |            vprojectFirstRaw(all_454_1) = v0 & vtcons(v1, v2) =
+| | | | | | | | |            v0 & vrcons(all_800_4, vrempty) = v1 & $i(v2) &
+| | | | | | | | |            $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_800_1,
+| | | | | | | | |              all_454_0, all_800_2, all_454_1, simplifying with
+| | | | | | | | |              (49), (62), (78), (211), (212), (216) gives:
+| | | | | | | | |   (315)  all_800_1 = vrempty & all_800_2 = all_454_0
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (315) implies:
+| | | | | | | | |   (316)  all_800_1 = vrempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with all_800_3,
+| | | | | | | | |              all_800_1, all_800_0, all_800_2, all_454_1,
+| | | | | | | | |              simplifying with (210), (211), (212), (213),
+| | | | | | | | |              (215), (216) gives:
+| | | | | | | | |   (317)  all_800_0 = all_800_2 & all_800_1 = all_800_3
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (317) implies:
+| | | | | | | | |   (318)  all_800_1 = all_800_3
+| | | | | | | | |   (319)  all_800_0 = all_800_2
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (9) with vrow2, all_433_0,
+| | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | |              (30), (204) gives:
+| | | | | | | | |   (320)  all_433_2 = all_433_3 | vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (10) with vrow2, all_433_0,
+| | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | |              (30), (204) gives:
+| | | | | | | | |   (321)  all_433_2 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | | | | |            vrowIn(vrow2, all_433_0) = v0)
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (306), (307) imply:
+| | | | | | | | |   (322)  all_807_1 = vtempty
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (313), (319) imply:
+| | | | | | | | |   (323)  all_800_2 = all_454_0
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (316), (318) imply:
+| | | | | | | | |   (324)  all_800_3 = vrempty
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (304) with fresh symbols all_857_0,
+| | | | | | | | |        all_857_1 gives:
+| | | | | | | | |   (325)  vprojectFirstRaw(all_807_1) = all_857_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_0) = all_857_1 &
+| | | | | | | | |          vtcons(vrempty, all_857_0) = all_857_1 &
+| | | | | | | | |          $i(all_857_0) & $i(all_857_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (325) implies:
+| | | | | | | | |   (326)  $i(all_857_1)
+| | | | | | | | |   (327)  vprojectFirstRaw(all_454_0) = all_857_1
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (309) with fresh symbols all_861_0,
+| | | | | | | | |        all_861_1 gives:
+| | | | | | | | |   (328)  vprojectEmptyCol(all_807_0) = all_861_0 &
+| | | | | | | | |          vprojectEmptyCol(all_454_0) = all_861_1 &
+| | | | | | | | |          vtcons(vrempty, all_861_0) = all_861_1 &
+| | | | | | | | |          $i(all_861_0) & $i(all_861_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (328) implies:
+| | | | | | | | |   (329)  vprojectEmptyCol(all_807_0) = all_861_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (305) with fresh symbols all_863_0,
+| | | | | | | | |        all_863_1 gives:
+| | | | | | | | |   (330)  vprojectEmptyCol(all_807_1) = all_863_0 &
+| | | | | | | | |          vprojectEmptyCol(all_454_0) = all_863_1 &
+| | | | | | | | |          vtcons(vrempty, all_863_0) = all_863_1 &
+| | | | | | | | |          $i(all_863_0) & $i(all_863_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (330) implies:
+| | | | | | | | |   (331)  vprojectEmptyCol(all_807_1) = all_863_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (308) with fresh symbols all_865_0,
+| | | | | | | | |        all_865_1 gives:
+| | | | | | | | |   (332)  vprojectFirstRaw(all_807_0) = all_865_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_0) = all_865_1 &
+| | | | | | | | |          vtcons(vrempty, all_865_0) = all_865_1 &
+| | | | | | | | |          $i(all_865_0) & $i(all_865_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (332) implies:
+| | | | | | | | |   (333)  vprojectFirstRaw(all_454_0) = all_865_1
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (314) with fresh symbols all_875_0,
+| | | | | | | | |        all_875_1, all_875_2 gives:
+| | | | | | | | |   (334)  vprojectFirstRaw(all_800_2) = all_875_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_1) = all_875_2 &
+| | | | | | | | |          vtcons(all_875_1, all_875_0) = all_875_2 &
+| | | | | | | | |          vrcons(all_800_4, vrempty) = all_875_1 &
+| | | | | | | | |          $i(all_875_0) & $i(all_875_1) & $i(all_875_2) &
+| | | | | | | | |          $i(vrempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (334) implies:
+| | | | | | | | |   (335)  $i(all_875_1)
+| | | | | | | | |   (336)  vrcons(all_800_4, vrempty) = all_875_1
+| | | | | | | | |   (337)  vprojectFirstRaw(all_800_2) = all_875_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (306), (329) imply:
+| | | | | | | | |   (338)  vprojectEmptyCol(vtempty) = all_861_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (322), (331) imply:
+| | | | | | | | |   (339)  vprojectEmptyCol(vtempty) = all_863_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (323), (337) imply:
+| | | | | | | | |   (340)  vprojectFirstRaw(all_454_0) = all_875_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (214), (316), (324) imply:
+| | | | | | | | |   (341)  vrcons(all_800_4, vrempty) = vrempty
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (320) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (342)  vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (321) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (343)  all_433_2 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | REDUCE: (80), (343) imply:
+| | | | | | | | | | |   (344)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | | | | | | | 
+| | | | | | | | | | | BETA: splitting (202) gives:
+| | | | | | | | | | | 
+| | | | | | | | | | | Case 1:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (345)  all_785_2 = all_763_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (311), (345) imply:
+| | | | | | | | | | | |   (346)  all_763_0 = vrow3
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (190), (346) imply:
+| | | | | | | | | | | |   (347)  vrow3 = vrow1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (347) implies:
+| | | | | | | | | | | |   (348)  vrow3 = vrow1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REDUCE: (13), (348) imply:
+| | | | | | | | | | | |   (349)  $false
+| | | | | | | | | | | | 
+| | | | | | | | | | | | CLOSE: (349) is inconsistent.
+| | | | | | | | | | | | 
+| | | | | | | | | | | Case 2:
+| | | | | | | | | | | | 
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (18) with vrempty, all_875_1,
+| | | | | | | | | | | |              vrempty, all_800_4, simplifying with (336), (341)
+| | | | | | | | | | | |              gives:
+| | | | | | | | | | | |   (350)  all_875_1 = vrempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (15) with all_454_0, all_865_1,
+| | | | | | | | | | | |              all_454_0, simplifying with (131), (333) gives:
+| | | | | | | | | | | |   (351)  all_865_1 = all_454_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (15) with all_865_1, all_875_0,
+| | | | | | | | | | | |              all_454_0, simplifying with (333), (340) gives:
+| | | | | | | | | | | |   (352)  all_875_0 = all_865_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (15) with all_857_1, all_875_0,
+| | | | | | | | | | | |              all_454_0, simplifying with (327), (340) gives:
+| | | | | | | | | | | |   (353)  all_875_0 = all_857_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with vtempty, all_861_0,
+| | | | | | | | | | | |              vtempty, simplifying with (11), (338) gives:
+| | | | | | | | | | | |   (354)  all_861_0 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with all_861_0, all_863_0,
+| | | | | | | | | | | |              vtempty, simplifying with (338), (339) gives:
+| | | | | | | | | | | |   (355)  all_863_0 = all_861_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with all_454_1, all_863_0,
+| | | | | | | | | | | |              vtempty, simplifying with (339), (344) gives:
+| | | | | | | | | | | |   (356)  all_863_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (352), (353) imply:
+| | | | | | | | | | | |   (357)  all_865_1 = all_857_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (357) implies:
+| | | | | | | | | | | |   (358)  all_865_1 = all_857_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (351), (358) imply:
+| | | | | | | | | | | |   (359)  all_857_1 = all_454_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (355), (356) imply:
+| | | | | | | | | | | |   (360)  all_861_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (360) implies:
+| | | | | | | | | | | |   (361)  all_861_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (354), (361) imply:
+| | | | | | | | | | | |   (362)  all_454_1 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REDUCE: (49), (362) imply:
+| | | | | | | | | | | |   (363)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0,
+| | | | | | | | | | | |              simplifying with (62), (78), (363) gives:
+| | | | | | | | | | | |   (364)  $false
+| | | | | | | | | | | | 
+| | | | | | | | | | | | CLOSE: (364) is inconsistent.
+| | | | | | | | | | | | 
+| | | | | | | | | | | End of split
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (365)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2,
+| | | | | | | | | | |              all_433_0) = v0)
+| | | | | | | | | | | 
+| | | | | | | | | | | REF_CLOSE: (20), (342), (365) are inconsistent by sub-proof
+| | | | | | | | | | |            #3.
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (366)  all_433_2 = all_433_3
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (146), (366) imply:
+| | | | | | | | | |   (367)  $false
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (367) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (368)  all_454_0 = vtempty & $i(vtempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (368) implies:
+| | | | | | | | |   (369)  all_454_0 = vtempty
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (73), (369) imply:
+| | | | | | | | |   (370)  vtcons(vrempty, vtempty) = vtempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (1) with vrempty, vtempty,
+| | | | | | | | |              simplifying with (36), (62), (370) gives:
+| | | | | | | | |   (371)  $false
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (371) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | End of split
 | | | | | | | | 
 | | | | | | | End of split
 | | | | | | | 
 | | | | | | Case 2:
 | | | | | | | 
-| | | | | | |   (287)  all_442_0 = all_427_3
+| | | | | | |   (372)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) = v1 &
+| | | | | | |            vtcons(vrempty, v1) = all_454_1 & vtcons(vrempty, v0) =
+| | | | | | |            all_454_1 & $i(v1) & $i(v0) & $i(vrempty)) | (all_454_1
+| | | | | | |            = vtempty & $i(vtempty))
 | | | | | | | 
-| | | | | | | REDUCE: (48), (287) imply:
-| | | | | | |   (288)  $false
+| | | | | | | BETA: splitting (372) gives:
 | | | | | | | 
-| | | | | | | CLOSE: (288) is inconsistent.
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (373)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) = v1
+| | | | | | | |            & vtcons(vrempty, v1) = all_454_1 & vtcons(vrempty,
+| | | | | | | |              v0) = all_454_1 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (373) with fresh symbols all_800_0,
+| | | | | | | |        all_800_1 gives:
+| | | | | | | |   (374)  vdropFirstColRaw(all_800_1) = all_800_0 &
+| | | | | | | |          vtcons(vrempty, all_800_0) = all_454_1 &
+| | | | | | | |          vtcons(vrempty, all_800_1) = all_454_1 & $i(all_800_0)
+| | | | | | | |          & $i(all_800_1) & $i(vrempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (374) implies:
+| | | | | | | |   (375)  $i(all_800_1)
+| | | | | | | |   (376)  $i(all_800_0)
+| | | | | | | |   (377)  vtcons(vrempty, all_800_1) = all_454_1
+| | | | | | | |   (378)  vtcons(vrempty, all_800_0) = all_454_1
+| | | | | | | |   (379)  vdropFirstColRaw(all_800_1) = all_800_0
+| | | | | | | | 
+| | | | | | | | BETA: splitting (144) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (380)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: $i]
+| | | | | | | | |          :  ? [v4: $i] : (vdropFirstColRaw(v2) = v4 &
+| | | | | | | | |            vtcons(v3, v2) = all_454_0 & vtcons(v1, v4) =
+| | | | | | | | |            all_454_0 & vrcons(v0, v1) = v3 & $i(v4) & $i(v3) &
+| | | | | | | | |            $i(v2) & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (380) with fresh symbols all_807_0,
+| | | | | | | | |        all_807_1, all_807_2, all_807_3, all_807_4 gives:
+| | | | | | | | |   (381)  vdropFirstColRaw(all_807_2) = all_807_0 &
+| | | | | | | | |          vtcons(all_807_1, all_807_2) = all_454_0 &
+| | | | | | | | |          vtcons(all_807_3, all_807_0) = all_454_0 &
+| | | | | | | | |          vrcons(all_807_4, all_807_3) = all_807_1 &
+| | | | | | | | |          $i(all_807_0) & $i(all_807_1) & $i(all_807_2) &
+| | | | | | | | |          $i(all_807_3) & $i(all_807_4)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (381) implies:
+| | | | | | | | |   (382)  $i(all_807_4)
+| | | | | | | | |   (383)  $i(all_807_3)
+| | | | | | | | |   (384)  $i(all_807_2)
+| | | | | | | | |   (385)  $i(all_807_1)
+| | | | | | | | |   (386)  $i(all_807_0)
+| | | | | | | | |   (387)  vrcons(all_807_4, all_807_3) = all_807_1
+| | | | | | | | |   (388)  vtcons(all_807_3, all_807_0) = all_454_0
+| | | | | | | | |   (389)  vtcons(all_807_1, all_807_2) = all_454_0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (6) with all_800_1, all_454_1,
+| | | | | | | | |              simplifying with (375), (377) gives:
+| | | | | | | | |   (390)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_800_1) = v1 &
+| | | | | | | | |            vprojectFirstRaw(all_454_1) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | |              all_454_0, all_800_0, all_454_1, simplifying with
+| | | | | | | | |              (49), (62), (78), (376), (378) gives:
+| | | | | | | | |   (391)  all_800_0 = all_454_0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | |              all_800_1, all_800_0, all_454_1, simplifying with
+| | | | | | | | |              (62), (375), (376), (377), (378) gives:
+| | | | | | | | |   (392)  all_800_0 = all_800_1
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (6) with all_800_0, all_454_1,
+| | | | | | | | |              simplifying with (376), (378) gives:
+| | | | | | | | |   (393)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_800_0) = v1 &
+| | | | | | | | |            vprojectFirstRaw(all_454_1) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_807_3,
+| | | | | | | | |              vtempty, all_807_0, all_454_0, simplifying with
+| | | | | | | | |              (36), (62), (73), (383), (386), (388) gives:
+| | | | | | | | |   (394)  all_807_0 = vtempty & all_807_3 = vrempty
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (394) implies:
+| | | | | | | | |   (395)  all_807_0 = vtempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_807_3,
+| | | | | | | | |              all_807_0, all_454_0, simplifying with (383),
+| | | | | | | | |              (386), (388) gives:
+| | | | | | | | |   (396)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectEmptyCol(all_807_0) = v1 &
+| | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectFirstRaw2) with all_807_4,
+| | | | | | | | |              all_807_3, all_807_2, all_807_1, all_454_0,
+| | | | | | | | |              simplifying with (382), (383), (384), (387), (389)
+| | | | | | | | |              gives:
+| | | | | | | | |   (397)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :
+| | | | | | | | |          (vprojectFirstRaw(all_807_2) = v2 &
+| | | | | | | | |            vprojectFirstRaw(all_454_0) = v0 & vtcons(v1, v2) =
+| | | | | | | | |            v0 & vrcons(all_807_4, vrempty) = v1 & $i(v2) &
+| | | | | | | | |            $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, all_807_1,
+| | | | | | | | |              vtempty, all_807_2, all_454_0, simplifying with
+| | | | | | | | |              (36), (62), (73), (384), (385), (389) gives:
+| | | | | | | | |   (398)  all_807_1 = vrempty & all_807_2 = vtempty
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (398) implies:
+| | | | | | | | |   (399)  all_807_1 = vrempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with all_807_3,
+| | | | | | | | |              all_807_1, all_807_0, all_807_2, all_454_0,
+| | | | | | | | |              simplifying with (383), (384), (385), (386),
+| | | | | | | | |              (388), (389) gives:
+| | | | | | | | |   (400)  all_807_0 = all_807_2 & all_807_1 = all_807_3
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (400) implies:
+| | | | | | | | |   (401)  all_807_1 = all_807_3
+| | | | | | | | |   (402)  all_807_0 = all_807_2
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_807_1,
+| | | | | | | | |              all_807_2, all_454_0, simplifying with (384),
+| | | | | | | | |              (385), (389) gives:
+| | | | | | | | |   (403)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | |          (vprojectEmptyCol(all_807_2) = v1 &
+| | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 & vtcons(vrempty,
+| | | | | | | | |              v1) = v0 & $i(v1) & $i(v0) & $i(vrempty))
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (9) with vrow2, all_433_0,
+| | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | |              (30), (204) gives:
+| | | | | | | | |   (404)  all_433_2 = all_433_3 | vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (10) with vrow2, all_433_0,
+| | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | |              (30), (204) gives:
+| | | | | | | | |   (405)  all_433_2 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | | | | |            vrowIn(vrow2, all_433_0) = v0)
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (395), (402) imply:
+| | | | | | | | |   (406)  all_807_2 = vtempty
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (399), (401) imply:
+| | | | | | | | |   (407)  all_807_3 = vrempty
+| | | | | | | | | 
+| | | | | | | | | COMBINE_EQS: (391), (392) imply:
+| | | | | | | | |   (408)  all_800_1 = all_454_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (390) with fresh symbols all_857_0,
+| | | | | | | | |        all_857_1 gives:
+| | | | | | | | |   (409)  vprojectFirstRaw(all_800_1) = all_857_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_1) = all_857_1 &
+| | | | | | | | |          vtcons(vrempty, all_857_0) = all_857_1 &
+| | | | | | | | |          $i(all_857_0) & $i(all_857_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (409) implies:
+| | | | | | | | |   (410)  $i(all_857_0)
+| | | | | | | | |   (411)  vprojectFirstRaw(all_800_1) = all_857_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (393) with fresh symbols all_865_0,
+| | | | | | | | |        all_865_1 gives:
+| | | | | | | | |   (412)  vprojectFirstRaw(all_800_0) = all_865_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_1) = all_865_1 &
+| | | | | | | | |          vtcons(vrempty, all_865_0) = all_865_1 &
+| | | | | | | | |          $i(all_865_0) & $i(all_865_1)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (412) implies:
+| | | | | | | | |   (413)  vprojectFirstRaw(all_800_0) = all_865_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (403) with fresh symbols all_869_0,
+| | | | | | | | |        all_869_1 gives:
+| | | | | | | | |   (414)  vprojectEmptyCol(all_807_2) = all_869_0 &
+| | | | | | | | |          vprojectEmptyCol(all_454_0) = all_869_1 &
+| | | | | | | | |          vtcons(vrempty, all_869_0) = all_869_1 &
+| | | | | | | | |          $i(all_869_0) & $i(all_869_1) & $i(vrempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (414) implies:
+| | | | | | | | |   (415)  vprojectEmptyCol(all_807_2) = all_869_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (396) with fresh symbols all_873_0,
+| | | | | | | | |        all_873_1 gives:
+| | | | | | | | |   (416)  vprojectEmptyCol(all_807_0) = all_873_0 &
+| | | | | | | | |          vprojectEmptyCol(all_454_0) = all_873_1 &
+| | | | | | | | |          vtcons(vrempty, all_873_0) = all_873_1 &
+| | | | | | | | |          $i(all_873_0) & $i(all_873_1) & $i(vrempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (416) implies:
+| | | | | | | | |   (417)  vprojectEmptyCol(all_807_0) = all_873_0
+| | | | | | | | | 
+| | | | | | | | | DELTA: instantiating (397) with fresh symbols all_875_0,
+| | | | | | | | |        all_875_1, all_875_2 gives:
+| | | | | | | | |   (418)  vprojectFirstRaw(all_807_2) = all_875_0 &
+| | | | | | | | |          vprojectFirstRaw(all_454_0) = all_875_2 &
+| | | | | | | | |          vtcons(all_875_1, all_875_0) = all_875_2 &
+| | | | | | | | |          vrcons(all_807_4, vrempty) = all_875_1 &
+| | | | | | | | |          $i(all_875_0) & $i(all_875_1) & $i(all_875_2) &
+| | | | | | | | |          $i(vrempty)
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (418) implies:
+| | | | | | | | |   (419)  $i(all_875_1)
+| | | | | | | | |   (420)  vrcons(all_807_4, vrempty) = all_875_1
+| | | | | | | | |   (421)  vprojectFirstRaw(all_454_0) = all_875_2
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (395), (417) imply:
+| | | | | | | | |   (422)  vprojectEmptyCol(vtempty) = all_873_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (406), (415) imply:
+| | | | | | | | |   (423)  vprojectEmptyCol(vtempty) = all_869_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (391), (413) imply:
+| | | | | | | | |   (424)  vprojectFirstRaw(all_454_0) = all_865_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (408), (411) imply:
+| | | | | | | | |   (425)  vprojectFirstRaw(all_454_0) = all_857_0
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (387), (399), (407) imply:
+| | | | | | | | |   (426)  vrcons(all_807_4, vrempty) = vrempty
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (404) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (427)  vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (405) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (428)  all_433_2 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | REDUCE: (80), (428) imply:
+| | | | | | | | | | |   (429)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (18) with vrempty, all_875_1,
+| | | | | | | | | | |              vrempty, all_807_4, simplifying with (420), (426)
+| | | | | | | | | | |              gives:
+| | | | | | | | | | |   (430)  all_875_1 = vrempty
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (15) with all_454_0, all_865_0,
+| | | | | | | | | | |              all_454_0, simplifying with (131), (424) gives:
+| | | | | | | | | | |   (431)  all_865_0 = all_454_0
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (15) with all_865_0, all_875_2,
+| | | | | | | | | | |              all_454_0, simplifying with (421), (424) gives:
+| | | | | | | | | | |   (432)  all_875_2 = all_865_0
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (15) with all_857_0, all_875_2,
+| | | | | | | | | | |              all_454_0, simplifying with (421), (425) gives:
+| | | | | | | | | | |   (433)  all_875_2 = all_857_0
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (17) with vtempty, all_873_0,
+| | | | | | | | | | |              vtempty, simplifying with (11), (422) gives:
+| | | | | | | | | | |   (434)  all_873_0 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (17) with all_869_0, all_873_0,
+| | | | | | | | | | |              vtempty, simplifying with (422), (423) gives:
+| | | | | | | | | | |   (435)  all_873_0 = all_869_0
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (17) with all_454_1, all_873_0,
+| | | | | | | | | | |              vtempty, simplifying with (422), (429) gives:
+| | | | | | | | | | |   (436)  all_873_0 = all_454_1
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_EQS: (432), (433) imply:
+| | | | | | | | | | |   (437)  all_865_0 = all_857_0
+| | | | | | | | | | | 
+| | | | | | | | | | | SIMP: (437) implies:
+| | | | | | | | | | |   (438)  all_865_0 = all_857_0
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_EQS: (435), (436) imply:
+| | | | | | | | | | |   (439)  all_869_0 = all_454_1
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_EQS: (434), (435) imply:
+| | | | | | | | | | |   (440)  all_869_0 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_EQS: (439), (440) imply:
+| | | | | | | | | | |   (441)  all_454_1 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_EQS: (431), (438) imply:
+| | | | | | | | | | |   (442)  all_857_0 = all_454_0
+| | | | | | | | | | | 
+| | | | | | | | | | | REDUCE: (49), (441) imply:
+| | | | | | | | | | |   (443)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0,
+| | | | | | | | | | |              simplifying with (62), (78), (443) gives:
+| | | | | | | | | | |   (444)  $false
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (444) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (445)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2,
+| | | | | | | | | | |              all_433_0) = v0)
+| | | | | | | | | | | 
+| | | | | | | | | | | REF_CLOSE: (20), (427), (445) are inconsistent by sub-proof
+| | | | | | | | | | |            #3.
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (446)  all_433_2 = all_433_3
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (146), (446) imply:
+| | | | | | | | | |   (447)  $false
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (447) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (448)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) =
+| | | | | | | | |            v1 & vtcons(vrempty, v1) = all_454_0 &
+| | | | | | | | |            vtcons(vrempty, v0) = all_454_0 & $i(v1) & $i(v0) &
+| | | | | | | | |            $i(vrempty)) | (all_454_0 = vtempty & $i(vtempty))
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (448) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (449)   ? [v0: $i] :  ? [v1: $i] : (vdropFirstColRaw(v0) =
+| | | | | | | | | |            v1 & vtcons(vrempty, v1) = all_454_0 &
+| | | | | | | | | |            vtcons(vrempty, v0) = all_454_0 & $i(v1) & $i(v0)
+| | | | | | | | | |            & $i(vrempty))
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (449) with fresh symbols all_807_0,
+| | | | | | | | | |        all_807_1 gives:
+| | | | | | | | | |   (450)  vdropFirstColRaw(all_807_1) = all_807_0 &
+| | | | | | | | | |          vtcons(vrempty, all_807_0) = all_454_0 &
+| | | | | | | | | |          vtcons(vrempty, all_807_1) = all_454_0 &
+| | | | | | | | | |          $i(all_807_0) & $i(all_807_1) & $i(vrempty)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (450) implies:
+| | | | | | | | | |   (451)  $i(all_807_1)
+| | | | | | | | | |   (452)  $i(all_807_0)
+| | | | | | | | | |   (453)  vtcons(vrempty, all_807_1) = all_454_0
+| | | | | | | | | |   (454)  vtcons(vrempty, all_807_0) = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | | |              all_454_0, all_800_0, all_454_1, simplifying with
+| | | | | | | | | |              (49), (62), (78), (376), (378) gives:
+| | | | | | | | | |   (455)  all_800_0 = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | | |              all_800_1, all_800_0, all_454_1, simplifying with
+| | | | | | | | | |              (62), (375), (376), (377), (378) gives:
+| | | | | | | | | |   (456)  all_800_0 = all_800_1
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (8) with all_800_0, all_454_1,
+| | | | | | | | | |              simplifying with (376), (378) gives:
+| | | | | | | | | |   (457)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vdropFirstColRaw(all_800_0) = v1 &
+| | | | | | | | | |            vdropFirstColRaw(all_454_1) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with vrempty,
+| | | | | | | | | |              all_807_1, all_454_0, simplifying with (62),
+| | | | | | | | | |              (451), (453) gives:
+| | | | | | | | | |   (458)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vprojectEmptyCol(all_807_1) = v1 &
+| | | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | | |              vtempty, all_807_0, all_454_0, simplifying with
+| | | | | | | | | |              (36), (62), (73), (452), (454) gives:
+| | | | | | | | | |   (459)  all_807_0 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrempty, vrempty,
+| | | | | | | | | |              all_807_1, all_807_0, all_454_0, simplifying with
+| | | | | | | | | |              (62), (451), (452), (453), (454) gives:
+| | | | | | | | | |   (460)  all_807_0 = all_807_1
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (8) with all_807_0, all_454_0,
+| | | | | | | | | |              simplifying with (452), (454) gives:
+| | | | | | | | | |   (461)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vdropFirstColRaw(all_807_0) = v1 &
+| | | | | | | | | |            vdropFirstColRaw(all_454_0) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with vrempty,
+| | | | | | | | | |              all_807_0, all_454_0, simplifying with (62),
+| | | | | | | | | |              (452), (454) gives:
+| | | | | | | | | |   (462)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vprojectEmptyCol(all_807_0) = v1 &
+| | | | | | | | | |            vprojectEmptyCol(all_454_0) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_785_2,
+| | | | | | | | | |              all_785_1, all_433_0, simplifying with (199),
+| | | | | | | | | |              (200), (201) gives:
+| | | | | | | | | |   (463)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vprojectEmptyCol(all_785_1) = v1 &
+| | | | | | | | | |            vprojectEmptyCol(all_433_0) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0) &
+| | | | | | | | | |            $i(vrempty))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (9) with vrow2, all_433_0,
+| | | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | | |              (30), (204) gives:
+| | | | | | | | | |   (464)  all_433_2 = all_433_3 | vrowIn(vrow2, all_433_0) =
+| | | | | | | | | |          0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (10) with vrow2, all_433_0,
+| | | | | | | | | |              all_433_3, all_433_2, simplifying with (23), (29),
+| | | | | | | | | |              (30), (204) gives:
+| | | | | | | | | |   (465)  all_433_2 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | | | | | |            vrowIn(vrow2, all_433_0) = v0)
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (459), (460) imply:
+| | | | | | | | | |   (466)  all_807_1 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_EQS: (455), (456) imply:
+| | | | | | | | | |   (467)  all_800_1 = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | SIMP: (467) implies:
+| | | | | | | | | |   (468)  all_800_1 = all_454_0
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (461) with fresh symbols all_859_0,
+| | | | | | | | | |        all_859_1 gives:
+| | | | | | | | | |   (469)  vdropFirstColRaw(all_807_0) = all_859_0 &
+| | | | | | | | | |          vdropFirstColRaw(all_454_0) = all_859_1 &
+| | | | | | | | | |          vtcons(vrempty, all_859_0) = all_859_1 &
+| | | | | | | | | |          $i(all_859_0) & $i(all_859_1)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (469) implies:
+| | | | | | | | | |   (470)  $i(all_859_1)
+| | | | | | | | | |   (471)  vdropFirstColRaw(all_454_0) = all_859_1
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (458) with fresh symbols all_861_0,
+| | | | | | | | | |        all_861_1 gives:
+| | | | | | | | | |   (472)  vprojectEmptyCol(all_807_1) = all_861_0 &
+| | | | | | | | | |          vprojectEmptyCol(all_454_0) = all_861_1 &
+| | | | | | | | | |          vtcons(vrempty, all_861_0) = all_861_1 &
+| | | | | | | | | |          $i(all_861_0) & $i(all_861_1)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (472) implies:
+| | | | | | | | | |   (473)  vprojectEmptyCol(all_807_1) = all_861_0
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (462) with fresh symbols all_865_0,
+| | | | | | | | | |        all_865_1 gives:
+| | | | | | | | | |   (474)  vprojectEmptyCol(all_807_0) = all_865_0 &
+| | | | | | | | | |          vprojectEmptyCol(all_454_0) = all_865_1 &
+| | | | | | | | | |          vtcons(vrempty, all_865_0) = all_865_1 &
+| | | | | | | | | |          $i(all_865_0) & $i(all_865_1)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (474) implies:
+| | | | | | | | | |   (475)  vprojectEmptyCol(all_807_0) = all_865_0
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (457) with fresh symbols all_873_0,
+| | | | | | | | | |        all_873_1 gives:
+| | | | | | | | | |   (476)  vdropFirstColRaw(all_800_0) = all_873_0 &
+| | | | | | | | | |          vdropFirstColRaw(all_454_1) = all_873_1 &
+| | | | | | | | | |          vtcons(vrempty, all_873_0) = all_873_1 &
+| | | | | | | | | |          $i(all_873_0) & $i(all_873_1)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (476) implies:
+| | | | | | | | | |   (477)  vdropFirstColRaw(all_800_0) = all_873_0
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (463) with fresh symbols all_881_0,
+| | | | | | | | | |        all_881_1 gives:
+| | | | | | | | | |   (478)  vprojectEmptyCol(all_785_1) = all_881_0 &
+| | | | | | | | | |          vprojectEmptyCol(all_433_0) = all_881_1 &
+| | | | | | | | | |          vtcons(vrempty, all_881_0) = all_881_1 &
+| | | | | | | | | |          $i(all_881_0) & $i(all_881_1) & $i(vrempty)
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (459), (475) imply:
+| | | | | | | | | |   (479)  vprojectEmptyCol(vtempty) = all_865_0
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (466), (473) imply:
+| | | | | | | | | |   (480)  vprojectEmptyCol(vtempty) = all_861_0
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (455), (477) imply:
+| | | | | | | | | |   (481)  vdropFirstColRaw(all_454_0) = all_873_0
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (464) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (482)  vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | | | 
+| | | | | | | | | | | BETA: splitting (465) gives:
+| | | | | | | | | | | 
+| | | | | | | | | | | Case 1:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (483)  all_433_2 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REDUCE: (80), (483) imply:
+| | | | | | | | | | | |   (484)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (16) with all_454_0, all_873_0,
+| | | | | | | | | | | |              all_454_0, simplifying with (130), (481) gives:
+| | | | | | | | | | | |   (485)  all_873_0 = all_454_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (16) with all_859_1, all_873_0,
+| | | | | | | | | | | |              all_454_0, simplifying with (471), (481) gives:
+| | | | | | | | | | | |   (486)  all_873_0 = all_859_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with vtempty, all_861_0,
+| | | | | | | | | | | |              vtempty, simplifying with (11), (480) gives:
+| | | | | | | | | | | |   (487)  all_861_0 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with all_861_0, all_865_0,
+| | | | | | | | | | | |              vtempty, simplifying with (479), (480) gives:
+| | | | | | | | | | | |   (488)  all_865_0 = all_861_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (17) with all_454_1, all_865_0,
+| | | | | | | | | | | |              vtempty, simplifying with (479), (484) gives:
+| | | | | | | | | | | |   (489)  all_865_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (485), (486) imply:
+| | | | | | | | | | | |   (490)  all_859_1 = all_454_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (490) implies:
+| | | | | | | | | | | |   (491)  all_859_1 = all_454_0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (488), (489) imply:
+| | | | | | | | | | | |   (492)  all_861_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | SIMP: (492) implies:
+| | | | | | | | | | | |   (493)  all_861_0 = all_454_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_EQS: (487), (493) imply:
+| | | | | | | | | | | |   (494)  all_454_1 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REDUCE: (49), (494) imply:
+| | | | | | | | | | | |   (495)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0,
+| | | | | | | | | | | |              simplifying with (62), (78), (495) gives:
+| | | | | | | | | | | |   (496)  $false
+| | | | | | | | | | | | 
+| | | | | | | | | | | | CLOSE: (496) is inconsistent.
+| | | | | | | | | | | | 
+| | | | | | | | | | | Case 2:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (497)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2,
+| | | | | | | | | | | |              all_433_0) = v0)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REF_CLOSE: (20), (482), (497) are inconsistent by sub-proof
+| | | | | | | | | | | |            #3.
+| | | | | | | | | | | | 
+| | | | | | | | | | | End of split
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (498)  all_433_2 = all_433_3
+| | | | | | | | | | | 
+| | | | | | | | | | | REDUCE: (146), (498) imply:
+| | | | | | | | | | |   (499)  $false
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (499) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (500)  all_454_0 = vtempty & $i(vtempty)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (500) implies:
+| | | | | | | | | |   (501)  all_454_0 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (73), (501) imply:
+| | | | | | | | | |   (502)  vtcons(vrempty, vtempty) = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (1) with vrempty, vtempty,
+| | | | | | | | | |              simplifying with (36), (62), (502) gives:
+| | | | | | | | | |   (503)  $false
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (503) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (504)  all_454_1 = vtempty & $i(vtempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (504) implies:
+| | | | | | | |   (505)  all_454_1 = vtempty
+| | | | | | | | 
+| | | | | | | | REDUCE: (49), (505) imply:
+| | | | | | | |   (506)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0,
+| | | | | | | |              simplifying with (62), (78), (506) gives:
+| | | | | | | |   (507)  $false
+| | | | | | | | 
+| | | | | | | | CLOSE: (507) is inconsistent.
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | End of split
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (508)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_433_0) = 0
+| | | |            & vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty)) |
+| | | |          (all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)) |
+| | | |          (all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty))
+| | | | 
+| | | | BETA: splitting (508) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (509)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_433_0) =
+| | | | |            0 & vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty))
+| | | | | 
+| | | | | DELTA: instantiating (509) with fresh symbol all_763_0 gives:
+| | | | |   (510)  all_442_0 = vtempty & vrowIn(all_763_0, all_433_0) = 0 &
+| | | | |          vtcons(all_763_0, vtempty) = all_433_2 & $i(all_763_0) &
+| | | | |          $i(vtempty)
+| | | | | 
+| | | | | ALPHA: (510) implies:
+| | | | |   (511)  all_442_0 = vtempty
+| | | | | 
+| | | | | COMBINE_EQS: (145), (511) imply:
+| | | | |   (512)  all_433_2 = vtempty
+| | | | | 
+| | | | | REDUCE: (80), (512) imply:
+| | | | |   (513)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | 
+| | | | | GROUND_INST: instantiating (17) with vtempty, all_454_1, vtempty,
+| | | | |              simplifying with (11), (513) gives:
+| | | | |   (514)  all_454_1 = vtempty
+| | | | | 
+| | | | | REDUCE: (49), (514) imply:
+| | | | |   (515)  vtcons(vrempty, all_454_0) = vtempty
+| | | | | 
+| | | | | GROUND_INST: instantiating (1) with vrempty, all_454_0, simplifying
+| | | | |              with (62), (78), (515) gives:
+| | | | |   (516)  $false
+| | | | | 
+| | | | | CLOSE: (516) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (517)  (all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)) |
+| | | | |          (all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty))
+| | | | | 
+| | | | | BETA: splitting (517) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (518)  all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)
+| | | | | | 
+| | | | | | ALPHA: (518) implies:
+| | | | | |   (519)  all_433_0 = vtempty
+| | | | | | 
+| | | | | | REDUCE: (51), (519) imply:
+| | | | | |   (520)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | | 
+| | | | | | REF_CLOSE: (1), (11), (17), (49), (62), (78), (520) are inconsistent
+| | | | | |            by sub-proof #2.
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (521)  all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty)
+| | | | | | 
+| | | | | | ALPHA: (521) implies:
+| | | | | |   (522)  all_442_0 = vtempty
+| | | | | | 
+| | | | | | COMBINE_EQS: (145), (522) imply:
+| | | | | |   (523)  all_433_2 = vtempty
+| | | | | | 
+| | | | | | REDUCE: (80), (523) imply:
+| | | | | |   (524)  vprojectEmptyCol(vtempty) = all_454_1
+| | | | | | 
+| | | | | | REF_CLOSE: (1), (11), (17), (49), (62), (78), (524) are inconsistent
+| | | | | |            by sub-proof #2.
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | End of split
+| | | | 
+| | | End of split
+| | | 
+| | End of split
+| | 
+| Case 2:
+| | 
+| |   (525)   ~ (all_442_0 = all_433_2)
+| | 
+| | BETA: splitting (47) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (526)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~ (v3
+| | |              = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_433_0) = v0
+| | |            & vrowIn(v2, all_433_0) = v3 & vtcons(v2, v1) = all_433_2 &
+| | |            vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) & $i(v0) &
+| | |            $i(vtempty)) |  ? [v0: $i] :  ? [v1: int] : (all_442_0 =
+| | |            all_433_2 &  ~ (v1 = 0) & vrowIn(v0, all_433_0) = v1 &
+| | |            vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty)) |  ?
+| | |          [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) & vrawDifference(v0,
+| | |              all_433_0) = all_442_0 & vrowIn(v1, all_433_0) = 0 &
+| | |            vtcons(v1, v0) = all_433_2 & $i(v1) & $i(v0) & $i(vtempty))
+| | | 
+| | | BETA: splitting (526) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (527)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: $i] :  ? [v3: int] : ( ~
+| | | |            (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_433_0)
+| | | |            = v0 & vrowIn(v2, all_433_0) = v3 & vtcons(v2, v1) =
+| | | |            all_433_2 & vtcons(v2, v0) = all_442_0 & $i(v2) & $i(v1) &
+| | | |            $i(v0) & $i(vtempty))
+| | | | 
+| | | | DELTA: instantiating (527) with fresh symbols all_752_0, all_752_1,
+| | | |        all_752_2, all_752_3 gives:
+| | | |   (528)   ~ (all_752_0 = 0) &  ~ (all_752_2 = vtempty) &
+| | | |          vrawDifference(all_752_2, all_433_0) = all_752_3 &
+| | | |          vrowIn(all_752_1, all_433_0) = all_752_0 & vtcons(all_752_1,
+| | | |            all_752_2) = all_433_2 & vtcons(all_752_1, all_752_3) =
+| | | |          all_442_0 & $i(all_752_1) & $i(all_752_2) & $i(all_752_3) &
+| | | |          $i(vtempty)
+| | | | 
+| | | | ALPHA: (528) implies:
+| | | |   (529)   ~ (all_752_0 = 0)
+| | | |   (530)  $i(all_752_2)
+| | | |   (531)  $i(all_752_1)
+| | | |   (532)  vtcons(all_752_1, all_752_2) = all_433_2
+| | | |   (533)  vrowIn(all_752_1, all_433_0) = all_752_0
+| | | | 
+| | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_752_1, all_433_3,
+| | | |              all_752_2, all_433_2, simplifying with (24), (26), (32),
+| | | |              (530), (531), (532) gives:
+| | | |   (534)  all_752_1 = vrow1 & all_752_2 = all_433_3
+| | | | 
+| | | | ALPHA: (534) implies:
+| | | |   (535)  all_752_1 = vrow1
+| | | | 
+| | | | GROUND_INST: instantiating (4) with all_752_1, vrow3, all_433_1,
+| | | |              all_433_0, all_752_0, simplifying with (25), (28), (33),
+| | | |              (531), (533) gives:
+| | | |   (536)  all_752_0 = 0 | ( ~ (all_752_1 = vrow3) &  ? [v0: int] : ( ~
+| | | |              (v0 = 0) & vrowIn(all_752_1, all_433_1) = v0))
+| | | | 
+| | | | BETA: splitting (536) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (537)  all_752_0 = 0
+| | | | | 
+| | | | | REDUCE: (529), (537) imply:
+| | | | |   (538)  $false
+| | | | | 
+| | | | | CLOSE: (538) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (539)   ~ (all_752_1 = vrow3) &  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | |            vrowIn(all_752_1, all_433_1) = v0)
+| | | | | 
+| | | | | ALPHA: (539) implies:
+| | | | |   (540)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(all_752_1, all_433_1) =
+| | | | |            v0)
+| | | | | 
+| | | | | DELTA: instantiating (540) with fresh symbol all_787_0 gives:
+| | | | |   (541)   ~ (all_787_0 = 0) & vrowIn(all_752_1, all_433_1) = all_787_0
+| | | | | 
+| | | | | ALPHA: (541) implies:
+| | | | |   (542)   ~ (all_787_0 = 0)
+| | | | |   (543)  vrowIn(all_752_1, all_433_1) = all_787_0
+| | | | | 
+| | | | | REDUCE: (535), (543) imply:
+| | | | |   (544)  vrowIn(vrow1, all_433_1) = all_787_0
+| | | | | 
+| | | | | GROUND_INST: instantiating (4) with vrow1, vrow1, vtempty, all_433_1,
+| | | | |              all_787_0, simplifying with (24), (31), (36), (544)
+| | | | |              gives:
+| | | | |   (545)  all_787_0 = 0
+| | | | | 
+| | | | | REDUCE: (542), (545) imply:
+| | | | |   (546)  $false
+| | | | | 
+| | | | | CLOSE: (546) is inconsistent.
+| | | | | 
+| | | | End of split
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (547)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_433_2 &  ~ (v1 =
+| | | |              0) & vrowIn(v0, all_433_0) = v1 & vtcons(v0, vtempty) =
+| | | |            all_433_2 & $i(v0) & $i(vtempty)) |  ? [v0: $i] :  ? [v1: $i]
+| | | |          : ( ~ (v0 = vtempty) & vrawDifference(v0, all_433_0) =
+| | | |            all_442_0 & vrowIn(v1, all_433_0) = 0 & vtcons(v1, v0) =
+| | | |            all_433_2 & $i(v1) & $i(v0) & $i(vtempty))
+| | | | 
+| | | | BETA: splitting (547) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (548)   ? [v0: $i] :  ? [v1: int] : (all_442_0 = all_433_2 &  ~ (v1
+| | | | |              = 0) & vrowIn(v0, all_433_0) = v1 & vtcons(v0, vtempty) =
+| | | | |            all_433_2 & $i(v0) & $i(vtempty))
+| | | | | 
+| | | | | DELTA: instantiating (548) with fresh symbols all_760_0, all_760_1
+| | | | |        gives:
+| | | | |   (549)  all_442_0 = all_433_2 &  ~ (all_760_0 = 0) &
+| | | | |          vrowIn(all_760_1, all_433_0) = all_760_0 & vtcons(all_760_1,
+| | | | |            vtempty) = all_433_2 & $i(all_760_1) & $i(vtempty)
+| | | | | 
+| | | | | ALPHA: (549) implies:
+| | | | |   (550)  all_442_0 = all_433_2
+| | | | | 
+| | | | | REDUCE: (525), (550) imply:
+| | | | |   (551)  $false
+| | | | | 
+| | | | | CLOSE: (551) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (552)   ? [v0: $i] :  ? [v1: $i] : ( ~ (v0 = vtempty) &
+| | | | |            vrawDifference(v0, all_433_0) = all_442_0 & vrowIn(v1,
+| | | | |              all_433_0) = 0 & vtcons(v1, v0) = all_433_2 & $i(v1) &
+| | | | |            $i(v0) & $i(vtempty))
+| | | | | 
+| | | | | DELTA: instantiating (552) with fresh symbols all_752_0, all_752_1
+| | | | |        gives:
+| | | | |   (553)   ~ (all_752_1 = vtempty) & vrawDifference(all_752_1,
+| | | | |            all_433_0) = all_442_0 & vrowIn(all_752_0, all_433_0) = 0 &
+| | | | |          vtcons(all_752_0, all_752_1) = all_433_2 & $i(all_752_0) &
+| | | | |          $i(all_752_1) & $i(vtempty)
+| | | | | 
+| | | | | ALPHA: (553) implies:
+| | | | |   (554)   ~ (all_752_1 = vtempty)
+| | | | |   (555)  $i(all_752_1)
+| | | | |   (556)  $i(all_752_0)
+| | | | |   (557)  vtcons(all_752_0, all_752_1) = all_433_2
+| | | | |   (558)  vrowIn(all_752_0, all_433_0) = 0
+| | | | |   (559)  vrawDifference(all_752_1, all_433_0) = all_442_0
+| | | | | 
+| | | | | GROUND_INST: instantiating (rawDifference4) with all_752_1, all_752_1,
+| | | | |              all_433_0, all_752_0, all_433_2, all_442_0, all_433_2,
+| | | | |              simplifying with (29), (40), (555), (556), (557) gives:
+Warning: type clash during inference: int vs $i
+| | | | |   (560)  all_442_0 = all_433_2 |  ? [v0: any] :  ? [v1: int] : ((v1 =
+| | | | |              0 & vrowIn(all_752_0, all_433_0) = 0) | ( ~ (v0 =
+| | | | |                all_752_1) & vrawDifference(all_752_1, all_433_0) = v0
+| | | | |              & $i(v0))) | (all_752_1 = vtempty & $i(vtempty))
+| | | | | 
+| | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_752_0,
+| | | | |              all_433_3, all_752_1, all_433_2, simplifying with (24),
+| | | | |              (26), (32), (555), (556), (557) gives:
+| | | | |   (561)  all_752_0 = vrow1 & all_752_1 = all_433_3
+| | | | | 
+| | | | | ALPHA: (561) implies:
+| | | | |   (562)  all_752_1 = all_433_3
+| | | | |   (563)  all_752_0 = vrow1
+| | | | | 
+| | | | | GROUND_INST: instantiating (3) with all_752_0, vrow3, all_433_1,
+| | | | |              all_433_0, simplifying with (25), (28), (33), (556),
+| | | | |              (558) gives:
+| | | | |   (564)  all_752_0 = vrow3 | vrowIn(all_752_0, all_433_1) = 0
+| | | | | 
+| | | | | GROUND_INST: instantiating (rowIn-true-INV) with all_752_0, all_433_0,
+| | | | |              simplifying with (29), (556), (558) gives:
+| | | | |   (565)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: int] : (vtcons(v0, v1) =
+| | | | |            all_433_0 & $i(v1) & $i(v0) & (v0 = all_752_0 | (v2 = 0 &
+| | | | |                vrowIn(all_752_0, v1) = 0)))
+| | | | | 
+| | | | | DELTA: instantiating (565) with fresh symbols all_774_0, all_774_1,
+| | | | |        all_774_2 gives:
+| | | | |   (566)  vtcons(all_774_2, all_774_1) = all_433_0 & $i(all_774_1) &
+| | | | |          $i(all_774_2) & (all_774_2 = all_752_0 | (all_774_0 = 0 &
+| | | | |              vrowIn(all_752_0, all_774_1) = 0))
+| | | | | 
+| | | | | ALPHA: (566) implies:
+| | | | |   (567)  $i(all_774_2)
+| | | | |   (568)  $i(all_774_1)
+| | | | |   (569)  vtcons(all_774_2, all_774_1) = all_433_0
+| | | | | 
+| | | | | REDUCE: (554), (562) imply:
+| | | | |   (570)   ~ (all_433_3 = vtempty)
+| | | | | 
+| | | | | REDUCE: (559), (562) imply:
+| | | | |   (571)  vrawDifference(all_433_3, all_433_0) = all_442_0
+| | | | | 
+| | | | | BETA: splitting (564) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (572)  vrowIn(all_752_0, all_433_1) = 0
+| | | | | | 
+| | | | | | REDUCE: (563), (572) imply:
+| | | | | |   (573)  vrowIn(vrow1, all_433_1) = 0
+| | | | | | 
+| | | | | | BETA: splitting (560) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (574)  all_442_0 = all_433_2
+| | | | | | | 
+| | | | | | | REDUCE: (525), (574) imply:
+| | | | | | |   (575)  $false
+| | | | | | | 
+| | | | | | | CLOSE: (575) is inconsistent.
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+Warning: type clash during inference: int vs $i
+| | | | | | |   (576)   ? [v0: any] :  ? [v1: int] : ((v1 = 0 &
+| | | | | | |              vrowIn(all_752_0, all_433_0) = 0) | ( ~ (v0 =
+| | | | | | |                all_752_1) & vrawDifference(all_752_1, all_433_0) =
+| | | | | | |              v0 & $i(v0))) | (all_752_1 = vtempty & $i(vtempty))
+| | | | | | | 
+| | | | | | | BETA: splitting (576) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+Warning: type clash during inference: int vs $i
+| | | | | | | |   (577)   ? [v0: any] :  ? [v1: int] : ((v1 = 0 &
+| | | | | | | |              vrowIn(all_752_0, all_433_0) = 0) | ( ~ (v0 =
+| | | | | | | |                all_752_1) & vrawDifference(all_752_1, all_433_0)
+| | | | | | | |              = v0 & $i(v0)))
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (577) with fresh symbols all_787_0,
+| | | | | | | |        all_787_1 gives:
+| | | | | | | |   (578)  (all_787_0 = 0 & vrowIn(all_752_0, all_433_0) = 0) | (
+| | | | | | | |            ~ (all_787_1 = all_752_1) & vrawDifference(all_752_1,
+| | | | | | | |              all_433_0) = all_787_1 & $i(all_787_1))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow3, all_774_2,
+| | | | | | | |              all_433_1, all_774_1, all_433_0, simplifying with
+| | | | | | | |              (25), (28), (33), (567), (568), (569) gives:
+| | | | | | | |   (579)  all_774_1 = all_433_1 & all_774_2 = vrow3
+| | | | | | | | 
+| | | | | | | | ALPHA: (579) implies:
+| | | | | | | |   (580)  all_774_2 = vrow3
+| | | | | | | |   (581)  all_774_1 = all_433_1
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (rowIn-true-INV) with vrow1,
+| | | | | | | |              all_433_1, simplifying with (24), (28), (573)
+| | | | | | | |              gives:
+| | | | | | | |   (582)   ? [v0: $i] :  ? [v1: $i] :  ? [v2: int] : (vtcons(v0,
+| | | | | | | |              v1) = all_433_1 & $i(v1) & $i(v0) & (v0 = vrow1 |
+| | | | | | | |              (v2 = 0 & vrowIn(vrow1, v1) = 0)))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (9) with vrow2, all_433_0, all_433_3,
+| | | | | | | |              all_442_0, simplifying with (23), (29), (30), (571)
+| | | | | | | |              gives:
+| | | | | | | |   (583)  all_442_0 = all_433_3 | vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (10) with vrow2, all_433_0,
+| | | | | | | |              all_433_3, all_442_0, simplifying with (23), (29),
+| | | | | | | |              (30), (571) gives:
+| | | | | | | |   (584)  all_442_0 = vtempty |  ? [v0: int] : ( ~ (v0 = 0) &
+| | | | | | | |            vrowIn(vrow2, all_433_0) = v0)
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (582) with fresh symbols all_893_0,
+| | | | | | | |        all_893_1, all_893_2 gives:
+| | | | | | | |   (585)  vtcons(all_893_2, all_893_1) = all_433_1 &
+| | | | | | | |          $i(all_893_1) & $i(all_893_2) & (all_893_2 = vrow1 |
+| | | | | | | |            (all_893_0 = 0 & vrowIn(vrow1, all_893_1) = 0))
+| | | | | | | | 
+| | | | | | | | ALPHA: (585) implies:
+| | | | | | | |   (586)  $i(all_893_2)
+| | | | | | | |   (587)  $i(all_893_1)
+| | | | | | | |   (588)  vtcons(all_893_2, all_893_1) = all_433_1
+| | | | | | | | 
+| | | | | | | | BETA: splitting (583) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (589)  vrowIn(vrow2, all_433_0) = 0
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (584) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (590)  all_442_0 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (571), (590) imply:
+| | | | | | | | | |   (591)  vrawDifference(all_433_3, all_433_0) = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_893_2,
+| | | | | | | | | |              vtempty, all_893_1, all_433_1, simplifying with
+| | | | | | | | | |              (24), (31), (36), (586), (587), (588) gives:
+| | | | | | | | | |   (592)  all_893_1 = vtempty & all_893_2 = vrow1
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (592) implies:
+| | | | | | | | | |   (593)  all_893_2 = vrow1
+| | | | | | | | | |   (594)  all_893_1 = vtempty
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (projectEmptyCol1) with all_893_2,
+| | | | | | | | | |              all_893_1, all_433_1, simplifying with (586),
+| | | | | | | | | |              (587), (588) gives:
+| | | | | | | | | |   (595)   ? [v0: $i] :  ? [v1: $i] :
+| | | | | | | | | |          (vprojectEmptyCol(all_893_1) = v1 &
+| | | | | | | | | |            vprojectEmptyCol(all_433_1) = v0 &
+| | | | | | | | | |            vtcons(vrempty, v1) = v0 & $i(v1) & $i(v0) &
+| | | | | | | | | |            $i(vrempty))
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow3, all_433_1,
+| | | | | | | | | |              all_433_0, simplifying with (23), (25), (28),
+| | | | | | | | | |              (33), (589) gives:
+| | | | | | | | | |   (596)  vrow3 = vrow2 | vrowIn(vrow2, all_433_1) = 0
+| | | | | | | | | | 
+| | | | | | | | | | DELTA: instantiating (595) with fresh symbols all_965_0,
+| | | | | | | | | |        all_965_1 gives:
+| | | | | | | | | |   (597)  vprojectEmptyCol(all_893_1) = all_965_0 &
+| | | | | | | | | |          vprojectEmptyCol(all_433_1) = all_965_1 &
+| | | | | | | | | |          vtcons(vrempty, all_965_0) = all_965_1 &
+| | | | | | | | | |          $i(all_965_0) & $i(all_965_1) & $i(vrempty)
+| | | | | | | | | | 
+| | | | | | | | | | ALPHA: (597) implies:
+| | | | | | | | | |   (598)  $i(all_965_0)
+| | | | | | | | | |   (599)  vprojectEmptyCol(all_893_1) = all_965_0
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (594), (599) imply:
+| | | | | | | | | |   (600)  vprojectEmptyCol(vtempty) = all_965_0
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (596) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (601)  vrowIn(vrow2, all_433_1) = 0
+| | | | | | | | | | | 
+| | | | | | | | | | | GROUND_INST: instantiating (17) with vtempty, all_965_0,
+| | | | | | | | | | |              vtempty, simplifying with (11), (600) gives:
+| | | | | | | | | | |   (602)  all_965_0 = vtempty
+| | | | | | | | | | | 
+| | | | | | | | | | | BETA: splitting (578) gives:
+| | | | | | | | | | | 
+| | | | | | | | | | | Case 1:
+| | | | | | | | | | | | 
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow1, vtempty,
+| | | | | | | | | | | |              all_433_1, simplifying with (23), (24), (31),
+| | | | | | | | | | | |              (36), (601) gives:
+| | | | | | | | | | | |   (603)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REF_CLOSE: (2), (12), (23), (603) are inconsistent by
+| | | | | | | | | | | |            sub-proof #1.
+| | | | | | | | | | | | 
+| | | | | | | | | | | Case 2:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (604)   ~ (all_787_1 = all_752_1) &
+| | | | | | | | | | | |          vrawDifference(all_752_1, all_433_0) = all_787_1 &
+| | | | | | | | | | | |          $i(all_787_1)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | ALPHA: (604) implies:
+| | | | | | | | | | | |   (605)  vrawDifference(all_752_1, all_433_0) = all_787_1
+| | | | | | | | | | | |   (606)  $i(all_787_1)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REDUCE: (562), (605) imply:
+| | | | | | | | | | | |   (607)  vrawDifference(all_433_3, all_433_0) = all_787_1
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (21) with vtempty, all_787_1,
+| | | | | | | | | | | |              all_433_0, all_433_3, simplifying with (591),
+| | | | | | | | | | | |              (607) gives:
+| | | | | | | | | | | |   (608)  all_787_1 = vtempty
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (3) with vrow2, vrow1, vtempty,
+| | | | | | | | | | | |              all_433_1, simplifying with (23), (24), (31),
+| | | | | | | | | | | |              (36), (601) gives:
+| | | | | | | | | | | |   (609)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | REF_CLOSE: (2), (12), (23), (609) are inconsistent by
+| | | | | | | | | | | |            sub-proof #1.
+| | | | | | | | | | | | 
+| | | | | | | | | | | End of split
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (610)  vrow3 = vrow2
+| | | | | | | | | | | 
+| | | | | | | | | | | REDUCE: (14), (610) imply:
+| | | | | | | | | | |   (611)  $false
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (611) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (612)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2,
+| | | | | | | | | |              all_433_0) = v0)
+| | | | | | | | | | 
+| | | | | | | | | | REF_CLOSE: (20), (589), (612) are inconsistent by sub-proof
+| | | | | | | | | |            #3.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (613)  all_442_0 = all_433_3
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (38), (613) imply:
+| | | | | | | | |   (614)  $false
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (614) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (615)  all_752_1 = vtempty & $i(vtempty)
+| | | | | | | | 
+| | | | | | | | ALPHA: (615) implies:
+| | | | | | | |   (616)  all_752_1 = vtempty
+| | | | | | | | 
+| | | | | | | | COMBINE_EQS: (562), (616) imply:
+| | | | | | | |   (617)  all_433_3 = vtempty
+| | | | | | | | 
+| | | | | | | | REDUCE: (570), (617) imply:
+| | | | | | | |   (618)  $false
+| | | | | | | | 
+| | | | | | | | CLOSE: (618) is inconsistent.
+| | | | | | | | 
+| | | | | | | End of split
 | | | | | | | 
 | | | | | | End of split
 | | | | | | 
 | | | | | Case 2:
 | | | | | | 
-| | | | | |   (289)  all_755_0 = vrow3
+| | | | | |   (619)  all_752_0 = vrow3
 | | | | | | 
-| | | | | | COMBINE_EQS: (200), (289) imply:
-| | | | | |   (290)  vrow3 = vrow1
+| | | | | | COMBINE_EQS: (563), (619) imply:
+| | | | | |   (620)  vrow3 = vrow1
 | | | | | | 
-| | | | | | SIMP: (290) implies:
-| | | | | |   (291)  vrow3 = vrow1
+| | | | | | SIMP: (620) implies:
+| | | | | |   (621)  vrow3 = vrow1
 | | | | | | 
-| | | | | | REDUCE: (19), (291) imply:
-| | | | | |   (292)  $false
+| | | | | | REDUCE: (13), (621) imply:
+| | | | | |   (622)  $false
 | | | | | | 
-| | | | | | CLOSE: (292) is inconsistent.
+| | | | | | CLOSE: (622) is inconsistent.
 | | | | | | 
 | | | | | End of split
 | | | | | 
@@ -1806,81 +3146,78 @@ Warning: type clash during inference: int vs $i
 | | | 
 | | Case 2:
 | | | 
-| | |   (293)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0 &
-| | |            vtcons(v0, vtempty) = all_427_2 & $i(v0)) | (all_442_0 =
-| | |            all_427_2 & all_427_0 = vtempty) | (all_442_0 = vtempty &
-| | |            all_427_2 = vtempty)
+| | |   (623)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_433_0) = 0 &
+| | |            vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty)) |
+| | |          (all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)) |
+| | |          (all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty))
 | | | 
-| | | BETA: splitting (293) gives:
+| | | BETA: splitting (623) gives:
 | | | 
 | | | Case 1:
 | | | | 
-| | | |   (294)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_427_0) = 0
-| | | |            & vtcons(v0, vtempty) = all_427_2 & $i(v0))
+| | | |   (624)   ? [v0: $i] : (all_442_0 = vtempty & vrowIn(v0, all_433_0) = 0
+| | | |            & vtcons(v0, vtempty) = all_433_2 & $i(v0) & $i(vtempty))
 | | | | 
-| | | | DELTA: instantiating (294) with fresh symbol all_755_0 gives:
-| | | |   (295)  all_442_0 = vtempty & vrowIn(all_755_0, all_427_0) = 0 &
-| | | |          vtcons(all_755_0, vtempty) = all_427_2 & $i(all_755_0)
+| | | | DELTA: instantiating (624) with fresh symbol all_752_0 gives:
+| | | |   (625)  all_442_0 = vtempty & vrowIn(all_752_0, all_433_0) = 0 &
+| | | |          vtcons(all_752_0, vtempty) = all_433_2 & $i(all_752_0) &
+| | | |          $i(vtempty)
 | | | | 
-| | | | ALPHA: (295) implies:
-| | | |   (296)  all_442_0 = vtempty
-| | | |   (297)  $i(all_755_0)
-| | | |   (298)  vtcons(all_755_0, vtempty) = all_427_2
+| | | | ALPHA: (625) implies:
+| | | |   (626)  all_442_0 = vtempty
+| | | |   (627)  $i(all_752_0)
+| | | |   (628)  vtcons(all_752_0, vtempty) = all_433_2
 | | | | 
-| | | | REDUCE: (48), (296) imply:
-| | | |   (299)   ~ (all_427_3 = vtempty)
+| | | | REDUCE: (38), (626) imply:
+| | | |   (629)   ~ (all_433_3 = vtempty)
 | | | | 
-| | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_755_0, all_427_3,
-| | | |              vtempty, all_427_2, simplifying with (21), (23), (35),
-| | | |              (41), (297), (298) gives:
-| | | |   (300)  all_755_0 = vrow1 & all_427_3 = vtempty
+| | | | SIMP: (629) implies:
+| | | |   (630)   ~ (all_433_3 = vtempty)
 | | | | 
-| | | | ALPHA: (300) implies:
-| | | |   (301)  all_427_3 = vtempty
+| | | | GROUND_INST: instantiating (EQ-tcons) with vrow1, all_752_0, all_433_3,
+| | | |              vtempty, all_433_2, simplifying with (24), (26), (32),
+| | | |              (36), (627), (628) gives:
+| | | |   (631)  all_752_0 = vrow1 & all_433_3 = vtempty
 | | | | 
-| | | | REDUCE: (161), (301) imply:
-| | | |   (302)  $false
+| | | | ALPHA: (631) implies:
+| | | |   (632)  all_433_3 = vtempty
 | | | | 
-| | | | CLOSE: (302) is inconsistent.
+| | | | REDUCE: (630), (632) imply:
+| | | |   (633)  $false
+| | | | 
+| | | | CLOSE: (633) is inconsistent.
 | | | | 
 | | | Case 2:
 | | | | 
-| | | |   (303)  (all_442_0 = all_427_2 & all_427_0 = vtempty) | (all_442_0 =
-| | | |            vtempty & all_427_2 = vtempty)
+| | | |   (634)  (all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)) |
+| | | |          (all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty))
 | | | | 
-| | | | BETA: splitting (303) gives:
+| | | | BETA: splitting (634) gives:
 | | | | 
 | | | | Case 1:
 | | | | | 
-| | | | |   (304)  all_442_0 = all_427_2 & all_427_0 = vtempty
+| | | | |   (635)  all_442_0 = all_433_2 & all_433_0 = vtempty & $i(vtempty)
 | | | | | 
-| | | | | ALPHA: (304) implies:
-| | | | |   (305)  all_427_0 = vtempty
+| | | | | ALPHA: (635) implies:
+| | | | |   (636)  all_442_0 = all_433_2
 | | | | | 
-| | | | | REDUCE: (42), (305) imply:
-| | | | |   (306)  vtcons(vrow3, all_427_1) = vtempty
+| | | | | REDUCE: (525), (636) imply:
+| | | | |   (637)  $false
 | | | | | 
-| | | | | GROUND_INST: instantiating (1) with vrow3, all_427_1, simplifying with
-| | | | |              (24), (37), (306) gives:
-| | | | |   (307)  $false
-| | | | | 
-| | | | | CLOSE: (307) is inconsistent.
+| | | | | CLOSE: (637) is inconsistent.
 | | | | | 
 | | | | Case 2:
 | | | | | 
-| | | | |   (308)  all_442_0 = vtempty & all_427_2 = vtempty
+| | | | |   (638)  all_442_0 = vtempty & all_433_2 = vtempty & $i(vtempty)
 | | | | | 
-| | | | | ALPHA: (308) implies:
-| | | | |   (309)  all_427_2 = vtempty
+| | | | | ALPHA: (638) implies:
+| | | | |   (639)  all_433_2 = vtempty
+| | | | |   (640)  all_442_0 = vtempty
 | | | | | 
-| | | | | REDUCE: (41), (309) imply:
-| | | | |   (310)  vtcons(vrow1, all_427_3) = vtempty
+| | | | | REDUCE: (525), (639), (640) imply:
+| | | | |   (641)  $false
 | | | | | 
-| | | | | GROUND_INST: instantiating (1) with vrow1, all_427_3, simplifying with
-| | | | |              (23), (35), (310) gives:
-| | | | |   (311)  $false
-| | | | | 
-| | | | | CLOSE: (311) is inconsistent.
+| | | | | CLOSE: (641) is inconsistent.
 | | | | | 
 | | | | End of split
 | | | | 
@@ -1889,6 +3226,96 @@ Warning: type clash during inference: int vs $i
 | | End of split
 | | 
 | End of split
+| 
+End of proof
+
+Sub-proof #1 shows that the following formulas are inconsistent:
+----------------------------------------------------------------
+  (1)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
+  (2)   ! [v0: $i] : ( ~ (vrowIn(v0, vtempty) = 0) |  ~ $i(v0))
+  (3)  $i(vrow2)
+  (4)   ~ (vrow1 = vrow2)
+
+Begin of proof
+| 
+| BETA: splitting (1) gives:
+| 
+| Case 1:
+| | 
+| |   (5)  vrowIn(vrow2, vtempty) = 0
+| | 
+| | GROUND_INST: instantiating (2) with vrow2, simplifying with (3), (5) gives:
+| |   (6)  $false
+| | 
+| | CLOSE: (6) is inconsistent.
+| | 
+| Case 2:
+| | 
+| |   (7)  vrow1 = vrow2
+| | 
+| | REDUCE: (4), (7) imply:
+| |   (8)  $false
+| | 
+| | CLOSE: (8) is inconsistent.
+| | 
+| End of split
+| 
+End of proof
+
+Sub-proof #2 shows that the following formulas are inconsistent:
+----------------------------------------------------------------
+  (1)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
+         (vprojectEmptyCol(v2) = v1) |  ~ (vprojectEmptyCol(v2) = v0))
+  (2)  vprojectEmptyCol(vtempty) = vtempty
+  (3)  $i(all_454_0)
+  (4)  vprojectEmptyCol(vtempty) = all_454_1
+  (5)  $i(vrempty)
+  (6)  vtcons(vrempty, all_454_0) = all_454_1
+  (7)   ! [v0: $i] :  ! [v1: $i] : ( ~ (vtcons(v0, v1) = vtempty) |  ~ $i(v1) | 
+         ~ $i(v0))
+
+Begin of proof
+| 
+| GROUND_INST: instantiating (1) with vtempty, all_454_1, vtempty, simplifying
+|              with (2), (4) gives:
+|   (8)  all_454_1 = vtempty
+| 
+| REDUCE: (6), (8) imply:
+|   (9)  vtcons(vrempty, all_454_0) = vtempty
+| 
+| GROUND_INST: instantiating (7) with vrempty, all_454_0, simplifying with (3),
+|              (5), (9) gives:
+|   (10)  $false
+| 
+| CLOSE: (10) is inconsistent.
+| 
+End of proof
+
+Sub-proof #3 shows that the following formulas are inconsistent:
+----------------------------------------------------------------
+  (1)   ? [v0: int] : ( ~ (v0 = 0) & vrowIn(vrow2, all_433_0) = v0)
+  (2)   ! [v0: MultipleValueBool] :  ! [v1: MultipleValueBool] :  ! [v2: $i] : 
+       ! [v3: $i] : (v1 = v0 |  ~ (vrowIn(v3, v2) = v1) |  ~ (vrowIn(v3, v2) =
+           v0))
+  (3)  vrowIn(vrow2, all_433_0) = 0
+
+Begin of proof
+| 
+| DELTA: instantiating (1) with fresh symbol all_893_0 gives:
+|   (4)   ~ (all_893_0 = 0) & vrowIn(vrow2, all_433_0) = all_893_0
+| 
+| ALPHA: (4) implies:
+|   (5)   ~ (all_893_0 = 0)
+|   (6)  vrowIn(vrow2, all_433_0) = all_893_0
+| 
+| GROUND_INST: instantiating (2) with 0, all_893_0, all_433_0, vrow2,
+|              simplifying with (3), (6) gives:
+|   (7)  all_893_0 = 0
+| 
+| REDUCE: (5), (7) imply:
+|   (8)  $false
+| 
+| CLOSE: (8) is inconsistent.
 | 
 End of proof
 % SZS output end Proof for theBenchmark

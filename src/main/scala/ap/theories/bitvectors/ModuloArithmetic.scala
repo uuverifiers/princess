@@ -772,8 +772,8 @@ object ModuloArithmetic extends Theory {
     case _                                                   => false
   }
 
-  override def preprocess(f : Conjunction, order : TermOrder) : Conjunction =
-    ModPreprocessor.preprocess(f, order)
+  override def preprocess(f : Conjunction, signature : Signature) : Conjunction =
+    ModPreprocessor.preprocess(f, signature.order)
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -72,6 +72,7 @@ object Param {
 
   abstract class LOG_FLAG
   case object LOG_TASKS         extends LOG_FLAG
+  case object LOG_FACTS         extends LOG_FLAG
   case object LOG_SPLITS        extends LOG_FLAG
   case object LOG_BACKTRACKING  extends LOG_FLAG
   case object LOG_STATS         extends LOG_FLAG

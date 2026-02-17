@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Some examples that need special settings
+
+PRI=../../princess
+
+TESTS="qe0.pri qe1.pri qe2.pri qe3.pri qe4.pri qe5.pri \
+       qe10.pri qe11.pri qe12.pri qe13.pri qe14.pri qe15.pri \
+       qe20.pri qe21.pri qe22.pri"
+
+$PRI "$@" -formulaSign=positive +model $TESTS
+$PRI "$@" -formulaSign=negative +model $TESTS
+$PRI "$@" -formulaSign=positive +model +mostGeneralConstraint $TESTS
+$PRI "$@" -formulaSign=negative +model +mostGeneralConstraint $TESTS

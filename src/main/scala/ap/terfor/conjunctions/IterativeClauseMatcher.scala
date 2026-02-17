@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2023 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -419,8 +419,8 @@ object IterativeClauseMatcher {
     val No, ProducesLits, Complete = Value
   }
   
-  def isMatchable(c : Conjunction,
-                  config : PredicateMatchConfig) : Matchable.Value = {
+  def predConjIsMatchable(c : Conjunction,
+                          config : PredicateMatchConfig) : Matchable.Value = {
     implicit val _config = config
     val (matchLits, remainingLits) = determineMatchedLits(c.predConj)
     if (matchLits.isEmpty)
@@ -438,14 +438,21 @@ object IterativeClauseMatcher {
    * using matching or using Skolemisation. This is relevant, because then
    * the formula can be treated without using free variables at all, i.e.,
    * a more efficient way of proof construction (<code>ModelSearchProver</code>)
-   * can be used
+   * can be used.
    */
   def isMatchableRec(c : Conjunction,
                      config : PredicateMatchConfig) : Boolean =
     isMatchableRecHelp(c, false, config)
   
-  private def isMatchableRecHelp(c : Conjunction, negated : Boolean,
-                                 config : PredicateMatchConfig) : Boolean = {
+  /**
+   * Determine whether the topmost quantifiers in the given formula can be
+   * handled using matching or using Skolemisation. This is relevant, because
+   * then those quantifiers can be treated without using free variables at all,
+   * i.e., a more efficient way of proof construction
+   * (<code>ModelSearchProver</code>) can be used.
+   */
+  def isMatchable(c : Conjunction, negated : Boolean,
+                  config : PredicateMatchConfig) : Boolean = {
     val lastUniQuantifier = (c.quans lastIndexOf Quantifier(negated)) match {
       case -1 => 0
       case x => x + 1
@@ -463,8 +470,22 @@ object IterativeClauseMatcher {
 
        val matchedVariables = determineMatchedVariables(c, negated, config)
        (0 until lastUniQuantifier) forall (matchedVariables contains _)
-     }) &&
+     })
+  }
+
+  private def isMatchableRecHelp(c : Conjunction, negated : Boolean,
+                                 config : PredicateMatchConfig) : Boolean =
+    isMatchable(c, negated, config) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated, config)))
+
+  /**
+   * The literals representing the trigger in a formula handled using
+   * e-matching.
+   */
+  def matchedLiterals(c : Conjunction, negated : Boolean,
+                      config : PredicateMatchConfig) : Seq[Atom] = {
+    implicit val pmc : PredicateMatchConfig = config
+    determineMatchedLits(if (negated) c.negate.predConj else c.predConj)._1
   }
 
   private def determineMatchedVariables(

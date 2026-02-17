@@ -287,8 +287,25 @@ class ArrayHeap(heapSortName      : String,
         }
       }
 
-      contentsAr.foldLeft(emptyHeap()) {
-        case (heap, obj) => heapAddrPair_1(alloc(heap, obj)) }
+      // Input: [A, A, B, A] -> Output: List((A, 2), (B, 1), (A, 1))
+      def runLengthEncode[T](seq : Seq[T]) : List[(T, Int)] = {
+        seq.foldRight(List.empty[(T, Int)]) {
+          case (e, (hVal, hCount) :: tail) if e == hVal =>
+            (hVal, hCount + 1) :: tail
+          case (e, acc) =>
+            (e, 1) :: acc
+        }
+      }
+
+      val compressedContentsAr = runLengthEncode(contentsAr)
+
+      compressedContentsAr.foldLeft(emptyHeap() : ITerm) {
+        case (currentHeap, (obj, count)) =>
+          if (count > 1)
+            heapRangePair_1(allocRange(currentHeap, obj, count))
+          else
+            heapAddrPair_1(alloc(currentHeap, obj))
+      }
     }
 
     override def augmentModelTermSet(

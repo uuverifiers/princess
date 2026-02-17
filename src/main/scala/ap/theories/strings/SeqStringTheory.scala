@@ -795,8 +795,9 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
     def unapply(p : Predicate) : Option[IFunction] = predFunctionMap get p
   }
 
-  override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
-    implicit val _ = order
+  override def preprocess(f : Conjunction,
+                          signature : Signature) : Conjunction = {
+    implicit val order : TermOrder = signature.order
     import TerForConvenience._
 
     if (!Seqs.disjoint(f.predicates, unsupportedPreds)) {

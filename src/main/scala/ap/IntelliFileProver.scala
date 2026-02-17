@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -201,12 +201,31 @@ class IntelliFileProver(reader   : java.io.Reader,
   lazy val negProofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
       import negTranslation._
-      val (tree, validConstraint) =
+      val (tree, _) =
         constructProofTree("Proving negated formula")
-      if (validConstraint) {
+
+      val constraint = tree.closingConstraint
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(IntelliFileProver.AC,
+        constraint.constants subsetOf transSignature.existentialConstants)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      // TODO: find a faster way to check validity that correctly takes
+      // sorts into account?
+      val processedConstraint = processConstraint(!constraint)
+
+      val unsatConstraint =
+        processedConstraint.isFalse || SimpleAPI.withProver({ p =>
+          p.addConstantsRaw(constraint.constants)
+          p.!! (processedConstraint)
+          p.??? == SimpleAPI.ProverStatus.Unsat
+        })
+
+      if (unsatConstraint) {
         Invalid(tree)
       } else if (soundForSat) {
-        Proof(tree, ap.parser.IBoolLit(true))
+        Proof(tree, processedConstraint)
       } else {
         NoProof(tree)
       }

@@ -1312,10 +1312,11 @@ class ADT (sortNames      : Seq[String],
   }
 
   override def preprocess(f : Conjunction,
-                          order : TermOrder) : Conjunction = {
+                          signature : Signature) : Conjunction = {
 //println()
 //println("Preprocessing:")
 //println(f)
+    val order = signature.order
     val after = rewriteADTFormula(f, order)
 //println(" -> " + after)
     val reducerSettings =

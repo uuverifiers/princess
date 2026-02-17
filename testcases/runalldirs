@@ -15,6 +15,7 @@
 ./rundir tptp-parser "" -logo -runtime +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 
 ./rundir interpolation "" -logo -runtime +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
+./rundir quantifiers "" -logo -runtime +assert +model -generateTriggers=none
 
 ./rundir allSettings "1" -logo -runtime +assert +model -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
 ./rundir allSettings "1" -logo -runtime +assert +model -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none

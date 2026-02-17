@@ -528,10 +528,15 @@ sat
 (model
   (define-fun BITVEC64_VAR_a () (_ BitVec 64) (_ bv0 64))
 )
+Loading disjunction.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
 Loading bv-ops3c.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 42)
+Found proof (size 41)
 
 VALID
 
@@ -539,7 +544,7 @@ Assumptions after simplification:
 ---------------------------------
 
   (input)
-  3 >= x & x >= 0 & \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 &
+  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & 3 >= x & x >= 0 &
     x[1:1] = v1 & x[0:0] = v0 & \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1
       >= v3 & v3 >= 0 & 3 >= v2 & v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 &
       \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 + -1*v1 >= -1 & v1 >= v4 &
@@ -550,178 +555,170 @@ Those formulas are unsatisfiable:
 
 Begin of proof
 | 
-| ALPHA: (input) implies:
-|   (1)  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1:1] =
-|          v1 & x[0:0] = v0 & \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1 >=
-|            v3 & v3 >= 0 & 3 >= v2 & v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 &
-|            \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 + -1*v1 >= -1 & v1 >= v4
-|              & -1*v3 + -1*v0 >= -1 & v0 >= v3 & v5[1:1] = 1 - v1 & v5[0:0] = 1
-|              - v0)))
+| DELTA: instantiating (input) with fresh symbols all_1_0, all_1_1 gives:
+|   (1)  1 >= all_1_0 & all_1_0 >= 0 & 1 >= all_1_1 & all_1_1 >= 0 & 3 >= x & x
+|        >= 0 & x[1:1] = all_1_0 & x[0:0] = all_1_1 & \exists int v0, v1, v2; (1
+|          >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] =
+|          v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 +
+|            -1*all_1_0 >= -1 & all_1_0 >= v2 & -1*v1 + -1*all_1_1 >= -1 &
+|            all_1_1 >= v1 & v3[1:1] = 1 - all_1_0 & v3[0:0] = 1 - all_1_1))
 | 
-| DELTA: instantiating (1) with fresh symbols all_2_0, all_2_1 gives:
-|   (2)  1 >= all_2_0 & all_2_0 >= 0 & 1 >= all_2_1 & all_2_1 >= 0 & x[1:1] =
-|        all_2_0 & x[0:0] = all_2_1 & \exists int v0, v1, v2; (1 >= v2 & v2 >= 0
-|          & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1
-|          & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 &
-|            all_2_0 >= v2 & -1*v1 + -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1]
-|            = 1 - all_2_0 & v3[0:0] = 1 - all_2_1))
-| 
-| ALPHA: (2) implies:
-|   (3)  \exists int v0, v1, v2; (1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >=
+| ALPHA: (1) implies:
+|   (2)  \exists int v0, v1, v2; (1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >=
 |          v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3
-|            & v3 >= 0 & -1*v2 + -1*all_2_0 >= -1 & all_2_0 >= v2 & -1*v1 +
-|            -1*all_2_1 >= -1 & all_2_1 >= v1 & v3[1:1] = 1 - all_2_0 & v3[0:0]
-|            = 1 - all_2_1))
+|            & v3 >= 0 & -1*v2 + -1*all_1_0 >= -1 & all_1_0 >= v2 & -1*v1 +
+|            -1*all_1_1 >= -1 & all_1_1 >= v1 & v3[1:1] = 1 - all_1_0 & v3[0:0]
+|            = 1 - all_1_1))
 | 
-| DELTA: instantiating (3) with fresh symbols all_5_0, all_5_1, all_5_2 gives:
-|   (4)  1 >= all_5_0 & all_5_0 >= 0 & 1 >= all_5_1 & all_5_1 >= 0 & 3 >=
-|        all_5_2 & all_5_2 >= 1 & all_5_2[1:1] = all_5_0 & all_5_2[0:0] =
-|        all_5_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0
-|          >= -1 & all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1
-|          >= all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+| DELTA: instantiating (2) with fresh symbols all_4_0, all_4_1, all_4_2 gives:
+|   (3)  1 >= all_4_0 & all_4_0 >= 0 & 1 >= all_4_1 & all_4_1 >= 0 & 3 >=
+|        all_4_2 & all_4_2 >= 1 & all_4_2[1:1] = all_4_0 & all_4_2[0:0] =
+|        all_4_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_4_0 + -1*all_1_0
+|          >= -1 & all_1_0 >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1
+|          >= all_4_1 & v0[1:1] = 1 - all_1_0 & v0[0:0] = 1 - all_1_1)
 | 
-| ALPHA: (4) implies:
-|   (5)  all_5_2 >= 1
-|   (6)  3 >= all_5_2
-|   (7)  all_5_1 >= 0
-|   (8)  all_5_2[0:0] = all_5_1
-|   (9)  all_5_2[1:1] = all_5_0
-|   (10)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 &
-|           all_2_0 >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >=
-|           all_5_1 & v0[1:1] = 1 - all_2_0 & v0[0:0] = 1 - all_2_1)
+| ALPHA: (3) implies:
+|   (4)  all_4_2 >= 1
+|   (5)  3 >= all_4_2
+|   (6)  all_4_1 >= 0
+|   (7)  all_4_2[0:0] = all_4_1
+|   (8)  all_4_2[1:1] = all_4_0
+|   (9)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_4_0 + -1*all_1_0 >= -1 &
+|          all_1_0 >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1 >=
+|          all_4_1 & v0[1:1] = 1 - all_1_0 & v0[0:0] = 1 - all_1_1)
 | 
-| DELTA: instantiating (10) with fresh symbol all_8_0 gives:
-|   (11)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 + -1*all_2_0 >= -1 & all_2_0
-|         >= all_5_0 & -1*all_5_1 + -1*all_2_1 >= -1 & all_2_1 >= all_5_1 &
-|         all_8_0[1:1] = 1 - all_2_0 & all_8_0[0:0] = 1 - all_2_1
+| DELTA: instantiating (9) with fresh symbol all_7_0 gives:
+|   (10)  3 >= all_7_0 & all_7_0 >= 0 & -1*all_4_0 + -1*all_1_0 >= -1 & all_1_0
+|         >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1 >= all_4_1 &
+|         all_7_0[1:1] = 1 - all_1_0 & all_7_0[0:0] = 1 - all_1_1
 | 
-| ALPHA: (11) implies:
-|   (12)  all_2_1 >= all_5_1
-|   (13)  -1*all_5_1 + -1*all_2_1 >= -1
-|   (14)  all_2_0 >= all_5_0
-|   (15)  -1*all_5_0 + -1*all_2_0 >= -1
+| ALPHA: (10) implies:
+|   (11)  all_1_1 >= all_4_1
+|   (12)  -1*all_4_1 + -1*all_1_1 >= -1
+|   (13)  all_1_0 >= all_4_0
+|   (14)  -1*all_4_0 + -1*all_1_0 >= -1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
 Warning: type clash during inference: bv[1] vs int
 Warning: type clash during inference: bv[1] vs int
-|   (16)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
+|   (15)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
 |           v0.\as[bv[2]] = 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
-|              with (8), (9) gives:
-|   (17)  all_5_2.\as[bv[2]] = 2*all_5_0 + all_5_1
+| GROUND_INST: instantiating (15) with all_4_2, all_4_1, all_4_0, simplifying
+|              with (7), (8) gives:
+|   (16)  all_4_2.\as[bv[2]] = 2*all_4_0 + all_4_1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
+|   (17)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
 |           v0.\as[bv[2]] != 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (18) with all_5_2, all_5_1, all_5_0, simplifying
-|              with (17) gives:
-|   (19)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2 | all_5_2 < 1
+| GROUND_INST: instantiating (17) with all_4_2, all_4_1, all_4_0, simplifying
+|              with (16) gives:
+|   (18)  2*all_4_0 + all_4_1 = all_4_2 | 3 < all_4_2 | all_4_2 < 1
 | 
-| BETA: splitting (19) gives:
+| BETA: splitting (18) gives:
 | 
 | Case 1:
 | | 
-| |   (20)  0 >= all_5_2
+| |   (19)  0 >= all_4_2
 | | 
-| | COMBINE_INEQS: (5), (20) imply:
-| |   (21)  false
+| | COMBINE_INEQS: (4), (19) imply:
+| |   (20)  false
 | | 
-| | CLOSE: (21) is inconsistent.
+| | CLOSE: (20) is inconsistent.
 | | 
 | Case 2:
 | | 
-| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | 3 < all_5_2
+| |   (21)  2*all_4_0 + all_4_1 = all_4_2 | 3 < all_4_2
 | | 
-| | BETA: splitting (22) gives:
+| | BETA: splitting (21) gives:
 | | 
 | | Case 1:
 | | | 
-| | |   (23)  all_5_2 >= 4
+| | |   (22)  all_4_2 >= 4
 | | | 
-| | | COMBINE_INEQS: (6), (23) imply:
-| | |   (24)  false
+| | | COMBINE_INEQS: (5), (22) imply:
+| | |   (23)  false
 | | | 
-| | | CLOSE: (24) is inconsistent.
+| | | CLOSE: (23) is inconsistent.
 | | | 
 | | Case 2:
 | | | 
-| | |   (25)  2*all_5_0 + all_5_1 = all_5_2
+| | |   (24)  2*all_4_0 + all_4_1 = all_4_2
 | | | 
-| | | REDUCE: (15), (25) imply:
-| | |   (26)  all_5_0 + all_5_1 - all_5_2 - all_2_0 >= -1
+| | | REDUCE: (14), (24) imply:
+| | |   (25)  all_4_0 + all_4_1 - all_4_2 - all_1_0 >= -1
 | | | 
-| | | REDUCE: (14), (25) imply:
-| | |   (27)  all_5_0 + all_5_1 - all_5_2 + all_2_0 >= 0
+| | | REDUCE: (13), (24) imply:
+| | |   (26)  all_4_0 + all_4_1 - all_4_2 + all_1_0 >= 0
 | | | 
-| | | COL_REDUCE: introducing fresh symbol sc_17_1_0 defined by:
-| | |   (28)  all_5_0 - all_5_2 = sc_17_1_0
+| | | COL_REDUCE: introducing fresh symbol sc_16_1_0 defined by:
+| | |   (27)  all_4_0 - all_4_2 = sc_16_1_0
 | | | 
-| | | COMBINE_EQS: (25), (28) imply:
-| | |   (29)  all_5_1 + all_5_2 = -2*sc_17_1_0
+| | | COMBINE_EQS: (24), (27) imply:
+| | |   (28)  all_4_1 + all_4_2 = -2*sc_16_1_0
 | | | 
-| | | REDUCE: (26), (28), (29) imply:
-| | |   (30)  -1*all_5_2 + -1*sc_17_1_0 - all_2_0 >= -1
+| | | REDUCE: (25), (27), (28) imply:
+| | |   (29)  -1*all_4_2 + -1*sc_16_1_0 - all_1_0 >= -1
 | | | 
-| | | REDUCE: (27), (28), (29) imply:
-| | |   (31)  -1*all_5_2 + -1*sc_17_1_0 + all_2_0 >= 0
+| | | REDUCE: (26), (27), (28) imply:
+| | |   (30)  -1*all_4_2 + -1*sc_16_1_0 + all_1_0 >= 0
 | | | 
-| | | REDUCE: (13), (29) imply:
-| | |   (32)  all_5_2 + 2*sc_17_1_0 - all_2_1 >= -1
+| | | REDUCE: (12), (28) imply:
+| | |   (31)  all_4_2 + 2*sc_16_1_0 - all_1_1 >= -1
 | | | 
-| | | REDUCE: (12), (29) imply:
-| | |   (33)  all_5_2 + 2*sc_17_1_0 + all_2_1 >= 0
+| | | REDUCE: (11), (28) imply:
+| | |   (32)  all_4_2 + 2*sc_16_1_0 + all_1_1 >= 0
 | | | 
-| | | REDUCE: (7), (29) imply:
-| | |   (34)  -2*sc_17_1_0 >= all_5_2
+| | | REDUCE: (6), (28) imply:
+| | |   (33)  -2*sc_16_1_0 >= all_4_2
+| | | 
+| | | COMBINE_INEQS: (29), (31) imply:
+| | |   (34)  sc_16_1_0 - all_1_0 - all_1_1 >= -2
+| | | 
+| | | COMBINE_INEQS: (30), (31) imply:
+| | |   (35)  sc_16_1_0 + all_1_0 - all_1_1 >= -1
+| | | 
+| | | COMBINE_INEQS: (29), (32) imply:
+| | |   (36)  sc_16_1_0 - all_1_0 + all_1_1 >= -1
 | | | 
 | | | COMBINE_INEQS: (30), (32) imply:
-| | |   (35)  sc_17_1_0 - all_2_0 - all_2_1 >= -2
+| | |   (37)  sc_16_1_0 + all_1_0 + all_1_1 >= 0
 | | | 
-| | | COMBINE_INEQS: (31), (32) imply:
-| | |   (36)  sc_17_1_0 + all_2_0 - all_2_1 >= -1
+| | | COMBINE_INEQS: (4), (33) imply:
+| | |   (38)  -1 >= sc_16_1_0
 | | | 
-| | | COMBINE_INEQS: (30), (33) imply:
-| | |   (37)  sc_17_1_0 - all_2_0 + all_2_1 >= -1
+| | | SIMP: (38) implies:
+| | |   (39)  -1 >= sc_16_1_0
 | | | 
-| | | COMBINE_INEQS: (31), (33) imply:
-| | |   (38)  sc_17_1_0 + all_2_0 + all_2_1 >= 0
+| | | COMBINE_INEQS: (34), (39) imply:
+| | |   (40)  -1*all_1_0 + -1*all_1_1 >= -1
 | | | 
-| | | COMBINE_INEQS: (5), (34) imply:
-| | |   (39)  -1 >= sc_17_1_0
+| | | COMBINE_INEQS: (36), (39) imply:
+| | |   (41)  all_1_1 >= all_1_0
 | | | 
-| | | SIMP: (39) implies:
-| | |   (40)  -1 >= sc_17_1_0
+| | | COMBINE_INEQS: (35), (39) imply:
+| | |   (42)  all_1_0 >= all_1_1
 | | | 
-| | | COMBINE_INEQS: (35), (40) imply:
-| | |   (41)  -1*all_2_0 + -1*all_2_1 >= -1
+| | | COMBINE_INEQS: (37), (39) imply:
+| | |   (43)  all_1_0 + all_1_1 >= 1
 | | | 
-| | | COMBINE_INEQS: (37), (40) imply:
-| | |   (42)  all_2_1 >= all_2_0
+| | | COMBINE_INEQS: (40), (42) imply:
+| | |   (44)  0 >= all_1_1
 | | | 
-| | | COMBINE_INEQS: (36), (40) imply:
-| | |   (43)  all_2_0 >= all_2_1
-| | | 
-| | | COMBINE_INEQS: (38), (40) imply:
-| | |   (44)  all_2_0 + all_2_1 >= 1
+| | | SIMP: (44) implies:
+| | |   (45)  0 >= all_1_1
 | | | 
 | | | COMBINE_INEQS: (41), (43) imply:
-| | |   (45)  0 >= all_2_1
+| | |   (46)  all_1_1 >= 1
 | | | 
-| | | SIMP: (45) implies:
-| | |   (46)  0 >= all_2_1
+| | | SIMP: (46) implies:
+| | |   (47)  all_1_1 >= 1
 | | | 
-| | | COMBINE_INEQS: (42), (44) imply:
-| | |   (47)  all_2_1 >= 1
+| | | COMBINE_INEQS: (45), (47) imply:
+| | |   (48)  false
 | | | 
-| | | SIMP: (47) implies:
-| | |   (48)  all_2_1 >= 1
-| | | 
-| | | COMBINE_INEQS: (46), (48) imply:
-| | |   (49)  false
-| | | 
-| | | CLOSE: (49) is inconsistent.
+| | | CLOSE: (48) is inconsistent.
 | | | 
 | | End of split
 | | 
@@ -731,12 +728,12 @@ End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 607)
+Found proof (size 606)
 
 unsat
 Loading bvsrem2.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 161)
+Found proof (size 160)
 
 unsat

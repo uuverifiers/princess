@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,7 @@ object NegLitClauseTask {
   def isCoveredFormula(f : Conjunction, config : PredicateMatchConfig) : Boolean =
     (!f.quans.isEmpty &&
      (f.quans forall (Quantifier.EX ==)) &&
-     ((IterativeClauseMatcher.isMatchable(f, config)) !=
+     ((IterativeClauseMatcher.predConjIsMatchable(f, config)) !=
          IterativeClauseMatcher.Matchable.No)
     // TODO: find a proper condition when nested quantifiers can be allowed here
     // f.negatedConjs.isEmpty
@@ -108,7 +108,7 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
     isMatchable(f) == IterativeClauseMatcher.Matchable.Complete
 
   private def isMatchable(f : Conjunction) =
-    IterativeClauseMatcher.isMatchable(f, predicateMatchConfig)
+    IterativeClauseMatcher.predConjIsMatchable(f, predicateMatchConfig)
     
   private def updateMatcher(cf : CompoundFormulas,
                             goal : Goal,

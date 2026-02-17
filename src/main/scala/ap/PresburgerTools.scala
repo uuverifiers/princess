@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
 package ap
 
 import ap.basetypes.IdealInt
-import ap.theories.{TheoryRegistry, ModuloArithmetic}
+import ap.theories.{TheoryRegistry, ModuloArithmetic, TheoryCollector}
 import ap.theories.GroebnerMultiplication
 import ap.types.TypeTheory
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
@@ -434,9 +434,12 @@ object PresburgerTools {
    * formula. The method can also handle formulas with bit-vector arithmetic
    * or non-linear multiplication, and is optimised for post-processing of
    * interpolants.
+   * 
+   * TODO: revise, this is a messy implementation.
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
+    val signature = Signature(Set(), Set(), c.constants, order)
     val reducer =
       if (containsBVNonlin(c))
         ReduceWithConjunction(Conjunction.TRUE, order, bvReducerSettings)
@@ -457,14 +460,14 @@ object PresburgerTools {
         case 1 if (quantifiers contains Quantifier.EX) => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
-          val typedC = TypeTheory.preprocess(!c, order)
+          val typedC = TypeTheory.preprocess(!c, signature)
           TypeTheory.filterTypeConstraints(
             !bvExpansionProver(typedC, order).closingConstraint)
         }
         case _ => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
-          val typedC = TypeTheory.preprocess(c, order)
+          val typedC = TypeTheory.preprocess(c, signature)
           TypeTheory.filterTypeConstraints(
             bvExpansionProver(typedC, order).closingConstraint)
         }
@@ -631,8 +634,12 @@ object PresburgerTools {
 
   // expansion in the presence of bit-vectors
   private val (bvReducerSettings, bvExpansionSettings) = {
+    val collector =
+      new TheoryCollector
+    collector.addTheory(GroebnerMultiplication)
+    collector.addTheory(ModuloArithmetic)
     val theories =
-      List(ModuloArithmetic, GroebnerMultiplication)
+      collector.theories
     val functionalPreds =
       (for (t <- theories; p <- t.functionalPredicates) yield p).toSet
     val predicateMatchConfig =
