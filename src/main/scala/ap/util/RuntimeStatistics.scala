@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,7 +41,10 @@ package ap.util;
  */
 object RuntimeStatistics {
 
-  val firstLoadExtraTime : Long        = 2000
+  val native =
+    System.getProperty("java.vm.name") == "Substrate VM" // GraalVM
+
+  val firstLoadExtraTime : Long        = if (native) 0 else 2000
 
   val initialSlowdown : Double         = 5.0
   val slowdownHalftime : Long          = 4000
@@ -63,6 +66,7 @@ object RuntimeStatistics {
 //    (initialSlowdown - 1.0) * scala.math.pow(2.0, -proofTime / slowdownHalftime) + 1.0
 
   private def longRunning =
+    native ||
     totalProofTime > (slowdownHalftime * 30.0)
 
   //////////////////////////////////////////////////////////////////////////////

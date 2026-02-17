@@ -1,3 +1,38 @@
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
+ *
+ * Copyright (C) 2018-2026 Philipp Ruemmer <ph_r@gmx.net>
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * 
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * 
+ * * Neither the name of the authors nor the names of their
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package ap.api
+
 // This program previously led to an exeption in
 // PresburgerTools.nonDNFEnumDisjuncts
 
@@ -5,6 +40,16 @@ import ap._
 import ap.parser._
 import ap.basetypes.IdealInt
 
+import org.scalacheck.Properties
+import ap.util.ExtraAssertions
+import ap.util.Prop._
+
+class DNFTest extends Properties("DNFTest") with ExtraAssertions {
+
+  val expectedOutput = """List((P1 != 0), (P0 != 0), (P4 = 0), (P3 = 0), (P2 = 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P11 != 0 & P6 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P11 = 0 & P6 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P11 != 0 & P6 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P11 = 0 & P6 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P10 != 0 & P7 != 0 & P5 != 0), (P6 != 0 & P7 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P11 != 0 & P6 != 0 & P5 != 0))
+"""
+
+  property("main") = checkOutput(expectedOutput) {
 SimpleAPI.withProver(tightFunctionScopes = true, genTotalityAxioms = false) { p =>
 import p._
 import IExpression._
@@ -52,3 +97,5 @@ PresburgerTools.nonDNFEnumDisjuncts(asConjunction(
 )
 
 }} // withProver
+}
+}
