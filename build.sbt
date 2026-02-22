@@ -90,12 +90,26 @@ lazy val smtParser = (project in file("smt-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
+lazy val core = (project in file("core")).
+  settings(commonSettings: _*).
+  settings(
+    name := "Princess-core",
+    Compile / scalacOptions ++=
+      List("-feature",
+           "-language:implicitConversions,postfixOps,reflectiveCalls"),
+    scalacOptions += (scalaVersion map { sv => sv match {
+      case "2.11.12" => "-optimise"
+      case "2.12.20" => "-opt:_"
+    }}).value
+  ).
+  disablePlugins(AssemblyPlugin)
+
 // Actual project
 
 lazy val root = (project in file(".")).
   enablePlugins(NativeImagePlugin).
-  aggregate(parser, smtParser).
-  dependsOn(parser, smtParser).
+  aggregate(core, parser, smtParser).
+  dependsOn(core, parser, smtParser).
   settings(commonSettings: _*).
 //
   settings(
@@ -129,4 +143,3 @@ lazy val root = (project in file(".")).
 
     nativeImageAgentMerge := true
 )
-
