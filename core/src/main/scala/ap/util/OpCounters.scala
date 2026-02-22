@@ -35,6 +35,10 @@ package ap.util
 
 import scala.util.DynamicVariable
 import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.JavaConverters._
+
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.LongAdder
 
 /**
  * Object to implement different kinds of performance counters. Such
@@ -94,22 +98,25 @@ object OpCounters {
 
   class CounterState {
 
-    private val counters = new MHashMap[Counter, Long] {
-      override def default(c : Counter) : Long = 0L
-    }
+    private val counters = new ConcurrentHashMap[Counter, LongAdder]
 
     private val startTime = System.currentTimeMillis
 
+    private val createAdder =
+      new java.util.function.Function[Counter, LongAdder] {
+        def apply(c : Counter) : LongAdder = new LongAdder
+      }
+
     def inc(c : Counter) : Unit =
-      counters += (c -> (counters(c) + 1L))
+      counters.computeIfAbsent(c, createAdder).increment()
 
     def apply(c : Counter) : Long = c match {
       case Milliseconds => System.currentTimeMillis - startTime
-      case c => counters(c)
+      case c => counters.computeIfAbsent(c, createAdder).sum()
     }
 
     def counterIterator : Iterator[Counter] =
-      Iterator.single(Milliseconds) ++ counters.keysIterator
+      Iterator(Milliseconds) ++ counters.keys.asScala
 
   }
 

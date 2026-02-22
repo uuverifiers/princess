@@ -36,6 +36,8 @@ package ap.util;
 import scala.collection.mutable.{ArrayStack => Stack, HashMap, ArrayBuilder}
 import scala.util.Sorting
 
+import java.lang.Thread
+
 /**
  * Object for measuring the time needed by the various tasks, methods, etc.
  * The object, in particular, supports nested operations that call each other
@@ -68,6 +70,7 @@ object Timer {
     startTime = now
   }
   
+  private var lastThread : Thread = null
   private var timerDisabled = false
 
   def measure[A](op : String)(comp : => A) : A =
@@ -79,6 +82,16 @@ object Timer {
       comp
 
     } else {
+
+      if (lastThread == null) {
+        lastThread = Thread.currentThread
+      } else if (!(lastThread eq Thread.currentThread)) {
+        Console.err.println(
+          "Warning: disabling ap.util.Timer due to multi-threading")
+        timerDisabled = true
+        return measure(op)(comp)
+      }
+
       addTime
       callCounters += (op -> (callCounters(op) + 1))
       runningOps push op
@@ -98,6 +111,7 @@ object Timer {
     accumulatedTimes.clear
     callCounters.clear
     runningOps.clear
+    lastThread    = null
     timerDisabled = false
   }
   
