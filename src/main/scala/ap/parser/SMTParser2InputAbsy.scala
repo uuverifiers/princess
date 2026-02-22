@@ -69,15 +69,13 @@ object SMTParser2InputAbsy {
   import IExpression.{Sort => TSort}
   import SMTTypes._
 
-  protected[parser] def toNormalBool(s : TSort) : TSort = s match {
-    case TSort.MultipleValueBool => TSort.Bool
-    case s => s
-  }
+  type SMTFunctionType = SMTSupport.SMTFunctionType
+  val SMTFunctionType = SMTSupport.SMTFunctionType
 
-  case class SMTFunctionType(arguments : List[SMTType],
-                             result : SMTType)
+  protected[parser] def toNormalBool(s : TSort) : TSort =
+    SMTSupport.toNormalBool(s)
 
-  val SMTBoolVariableType = SMTFunctionType(List(), SMTBool)
+  val SMTBoolVariableType : SMTFunctionType = SMTSupport.SMTBoolVariableType
 
   sealed abstract class VariableType
   case class BoundVariable(varType : SMTType)              extends VariableType

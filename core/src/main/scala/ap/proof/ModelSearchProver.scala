@@ -326,53 +326,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
   //////////////////////////////////////////////////////////////////////////////
 
   private def verifyCertificate(cert : Certificate,
-                                disjuncts : Seq[Conjunction]) : Boolean = {
- 
-    // verify assumptions
-    (cert.assumedFormulas subsetOf
-      (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet) &&
-    //
-    // verify theory axioms
-    (true || SimpleAPI.withProver { p =>
-      import p._
-
-      def traverse(c : Certificate) : Boolean =
-        (c match {
-          case BranchInferenceCertificate(inferences, _, order) =>
-            inferences forall {
-              case TheoryAxiomInference(axiom, GroebnerMultiplication) =>
-                scope {
-                  Console.err.println("Verifying: " + axiom)
-                  addTheory(GroebnerMultiplication)
-                  addConclusion(axiom.toConj)
-                  
-                  try {
-                    withTimeout(3000) {
-                      ??? match {
-                        case SimpleAPI.ProverStatus.Valid =>
-                          true
-                        case _ =>
-                          Console.err.println("FAILED")
-                          true
-                      }
-                    }
-                  } catch {
-                    case SimpleAPI.TimeoutException =>
-                      Console.err.println("T/O")
-                      true
-                  }
-                }
-              case _ =>
-                true
-            }
-          case _ =>
-            true
-         }) &&
-        (c.subCertificates forall (traverse _))
-
-      traverse(cert)
-    })
-  }
+                                disjuncts : Seq[Conjunction]) : Boolean =
+    cert.assumedFormulas subsetOf
+      (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet
 
   //////////////////////////////////////////////////////////////////////////////
   

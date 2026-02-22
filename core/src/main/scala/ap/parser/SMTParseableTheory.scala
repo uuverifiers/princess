@@ -34,7 +34,6 @@
 package ap.parser
 
 import ap.theories.Theory
-import ap.parser.smtlib.Absyn.{Sort => SSort, SymbolRef}
 import ap.types.Sort
 
 /**
@@ -89,10 +88,13 @@ trait SMTParseableTheory {
 
   import SMTTypes.SMTType
 
+  type SMTSortAST = Any
+  type SMTSymbolRefAST = Any
+
   /**
    * Translate a sort AST.
    */
-  def translateSMTSortAST(s : SSort) : Option[SMTType] = None
+  def translateSMTSortAST(s : SMTSortAST) : Option[SMTType] = None
 
   /**
    * Translate the application of a function or predicate. The
@@ -100,7 +102,7 @@ trait SMTParseableTheory {
    * argument.
    */
   def translateSMTOperatorAST(
-          sym       : SymbolRef,
+          sym       : SMTSymbolRefAST,
           arguments : Seq[(Int) => (IExpression, SMTType)],
           polarity  : Int)
                     : Option[(IExpression, SMTType)] = None

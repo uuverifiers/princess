@@ -61,7 +61,7 @@ import java.io.PrintStream
 object SMTLineariser {
 
   import SMTTypes._
-  import SMTParser2InputAbsy.SMTFunctionType
+  import SMTSupport.SMTFunctionType
 
   private val AC = Debug.AC_PARSER
 
@@ -631,9 +631,9 @@ object SMTLineariser {
             constantType :
               ConstantTerm => Option[SMTTypes.SMTType],
             functionType :
-              IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+              IFunction => Option[SMTSupport.SMTFunctionType],
             predType :
-              Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
+              Predicate => Option[SMTSupport.SMTFunctionType],
             prettyBitvectors : Boolean = true) : Unit =
     formula match {
       case IBoolLit(value) => print(value)
@@ -671,11 +671,21 @@ object SMTLineariser {
     case t : ITerm => asString(t)
   }
 
+  private def captureString(comp : => Unit) : String = {
+    val out = new java.io.ByteArrayOutputStream
+    val ps = new java.io.PrintStream(out)
+    Console.withOut(ps) {
+      comp
+    }
+    ps.flush()
+    out.toString("UTF-8")
+  }
+
   def asString(formula : IFormula) : String =
-    ap.DialogUtil.asString { apply(formula) }
+    captureString { apply(formula) }
 
   def asString(t : ITerm) : String =
-    ap.DialogUtil.asString { apply(t) }
+    captureString { apply(t) }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -946,9 +956,9 @@ class SMTLineariser(benchmarkName     : String,
                     constantType :
                        ConstantTerm => Option[SMTTypes.SMTType],
                     functionType :
-                       IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       IFunction => Option[SMTSupport.SMTFunctionType],
                     predType :
-                       Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
+                       Predicate => Option[SMTSupport.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
   import SMTTypes._
@@ -1065,7 +1075,7 @@ class SMTLineariser(benchmarkName     : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  import SMTParser2InputAbsy.SMTFunctionType
+  import SMTSupport.SMTFunctionType
 
   private def getTermType(t : ITerm)
                          (implicit variableType : Int => Option[SMTType])
@@ -1484,4 +1494,3 @@ class SMTLineariser(benchmarkName     : String,
   }
   
 }
-

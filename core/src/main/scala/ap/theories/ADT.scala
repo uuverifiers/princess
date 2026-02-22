@@ -42,8 +42,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.terfor.{TermOrder, TerForConvenience, Formula, OneTerm, Term}
 import ap.terfor.preds.Atom
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst}
-import ap.{SimpleAPI, PresburgerTools}
-import SimpleAPI.ProverStatus
+import ap.PresburgerTools
 import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
                  SortedConstantTerm, MonoSortedPredicate}
 import ap.proof.theoryPlugins.Plugin

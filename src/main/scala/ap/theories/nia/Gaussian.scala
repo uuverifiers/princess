@@ -36,10 +36,9 @@ package ap.theories.nia
 
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.{TerForConvenience, TermOrder, ConstantTerm}
-import ap.terfor.preds.Atom
-import ap.terfor.equations.EquationConj
+import ap.terfor.ConstantTerm
 import ap.terfor.TerForConvenience._
+import ap.terfor.equations.EquationConj
 import ap.SimpleAPI
 import ap.parser._
 import ap.util.{Debug, LRUCache}

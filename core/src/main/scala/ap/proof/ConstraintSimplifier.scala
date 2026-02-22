@@ -93,6 +93,11 @@ abstract class ConstraintSimplifier {
 
 class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
       extends ConstraintSimplifier {
+
+  private val NullStream =
+    new java.io.PrintStream(new java.io.OutputStream {
+      def write(b : Int) : Unit = ()
+    })
   
   private lazy val posProver =
     new ExhaustiveProver(false,
@@ -155,10 +160,10 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
   private def simplify(f : Conjunction, order : TermOrder) : Conjunction =
     Timeout.unfinishedValue(None) {
       println("Simplify: " + f + " (positive)")
-      val res = if (lemmas) Console.withOut(ap.CmdlMain.NullStream) {
+      val res = if (lemmas) Console.withOut(NullStream) {
         QuantifierElimProver(f, false, order)
       } else {
-        val tree = Console.withOut(ap.CmdlMain.NullStream) { posProver(f, order) }
+        val tree = Console.withOut(NullStream) { posProver(f, order) }
         TestProofTree.assertNormalisedTree(tree)
         tree.closingConstraint
       }
@@ -169,10 +174,10 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
   private def negSimplify(f : Conjunction, order : TermOrder) : Conjunction =
     Timeout.unfinishedValue(None) {
       println("Simplify: " + f + " (negative)")
-      val res = if (lemmas) Console.withOut(ap.CmdlMain.NullStream) {
+      val res = if (lemmas) Console.withOut(NullStream) {
         QuantifierElimProver(f.negate, ground2DNF, order).negate
       } else {
-        val tree = Console.withOut(ap.CmdlMain.NullStream) { negProver(f.negate, order) }
+        val tree = Console.withOut(NullStream) { negProver(f.negate, order) }
         TestProofTree.assertNormalisedTree(tree)
         tree.closingConstraint.negate
       }

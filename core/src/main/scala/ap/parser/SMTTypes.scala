@@ -34,7 +34,6 @@
 package ap.parser;
 
 import ap.basetypes.IdealInt
-import ap.DialogUtil
 import ap.types.Sort
 import ap.theories.{ADT, ModuloArithmetic, TheoryRegistry}
 import ap.theories.sequences.SeqTheory
@@ -53,7 +52,17 @@ object SMTTypes {
 
   private val AC = Debug.AC_PARSER
 
-  import SMTParser2InputAbsy.toNormalBool
+  import SMTSupport.toNormalBool
+
+  private def asString(comp : => Unit) : String = {
+    val out = new java.io.ByteArrayOutputStream
+    val ps = new java.io.PrintStream(out)
+    Console.withOut(ps) {
+      comp
+    }
+    ps.flush()
+    out.toString("UTF-8")
+  }
 
   abstract class SMTType {
     def toSort : Sort
@@ -80,7 +89,7 @@ object SMTTypes {
     val theory = ExtArray(arguments map { t => toNormalBool(t.toSort) },
                           toNormalBool(result.toSort))
     def toSort = theory.sort
-    def toSMTLIBString = DialogUtil asString {
+    def toSMTLIBString = asString {
       print("(Array")
       for (s <- arguments) {
         print(" ")
@@ -190,7 +199,7 @@ object SMTTypes {
                     elementType : SMTType)         extends SMTType {
     def toSort = theory.sort
     override def toString = theory.toString
-    def toSMTLIBString = DialogUtil asString {
+    def toSMTLIBString = asString {
       print("(Seq ")
       print(elementType.toSMTLIBString)
       print(")")

@@ -94,6 +94,8 @@ lazy val core = (project in file("core")).
   settings(commonSettings: _*).
   settings(
     name := "Princess-core",
+    libraryDependencies +=
+      "org.scalacheck" %% "scalacheck" % "1.15.2" % Test,
     Compile / scalacOptions ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
