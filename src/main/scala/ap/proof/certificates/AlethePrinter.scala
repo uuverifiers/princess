@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -920,11 +920,11 @@ class AlethePrinter(
       case inf : TheoryAxiomInference =>
         printRewritingRule("THEORY_AXIOM " + inf.theory, inf)
       case QuantifierInference(quantifiedFormula, newConstants, _, _) =>
-        printlnPrefBreaking("DELTA: ",
+/*        printlnPrefBreaking("DELTA: ",
                     "instantiating " +  l(quantifiedFormula) +
                     " with fresh " +
                     (if (newConstants.size > 1) "symbols" else "symbol") + " " +
-                    (newConstants mkString ", ") + " gives:")
+                    (newConstants mkString ", ") + " gives:") */
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, _, _) =>
 /*        printlnPrefBreaking("GROUND_INST: ",
@@ -1050,6 +1050,34 @@ class AlethePrinter(
                                           inf.providedFormulas.head,
                                           extraAttributes =
                                             List(("args", f"(${inf.factor} 1)")))
+
+      case QuantifierInference(quantifiedFormula, newConstants,
+                               result, order) => {
+        var instFormula = quantifiedFormula.toConj
+        for (c <- newConstants) {
+          val newFormula = instFormula.instantiate(List(c))(order)
+          val id = SMTLineariser.quoteIdentifier(c.name)
+          // TODO: generalize sorts
+          printlnPrefBreaking("",
+            s"(define-const $id Int " +
+            s"(choice (($id Int)) ${for2String(CertFormula(newFormula))})")
+          instFormula = newFormula
+        }
+
+        val quantForStr = for2String(quantifiedFormula)
+        val resultStr = for2String(result)
+        val eqvForStr = s"(= $quantForStr $resultStr)"
+
+        val l1 =
+          step(List(eqvForStr), ("rule", "sko_ex"))
+        val l2 =
+          step(List(s"(not $eqvForStr)", s"(not $quantForStr)", resultStr),
+               ("rule", "equiv_pos1"))
+        val l3 =
+          hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
+                             for2String(result))
+        formulaLabel.put(result, l3)
+      }
 
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, result, order) => {

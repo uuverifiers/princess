@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2025-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -452,6 +452,20 @@ val disjCert = """; Assumptions after simplification:
 
 ; End of proof
 """
+
+val predicates5 = """\predicates {
+  p(int); q(int);  
+}
+
+\problem {
+  \exists int x; (p(x) & !q(x)) &
+  \forall int x; (p(x) -> q(x))
+->
+  false
+}
+"""
+
+val predicates5Cert = ""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -467,8 +481,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
       val (f, _, _) = extractPriInput(input)
       ?? (f)
 
-//      ???
-//      println(aletheCertificateAsString())
+      ???
+      println(aletheCertificateAsString())
 
       ??? == ProverStatus.Valid &&
       aletheCertificateAsString() == cert
@@ -485,5 +499,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("disj") =
     checkProof(disj, disjCert)
+
+//  property("predicate5") =
+//    checkProof(predicates5, predicates5Cert)
 
 }
