@@ -1054,6 +1054,9 @@ class AlethePrinter(
 
       case QuantifierInference(quantifiedFormula, newConstants,
                                result, order) => {
+        if (newConstants.size != 1)
+          throw new Exception("Skolemization with more than one variable is not handled yet")
+
         var instFormula = quantifiedFormula.toConj
         var instFormula2 = quantifiedFormula.toConj
         var bindings = new ArrayBuffer[String]
