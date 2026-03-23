@@ -31,7 +31,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package ap.proof.certificates;
+package ap.proof.certificates
 
 import ap.DialogUtil
 import ap.terfor.preds.{Atom, Predicate}
@@ -44,14 +44,15 @@ import ap.terfor.{TermOrder, Term, OneTerm, VariableTerm, ConstantTerm}
 import ap.basetypes.IdealInt
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
-                                 ArrayStack}
+                                 ArrayStack, ArrayBuffer}
 import scala.util.Sorting
-import java.security.cert.CertificateFactory
 
 object AlethePrinter {
   private val LINE_WIDTH = 80
 
   private val NUMERIC_LABEL = """\(([0-9]+)\)""".r
+
+  def nthVarName(n : Int) : String = "$v" + n
 
   class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
@@ -175,7 +176,7 @@ object AlethePrinter {
         // TODO: group blocks of quantifiers
         var newVars = variables
         for ((q, n) <- c.quans.reverse.zipWithIndex) {
-          val varName = "$v" + (n + N)
+          val varName = nthVarName(n + N)
           newVars = varName :: newVars
           if ((q == Quantifier.ALL) != negated)
             print("(forall ((")
@@ -1054,25 +1055,42 @@ class AlethePrinter(
       case QuantifierInference(quantifiedFormula, newConstants,
                                result, order) => {
         var instFormula = quantifiedFormula.toConj
-        for (c <- newConstants) {
+        var instFormula2 = quantifiedFormula.toConj
+        var bindings = new ArrayBuffer[String]
+        for ((c, n) <- newConstants.zipWithIndex) {
           val newFormula = instFormula.instantiate(List(c))(order)
           val id = SMTLineariser.quoteIdentifier(c.name)
           // TODO: generalize sorts
+          val sort = "Int"
+          val varName = nthVarName(n)
+
+          bindings += s"(:= ($varName $sort) $id)"
+
           printlnPrefBreaking("",
-            s"(define-const $id Int " +
-            s"(choice (($id Int)) ${for2String(CertFormula(newFormula))})")
+            s"(define-fun $id () $sort " +
+            s"(choice (($id $sort)) ${for2String(CertFormula(newFormula))}))")
+
           instFormula = newFormula
+          instFormula2 =
+            instFormula2.instantiate(List(new ConstantTerm (varName)))(order)
         }
+
+        val l1 = freshLabel()
+        val bindingsStr = bindings.mkString(" ")
+        printCommand("anchor", List(":step", l1, ":args", s"($bindingsStr)"))
 
         val quantForStr = for2String(quantifiedFormula)
         val resultStr = for2String(result)
-        val eqvForStr = s"(= $quantForStr $resultStr)"
+        val eqvForStr = s"(= ${for2String(CertFormula(instFormula2))} $resultStr)"
+        val eqvForStr2 = s"(= $quantForStr $resultStr)"
 
-        val l1 =
-          step(List(eqvForStr), ("rule", "sko_ex"))
+        step(List(eqvForStr), ("rule", "refl"))
+
+        printCommandStr("step", l1, List(eqvForStr2), List(("rule", "sko_ex")))
+
         val l2 =
-          step(List(s"(not $eqvForStr)", s"(not $quantForStr)", resultStr),
-               ("rule", "equiv_pos1"))
+          step(List(s"(not $eqvForStr2)", s"(not $quantForStr)", resultStr),
+               ("rule", "equiv_pos2"))
         val l3 =
           hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
                              for2String(result))

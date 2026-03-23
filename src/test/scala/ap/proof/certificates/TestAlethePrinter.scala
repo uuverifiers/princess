@@ -465,7 +465,50 @@ val predicates5 = """\predicates {
 }
 """
 
-val predicates5Cert = ""
+val predicates5Cert = """; Assumptions after simplification:
+; ---------------------------------
+
+(assume input_0 (and (forall (($v0 Int)) (or (not (p $v0)) (q $v0))) (exists
+      (($v0 Int))  (and (p $v0) (not (q $v0))))))
+
+; Those formulas are unsatisfiable:
+; ---------------------------------
+
+; Begin of proof
+
+(step t1 (cl (forall (($v0 Int))  (or (not (p $v0)) (q $v0)))) :rule and
+  :premises (input_0) :args (0))
+(step t2 (cl (exists (($v0 Int)) (and (p $v0) (not (q $v0))))) :rule and
+  :premises (input_0) :args (1))
+
+(define-fun all_2_0 () Int (choice ((all_2_0 Int)) (and (p all_2_0) (not (q
+          all_2_0)))))
+(anchor :step t3 :args ((:= ($v0 Int) all_2_0)))
+(step t4 (cl (= (and (p $v0) (not (q $v0))) (and (p all_2_0) (not (q
+            all_2_0))))) :rule refl)
+(step t3 (cl (= (exists (($v0 Int)) (and (p $v0) (not (q $v0)))) (and (p
+          all_2_0) (not (q all_2_0))))) :rule sko_ex)
+(step t5 (cl (not (= (exists (($v0 Int)) (and (p $v0) (not (q $v0)))) (and (p
+            all_2_0) (not (q all_2_0))))) (not (exists (($v0 Int)) (and (p $v0)
+          (not (q $v0))))) (and (p all_2_0) (not (q all_2_0)))) :rule
+  equiv_pos2)
+(step t6 (cl (and (p all_2_0) (not (q all_2_0)))) :rule resolution :premises (t3
+    t2 t5))
+
+(step t7 (cl (not (q all_2_0))) :rule and :premises (t6) :args (1))
+(step t8 (cl (p all_2_0)) :rule and :premises (t6) :args (0))
+
+(step t9 (cl (or (not (forall (($v0 Int))  (or (not (p $v0)) (q $v0)))) (or (not
+          (p all_2_0)) (q all_2_0)))) :rule forall_inst :args (all_2_0))
+(step t10 (cl (not (forall (($v0 Int))  (or (not (p $v0)) (q $v0)))) (or (not (p
+          all_2_0)) (q all_2_0))) :rule or :premises (t9))
+(step t11 (cl (or (not (p all_2_0)) (q all_2_0))) :rule resolution :premises (t1
+    t10))
+(step t12 (cl (not (p all_2_0)) (q all_2_0)) :rule or :premises (t11))
+(step t13 (cl ) :rule resolution :premises (t7 t8 t12))
+
+; End of proof
+"""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -481,8 +524,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
       val (f, _, _) = extractPriInput(input)
       ?? (f)
 
-      ???
-      println(aletheCertificateAsString())
+//      ???
+//      println(aletheCertificateAsString())
 
       ??? == ProverStatus.Valid &&
       aletheCertificateAsString() == cert
@@ -500,7 +543,7 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
   property("disj") =
     checkProof(disj, disjCert)
 
-//  property("predicate5") =
-//    checkProof(predicates5, predicates5Cert)
+  property("predicate5") =
+    checkProof(predicates5, predicates5Cert)
 
 }
