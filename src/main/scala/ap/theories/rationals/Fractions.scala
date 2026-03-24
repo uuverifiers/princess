@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2020-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2020-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -280,6 +280,16 @@ class Fractions(name            : String,
         val (nb, db, rb) = decompose(b, num, denom)
         (ringPlus(ringMul(na, db), ringMul(nb, da)), ringMul(da, db),
          addition(ra, rb))
+      }
+      case IFunApp(`multiplication`,
+                   Seq(Fraction(Const(num2), Const(denom2)), t)) => {
+        val (n, d, r) = decompose(t, ringMul(num, num2), ringMul(denom, denom2))
+        (n, d, multWithFraction(num2, denom2, r))
+      }
+      case IFunApp(`multiplication`,
+                   Seq(t, Fraction(Const(num2), Const(denom2)))) => {
+        val (n, d, r) = decompose(t, ringMul(num, num2), ringMul(denom, denom2))
+        (n, d, multWithFraction(num2, denom2, r))
       }
       case t => (ringZero, ringOne, t)
     }

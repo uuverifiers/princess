@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2026 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2015-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,47 +33,69 @@
 
 package ap.api
 
-// case that previously led to an exception, since a
-// formula with incompatible term order was added to
-// the ModelSearchProver
-
 import ap._
 import ap.parser._
+import SimpleAPI.ProverStatus
 
 import org.scalacheck.Properties
 import ap.util.ExtraAssertions
 import ap.util.Prop._
 
-class IncrementalityBug extends Properties("Incrementalitybug") with ExtraAssertions {
+class ReadSMTLIB extends Properties("ReadSMTLIB") with ExtraAssertions {
+
+  val filename1 = "ap/api/testfile.smt2"
+  val filename2 = "ap/api/testfile2.smt2"
+  val filename3 = "ap/api/testfile3.smt2"
+
+  def toReader(name : String) =
+    new java.io.InputStreamReader(
+      getClass.getClassLoader.getResourceAsStream(name))
 
   property("main") = {
-SimpleAPI.withProver(enableAssert = true) { p =>
+
+    SimpleAPI.withProver(enableAssert = true) { p =>
 import p._
 import IExpression._
 
-{
+scope {
+val x = createConstant("x")
+!! (x < 100)
 
+// read a file that includes symbol definitions
+val Seq(f) = extractSMTLIBAssertions(toReader(filename1))
+assert(pp(f) == "x - y >= 1 & y - 50 >= 1")
+
+!! (f)
+assert(??? == ProverStatus.Sat) // sat
+
+!! (x < 50)
+assert(??? == ProverStatus.Unsat) // unsat
+}
 
 scope {
+val x = createConstant("x")
+val y = createConstant("y")
+!! (x < 100)
 
-val A2_0_2 = createConstant("A2_0_2") // addConstantRaw(A2_0_2)
-val N = createConstant("N") // addConstantRaw(N)
-val __eval0 = createConstant("__eval0") // addConstantRaw(__eval0)
+// read a file without symbol definitions
+val Seq(f) = extractSMTLIBAssertions(toReader(filename2))
+assert(pp(f) == "x - y >= 1 & y - 50 >= 1")
 
-???
-//println("59: " + ???)
+!! (f)
+assert(??? == ProverStatus.Sat) // sat
 
-eval(A2_0_2)
-//println("72: " + eval(A2_0_2))
+!! (x < 50)
+assert(??? == ProverStatus.Unsat) // unsat
+}
 
-?? ((((__eval0 + 1) + ((N + 1) * -1)) === 0))
-checkSat(true)
-//println("73: " + checkSat(true)) // checkSat(false)
+scope {
+// read a file that includes symbol definitions and some other commands
+// that should be ignored
+val Seq(f) = extractSMTLIBAssertions(toReader(filename3))
+assert(pp(f) == "x - y >= 1 & y - 50 >= 1")
+}}
 
-} // pop scope
-
-
-}} // withProver
-    true
+true
   }
+
 }

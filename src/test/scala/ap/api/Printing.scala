@@ -33,37 +33,69 @@
 
 package ap.api
 
-// This example previously led to a hanging prover when
-// calling "partialModel"
-
+import ap._
 import ap.parser._
+import SimpleAPI.ProverStatus
 
 import org.scalacheck.Properties
 import ap.util.ExtraAssertions
 import ap.util.Prop._
 
-class Deadlock extends Properties("Deadlock") {
+class Printing extends Properties("Printing") with ExtraAssertions {
 
-property("main") = {
-// println("starting")
+  import IExpression._
 
+  property("pred-simplify") = {
 val p = SimpleAPI.spawnWithAssertions
 import p._
 
-val x = createBooleanVariable
+val c = createConstant("c")
+val q = createBooleanVariable("p")
 
-push
-
-???
-//println(???)
-
-//println("getting model ...")
-partialModel
-//println(partialModel)
-//println("finished")
+val g1 = all(x => (c === ite(q, x, 4)))
+assert(pp(simplify(g1)) == "c = 4 & !p")
+val g2 = ex(x => (c === ite(q, x, 4)))
+assert(pp(simplify(g2)) == "p | c = 4")
 
 p.shutDown
+true    
+  }
 
+  val expectedOutput = """true
+false
+(not true)
+(not false)
 true
+false
+(not true)
+(not false)
+"""
+
+  property("printBooleanTerm") = checkOutput(expectedOutput) {
+SimpleAPI.withProver(enableAssert = true) { p =>
+  import p._
+  import IExpression._
+  import ap.types.Sort.MultipleValueBool
+
+  scope {
+    SMTLineariser(MultipleValueBool.True === IIntLit(0))
+    println
+    SMTLineariser(MultipleValueBool.False === IIntLit(0))
+    println
+    SMTLineariser(MultipleValueBool.True === IIntLit(1))
+    println
+    SMTLineariser(MultipleValueBool.False === IIntLit(1))
+    println
+    SMTLineariser(IIntLit(0) === MultipleValueBool.True)
+    println
+    SMTLineariser(IIntLit(0) === MultipleValueBool.False)
+    println
+    SMTLineariser(IIntLit(1) === MultipleValueBool.True)
+    println
+    SMTLineariser(IIntLit(1) === MultipleValueBool.False)
+    println
+  }
 }
+  }
+
 }
