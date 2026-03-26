@@ -916,7 +916,7 @@ object ModuloArithmetic extends Theory {
   val MultTheory = GroebnerMultiplication
 
   override val dependencies : Iterable[Theory] =
-    List(MultTheory, ModCastSplitter, BitwiseOpSplitter)
+    List(MultTheory, CastAtomSplitter, BitwiseOpSplitter)
 
   val plugin = Some(ModPlugin)
 

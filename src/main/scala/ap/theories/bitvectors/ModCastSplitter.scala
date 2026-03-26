@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
 import ap.terfor.{TerForConvenience, Formula, TermOrder}
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.types.SortedPredicate
@@ -50,17 +50,76 @@ import ap.util.{Debug, Seqs, IdealRange}
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Splitter handles the splitting of mod_cast-operations, when no other
- * inference steps are possible anymore.
+ * Splitter handles the splitting of <code>mod_cast</code>,
+ * <code>l_shift_cast</code>, <code>r_shift_cast</code>.
  */
-object ModCastSplitter
+object CastAtomSplitter
        extends TermBasedSaturationProcedure(
-          "ModCastSplitter",
-          arity           = 4,
+          "CastAtomSplitter",
+          arity           = 6,
           basePriority    = ModuloArithmetic.MOD_CAST_SPLITTER_PRIORITY,
           priorityUpdates = true) {
 
   import ModuloArithmetic._
+
+  val handlers = Vector(ModCastSplitHandler, LShiftCastSplitHandler)
+  val pointArity = 6
+
+  def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] =
+    for ((h, n) <- handlers.iterator.zipWithIndex;
+         suffix =  (h.predicate.arity until (pointArity - 1)).map(
+                     x => LinearCombination.ZERO);
+         point  <- h.extractApplicationPoints(goal))
+    yield (List(LinearCombination(n)) ++ point ++ suffix)
+
+  private def decodeApplicationPoint(p : ApplicationPoint)
+                                   : (AtomSplitHandler, ApplicationPoint) = {
+    val LinearCombination.Constant(IdealInt(handlerId)) = p.head
+    val handler = handlers(handlerId)
+    (handler, p.slice(1, handler.predicate.arity + 1))
+  }
+
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int = {
+    val (handler, point) = decodeApplicationPoint(args)
+    handler.applicationPriority(goal, point)
+  }
+
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action] = {
+    val (handler, point) = decodeApplicationPoint(args)
+    handler.handleApplicationPoint(goal, point)
+  }
+}
+
+/**
+ * Interface for handling different kinds of bit-vector atoms in the
+ * <code>ModCastSplitter</code>.
+ */
+trait AtomSplitHandler {
+
+  type ApplicationPoint = Seq[LinearCombination]
+
+  val predicate : Predicate
+
+  def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
+    val predConj = goal.facts.predConj
+    predConj.positiveLitsWithPred(predicate).iterator.map(_.toVector)
+  }
+
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action]
+
+}
+
+/**
+ * Splitter handles the splitting of mod_cast-operations, when no other
+ * inference steps are possible anymore.
+ */
+object ModCastSplitHandler extends AtomSplitHandler {
+  import ModuloArithmetic._
+
+  val predicate = _mod_cast
 
   private val SPLIT_LIMIT = IdealInt(20)
 
@@ -106,11 +165,6 @@ object ModCastSplitter
       val upperFactor = -((sortUB - ub) / sort.modulus)
       (lb, lowerFactor, ub, upperFactor, assumptions)
     }
-  }
-
-  def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
-    val predConj = goal.facts.predConj
-    predConj.positiveLitsWithPred(_mod_cast).iterator.map(_.toVector)
   }
 
   def applicationPriority(goal : Goal, args : ApplicationPoint) : Int = {

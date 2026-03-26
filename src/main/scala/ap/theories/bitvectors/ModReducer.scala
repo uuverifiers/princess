@@ -362,7 +362,7 @@ object ModReducer {
                               ModuloArithmetic)
       newA
     } else {
-      (lowerBound(a(3), log)) match {
+      lowerBound(a(3), log) match {
         case Some((lb, lbAsses)) if lb.signum > 0 => {
           val sort@ModSort(_, _) =
             (SortedPredicate argumentSorts a).last
