@@ -1054,12 +1054,54 @@ class AlethePrinter(
 
       case QuantifierInference(quantifiedFormula, newConstants,
                                result, order) => {
-        if (newConstants.size != 1)
-          throw new Exception("Skolemization with more than one variable is not handled yet")
+//        if (newConstants.size != 1)
+//          throw new Exception("Skolemization with more than one variable is not handled yet")
 
         var instFormula = quantifiedFormula.toConj
         var instFormula2 = quantifiedFormula.toConj
-        var bindings = new ArrayBuffer[String]
+
+        for (c <- newConstants.reverse) {
+          val n = 0
+          val newFormula = instFormula.instantiate(List(c))(order)
+          val id = SMTLineariser.quoteIdentifier(c.name)
+          // TODO: generalize sorts
+          val sort = "Int"
+          val varName = s"${id}_choice" // nthVarName(n)
+
+          val bindings = s"((:= ($varName $sort) $id))"
+
+          printlnPrefBreaking("",
+            s"(define-fun $id () $sort " +
+            s"(choice (($id $sort)) ${for2String(CertFormula(newFormula))}))")
+
+          instFormula2 =
+            instFormula2.instantiate(List(new ConstantTerm (varName)))(order)
+
+          val l1 = freshLabel()
+          val bindingsStr = bindings.mkString(" ")
+          printCommand("anchor", List(":step", l1, ":args", bindings))
+
+          val quantForStr = for2String(CertFormula(instFormula))
+          val resultStr = for2String(CertFormula(newFormula))
+          val eqvForStr = s"(= ${for2String(CertFormula(instFormula2))} $resultStr)"
+          val eqvForStr2 = s"(= $quantForStr $resultStr)"
+
+          step(List(eqvForStr), ("rule", "refl"))
+
+          printCommandStr("step", l1, List(eqvForStr2), List(("rule", "sko_ex")))
+
+          val l2 =
+            step(List(s"(not $eqvForStr2)", s"(not $quantForStr)", resultStr),
+                ("rule", "equiv_pos2"))
+          val l3 =
+            hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
+                               resultStr)
+          formulaLabel.put(CertFormula(newFormula), l3)
+
+          instFormula = newFormula
+        }
+
+/*
         for ((c, n) <- newConstants.zipWithIndex) {
           val newFormula = instFormula.instantiate(List(c))(order)
           val id = SMTLineariser.quoteIdentifier(c.name)
@@ -1098,6 +1140,7 @@ class AlethePrinter(
           hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
                              for2String(result))
         formulaLabel.put(result, l3)
+        */
       }
 
       case GroundInstInference(quantifiedFormula, instanceTerms,
