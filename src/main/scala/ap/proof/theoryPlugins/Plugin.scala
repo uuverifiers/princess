@@ -376,14 +376,14 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
        //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
        val logging = Param.LOG_LEVEL(goal.settings)
        if (logging contains Param.LOG_TASKS) {
-         Console.err.println("Plugin: " + nextPlugin.getClass.getName)
+         Console.err.println("Plugin: " + nextPlugin.toString)
        }
        //-END-ASSERTION-////////////////////////////////////////////////////////
 
        val newActions =
          //-BEGIN-ASSERTION-////////////////////////////////////////////////////
          if (logging contains Param.LOG_STATS) {
-           ap.util.Timer.measure(nextPlugin.getClass.getName) {
+           ap.util.Timer.measure(nextPlugin.toString) {
              nextPlugin handleGoal goal
            }
          } else {
