@@ -552,7 +552,11 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       val logging = Param.LOG_LEVEL(goal.settings)
       if (logging contains Param.LOG_STATS) {
-        ap.util.Timer.measure(plugin.getClass.getName) {
+        val name = plugin match {
+          case _ : PluginSequence => "ap.proof.theoryPlugins.PluginSequence"
+          case _ => plugin.toString
+        }
+        ap.util.Timer.measure(name) {
           plugin handleGoal goal
         }
       } else {
