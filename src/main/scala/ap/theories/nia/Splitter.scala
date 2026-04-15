@@ -59,7 +59,7 @@ class NIASplitter(gbCache : GroebnerMultiplication.GBCache)
       extends TheoryProcedure {
   import GroebnerMultiplication._
 
-  override def toString = "NIASplitter"
+  override def toString = "ap.theories.nia.Splitter"
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
 

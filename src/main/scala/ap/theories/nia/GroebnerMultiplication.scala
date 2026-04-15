@@ -122,7 +122,7 @@ object GroebnerMultiplication extends MulTheory {
                   config : Theory.SatSoundnessConfig.Value) : Boolean = true
 
   val valueEnumerator : IntValueEnumTheory =
-      new IntValueEnumTheory("GroebnerMultiplicationValueEnumerator",
+      new IntValueEnumTheory("ap.theories.nia.ValueEnumerator",
                              completeSplitBound = DISCRETE_SPLITTING_LIMIT,
                              splitterCost = SPLITTER_BASE_PRIORITY,
                              randomiseValues = true)
@@ -175,6 +175,8 @@ object GroebnerMultiplication extends MulTheory {
     LRUCache[(Seq[Atom], TermOrder), (Basis, Seq[Atom], MonomialOrdering)]
 
   def plugin = Some(new Plugin {
+
+    override def toString = "ap.theories.nia.GroebnerMultiplication"
 
     private val gbCache = new GBCache (5)
     private val splitter = new NIASplitter(gbCache)
