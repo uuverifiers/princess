@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,7 +149,23 @@ object ModReducer {
     val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
     import sort.modulus
 
-    val newA =
+    if (canBeReduced(a(2), modulus)) {
+      // Eliminate large constants within the mod_cast argument
+      val newA = _mod_cast(List(a(0), a(1), a(2).modulo(modulus), a(3)))
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug) {
+        println("Simplifying mod_cast (5):")
+        println("\t" + a)
+        println("\t" + newA)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      logger.otherComputation(List(a), newA, order, ModuloArithmetic)
+      newA
+
+    } else {
+
       (lowerBound(a(2), log), upperBound(a(2), log)) match {
 
         case (Some((lb, lbAsses)), Some((ub, ubAsses)))
@@ -308,29 +324,8 @@ object ModReducer {
         case _ =>
           a
       }
-
-    newA
-
-/*
-    if (newA == a && canBeReduced(a(2), modulus)) {
-      // Eliminate large constants within the mod_cast argument
-      val newA = _mod_cast(List(a(0), a(1), a(2).modulo(modulus), a(3)))
-
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      if (debug) {
-        println("Simplifying mod_cast (5):")
-        println("\t" + a)
-        println("\t" + newA)
-      }
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-
-      logger.otherComputation(List(a), newA, order, ModuloArithmetic)
-      newA
-
-    } else {
-      a
     }
-    */
+
   }
 
   private def reduceLShiftCast(a       : Atom,
@@ -341,15 +336,21 @@ object ModReducer {
     implicit val o : TermOrder = order
     import TerForConvenience._
     import reducer.lowerBound
-    
+
+    val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
+    import sort.modulus
+
     if (a(2).isZero) {
       // TODO: use evalModCast
       val newA = Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
       logger.otherComputation(List(a), newA, order, ModuloArithmetic)
       newA
+    } else if (canBeReduced(a(2), modulus)) {
+      // Eliminate large constants within the mod_cast argument
+      val newA = _l_shift_cast(List(a(0), a(1), a(2).modulo(modulus), a(3), a(4)))
+      logger.otherComputation(List(a), newA, order, ModuloArithmetic)
+      newA
     } else if (a(3).isConstant) {
-      val sort@ModSort(_, _) =
-        (SortedPredicate argumentSorts a).last
       val newA =
         Atom(_mod_cast,
               Array(a(0), a(1),
@@ -364,8 +365,6 @@ object ModReducer {
     } else {
       lowerBound(a(3), log) match {
         case Some((lb, lbAsses)) if lb.signum > 0 => {
-          val sort@ModSort(_, _) =
-            (SortedPredicate argumentSorts a).last
           val newA = Atom(_l_shift_cast,
                           Array(a(0), a(1),
                                 a(2) * pow2Mod(lb, sort.modulus),

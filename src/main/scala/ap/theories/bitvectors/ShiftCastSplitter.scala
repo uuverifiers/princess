@@ -59,6 +59,8 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
 
   val predicate = _l_shift_cast
 
+  private val SPLIT_LIMIT = IdealInt(128)
+
   private def analyseExpBounds(goal : Goal, a : Atom, proofs : Boolean)
                   : (IdealInt,          // lower exponent bound
                      Option[IdealInt],  // upper exponent bound
@@ -129,275 +131,96 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
       val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
 
       val actions = new ArrayBuffer[Plugin.Action]
-      //actions += Plugin.RemoveFacts(a)
 
-   //   println("trying: " + analyseExpBounds(goal, a, proofs))
-      
-      /* match {
-
-      } */
-
-/*
       analyseExpBounds(goal, a, proofs) match {
-        case Some((lb, lowerFactor, ub, upperFactor, assumptions))
-            if upperFactor - lowerFactor + 1 <= SPLIT_LIMIT => {
-          val wastedLower = lb - (lowerFactor * sort.modulus + sortLB)
-          val wastedUpper = (upperFactor * sort.modulus + sortUB) - ub
+        case (_, Some(expUB), _, assumptions) if expUB.signum <= 0 => {
+          // TODO: handle this case in ModReducer?
+          actions += Plugin.RemoveFacts(a)
+          actions += Plugin.AddAxiom(assumptions.distinct,
+                                     Atom(_mod_cast,
+                                          Array(a(0), a(1), a(2), a(4)),
+                                     order),
+                                     ModuloArithmetic)
+        }
 
+        case (expLB, Some(expUB), vanishing, assumptions)
+            if expUB - (expLB max IdealInt.ZERO) + 1 <= SPLIT_LIMIT => {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          // mod_casts with only one case should have been handled by the
-          // reducer already!
-          Debug.assertInt(AC, lowerFactor < upperFactor)
+          Debug.assertInt(AC, expLB < expUB && expUB.signum >= 0)
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
+          actions += Plugin.RemoveFacts(a)
+
           val cases =
-            (for (n <-
-                    // consider the inner cases first
-                    IdealRange(lowerFactor + 1, upperFactor).iterator ++
-                    (if (wastedLower < wastedUpper)
-                       Seqs.doubleIterator(lowerFactor, upperFactor)
-                     else
-                       Seqs.doubleIterator(upperFactor, lowerFactor));
-                  f = conj(a(2) === a(3) + (n * sort.modulus));
-                  if !f.isFalse)
-             yield (f, List())).toBuffer
+            (for (n <- IdealRange(expLB max IdealInt.ZERO, expUB + 1)) yield {
+              if (n.isZero && expLB < n) {
+                (conj(List(a(3) <= n,
+                            Atom(_mod_cast,
+                                 Array(a(0), a(1), a(2), a(4)),
+                                 order))),
+                  List())
+              } else if (vanishing && n == expUB) {
+                (conj(List(a(3) >= n,
+                            Atom(_mod_cast,
+                                 Array(a(0), a(1), LinearCombination.ZERO, a(4)),
+                                 order))),
+                  List())
+              } else {
+                (conj(List(a(3) === n,
+                            Atom(_mod_cast,
+                                 Array(a(0), a(1), a(2) * pow2(n), a(4)),
+                                 order))),
+                  List())
+              }
+            }).toList
 
           actions += Plugin.AxiomSplit(assumptions.distinct,
-                                       cases.toList,
-                                       ModuloArithmetic)
+                                        cases,
+                                        ModuloArithmetic)
         }
-        case _ => {
-          actions +=
-            Plugin.AddAxiom(List(a),
-                            exists(a(2) === a(3) + (v(0) * sort.modulus)),
-                            ModuloArithmetic)
+
+        case (expLB, _, _, assumptions) => {
+          val ub = (expLB max IdealInt.ZERO) + SPLIT_LIMIT
+          val cases =
+            (for (n <- IdealRange(expLB max IdealInt.ZERO, ub + 1)) yield {
+              if (n.isZero && expLB < n) {
+                (conj(List(a(3) <= n,
+                            Atom(_mod_cast,
+                                 Array(a(0), a(1), a(2), a(4)),
+                                 order))),
+                 List(Plugin.RemoveFacts(a)))
+              } else if (n == ub) {
+                (conj(List(a(3) >= n)),
+                 List())
+              } else {
+                (conj(List(a(3) === n,
+                            Atom(_mod_cast,
+                                 Array(a(0), a(1), a(2) * pow2(n), a(4)),
+                                 order))),
+                 List(Plugin.RemoveFacts(a)))
+              }
+            }).toList
+
+          actions += Plugin.AxiomSplit(assumptions.distinct,
+                                       cases,
+                                       ModuloArithmetic)
         }
       }
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       if (debug && !actions.isEmpty) {
-        println("Mod Casting:")
+        println("l-shift-cast splitting:")
         for (a <- actions)
           println("\t" + a)
       }
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-*/
+
       actions.toSeq
     } else {
       List()
     }
   }
 
-}
-
-/**
- * Splitter handles the splitting of l_shift_cast-operations, when no other
- * inference steps are possible anymore.
- */
-object LShiftCastSplitter extends TheoryProcedure {
-
-  import ModuloArithmetic._
-
-  protected[bitvectors] def shiftCastActions(goal : Goal, noSplits : Boolean)
-                                           : Seq[Plugin.Action] = {
-    val castPreds =
-      goal.facts.predConj.positiveLitsWithPred(_l_shift_cast).toBuffer
-
-    Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
-
-    val propagator = goal.reduceWithFacts
-      
-    implicit val order = goal.order
-    import TerForConvenience._
-
-    // find simple l_shift_cast predicates that can be replaced by mod_cast
-    var simpleElims : List[Plugin.Action] = List()
-    
-    var bestSplitNum = Int.MaxValue
-    var splitPred : Option[(Atom,
-                            IdealInt,  // lower exponent bound
-                            IdealInt,  // upper exponent bound
-                            Boolean,   // for upper bound all bits after shift
-                                       // are zero
-                            List[Formula])] = None
-
-    def addSplitOption(
-          cases : IdealInt,
-          pred : (Atom, IdealInt, IdealInt, Boolean, List[Formula])) : Unit =
-      cases match {
-        case IdealInt(cases) if cases < bestSplitNum => {
-          bestSplitNum = cases
-          splitPred = Some(pred)
-        }
-        case _ if bestSplitNum == Int.MaxValue => {
-          splitPred = Some(pred)
-        }
-        case _ => // nothing
-      }
-
-    val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
-
-    for (a <- castPreds) {
-      var assumptions : List[Formula] = List(a)
-
-      def addInEqAssumption(ineqs : Seq[Formula]) =
-        for (f <- ineqs)
-          assumptions = f :: assumptions
-
-      if (a(2).isZero) {
-
-        simpleElims =
-          Plugin.RemoveFacts(a) ::
-          Plugin.AddAxiom(assumptions,
-                          Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order),
-                          ModuloArithmetic) ::
-          simpleElims
-
-      } else if (a(3).isConstant) {
-
-        simpleElims =
-          Plugin.RemoveFacts(a) ::
-          Plugin.AddAxiom(assumptions,
-                          Atom(_mod_cast,
-                            Array(a(0), a(1),
-                                  a(2) * pow2(a(3).constant max IdealInt.ZERO),
-                                  a(4)),
-                            order),
-                          ModuloArithmetic) ::
-          simpleElims
-
-      } else {
-
-        val modulus = getModulus(a)
-        val pow2Modulus = (modulus & (modulus - 1)).isZero
-
-        val lBound =
-          if (proofs)
-            for ((b, assum) <- propagator.lowerBound(a(3), true)) yield {
-              // only non-negative bounds matter at this point!
-              if (b.signum >= 0)
-                addInEqAssumption(assum)
-              b
-            }
-          else
-            propagator lowerBound a(3)
-
-        val (uBound, vanishing) =
-          (propagator upperBound a(3)) match {
-            case Some(ub)
-              if (!pow2Modulus || ub < IdealInt(modulus.getHighestSetBit)) =>
-                if (proofs) {
-                  val Some((b, assum)) = propagator.upperBound(a(3), true)
-                  addInEqAssumption(assum)
-                  (Some(b), false)
-                } else {
-                  (Some(ub), false)
-                }
-            case _ if pow2Modulus =>
-              (Some(IdealInt(modulus.getHighestSetBit)), true)
-            case _ =>
-              (None, false)
-          }
-
-        (lBound, uBound) match {
-          case (_, Some(upper)) if upper.signum <= 0 => {
-            simpleElims =
-              Plugin.RemoveFacts(a) ::
-              Plugin.AddAxiom(assumptions.distinct,
-                              Atom(_mod_cast,
-                                   Array(a(0), a(1), a(2), a(4)),
-                                   order),
-                              ModuloArithmetic) ::
-              simpleElims
-          }
-          case (Some(lower), Some(upper)) if lower >= upper => {
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(AC, vanishing)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-
-            // TRANSLATE TO BV_EXTRACT
-            simpleElims =
-              Plugin.RemoveFacts(a) ::
-              Plugin.AddAxiom(assumptions.distinct,
-                              Atom(_mod_cast,
-                                   Array(a(0), a(1),
-                                         LinearCombination.ZERO, a(4)),
-                                   order),
-                              ModuloArithmetic) ::
-              simpleElims
-          }
-          case (rawLower, Some(upper)) if simpleElims.isEmpty => {
-            // need to do some splitting
-            val lower = rawLower getOrElse IdealInt.MINUS_ONE
-            addSplitOption(upper - (lower max IdealInt.ZERO) + 1,
-                           (a, lower, upper, vanishing, assumptions))
-          }
-          case _ =>
-            // nothing
-        }
-
-      }
-    }
-
-    if (!simpleElims.isEmpty) {
-
-      simpleElims
-
-    } else if (splitPred.isDefined) {
-
-      if (noSplits)
-        throw ModPlugin.NEEDS_SPLITTING
-
-      val Some((a, lower, upper, vanishing, assumptions)) = splitPred
-
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, lower < upper && upper.signum >= 0)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-
-      val cases =
-        (for (n <- IdealRange(lower max IdealInt.ZERO, upper + 1)) yield {
-           if (n.isZero && lower < n) {
-             (conj(List(a(3) <= n,
-                        Atom(_mod_cast,
-                             Array(a(0), a(1), a(2), a(4)),
-                             order))),
-              List())
-           } else if (vanishing && n == upper) {
-             (conj(List(a(3) >= n,
-                        Atom(_mod_cast,
-                             Array(a(0), a(1), LinearCombination.ZERO, a(4)),
-                             order))),
-              List())
-           } else {
-             (conj(List(a(3) === n,
-                        Atom(_mod_cast,
-                             Array(a(0), a(1), a(2) * pow2(n), a(4)),
-                             order))),
-              List())
-           }
-         }).toBuffer
-
-      List(Plugin.RemoveFacts(a),
-           Plugin.AxiomSplit(assumptions.distinct,
-                             cases.toList,
-                             ModuloArithmetic))
-
-    } else {
-
-      List()
-
-    }
-  }
-
-  def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    if (debug) {
-      println()
-      println("l_shift_cast splitter ...")
-    }
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    shiftCastActions(goal, false)
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

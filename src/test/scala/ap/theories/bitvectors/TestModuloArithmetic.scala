@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ x = 1.\as[bv[2]] | x.\as[int] >= 3
 Valid
 Test 9
 Unsat
-Vector((130 + a.\as[int]).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
+Vector((a.\as[int] - 126).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a.\as[int] >= 252), b.\as[int] >= 130, b.\as[int] >= c.\as[int])
 Test 10
 (b != 0.\as[bv[8]] | a != 255.\as[bv[8]]) & (a != 255.\as[bv[8]] | b.\as[int] >= 245 | 0 >= b.\as[int]) & (b.\as[int] - a.\as[int] >= 2 | 244 >= b.\as[int])
 """

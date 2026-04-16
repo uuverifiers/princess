@@ -109,15 +109,6 @@ object ModPlugin extends Plugin {
 
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
     // check if we have modcast or shiftcast actions
-    val actions2 =
-      try {
-        LShiftCastSplitter.shiftCastActions(goal, true)
-      } catch {
-        case NEEDS_SPLITTING =>
-          // delayed splitting through a separate task
-          List(Plugin.ScheduleTask(LShiftCastSplitter, 20))
-      }
-
     val actions3 =
       try {
         RShiftCastSplitter.shiftCastActions(goal, true)
@@ -128,7 +119,7 @@ object ModPlugin extends Plugin {
       }
 
 
-    val res = actions2 ++ actions3
+    val res = actions3
 
     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
     if (!res.isEmpty && debug) {
