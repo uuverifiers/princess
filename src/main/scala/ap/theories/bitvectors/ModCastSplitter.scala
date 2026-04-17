@@ -195,14 +195,20 @@ object ModCastSplitHandler extends AtomSplitHandler {
       actions += Plugin.RemoveFacts(a)
 
       analyseBounds(goal, a, proofs) match {
-        case Some((lb, lowerFactor, ub, upperFactor, assumptions))
+        case Some(tup@(_, lowerFactor, _, upperFactor, assumptions))
+            if lowerFactor == upperFactor => {
+          val newEq = a(2) === a(3) + (lowerFactor * sort.modulus)
+          actions += Plugin.AddAxiom(assumptions.distinct,
+                                     newEq,
+                                     ModuloArithmetic)
+        }
+        case Some(tup@(lb, lowerFactor, ub, upperFactor, assumptions))
             if upperFactor - lowerFactor + 1 <= SPLIT_LIMIT => {
           val wastedLower = lb - (lowerFactor * sort.modulus + sortLB)
           val wastedUpper = (upperFactor * sort.modulus + sortUB) - ub
 
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          // mod_casts with only one case should have been handled by the
-          // reducer already!
+          // mod_casts with only one case should have been handled already!
           Debug.assertInt(AC, lowerFactor < upperFactor)
           //-END-ASSERTION-/////////////////////////////////////////////////////
 
