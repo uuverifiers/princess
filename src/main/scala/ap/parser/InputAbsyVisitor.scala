@@ -891,9 +891,9 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit]{
   /**
    * Check that given expression does not contain any of the constants.
    */
-  def freeFromConstants(t : IExpression, syms : Set[IConstant]) : Boolean =
+  def freeFromConstants(t : IExpression, syms : Set[ConstantTerm]) : Boolean =
     !apply(t, (x:IExpression) => x match {
-       case c : IConstant => syms contains c
+       case IConstant(c) => syms contains c
        case _ => false
      })
   
