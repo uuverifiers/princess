@@ -90,6 +90,11 @@ lazy val smtParser = (project in file("smt-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
+def staticNativeImage: Boolean =
+  sys.env
+    .get("PRINCESS_STATIC_NATIVE_IMAGE")
+    .exists(_.equalsIgnoreCase("true"))
+
 // Actual project
 
 lazy val root = (project in file(".")).
@@ -125,7 +130,7 @@ lazy val root = (project in file(".")).
     nativeImageOptions ++= Seq(
       "--no-fallback",
       "-H:+ReportExceptionStackTraces"
-    ),
+    ) ++ Seq("--static", "--libc=musl").filter(x => staticNativeImage),
 
     nativeImageAgentMerge := true
 )
