@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "2025-11-17"
+  val version = "2026-04-22"
 
   /**
    * Flag to enable stack traces being fully printed, for problems
@@ -68,7 +68,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println()
-    println("(c) Philipp Rümmer, 2009-2025")
+    println("(c) Philipp Rümmer, 2009-2026")
     println("Contributors: Peter Backeman, Peter Baumgartner, Angelo Brillout, Zafer Esen,")
     println("              Sankalp Gambhir, Amanda Stjerna.")
     println("Free software under BSD-3-Clause.")

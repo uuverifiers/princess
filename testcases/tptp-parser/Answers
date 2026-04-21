@@ -3264,27 +3264,27 @@ End of proof
 
 Sub-proof #2 shows that the following formulas are inconsistent:
 ----------------------------------------------------------------
-  (1)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
+  (1)  $i(vrempty)
+  (2)  vprojectEmptyCol(vtempty) = all_454_1
+  (3)  vprojectEmptyCol(vtempty) = vtempty
+  (4)   ! [v0: $i] :  ! [v1: $i] :  ! [v2: $i] : (v1 = v0 |  ~
          (vprojectEmptyCol(v2) = v1) |  ~ (vprojectEmptyCol(v2) = v0))
-  (2)  vprojectEmptyCol(vtempty) = vtempty
-  (3)  $i(all_454_0)
-  (4)  vprojectEmptyCol(vtempty) = all_454_1
-  (5)  $i(vrempty)
-  (6)  vtcons(vrempty, all_454_0) = all_454_1
-  (7)   ! [v0: $i] :  ! [v1: $i] : ( ~ (vtcons(v0, v1) = vtempty) |  ~ $i(v1) | 
+  (5)  vtcons(vrempty, all_454_0) = all_454_1
+  (6)   ! [v0: $i] :  ! [v1: $i] : ( ~ (vtcons(v0, v1) = vtempty) |  ~ $i(v1) | 
          ~ $i(v0))
+  (7)  $i(all_454_0)
 
 Begin of proof
 | 
-| GROUND_INST: instantiating (1) with vtempty, all_454_1, vtempty, simplifying
-|              with (2), (4) gives:
+| GROUND_INST: instantiating (4) with vtempty, all_454_1, vtempty, simplifying
+|              with (2), (3) gives:
 |   (8)  all_454_1 = vtempty
 | 
-| REDUCE: (6), (8) imply:
+| REDUCE: (5), (8) imply:
 |   (9)  vtcons(vrempty, all_454_0) = vtempty
 | 
-| GROUND_INST: instantiating (7) with vrempty, all_454_0, simplifying with (3),
-|              (5), (9) gives:
+| GROUND_INST: instantiating (6) with vrempty, all_454_0, simplifying with (1),
+|              (7), (9) gives:
 |   (10)  $false
 | 
 | CLOSE: (10) is inconsistent.

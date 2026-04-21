@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name                 := "Princess",
     organization         := "uuverifiers",
-    version              := "2025-11-17",
+    version              := "2026-04-22",
     homepage             := Some(url("https://philipp.ruemmer.org/princess.shtml")),
     licenses             := Seq("BSD-3-Clause" -> url("https://opensource.org/licenses/BSD-3-Clause")),
     scmInfo              := Some(ScmInfo(
@@ -90,6 +90,11 @@ lazy val smtParser = (project in file("smt-parser")).
   ).
   disablePlugins(AssemblyPlugin)
 
+def staticNativeImage: Boolean =
+  sys.env
+    .get("PRINCESS_STATIC_NATIVE_IMAGE")
+    .exists(_.equalsIgnoreCase("true"))
+
 // Actual project
 
 lazy val root = (project in file(".")).
@@ -124,7 +129,7 @@ lazy val root = (project in file(".")).
     nativeImageOptions ++= Seq(
       "--no-fallback",
       "-H:+ReportExceptionStackTraces"
-    ),
+    ) ++ Seq("--static", "--libc=musl").filter(x => staticNativeImage),
 
     nativeImageAgentMerge := true
 )
