@@ -129,7 +129,8 @@ lazy val root = (project in file(".")).
 
     nativeImageOptions ++= Seq(
       "--no-fallback",
-      "-H:+ReportExceptionStackTraces"
+      "-H:+ReportExceptionStackTraces",
+      "-R:StackSize=20m"
     ) ++ Seq("--static", "--libc=musl").filter(x => staticNativeImage),
 
     nativeImageAgentMerge := true
