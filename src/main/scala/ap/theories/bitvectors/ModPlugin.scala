@@ -57,6 +57,8 @@ object ModPlugin extends Plugin {
 
   import ModuloArithmetic._
 
+  override def toString = "ap.theories.bitvectors.ModPlugin"
+
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {

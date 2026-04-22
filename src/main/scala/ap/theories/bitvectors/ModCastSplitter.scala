@@ -57,6 +57,8 @@ object ModCastSplitter extends TheoryProcedure {
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
+  override def toString = "ap.theories.bitvectors.ModCastSplitter"
+
   // TODO: backward propagation for the mod_cast function
 
   private val SPLIT_LIMIT = IdealInt(20)

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2026 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -119,7 +119,7 @@ object GroebnerMultiplication extends MulTheory {
                   config : Theory.SatSoundnessConfig.Value) : Boolean = true
 
   val valueEnumerator : IntValueEnumTheory =
-      new IntValueEnumTheory("GroebnerMultiplicationValueEnumerator",
+      new IntValueEnumTheory("ap.theories.nia.ValueEnumerator",
                              completeSplitBound = DISCRETE_SPLITTING_LIMIT,
                              randomiseValues = true)
 
@@ -171,6 +171,8 @@ object GroebnerMultiplication extends MulTheory {
     LRUCache[(Seq[Atom], TermOrder), (Basis, Seq[Atom], MonomialOrdering)]
 
   def plugin = Some(new Plugin {
+
+    override def toString = "ap.theories.nia.GroebnerMultiplication"
 
     private val gbCache = new GBCache (5)
 
