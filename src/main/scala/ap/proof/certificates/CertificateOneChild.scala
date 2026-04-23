@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -863,7 +863,10 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
 /**
  * An inference describing the introduction of a theory axiom.
  */
-case class TheoryAxiomInference(axiom : CertFormula, theory : Theory) extends {
+case class TheoryAxiomInference(
+    axiom : CertFormula,
+    theory : Theory,
+    theoryRule : TheoryRule = GenericTheoryRule) extends {
 
   val assumedFormulas = Set[CertFormula]()
   val providedFormulas = Set[CertFormula](axiom)

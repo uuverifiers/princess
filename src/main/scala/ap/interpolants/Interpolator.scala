@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,7 +149,7 @@ object Interpolator
 
     val theoryAxioms =
       certificate.theoryAxioms ++
-      (for (TheoryAxiomInference(axiom, _) <- inferences.iterator) yield axiom)
+      (for (TheoryAxiomInference(axiom, _, _) <- inferences.iterator) yield axiom)
     val allCommon =
       iContext.commonFormulae ++ theoryAxioms
 
@@ -1010,7 +1010,7 @@ object Interpolator
 
       //////////////////////////////////////////////////////////////////////////
       
-      case TheoryAxiomInference(axiom, _) => {
+      case TheoryAxiomInference(axiom, _, _) => {
         val newContext = iContext addCommon axiom
         processBranchInferences(remInferences, child, newContext)
       }

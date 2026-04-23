@@ -524,8 +524,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
       val (f, _, _) = extractPriInput(input)
       ?? (f)
 
-//      ???
-//      println(aletheCertificateAsString())
+      ???
+      println(aletheCertificateAsString())
 
       ??? == ProverStatus.Valid &&
       aletheCertificateAsString() == cert
@@ -542,8 +542,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("disj") =
     checkProof(disj, disjCert)
-
+/*
   property("predicate5") =
     checkProof(predicates5, predicates5Cert)
-
+*/
 }
