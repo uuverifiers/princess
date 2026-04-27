@@ -62,7 +62,9 @@ object CastAtomSplitter
 
   import ModuloArithmetic._
 
-  val handlers = Vector(ModCastSplitHandler, LShiftCastSplitHandler)
+  val handlers = Vector(ModCastSplitHandler,
+                        LShiftCastSplitHandler,
+                        RShiftCastSplitHandler)
   val pointArity = 6
 
   def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] =

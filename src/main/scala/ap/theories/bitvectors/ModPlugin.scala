@@ -82,11 +82,11 @@ object ModPlugin extends Plugin {
           ExtractPartitioner.handleGoal(goal)
         case Plugin.GoalState.Intermediate =>
           InEqSimplifier.handleGoal(goal)                 elseDo
-          modShiftCast(goal)                              elseDo
+//          modShiftCast(goal)                              elseDo
           (ExtractIntervalPropagator.handleGoal(goal) ++
            BitwiseOpIntervalPropagator.handleGoal(goal))
         case Plugin.GoalState.Final =>
-          modShiftCast(goal)                              elseDo
+//          modShiftCast(goal)                              elseDo
           ExtractArithEncoder.handleGoal(goal)
       }
 

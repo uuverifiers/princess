@@ -60,6 +60,7 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
   val predicate = _l_shift_cast
 
   private val SPLIT_LIMIT = IdealInt(128)
+  private val PRIORITY_FACTOR = 10
 
   private def analyseExpBounds(goal : Goal, a : Atom, proofs : Boolean)
                   : (IdealInt,          // lower exponent bound
@@ -113,9 +114,10 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
     val a = Atom(_l_shift_cast, args, order)
     analyseExpBounds(goal, a, false) match {
       case (lower, Some(upper), _, _) =>
-        (upper - (lower max IdealInt.ZERO) + 1).intValueSafe * 10
+        ((upper - (lower max IdealInt.ZERO) + 1) min SPLIT_LIMIT
+          ).intValueSafe * PRIORITY_FACTOR
       case _ =>
-        1000 // TODO
+        SPLIT_LIMIT.intValueSafe * PRIORITY_FACTOR
     }
   }
 
@@ -229,19 +231,221 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
  * Splitter handles the splitting of r_shift_cast-operations, when no other
  * inference steps are possible anymore.
  */
+object RShiftCastSplitHandler extends AtomSplitHandler {
+  import ModuloArithmetic._
+
+  private val AC = Debug.AC_MODULO_ARITHMETIC
+
+  val predicate = _r_shift_cast
+
+  private val SPLIT_LIMIT = IdealInt(128)
+  private val PRIORITY_FACTOR = 10
+
+  private def highestBit(v : IdealInt) : Int =
+    v.signum match {
+      case -1 =>
+        if (v.isMinusOne)
+          -1
+        else
+          (-v - 1).getHighestSetBit
+      case 0 =>
+        -1
+      case 1 =>
+        v.getHighestSetBit
+    }
+
+  private def analyseBounds(goal : Goal, a : Atom, proofs : Boolean)
+                  : (IdealInt,         // lower shift bound
+                     Option[IdealInt], // upper shift bound
+                     List[Formula]) = {
+    val propagator = goal.reduceWithFacts
+    var assumptions : List[Formula] = List(a)
+
+    def addInEqAssumption(ineqs : Seq[Formula]) =
+      for (f <- ineqs)
+        assumptions = f :: assumptions
+
+    // upper bound of the shift parameter
+    val maybeShiftUpper =
+      propagator upperBound a(3)
+
+    // upper bound of shifts that have to be considered: for bigger
+    // shifts the result will vanish, i.e., be either -1 or 0
+    val mantUpper =
+      for (b1 <- propagator lowerBound a(2);
+            b2 <- propagator upperBound a(2)) yield {
+        val m = highestBit(b1) max highestBit(b2)
+        IdealInt(m + 1)
+      }
+
+    val (bounded, usingMantUpper, shiftUpper) =
+      (maybeShiftUpper, mantUpper) match {
+        case (None, None) =>
+          (false, false, None)
+        case (Some(b1), Some(b2)) =>
+          if (b2 < b1)
+            (true, true, Some(b2))
+          else
+            (true, false, Some(b1))
+        case (Some(b), _) =>
+          (true, false, Some(b))
+        case (_, Some(b)) =>
+          (true, true, Some(b))
+      }
+
+    val shiftLower =
+      (if (proofs)
+          for ((b, assum) <- propagator.lowerBound(a(3), true);
+              if b.signum > 0) yield {
+            addInEqAssumption(assum)
+            b
+          }
+        else
+          for (b <- propagator lowerBound a(3);
+                if b.signum > 0) yield {
+            b
+          }) getOrElse IdealInt.ZERO
+
+      if (bounded && proofs) {
+        if (usingMantUpper) {
+          val Some((_, assum1)) = propagator.lowerBound(a(2), true)
+          val Some((_, assum2)) = propagator.upperBound(a(2), true)
+          addInEqAssumption(assum1)
+          addInEqAssumption(assum2)
+        } else {
+          val Some((_, assum)) = propagator.upperBound(a(3), true)
+          addInEqAssumption(assum)
+        }
+      }
+
+    (shiftLower, shiftUpper, assumptions)
+  }
+
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int = {
+    val order = goal.order
+    val a = Atom(_r_shift_cast, args, order)
+    analyseBounds(goal, a, false) match {
+      case (lower, Some(upper), _) =>
+        if (lower >= upper)
+          0
+        else
+          ((upper - lower + 1) min SPLIT_LIMIT).intValueSafe * PRIORITY_FACTOR
+      case _ =>
+        SPLIT_LIMIT.intValueSafe * PRIORITY_FACTOR
+    }
+  }
+
+  private def rshiftToExtract(a : Atom, shift : IdealInt)
+                             (implicit order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+    (SortedPredicate argumentSorts a).last match {
+      case UnsignedBVSort(bits) => {
+        Atom(_bv_extract,
+             Array(l(shift + bits - 1), l(shift), a(2), a(4)),
+             order)
+      }
+      case SignedBVSort(bits) if shift > bits =>
+        // TODO: this is only correct if the argument a(2) is also of sort
+        // SignedBVSort(bits), which we cannot assume at this point. Need to
+        // check the bounds of a(2)!
+        rshiftToExtract(a, bits)
+      case _ => {
+        // right-shift by dividing by 2^shift
+        val factor = pow2(shift)
+        val divRes = l(v(0))
+        // factor * divRes <= a(2) && factor * divRes > a(2) - factor
+        val lc1 = sum(List((IdealInt.ONE, a(2)), (-factor, divRes)))
+        val lc2 = sum(List((IdealInt.MINUS_ONE, a(2)), 
+                           (factor - 1, LinearCombination.ONE),
+                           (factor, divRes)))
+        val ineqs = geqZ(List(lc1, lc2))
+        val matrix =
+          ineqs & Atom(_mod_cast, Array(a(0), a(1), divRes, a(4)), order)
+        exists(matrix)
+      }
+    }
+  }
+
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action] = {
+    implicit val order : TermOrder = goal.order
+    import TerForConvenience._
+
+    val a = Atom(_r_shift_cast, args, order)
+
+    if (goal.facts.predConj.positiveLitsAsSet.contains(a)) {
+      val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
+      val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
+
+      val actions = new ArrayBuffer[Plugin.Action]
+
+      analyseBounds(goal, a, proofs) match {
+
+        case (shiftLower, Some(shiftUpper), assumptions)
+            if shiftLower >= shiftUpper => {
+          // Only a single case; handle in reducer?
+          actions += Plugin.RemoveFacts(a)
+          actions += Plugin.AddAxiom(assumptions.distinct,
+                                     rshiftToExtract(a, shiftLower),
+                                     ModuloArithmetic)
+        }
+
+        case (shiftLower, maybeShiftUpper, assumptions) => {
+          val effectiveUpper = maybeShiftUpper match {
+            case Some(upper) if upper <= shiftLower + SPLIT_LIMIT =>
+              upper
+            case _ =>
+              shiftLower + SPLIT_LIMIT
+          }
+
+          val canElim =
+            maybeShiftUpper == Some(effectiveUpper)
+
+          val cases =
+            (for (n <- IdealRange(shiftLower, effectiveUpper + 1)) yield {
+              (rshiftToExtract(a, n) &
+              (if (n == shiftLower)
+                  a(3) <= shiftLower
+                else if (n == effectiveUpper)
+                  a(3) >= effectiveUpper
+                else
+                  a(3) === n),
+              List())
+            }).toList
+
+          if (canElim)
+            actions += Plugin.RemoveFacts(a)
+
+          actions += Plugin.AxiomSplit(assumptions.distinct,
+                                       cases,
+                                       ModuloArithmetic)
+        }
+      }
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug && !actions.isEmpty) {
+        println("r-shift-cast splitting:")
+        for (a <- actions)
+          println("\t" + a)
+      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      actions.toSeq
+    } else {
+      List()
+    }
+  }
+}
+
+/**
+ * Splitter handles the splitting of r_shift_cast-operations, when no other
+ * inference steps are possible anymore.
+ */
 object RShiftCastSplitter extends TheoryProcedure {
 
   import ModuloArithmetic._
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
-
-  def isShiftInvariant(lc : LinearCombination) =
-    lc.isConstant &&
-    (lc.constant match {
-       case IdealInt.ZERO => true
-       case IdealInt.MINUS_ONE => true
-       case _ => false
-    })
 
   private def highestBit(v : IdealInt) : Int =
     v.signum match {
@@ -266,8 +470,6 @@ object RShiftCastSplitter extends TheoryProcedure {
              Array(l(shift + bits - 1), l(shift), a(2), a(4)),
              order)
       }
-      case SignedBVSort(bits) if shift > bits =>
-        rshiftToExtract(a, bits)
       case _ => {
         // right-shift by dividing by 2^shift
         val factor = pow2(shift)

@@ -67,4 +67,29 @@ class TestShift extends Properties("TestShift") {
     }
   }
 
+/*
+  This test case needs a modification in RShiftCastSplitHandler.rShiftToExtract
+
+  property("r_shift_1") = {
+    Debug enableAllAssertions true
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      import IExpression._
+      import ModuloArithmetic._
+
+      val x = createConstant("x", SignedBVSort(32))
+      val y = createConstant("y", SignedBVSort(8))
+      val z = createConstant("z", Sort.Integer)
+
+      !! (y === r_shift_cast(-128, 127, x, z))
+      !! (z > 16)
+      !! (z < 20)
+      !! (extract(15, 0, x) === 0)
+      !! (y =/= 0)
+
+      ??? == ProverStatus.Sat
+    }
+  }
+  */
+
 }

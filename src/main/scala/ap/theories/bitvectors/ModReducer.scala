@@ -137,6 +137,14 @@ object ModReducer {
      (lc.constant % p) + 1 == p
   }
 
+  def isShiftInvariant(lc : LinearCombination) =
+    lc.isConstant &&
+    (lc.constant match {
+       case IdealInt.ZERO => true
+       case IdealInt.MINUS_ONE => true
+       case _ => false
+    })
+
   private def reduceModCast(a       : Atom,
                             reducer : ReduceWithConjunction,
                             logger  : ComputationLogger,
@@ -387,7 +395,7 @@ object ModReducer {
     implicit val o : TermOrder = order
     import TerForConvenience._
 
-    if (RShiftCastSplitter.isShiftInvariant(a(2))) {
+    if (isShiftInvariant(a(2))) {
       val newA = Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
       logger.otherComputation(List(a), newA, order, ModuloArithmetic)
       newA
