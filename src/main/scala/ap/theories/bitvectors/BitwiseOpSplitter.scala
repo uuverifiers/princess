@@ -51,7 +51,7 @@ object BitwiseOpSplitter
        extends TermBasedSaturationProcedure(
           "BitwiseOpSplitter",
           arity           = 5,
-          basePriority    = ModuloArithmetic.BITWISE_OP_SPLITTER_PRIORITY,
+          basePriority    = ModuloArithmeticConstants.BITWISE_OP_SPLITTER_PRIORITY,
           priorityUpdates = true) {
 
   import ModuloArithmetic._
