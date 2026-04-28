@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -134,6 +134,39 @@ object LinearCombination {
     def unapply(lc : LinearCombination) : Option[Term] = lc match {
       case lc : LinearCombination1 if lc.coeff0.isOne && lc.constant.isZero =>
         Some(lc.term0)
+      case _ =>
+        None
+    }
+  }
+
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are just a
+   * single term with some coefficient and a constant offset.
+   */
+  object CoeffTermWithOffset {
+    def unapply(lc : LinearCombination)
+                   : Option[(IdealInt, Term, IdealInt)] = lc match {
+      case lc : LinearCombination0 =>
+        Some((IdealInt.ZERO, OneTerm, lc.constant))
+      case lc : LinearCombination1 =>
+        Some((lc.coeff0, lc.term0, lc.constant))
+      case _ =>
+        None
+    }
+  }
+
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are sums of
+   * two terms with some coefficients and a constant offset.
+   */
+  object TwoTermsWithOffset {
+    def unapply(lc : LinearCombination)
+                   : Option[(IdealInt, Term, IdealInt, Term, IdealInt)] =
+      lc match {
+      case lc : LinearCombination1 =>
+        Some((lc.coeff0, lc.term0, IdealInt.ZERO, OneTerm, lc.constant))
+      case lc : LinearCombination2 =>
+        Some((lc.coeff0, lc.term0, lc.coeff1, lc.term1, lc.constant))
       case _ =>
         None
     }
@@ -1012,6 +1045,37 @@ abstract sealed class LinearCombination (val order : TermOrder)
       for ((c, t) <- this.pairIterator; if !(c isAbsMinMod lc))
       yield (c.reduceAbs(lc) _1, t)
     LinearCombination.createFromSortedSeq(quotientTerms, order)
+  }
+
+  /**
+   * Reduce all coefficients of <code>this</code> with the given number.
+   */
+  def modulo(modulus : IdealInt) : LinearCombination = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LinearCombination.AC, modulus.signum > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val remainder =
+      for ((c, t) <- this.pairIterator;
+           q = c.reduceAbs(modulus)._2;
+           if !q.isZero)
+      yield (q, t)
+    LinearCombination.createFromSortedSeq(remainder, order)
+  }
+
+  /**
+   * Reduce all coefficients of <code>this</code> with the given
+   * number, while keeping the sign of the terms, and return the remainder.
+   */
+  def moduloKeepingSign(modulus : IdealInt) : LinearCombination = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LinearCombination.AC, modulus.signum > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val remainder =
+      for ((c, t) <- this.pairIterator;
+           q = c.moduloKeepingSign(modulus);
+           if !q.isZero)
+      yield (q, t)
+    LinearCombination.createFromSortedSeq(remainder, order)
   }
 
   /**

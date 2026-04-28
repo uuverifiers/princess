@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,192 +40,216 @@ import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
-import ap.terfor.{TerForConvenience, Formula}
-import ap.terfor.preds.Atom
+import ap.terfor.{TerForConvenience, Formula, TermOrder}
+import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.types.SortedPredicate
 import ap.util.{Debug, Seqs, IdealRange}
 
+import scala.collection.mutable.ArrayBuffer
+
+/**
+ * Splitter handles the splitting of <code>mod_cast</code>,
+ * <code>l_shift_cast</code>, <code>r_shift_cast</code>.
+ */
+object CastAtomSplitter
+       extends TermBasedSaturationProcedure(
+          "CastAtomSplitter",
+          arity           = 6,
+          basePriority    = ModuloArithmetic.MOD_CAST_SPLITTER_PRIORITY,
+          priorityUpdates = true) {
+
+  import ModuloArithmetic._
+
+  val handlers = Vector(ModCastSplitHandler,
+                        LShiftCastSplitHandler,
+                        RShiftCastSplitHandler)
+  val pointArity = 6
+
+  def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] =
+    for ((h, n) <- handlers.iterator.zipWithIndex;
+         suffix =  (h.predicate.arity until (pointArity - 1)).map(
+                     x => LinearCombination.ZERO);
+         point  <- h.extractApplicationPoints(goal))
+    yield (List(LinearCombination(n)) ++ point ++ suffix)
+
+  private def decodeApplicationPoint(p : ApplicationPoint)
+                                   : (AtomSplitHandler, ApplicationPoint) = {
+    val LinearCombination.Constant(IdealInt(handlerId)) = p.head
+    val handler = handlers(handlerId)
+    (handler, p.slice(1, handler.predicate.arity + 1))
+  }
+
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int = {
+    val (handler, point) = decodeApplicationPoint(args)
+    handler.applicationPriority(goal, point)
+  }
+
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action] = {
+    val (handler, point) = decodeApplicationPoint(args)
+    handler.handleApplicationPoint(goal, point)
+  }
+}
+
+/**
+ * Interface for handling different kinds of bit-vector atoms in the
+ * <code>ModCastSplitter</code>.
+ */
+trait AtomSplitHandler {
+
+  type ApplicationPoint = Seq[LinearCombination]
+
+  val predicate : Predicate
+
+  def extractApplicationPoints(goal : Goal) : Iterator[ApplicationPoint] = {
+    val predConj = goal.facts.predConj
+    predConj.positiveLitsWithPred(predicate).iterator.map(_.toVector)
+  }
+
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action]
+
+}
+
 /**
  * Splitter handles the splitting of mod_cast-operations, when no other
  * inference steps are possible anymore.
  */
-object ModCastSplitter extends TheoryProcedure {
-
+object ModCastSplitHandler extends AtomSplitHandler {
   import ModuloArithmetic._
+  import ModuloArithmetic.{MOD_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
+                           SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
 
-  private val AC = Debug.AC_MODULO_ARITHMETIC
+  val predicate = _mod_cast
 
-  override def toString = "ap.theories.bitvectors.ModCastSplitter"
+  private
+    def analyseBounds(goal : Goal, a : Atom, proofs : Boolean)
+                          : Option[(IdealInt,             // lowerBound
+                                    IdealInt,             // lowerFactor
+                                    IdealInt,             // upperBound
+                                    IdealInt,             // upperFactor
+                                    Seq[Formula])] = {    // assumptions
+    val propagator = goal.reduceWithFacts
+    var assumptions : List[Formula] = List(a)
 
-  // TODO: backward propagation for the mod_cast function
+    def addInEqAssumption(ineqs : Seq[Formula]) =
+      for (f <- ineqs)
+        assumptions = f :: assumptions
 
-  private val SPLIT_LIMIT = IdealInt(20)
+    val lBound =
+      if (proofs)
+        for ((b, assum) <- propagator.lowerBound(a(2), true)) yield {
+          addInEqAssumption(assum)
+          b
+        }
+      else
+        propagator lowerBound a(2)
 
-    protected[bitvectors] def modCastActions(goal : Goal, noSplits : Boolean)
-                                           : Seq[Plugin.Action]={
-      val castPreds =
-        goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
-      // TODO: handle occurring _mul predicates in a special way?
+    val uBound =
+      if (lBound.isDefined) {
+        if (proofs)
+          for ((b, assum) <- propagator.upperBound(a(2), true)) yield {
+            addInEqAssumption(assum)
+            b
+          }
+        else
+          propagator upperBound a(2)
+      } else {
+        None
+      }
 
-      Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
+    for (lb <- lBound; ub <- uBound) yield {
+      val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
+      val lowerFactor = (lb - sortLB) / sort.modulus
+      val upperFactor = -((sortUB - ub) / sort.modulus)
+      (lb, lowerFactor, ub, upperFactor, assumptions)
+    }
+  }
 
-      val propagator = goal.reduceWithFacts
-      implicit val order = goal.order
-      import TerForConvenience._
+  def applicationPriority(goal : Goal, args : ApplicationPoint) : Int = {
+    val order = goal.order
+    val a = Atom(_mod_cast, args, order)
+    analyseBounds(goal, a, false) match {
+      case Some((_, lowerFactor, _, upperFactor, _)) => {
+        val caseNum = upperFactor - lowerFactor + 1
+        (caseNum min SPLIT_LIMIT).intValueSafe * PRIORITY_FACTOR
+      }
+      case None =>
+        SPLIT_LIMIT.intValueSafe * PRIORITY_FACTOR
+    }
+  }
 
-      // find simple mod_cast predicates that can be replaced by equations
-      var simpleElims : List[Plugin.Action] = List()
+  def handleApplicationPoint(goal : Goal,
+                             args : ApplicationPoint) : Seq[Plugin.Action] = {
+    implicit val order : TermOrder = goal.order
+    import TerForConvenience._
 
-      // find a mod_cast predicate that can be split into a small number of
-      // cases
-      var bestSplitNum = SPLIT_LIMIT
-      var bestSplitPred : Option[(Atom,
-                                  IdealInt, // lowerFactor
-                                  IdealInt, // upperFactor
-                                  IdealInt, // wastedLower
-                                  IdealInt, // wastedUpper
-                                  List[Formula], ModSort)] = None
+    val a = Atom(_mod_cast, args, order)
 
-      // find a predicate that has to be eliminated through a quantifier
-      var someQuantPred : Option[Atom] = None
-
+    if (goal.facts.predConj.positiveLitsAsSet.contains(a)) {
+      val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
       val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
 
-      for (a <- castPreds) {
-        var assumptions : List[Formula] = List(a)
+      val actions = new ArrayBuffer[Plugin.Action]
+      actions += Plugin.RemoveFacts(a)
 
-        def addInEqAssumption(ineqs : Seq[Formula]) =
-          for (f <- ineqs)
-            assumptions = f :: assumptions
+      analyseBounds(goal, a, proofs) match {
+        case Some(tup@(_, lowerFactor, _, upperFactor, assumptions))
+            if lowerFactor == upperFactor => {
+          val newEq = a(2) === a(3) + (lowerFactor * sort.modulus)
+          actions += Plugin.AddAxiom(assumptions.distinct,
+                                     newEq,
+                                     ModuloArithmetic)
+        }
+        case Some(tup@(lb, lowerFactor, ub, upperFactor, assumptions))
+            if upperFactor - lowerFactor + 1 <= SPLIT_LIMIT => {
+          val wastedLower = lb - (lowerFactor * sort.modulus + sortLB)
+          val wastedUpper = (upperFactor * sort.modulus + sortUB) - ub
 
-        val lBound =
-          if (proofs)
-            for ((b, assum) <- propagator.lowerBound(a(2), true)) yield {
-              addInEqAssumption(assum)
-              b
-            }
-          else
-            propagator lowerBound a(2)
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          // mod_casts with only one case should have been handled already!
+          Debug.assertInt(AC, lowerFactor < upperFactor)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
 
-        val uBound =
-          if (lBound.isDefined) {
-            if (proofs)
-              for ((b, assum) <- propagator.upperBound(a(2), true)) yield {
-                addInEqAssumption(assum)
-                b
-              }
-            else
-              propagator upperBound a(2)
-          } else {
-            None
-          }
+          val cases =
+            (for (n <-
+                    // consider the inner cases first
+                    IdealRange(lowerFactor + 1, upperFactor).iterator ++
+                    (if (wastedLower < wastedUpper)
+                       Seqs.doubleIterator(lowerFactor, upperFactor)
+                     else
+                       Seqs.doubleIterator(upperFactor, lowerFactor));
+                  f = conj(a(2) === a(3) + (n * sort.modulus));
+                  if !f.isFalse)
+             yield (f, List())).toBuffer
 
-        (lBound, uBound) match {
-          case (Some(lb), Some(ub)) => {
-            val sort@ModSort(sortLB, sortUB) =
-              (SortedPredicate argumentSorts a).last
-
-            val lowerFactor = (lb - sortLB) / sort.modulus
-            val upperFactor = -((sortUB - ub) / sort.modulus)
-
-            if (lowerFactor == upperFactor) {
-              // in this case, no splitting is necessary
-
-              simpleElims =
-                Plugin.RemoveFacts(a) ::
-                Plugin.AddAxiom(
-                       assumptions.distinct,
-                       a(2) === a(3) + (lowerFactor * sort.modulus),
-                       ModuloArithmetic) :: simpleElims
-                       
-            } else if (simpleElims.isEmpty) {
-            
-              val caseNum = upperFactor - lowerFactor + 1
-
-              if (someQuantPred.isEmpty && caseNum >= SPLIT_LIMIT) {
-                someQuantPred =
-                  Some(a)
-              } else if (caseNum < bestSplitNum) {
-                bestSplitNum =
-                  caseNum
-                val wastedLower =
-                  lb - (lowerFactor * sort.modulus + sortLB)
-                val wastedUpper =
-                  (upperFactor * sort.modulus + sortUB) - ub
-                bestSplitPred =
-                  Some((a, lowerFactor, upperFactor,
-                        wastedLower, wastedUpper, assumptions, sort))
-              }
-            }
-          }
-
-          case _ =>
-            someQuantPred = Some(a)
+          actions += Plugin.AxiomSplit(assumptions.distinct,
+                                       cases.toList,
+                                       ModuloArithmetic)
+        }
+        case _ => {
+          actions +=
+            Plugin.AddAxiom(List(a),
+                            exists(a(2) === a(3) + (v(0) * sort.modulus)),
+                            ModuloArithmetic)
         }
       }
 
-      if (!simpleElims.isEmpty) {
-
-        simpleElims
-
-      } else if (bestSplitPred.isDefined) {
-
-        if (noSplits)
-          throw ModPlugin.NEEDS_SPLITTING
-
-        val Some((a, lowerFactor, upperFactor,
-                  wastedLower, wastedUpper, assumptions, sort)) =
-          bestSplitPred
-
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(AC, lowerFactor < upperFactor)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-
-        val cases =
-          (for (n <-
-                  // consider the inner cases first
-                  IdealRange(lowerFactor + 1, upperFactor).iterator ++
-                  (if (wastedLower < wastedUpper)
-                     Seqs.doubleIterator(lowerFactor, upperFactor)
-                   else
-                     Seqs.doubleIterator(upperFactor, lowerFactor));
-                f = conj(a(2) === a(3) + (n * sort.modulus));
-                if !f.isFalse)
-           yield (f, List())).toBuffer
-
-        List(Plugin.RemoveFacts(a),
-             Plugin.AxiomSplit(assumptions.distinct,
-                               cases.toList,
-                               ModuloArithmetic))
-        
-      } else if (someQuantPred.isDefined) {
-
-        val Some(a) =
-          someQuantPred
-        val sort =
-          (SortedPredicate argumentSorts a).last.asInstanceOf[ModSort]
-
-        List(Plugin.RemoveFacts(a),
-             Plugin.AddAxiom(List(a),
-                             exists(a(2) === a(3) + (v(0) * sort.modulus)),
-                             ModuloArithmetic))
-
-      } else {
-
-        List()
-
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug && !actions.isEmpty) {
+        println("Mod Casting:")
+        for (a <- actions)
+          println("\t" + a)
       }
-    }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-  def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    if (debug) {
-      println()
-      println("mod_cast splitter ...")
+      actions.toSeq
+    } else {
+      List()
     }
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    modCastActions(goal, false)
   }
+
 }

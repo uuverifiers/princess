@@ -72,7 +72,15 @@ object ModuloArithmetic extends Theory {
 
   protected[bitvectors] val directlyEncodeExtract = false
 
-  private val AC = Debug.AC_MODULO_ARITHMETIC
+  protected[bitvectors] val MOD_CAST_SPLITTER_PRIORITY   = 0
+  protected[bitvectors] val BITWISE_OP_SPLITTER_PRIORITY = 0
+
+  protected[bitvectors] val SPLITTER_PRIORITY_FACTOR = 10
+
+  protected[bitvectors] val MOD_CAST_SPLIT_LIMIT = IdealInt(20)
+  protected[bitvectors] val SHIFT_CAST_SPLIT_LIMIT = IdealInt(128)
+
+  protected[bitvectors] val AC = Debug.AC_MODULO_ARITHMETIC
 
   override def toString = "ModuloArithmetic"
 
@@ -135,6 +143,21 @@ object ModuloArithmetic extends Theory {
   def extract(begin : Int, end : Int, t : ITerm) : ITerm =
     IFunApp(bv_extract, List(begin, end, t))
 
+  def repeat(n : Int, t : ITerm) : ITerm = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, n >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    import IExpression._
+    val width = extractBitWidth(t)
+    val argSort = UnsignedBVSort(width)
+    val resSort = UnsignedBVSort(n * width)
+    resSort.eps(argSort.ex(
+      (v(0, argSort) === shiftVars(t, 2)) &
+      and((0 until n).map(k =>
+        extract((k+1)*width - 1, k*width, v(1, resSort)) === v(0, argSort)))
+    ))
+  }
+
   def bvnot(t : ITerm) : ITerm =
     IFunApp(bv_not, List(extractBitWidth(t), t))
   def bvneg(t : ITerm) : ITerm =
@@ -167,8 +190,6 @@ object ModuloArithmetic extends Theory {
     IFunApp(bv_ashr, List(extractBitWidth(t1, t2), t1, t2))
   def bvxor(t1 : ITerm, t2 : ITerm) : ITerm =
     IFunApp(bv_xor, List(extractBitWidth(t1, t2), t1, t2))
-  def bvxnor(t1 : ITerm, t2 : ITerm) : ITerm =
-    IFunApp(bv_xnor, List(extractBitWidth(t1, t2), t1, t2))
   def bvcomp(t1 : ITerm, t2 : ITerm) : ITerm =
     IFunApp(bv_comp, List(extractBitWidth(t1, t2), t1, t2))
 
@@ -186,12 +207,34 @@ object ModuloArithmetic extends Theory {
   def bvsgt(t1 : ITerm, t2 : ITerm) : IFormula = bvslt(t2, t1)
   def bvsge(t1 : ITerm, t2 : ITerm) : IFormula = bvsle(t2, t1)
 
+  def bvnego(t : ITerm) : IFormula =
+    IAtom(bv_nego, List(extractBitWidth(t), t))
+  def bvuaddo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_uaddo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsaddo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_saddo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvumulo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_umulo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsmulo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_smulo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvusubo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_usubo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvssubo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_ssubo, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsdivo(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_sdivo, List(extractBitWidth(t1, t2), t1, t2))
+
   def zero_extend(addWidth : Int, t : ITerm) : ITerm =
     IFunApp(zero_extend, List(extractBitWidth(t), addWidth, t))
   def sign_extend(addWidth : Int, t : ITerm) : ITerm = {
     val w = extractBitWidth(t)
     cast2UnsignedBV(w + addWidth, cast2SignedBV(w, t))
   }
+
+  def rotateleft(t : ITerm, bits : ITerm) : ITerm =
+    IFunApp(rotate_left, List(extractBitWidth(t, bits), t, bits))
+  def rotateright(t : ITerm, bits : ITerm) : ITerm =
+    IFunApp(rotate_right, List(extractBitWidth(t, bits), t, bits))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -266,6 +309,39 @@ object ModuloArithmetic extends Theory {
         pow2(start - end + 1) - evalExtract(start, end, number.invert) - 1
       }
     }
+
+  /**
+   * Run-length encoding of the least-significant <code>size</code> bits of
+   * a number, starting with the number of least-significant zeroes. Bits beyond
+   * <code>size</code> are ignored.
+   */
+  def runLengthEnc(v : IdealInt, size : Int) : Seq[Int] = {
+    val two = IdealInt(2)
+    val res = new ArrayBuffer[Int]
+
+    var curBit = IdealInt.ZERO
+    var curNum = 0
+    var curPos = 0
+
+    var rem = v
+
+    while (curPos < size) {
+      val (newRem, bit) = rem /% two
+      if (bit == curBit) {
+        curNum = curNum + 1
+      } else {
+        res += curNum
+        curNum = 1
+        curBit = bit
+      }
+
+      rem = newRem
+      curPos = curPos + 1
+    }
+
+    res += curNum
+    res.toSeq
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -507,23 +583,26 @@ object ModuloArithmetic extends Theory {
      */
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort)
 
+    def computeSortsII(indexes : Seq[IdealInt]) : (Seq[Sort], Sort) =
+      computeSorts(indexes.map(_.intValueSafe))
+
     private def doIComputeSorts(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val indexes =
-        for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
+        for (IIntLit(n) <- arguments take indexArity) yield n
       if (indexes.size < indexArity) {
         // this means that some of the indexes are symbolic, we just specify
         // argument sorts to be AnySort
         anySorts
       } else {
-        computeSorts(indexes)
+        computeSortsII(indexes)
       }
     }
 
     private def doComputeSorts(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
       val indexes =
         for (lc <- arguments take indexArity)
-        yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
-      computeSorts(indexes)
+        yield lc.asInstanceOf[LinearCombination0].constant
+      computeSortsII(indexes)
     }
 
     private lazy val anySorts =
@@ -579,9 +658,11 @@ object ModuloArithmetic extends Theory {
   // Result:    number mod 2^(begin - end + 1)
 
   object BVExtract extends IndexedBVOp("bv_extract", 2, 1, functional = true) {
-    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) =
+      ??? // method not used
+    override def computeSortsII(indexes : Seq[IdealInt]) : (Seq[Sort], Sort) = {
       (List(Sort.Integer, Sort.Integer, Sort.Integer),
-       UnsignedBVSort(indexes(0) - indexes(1) + 1))
+       UnsignedBVSort((indexes(0) - indexes(1) + 1).intValueSafe))
     }
   }
 
@@ -614,27 +695,36 @@ object ModuloArithmetic extends Theory {
 
   // Arguments: N, number mod 2^N
   // Result:    number mod 2^N
-  val bv_not           = new BVNAryOp ("bv_not", 1) // X
-  val bv_neg           = new BVNAryOp ("bv_neg", 1) // X
+  val bv_not           = new BVNAryOp ("bv_not", 1)
+  val bv_neg           = new BVNAryOp ("bv_neg", 1)
 
   // Arguments: N, number mod 2^N, number mod 2^N
   // Result:    number mod 2^N
-  val bv_and           = new BVNAryOp ("bv_and", 2)
-  val bv_or            = new BVNAryOp ("bv_or",  2)
-  val bv_add           = new BVNAryOp ("bv_add", 2) // X
-  val bv_sub           = new BVNAryOp ("bv_sub", 2) // X
-  val bv_mul           = new BVNAryOp ("bv_mul", 2) // X (to be optimised)
-  val bv_udiv          = new BVNAryOp ("bv_udiv",2) // X
+  val bv_add           = new BVNAryOp ("bv_add", 2)
+  val bv_sub           = new BVNAryOp ("bv_sub", 2)
+  val bv_mul           = new BVNAryOp ("bv_mul", 2)
+  val bv_udiv          = new BVNAryOp ("bv_udiv",2)
   val bv_sdiv          = new BVNAryOp ("bv_sdiv",2)
-  val bv_urem          = new BVNAryOp ("bv_urem",2) // partly
+  val bv_urem          = new BVNAryOp ("bv_urem",2)
   val bv_srem          = new BVNAryOp ("bv_srem",2)
   val bv_smod          = new BVNAryOp ("bv_smod",2)
-  val bv_shl           = new BVNAryOp ("bv_shl", 2) // partly
+  val bv_shl           = new BVNAryOp ("bv_shl", 2)
   val bv_lshr          = new BVNAryOp ("bv_lshr",2)
   val bv_ashr          = new BVNAryOp ("bv_ashr",2)
 
+  val bv_and           = new BVNAryOp ("bv_and", 2)
+  val bv_or            = new BVNAryOp ("bv_or",  2)
   val bv_xor           = new BVNAryOp ("bv_xor", 2)
-  val bv_xnor          = new BVNAryOp ("bv_xnor",2)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Arguments: N, x : number mod 2^N, y : number mod 2^N
+  // Result:    x rotated y bits to the left
+  val rotate_left      = new BVNAryOp ("rotate_left", 2)
+
+  // Arguments: N, x : number mod 2^N, y : number mod 2^N
+  // Result:    x rotated y bits to the right
+  val rotate_right     = new BVNAryOp ("rotate_right", 2)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -651,23 +741,24 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // Arguments: N, number mod 2^N, number mod 2^N
+  // Arguments: N, numbers mod 2^N
 
-  class BVOrder(_name : String) extends SortedPredicate(_name, 3) {
+  class NAryBVPred(_name : String, bvArity : Int)
+      extends SortedPredicate(_name, bvArity + 1) {
     def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] =
       arguments.head match {
         case IIntLit(IdealInt(n)) =>
-          List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+          List(Sort.Integer) ++ (0 until bvArity).map(x => UnsignedBVSort(n))
         case _ =>
           // this means that some of the indexes are symbolic, we just specify
           // argument sorts to be AnySort
-          List(Sort.Integer, Sort.AnySort, Sort.AnySort)
+          List(Sort.Integer) ++ (0 until bvArity).map(x => Sort.AnySort)
       }
-        
+
     def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
       val n = arguments.head.asInstanceOf[LinearCombination0]
                        .constant.intValueSafe
-      List(Sort.Integer, UnsignedBVSort(n), UnsignedBVSort(n))
+      List(Sort.Integer) ++ (0 until bvArity).map(x => UnsignedBVSort(n))
     }
         
     override def sortConstraints(arguments : Seq[Term])
@@ -675,10 +766,19 @@ object ModuloArithmetic extends Theory {
       argumentSorts(arguments).last membershipConstraint arguments.last
   }
 
-  val bv_ult           = new BVOrder("bv_ult")
-  val bv_ule           = new BVOrder("bv_ule")
-  val bv_slt           = new BVOrder("bv_slt")
-  val bv_sle           = new BVOrder("bv_sle")
+  val bv_ult           = new NAryBVPred("bv_ult", 2)
+  val bv_ule           = new NAryBVPred("bv_ule", 2)
+  val bv_slt           = new NAryBVPred("bv_slt", 2)
+  val bv_sle           = new NAryBVPred("bv_sle", 2)
+
+  val bv_nego          = new NAryBVPred("bv_nego", 1)
+  val bv_uaddo         = new NAryBVPred("bv_uaddo", 2)
+  val bv_saddo         = new NAryBVPred("bv_saddo", 2)
+  val bv_umulo         = new NAryBVPred("bv_umulo", 2)
+  val bv_smulo         = new NAryBVPred("bv_smulo", 2)
+  val bv_usubo         = new NAryBVPred("bv_usubo", 2)
+  val bv_ssubo         = new NAryBVPred("bv_ssubo", 2)
+  val bv_sdivo         = new NAryBVPred("bv_sdivo", 2)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -705,14 +805,27 @@ object ModuloArithmetic extends Theory {
     bv_lshr,
     bv_ashr,
     bv_xor,
-    bv_xnor,
+    rotate_left,
+    rotate_right,
     bv_comp,
     zero_extend
   )
 
   private val functionsSet : Set[IFunction] = functions.toSet
 
-  val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
+  val otherPreds = List(
+    bv_ult,
+    bv_ule,
+    bv_slt,
+    bv_sle,
+    bv_nego,
+    bv_uaddo,
+    bv_saddo,
+    bv_umulo,
+    bv_smulo,
+    bv_usubo,
+    bv_ssubo,
+    bv_sdivo)
 
   private val otherPredsSet : Set[Predicate] = otherPreds.toSet
 
@@ -720,11 +833,14 @@ object ModuloArithmetic extends Theory {
     Theory.genAxioms(theoryFunctions = functions, extraPredicates = otherPreds)
 
   val _bv_extract = functionTranslation(bv_extract)
+  val _bv_and = functionTranslation(bv_and)
+  val _bv_xor = functionTranslation(bv_xor)
 
-  // We only keep the functionality axiom for the bv_extract function
-  val axioms =
-    (Conjunction.conj(preAxioms, order).iterator filter (
-       _.predicates == Set(_bv_extract))).next()
+  // TODO: Keep the functionality axiom for the bv_extract function? It tends to
+  // interfere with the rules for handling bv_extract.
+  val axioms = Conjunction.TRUE
+//    (Conjunction.conj(preAxioms, order).iterator filter (
+//       _.predicates == Set(_bv_extract))).next()
 
   val totalityAxioms = Conjunction.TRUE
 
@@ -804,7 +920,8 @@ object ModuloArithmetic extends Theory {
 
   val MultTheory = GroebnerMultiplication
 
-  override val dependencies : Iterable[Theory] = List(MultTheory)
+  override val dependencies : Iterable[Theory] =
+    List(MultTheory, CastAtomSplitter, BitwiseOpSplitter)
 
   val plugin = Some(ModPlugin)
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2025 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,8 @@ import ap.theories._
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
-import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm}
+import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm,
+                  TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
 import LinearCombination.{SingleTerm, Constant}
@@ -58,20 +59,15 @@ object ExtractArithEncoder extends TheoryProcedure {
   import ModuloArithmetic._
   import ModPlugin.hasImpliedIneqConstraints
 
-  private val AC = Debug.AC_MODULO_ARITHMETIC
-
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-      encode(goal, false)
-
-    def encode(goal : Goal, encodeAll : Boolean) : Seq[Plugin.Action] =  {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
       import TerForConvenience._
-      implicit val order = goal.order
+      implicit val order : TermOrder = goal.order
 
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      val inEqs = goal.facts.arithConj.inEqs
-
       if (extracts.isEmpty)
         return List()
+
+      val inEqs = goal.facts.arithConj.inEqs
 
       val terms =
         new LinkedHashMap[LinearCombination,
@@ -104,28 +100,16 @@ object ExtractArithEncoder extends TheoryProcedure {
               // no variable needed
               terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
                               nextVarInd, constraints, ex :: atoms))
-            } else if (SingleTerm.unapply(arg).isDefined) {
+            } else {
               // This extract cannot be eliminated, since it
               // overlaps with the last one. In this case we don't
               // eliminate extracts for this term altogether at this
               // point, we wait until the extracts have been split
               terms -= arg
               ignoredTerms += arg
-            } else {
-              // Extract applied to a complex term, and the ranges overlap
-              // with the previous extract. Such extracts will not be
-              // fully split, so we just ignore this literal for the time
-              // being, and translate the other ones to arithmetic.
             }
         }
       }
-
-      val arithExtractedConsts = new MHashSet[ConstantTerm]
-
-      if (encodeAll)
-        arithExtractedConsts ++= goal.facts.constants
-      else
-        arithExtractedConsts ++= arithmeticExtractedConsts(goal)
 
       for (ex <- extracts) ex match {
         case Atom(`_bv_extract`,
@@ -135,17 +119,6 @@ object ExtractArithEncoder extends TheoryProcedure {
                       _),
                   _) if (ignoredTerms contains arg) =>
           // nothing
-        case Atom(`_bv_extract`,
-                  Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
-                      arg@SingleTerm(c : ConstantTerm),
-                      res),
-                  _) =>
-          if ((arithExtractedConsts contains c) ||
-              !hasImpliedIneqConstraints(c, IdealInt.ZERO,
-                                         pow2MinusOne(ub + 1), inEqs)) {
-            arithExtractedConsts += c
-            elimExtract(ex, ub, lb, arg, res)
-          }
         case Atom(`_bv_extract`,
                   Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
                       arg,

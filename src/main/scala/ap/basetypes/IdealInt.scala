@@ -146,14 +146,21 @@ object IdealInt {
   /**
    * Compute <code>2^exp</code>.
    */
-  def pow2(exp : Int) : IdealInt =
-    IdealInt(2) pow exp
+  def pow2(exp : Int) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, exp >= 0, "negative exponent")
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (exp <= 62)
+      IdealInt(1l << exp)
+    else
+      IdealInt.ONE << exp
+  }
 
   /**
    * Compute <code>2^exp</code>.
    */
   def pow2(exp : IdealInt) : IdealInt =
-    IdealInt(2) pow exp.intValueSafe
+    IdealInt.ONE << exp
 
   /**
    * Compute <code>2^exp % modulus</code>.
@@ -688,9 +695,6 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise and.
    */
   def &  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore & that.longStore)
     else
@@ -701,9 +705,6 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise or.
    */
   def |  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore | that.longStore)
     else
@@ -714,18 +715,120 @@ final class IdealInt private (private val longStore : Long,
    * Bit-wise xor.
    */
   def ^  (that: IdealInt): IdealInt = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong && that.usesLong)
       IdealInt(this.longStore ^ that.longStore)
     else
       IdealInt(this.getBI xor that.getBI)
   }
 
+  /**
+   * Left-shift. For positive shifts, this is equivalent to multiplication by
+   * <code>pow2(shift)</code>. Negative shifts are equivalent to right-shift
+   * by the negated value.
+   */
+  def <<(shift : Int) : IdealInt =
+    if (shift < 0) {
+      this >> (-shift)
+    } else {
+      if (shift <= 32 &&
+          Int.MinValue <= this.longStore && this.longStore <= Int.MaxValue)
+        IdealInt(this.longStore << shift)
+      else
+        IdealInt(this.getBI.shiftLeft(shift))
+    }
+
+  /**
+   * Left-shift. For positive shifts, this is equivalent to multiplication by
+   * <code>pow2(shift)</code>. Negative shifts are equivalent to right-shift
+   * by the negated value.
+   */
+  def <<(shift : IdealInt) : IdealInt =
+    if (shift.signum < 0)
+      this >> (-shift)
+    else
+      this << shift.intValueSafe
+
+  /**
+   * Shift left, filling up with ones. This is equivalent to
+   * <code>((this + 1) << shift) - 1</code>.
+   */
+  def shiftLeftAddOnes(shift : Int) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, shift >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    ((this + 1) << shift) - 1
+  }
+
+  /**
+   * Shift left, filling up with ones. This is equivalent to
+   * <code>((this + 1) << shift) - 1</code>.
+   */
+  def shiftLeftAddOnes(shift : IdealInt) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, shift.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    ((this + 1) << shift) - 1
+  }
+
+  /**
+   * Right-shift with sign extension. For positive shifts, this is equivalent
+   * to division by <code>pow2(shift)</code>. Negative shifts are equivalent to
+   * left-shift by the negated value.
+   */
+  def >>(shift : Int) : IdealInt =
+    if (shift < 0) {
+      this << (-shift)
+    } else {
+      if (this.usesLong) {
+        if (shift >= 64) {
+          if (this.signum >= 0) IdealInt.ZERO else IdealInt.MINUS_ONE
+        } else {
+          IdealInt(this.longStore >> shift)
+        }
+      } else {
+        IdealInt(this.getBI.shiftRight(shift))
+      }
+    }
+
+  /**
+   * Right-shift with sign extension. For positive shifts, this is equivalent
+   * to division by <code>pow2(shift)</code>. Negative shifts are equivalent to
+   * left-shift by the negated value.
+   */
+  def >>(shift : IdealInt) : IdealInt =
+    if (shift.signum < 0) {
+      this << (-shift)
+    } else if (this.usesLong) {
+      if (shift >= 64) {
+        if (this.signum >= 0) IdealInt.ZERO else IdealInt.MINUS_ONE
+      } else {
+        IdealInt(this.longStore >> shift.intValue)
+      }
+    } else {
+      this.signum match {
+        case 0 =>
+          IdealInt.ZERO
+        case 1 =>
+          if (shift > this.getBI.bitLength)
+            IdealInt.ZERO
+          else
+            IdealInt(this.getBI.shiftRight(shift.intValue))
+        case -1 =>
+          if (shift > (-this).getBI.bitLength)
+            IdealInt.MINUS_ONE
+          else
+            IdealInt(this.getBI.shiftRight(shift.intValue))
+      }
+    }
+
+  /**
+   * For a positive number, determine the index of the highest bit that is set.
+   * For instance, <code>IdealInt.ONE.getHighestSetBit == 0</code>.
+   */
   def getHighestSetBit : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this.signum > 0)
+    Debug.assertPre(IdealInt.AC, this.signum > 0,
+                    "highest bit can only be queried for positive numbers")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (this.usesLong) {
       var n = this.longStore >> 1
@@ -807,6 +910,24 @@ final class IdealInt private (private val longStore : Long,
       (quot, rem)
     }
   
+   /**
+    * Reduce <code>this</code> by adding a multiple of <code>that</code> and
+    * return the remainder. In contrast to <code>%</code>,
+    * reduction is done so that the remainder has the same sign as
+    * <code>this</code>, unless the remainder is zero.
+    */
+  def moduloKeepingSign(that : IdealInt) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, that.signum > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val res = this % that
+    if (this.signum < 0 && res.signum > 0)
+      res - that
+    else
+      res
+  }
+
   /** Return whether this divides that */
   def divides (that : IdealInt) : Boolean =
     that.isZero || (!this.isZero && (that % this).isZero)

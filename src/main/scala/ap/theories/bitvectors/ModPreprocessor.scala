@@ -55,8 +55,6 @@ import scala.collection.mutable.ArrayBuffer
  */
 object ModPreprocessor {
 
-  private val AC = Debug.AC_MODULO_ARITHMETIC
-
   import ModuloArithmetic._
 
   case class VisitorArg(modN : Option[IdealInt]) {
@@ -268,6 +266,13 @@ object ModPreprocessor {
                                       List(this.resTerm, that.resTerm)),
                               List(this, that))
 
+    def not(bits : Int) : VisitorRes = {
+      val sortUpper = pow2MinusOne(bits)
+      VisitorRes(sortUpper - resTerm,
+                 if (upperBound == null) null else sortUpper - upperBound,
+                 if (lowerBound == null) null else sortUpper - lowerBound)
+    }
+
     def eDiv(divisor : IdealInt) : VisitorRes = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC, divisor.signum > 0)
@@ -338,18 +343,32 @@ object ModPreprocessor {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod pow2(width + addWidth)))
 
-      case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul`,
-                   Seq(IIntLit(n), _*)) =>
-        // TODO: handle bit-width argument correctly
-        UniSubArgs(ctxt addMod pow2(n))
+      case IFunApp(`bv_neg`, Seq(IIntLit(width), _*)) =>
+        SubArgs(List(ctxt.noMod, ctxt addMod pow2(width)))
+
+      case IFunApp(`bv_add` | `bv_sub` | `bv_mul`,
+                   Seq(IIntLit(width), _*)) => {
+        val ctxt2 = ctxt addMod pow2(width)
+        SubArgs(List(ctxt.noMod, ctxt2, ctxt2))
+      }
+
+      case IFunApp(`bv_or`, Seq(width, e1, e2)) =>
+        TryAgain(bv_not(width,
+                        bv_and(width, bv_not(width, e1), bv_not(width, e2))),
+                 ctxt)
 
       case IFunApp(`bv_shl`, Seq(IIntLit(n), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
+      case IFunApp(`rotate_right`, Seq(width, e1, e2)) =>
+        TryAgain(rotate_left(width, e1, width - e2),
+                 ctxt)
+
       case IFunApp(`int_cast`, _) =>
         UniSubArgs(ctxt)
 
-      case IAtom(`bv_slt` | `bv_sle`, Seq(IIntLit(n), _*)) =>
+      case IAtom(`bv_slt` | `bv_sle` | `bv_saddo` | `bv_smulo` | `bv_ssubo`,
+                 Seq(IIntLit(n), _*)) =>
         UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
@@ -523,8 +542,7 @@ object ModPreprocessor {
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
                                       IIntLit(IdealInt(bits2)), _*)) =>
           if (subres(2).isConstant && subres(3).isConstant) {
-            VisitorRes(subres(2).lowerBound * pow2(bits2) +
-                       subres(3).lowerBound)
+            VisitorRes((subres(2).lowerBound << bits2) + subres(3).lowerBound)
           } else {
             val sort = UnsignedBVSort(bits1+bits2)
 
@@ -542,45 +560,14 @@ object ModPreprocessor {
             val res = sort.eps(bv1 & bv2)
 
             VisitorRes(res,
-                       (subres(2).lowerBoundOrElse(IdealInt.ZERO) * pow2(bits2)) +
+                       (subres(2).lowerBoundOrElse(IdealInt.ZERO) << bits2) +
                          subres(3).lowerBoundOrElse(IdealInt.ZERO),
-                       (subres(2).upperBoundOrElse(pow2(bits1)) * pow2(bits2)) +
+                       (subres(2).upperBoundOrElse(pow2(bits1)) << bits2) +
                          subres(3).upperBoundOrElse(pow2(bits2)))
           }
 
         case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) =>
-          if (subres(1).isConstant) {
-            VisitorRes(pow2MinusOne(bits) - subres(1).lowerBound)
-          } else {
-            val sort = UnsignedBVSort(bits)
-
-            val rawArg = subres(1).resTerm
-            val simple = isSimpleTerm(rawArg)
-
-            val (arg, resTerm) =
-              if (simple)
-                (shiftVars(rawArg, 1), v(0, sort))
-              else
-                (v(0), v(1, sort))
-
-            val resultDef =
-              and(for (i <- 0 until bits) yield {
-                eqZero(doExtract(i, i, arg, bits) +
-                       doExtract(i, i, resTerm, bits) +
-                       IdealInt.MINUS_ONE)
-              })
-
-            val res =
-              if (simple)
-                sort.eps(resultDef)
-              else
-                sort.eps(ex(v(0) === shiftVars(rawArg, 2) &
-                            resultDef))
-
-            val (lb, ub) = subres(1).nbitBounds(bits)
-
-            VisitorRes(res, sort.upper - ub, sort.upper - lb)
-          }
+          subres.last.not(bits)
 
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
           (subres.last * IdealInt.MINUS_ONE).modCastPow2(bits, ctxt)
@@ -693,7 +680,7 @@ object ModPreprocessor {
           val sort = UnsignedBVSort(bits)
 
           def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
-            runlengths(pattern) match {
+            runLengthEnc(pattern, bits) match {
               case Seq(_) => {
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 // Pattern must be constantly zero
@@ -701,17 +688,12 @@ object ModPreprocessor {
                 //-END-ASSERTION-///////////////////////////////////////////////
                 VisitorRes(IdealInt.ZERO)
               }
-              case Seq(0, length) => {
+              case rle@(Seq(0, _) | Seq(0, _, _)) => {
                 // pattern starting with a single block of ones
-                VisitorRes(
-                  doExtract(length - 1, 0, arg.resTerm, bits),
-                  IdealInt.ZERO, pattern)
+                arg.modCastPow2(rle(1), ctxt)
               }
-
-              case preLens => {
+              case lens => {
                 // multiple blocks of zeros, handle using an epsilon term
-                val lens = completedRunlengths(preLens, bits)
-
                 var offset : Int = 0
                 var bit = true
                 
@@ -735,7 +717,7 @@ object ModPreprocessor {
                     ex(v(0) === shiftVars(arg.resTerm, 2) &
                        resultDef))
 
-                VisitorRes(res, IdealInt.ZERO, pattern)
+                VisitorRes(res, IdealInt.ZERO, evalExtract(bits - 1, 0, pattern))
               }
             }
 
@@ -748,21 +730,19 @@ object ModPreprocessor {
               oneConstant(subres(1), subres(2).lowerBound)
 
             case (false, false) => {
-              val resultDef = 
-                and(for (i <- 0 until bits) yield{
-                  val res = doExtract(i, i, v(2, sort), bits)
-                  val lhs = doExtract(i, i, v(1), bits)
-                  val rhs = doExtract(i, i, v(0), bits)
-                  (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1)
-                })
-              val res =
-                sort.eps(ex(ex(
-                  v(1) === shiftVars(subres(1).resTerm, 3) &
-                  v(0) === shiftVars(subres(2).resTerm, 3) &
-                  resultDef)))
+              val cond =
+                if (bits == 1) {
+                  val res = v(0, sort)
+                  val lhs = shiftVars(subres(1).resTerm, 1)
+                  val rhs = shiftVars(subres(2).resTerm, 1)
+                  sort.eps(
+                    (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1))
+                } else {
+                  bv_and(bits, subres(1).resTerm, subres(2).resTerm)
+                }
               val (_, ub1) = subres(1).nbitBounds(bits)
               val (_, ub2) = subres(2).nbitBounds(bits)
-              VisitorRes(res, IdealInt.ZERO, ub1 min ub2)
+              VisitorRes(cond, IdealInt.ZERO, ub1 min ub2)
             }
 
           }
@@ -770,11 +750,11 @@ object ModPreprocessor {
 
         ////////////////////////////////////////////////////////////////////////
 
-        case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+        case IFunApp(`bv_xor`, Seq(IIntLit(IdealInt(bits)), _*)) => {
           val sort = UnsignedBVSort(bits)
 
           def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
-            runlengths(pattern) match {
+            runLengthEnc(pattern, bits) match {
               case Seq(_) => {
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 // Pattern must be constantly zero
@@ -782,30 +762,26 @@ object ModPreprocessor {
                 //-END-ASSERTION-///////////////////////////////////////////////
                 arg
               }
-              case Seq(offset, length) if offset + length == bits => {
-                // pattern ending with a single block of ones
-                VisitorRes(
-                  doExtract(offset-1, 0, arg.resTerm, bits) + pattern,
-                  pattern, pow2MinusOne(bits))
+              case Seq(0, `bits`) => {
+                // pattern with a single block of ones
+                arg.not(bits)
               }
-              
-              case preLens => {
+              case lens => {
                 // multiple blocks of zeros, handle using an epsilon term
-                val lens = completedRunlengths(preLens, bits)
-
                 var offset : Int = 0
                 var bit = true
-
+                
                 val resultDef =
                   and(for (len <- lens) yield {
                         bit = !bit
                         if (len > 0) {
                           offset = offset + len
-                          doExtract(offset-1, offset-len, v(1, sort), bits) ===
+                          doExtract(offset-1, (offset-len), v(1,sort), bits) ===
                           (if (bit)
-                             i(pow2MinusOne(len))
+                             pow2MinusOne(len) -
+                               doExtract(offset-1, (offset-len), v(0), bits)
                            else
-                             doExtract(offset-1, offset - len, v(0), bits))
+                             doExtract(offset-1, (offset-len), v(0), bits))
                         } else {
                           i(true)
                         }
@@ -816,36 +792,26 @@ object ModPreprocessor {
                     ex(v(0) === shiftVars(arg.resTerm, 2) &
                        resultDef))
 
-                VisitorRes(res, pattern, pow2MinusOne(bits))
+                VisitorRes(res, IdealInt.ZERO, sort.upper)
               }
             }
 
           (subres(1).isConstant, subres(2).isConstant) match {
             case (true, true) =>
-              VisitorRes(subres(1).lowerBound | subres(2).lowerBound)
+              VisitorRes(subres(1).lowerBound ^ subres(2).lowerBound)
             case (true, false) =>
               oneConstant(subres(2), subres(1).lowerBound)
             case (false, true) =>
               oneConstant(subres(1), subres(2).lowerBound)
 
             case (false, false) => {
-              val resultDef = 
-                and(for (i <- 0 until bits) yield{
-                  val res = doExtract(i, i, v(2, sort), bits)
-                  val lhs = doExtract(i, i, v(1), bits)
-                  val rhs = doExtract(i, i, v(0), bits)
-                  (res >= lhs) & (res >= rhs) & (res <= lhs + rhs)
-                })
-              val res =
-                sort.eps(ex(ex(
-                    v(1) === shiftVars(subres(1).resTerm, 3) &
-                    v(0) === shiftVars(subres(2).resTerm, 3) &
-                    resultDef)))
-    
-              val (lb1, _) = subres(1).nbitBounds(bits)
-              val (lb2, _) = subres(2).nbitBounds(bits)
-
-              VisitorRes(res, lb1 max lb2, sort.upper)
+              val cond =
+                if (bits == 1) {
+                  mod_cast(0, 1, subres(1).resTerm + subres(2).resTerm)
+                } else {
+                  bv_xor(bits, subres(1).resTerm, subres(2).resTerm)
+                }
+              VisitorRes(cond, IdealInt.ZERO, sort.upper)
             }
 
           }
@@ -853,21 +819,25 @@ object ModPreprocessor {
 
         ////////////////////////////////////////////////////////////////////////
 
-        case IFunApp(`bv_xor`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+        case IFunApp(`rotate_left`, Seq(IIntLit(IdealInt(bits)), _*)) => {
           val sort = UnsignedBVSort(bits)
-          val resultDef = 
-            and(for (i <- 0 until bits) yield{
-              val res = doExtract(i, i, v(2, sort), bits)
-              val lhs = doExtract(i, i, v(1), bits)
-              val rhs = doExtract(i, i, v(0), bits)
-              mod_cast(0, 1, lhs+rhs) === res
-            })
-          val res =
-            sort.eps(ex(ex(
-                v(1) === shiftVars(subres(1).resTerm, 3) &
-                v(0) === shiftVars(subres(2).resTerm, 3) &
-                resultDef)))
-          VisitorRes(res, IdealInt.ZERO, sort.upper)
+          import sort.upper
+
+          val cond =
+            sort.eps(
+              sort.ex(sort.ex(
+                (v(0, sort) ===
+                  shiftVars(subres(1).resTerm, 3)) &
+                (v(1, sort) ===
+                  mod_cast(0, bits - 1, shiftVars(subres(2).resTerm, 3))) &
+                (v(2, sort) ===
+                  bv_xor(bits,
+                         l_shift_cast(0, upper, v(0, sort), v(1, sort)),
+                         r_shift_cast(0, upper, v(0, sort), bits - v(1, sort))))
+              ))
+            )
+
+          VisitorRes(cond, IdealInt.ZERO, upper)
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -1152,6 +1122,43 @@ object ModPreprocessor {
                        subres(2).modCastSignedPow2(bits, ctxt).resTerm)
           }
 
+        case IAtom(`bv_nego`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm === pow2(bits - 1))
+        case IAtom(`bv_uaddo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm + subres(2).resTerm >= pow2(bits))
+        case IAtom(`bv_saddo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum = subres(1).modCastSignedPow2(bits, ctxt).resTerm +
+                    subres(2).modCastSignedPow2(bits, ctxt).resTerm
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+        case IAtom(`bv_umulo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(MultTheory.mul(subres(1).resTerm,
+                                    subres(2).resTerm) >= pow2(bits))
+        case IAtom(`bv_smulo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum =
+            MultTheory.mul(subres(1).modCastSignedPow2(bits, ctxt).resTerm,
+                           subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+        case IAtom(`bv_usubo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes(subres(1).resTerm < subres(2).resTerm)
+        case IAtom(`bv_saddo`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          // TODO: avoid duplication of subterms
+          val sum = subres(1).modCastSignedPow2(bits, ctxt).resTerm -
+                    subres(2).modCastSignedPow2(bits, ctxt).resTerm
+          val sort = SignedBVSort(bits)
+          VisitorRes(sum < sort.lower | sum > sort.upper)
+        }
+        case IAtom(`bv_sdivo`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          VisitorRes((subres(1).resTerm === pow2(bits - 1)) &
+                     (subres(2).resTerm === pow2MinusOne(bits)))
+
+        ////////////////////////////////////////////////////////////////////////
+
         case t =>
           VisitorRes.update(t, subres)
       }
@@ -1258,7 +1265,8 @@ object ModPreprocessor {
                                         order))
         }
 
-        case `_mod_cast` | `_l_shift_cast` | `_r_shift_cast` | `_bv_extract` =>
+        case `_mod_cast` | `_l_shift_cast` | `_r_shift_cast` | `_bv_extract` |
+             `_bv_and` | `_bv_xor` =>
           a
 
         case BVPred(_) => {

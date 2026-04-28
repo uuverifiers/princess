@@ -31,7 +31,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Unit tests for bit-vectors
+// Unit tests for mod_cast simplification rules
 
 package ap.theories.bitvectors
 
@@ -39,53 +39,75 @@ import ap.SimpleAPI
 import SimpleAPI.ProverStatus
 import ap.parser._
 import ap.util.Debug
-import ap.basetypes.IdealInt
+import ap.parameters.{Param, GlobalSettings}
 
 import org.scalacheck.Properties
 import ap.util.Prop._
 import ap.util.ExtraAssertions
 
-class TestShift extends Properties("TestShift") {
+class TestModCast extends Properties("TestModCast") {
+  import IExpression._
+  import ModuloArithmetic._
 
-  /* Example that previously led to incorrect bound
-     on the result of bvshl being computed by the preprocessor. */
-  property("bvshl1") = {
-    Debug enableAllAssertions true
+  property("modcast1") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
-      import IExpression._
-      import ModuloArithmetic._
+      Debug enableAllAssertions true
 
-      val x = createConstant("x", Sort.Interval(
-                                   Some(IdealInt("4294967294")),
-                                   Some(IdealInt("4295032829"))))
-      val y = createConstant("y", UnsignedBVSort(32))
-
-      !! (y === bv_shl(32, x, 3))
-
-      ??? == ProverStatus.Sat
+      val x1 = createConstant("x1")
+      val x2 = createConstant("x2")
+      
+      !! (x1 >= 2 & x1 <= 5)
+      !! (x2 === cast2Interval(3, 7, x1))
+      // This equation is inconsistent with the mod_cast application
+      !! (x2 === 6)
+      ??? == ProverStatus.Unsat
     }
   }
 
-  property("r_shift_1") = {
-    Debug enableAllAssertions true
+  property("modcast2") = {
     SimpleAPI.withProver(enableAssert = true) { p =>
       import p._
-      import IExpression._
-      import ModuloArithmetic._
+      Debug enableAllAssertions true
 
-      val x = createConstant("x", SignedBVSort(32))
-      val y = createConstant("y", SignedBVSort(8))
-      val z = createConstant("z", Sort.Integer)
-
-      !! (y === r_shift_cast(-128, 127, x, z))
-      !! (z > 16)
-      !! (z < 20)
-      !! (extract(15, 0, x) === 0)
-      !! (y =/= 0)
-
-      ??? == ProverStatus.Sat
+      val x1 = createConstant("x1")
+      val x2 = createConstant("x2")
+      
+      !! (x1 >= -1 & x1 <= 5)
+      !! (x2 === cast2Interval(0, 4, x1))
+      !! (x2 >= 1 & x2 <= 3)
+      // with the right bwd-propagation, this equation can be inferred directly
+      ?? (x1 === x2)
+      ??? == ProverStatus.Valid
     }
   }
 
+  property("xor1") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x1 = createConstant("x1", UnsignedBVSort(1))
+      val x2 = createConstant("x2", UnsignedBVSort(1))
+      
+      !! (1 === bvxor(x1, x2))
+      ?? (x1 =/= x2)
+      ??? == ProverStatus.Valid
+    }
+  }
+
+  property("xor2") = {
+    SimpleAPI.withProver(enableAssert = true) { p =>
+      import p._
+      Debug enableAllAssertions true
+
+      val x1 = createConstant("x1", UnsignedBVSort(1))
+      val x2 = createConstant("x2", UnsignedBVSort(1))
+      
+      !! (0 === bvxor(x1, x2))
+      ?? (x1 === x2)
+      ??? == ProverStatus.Valid
+    }
+  }
+  
 }
