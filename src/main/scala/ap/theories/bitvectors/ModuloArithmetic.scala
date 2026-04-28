@@ -75,6 +75,11 @@ object ModuloArithmetic extends Theory {
   protected[bitvectors] val MOD_CAST_SPLITTER_PRIORITY   = 0
   protected[bitvectors] val BITWISE_OP_SPLITTER_PRIORITY = 0
 
+  protected[bitvectors] val SPLITTER_PRIORITY_FACTOR = 10
+
+  protected[bitvectors] val MOD_CAST_SPLIT_LIMIT = IdealInt(20)
+  protected[bitvectors] val SHIFT_CAST_SPLIT_LIMIT = IdealInt(128)
+
   protected[bitvectors] val AC = Debug.AC_MODULO_ARITHMETIC
 
   override def toString = "ModuloArithmetic"

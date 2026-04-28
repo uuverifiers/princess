@@ -67,9 +67,6 @@ class TestShift extends Properties("TestShift") {
     }
   }
 
-/*
-  This test case needs a modification in RShiftCastSplitHandler.rShiftToExtract
-
   property("r_shift_1") = {
     Debug enableAllAssertions true
     SimpleAPI.withProver(enableAssert = true) { p =>
@@ -90,6 +87,5 @@ class TestShift extends Properties("TestShift") {
       ??? == ProverStatus.Sat
     }
   }
-  */
 
 }

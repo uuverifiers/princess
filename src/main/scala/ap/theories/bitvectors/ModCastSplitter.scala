@@ -120,10 +120,10 @@ trait AtomSplitHandler {
  */
 object ModCastSplitHandler extends AtomSplitHandler {
   import ModuloArithmetic._
+  import ModuloArithmetic.{MOD_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
+                           SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
 
   val predicate = _mod_cast
-
-  private val SPLIT_LIMIT = IdealInt(20)
 
   private
     def analyseBounds(goal : Goal, a : Atom, proofs : Boolean)
@@ -175,10 +175,10 @@ object ModCastSplitHandler extends AtomSplitHandler {
     analyseBounds(goal, a, false) match {
       case Some((_, lowerFactor, _, upperFactor, _)) => {
         val caseNum = upperFactor - lowerFactor + 1
-        (caseNum min SPLIT_LIMIT).intValueSafe * 10
+        (caseNum min SPLIT_LIMIT).intValueSafe * PRIORITY_FACTOR
       }
       case None =>
-        SPLIT_LIMIT.intValueSafe * 10
+        SPLIT_LIMIT.intValueSafe * PRIORITY_FACTOR
     }
   }
 

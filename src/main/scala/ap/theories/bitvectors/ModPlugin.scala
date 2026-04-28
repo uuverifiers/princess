@@ -82,11 +82,9 @@ object ModPlugin extends Plugin {
           ExtractPartitioner.handleGoal(goal)
         case Plugin.GoalState.Intermediate =>
           InEqSimplifier.handleGoal(goal)                 elseDo
-//          modShiftCast(goal)                              elseDo
           (ExtractIntervalPropagator.handleGoal(goal) ++
            BitwiseOpIntervalPropagator.handleGoal(goal))
         case Plugin.GoalState.Final =>
-//          modShiftCast(goal)                              elseDo
           ExtractArithEncoder.handleGoal(goal)
       }
 
@@ -104,35 +102,6 @@ object ModPlugin extends Plugin {
    */
   def enumIntValuesOf(t : Term, order : TermOrder) : Formula =
     GroebnerMultiplication.valueEnumerator.enumIntValuesOf(t, order)
-
-  object NEEDS_SPLITTING extends Exception
-
-  private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
-    // check if we have modcast or shiftcast actions
-    val actions3 =
-      try {
-        RShiftCastSplitter.shiftCastActions(goal, true)
-      } catch {
-        case NEEDS_SPLITTING =>
-          // delayed splitting through a separate task
-          List(Plugin.ScheduleTask(RShiftCastSplitter, 20))
-      }
-
-
-    val res = actions3
-
-    //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
-    if (!res.isEmpty && debug) {
-      println("Shift Casting:")
-      for (a <- res)
-        println("\t" + a)
-    }
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    res
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Replace negated predicates with positive predicates
