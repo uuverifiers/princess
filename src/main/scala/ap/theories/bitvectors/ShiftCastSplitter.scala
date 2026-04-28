@@ -56,8 +56,8 @@ import scala.collection.mutable.ArrayBuffer
  */
 object LShiftCastSplitHandler extends AtomSplitHandler {
   import ModuloArithmetic._
-  import ModuloArithmetic.{SHIFT_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
-                           SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
+  import ModuloArithmeticConstants.{SHIFT_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
+                                    SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
 
   val predicate = _l_shift_cast
 
@@ -232,8 +232,8 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
  */
 object RShiftCastSplitHandler extends AtomSplitHandler {
   import ModuloArithmetic._
-  import ModuloArithmetic.{SHIFT_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
-                           SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
+  import ModuloArithmeticConstants.{SHIFT_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
+                                    SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 

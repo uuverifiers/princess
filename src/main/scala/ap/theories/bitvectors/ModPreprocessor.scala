@@ -1234,7 +1234,7 @@ object ModPreprocessor {
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
-        case `_bv_extract` if ModuloArithmetic.directlyEncodeExtract => {
+        case `_bv_extract` if ModuloArithmeticConstants.directlyEncodeExtract => {
           val bits1 =
             a(0).asInstanceOf[LinearCombination0].constant.intValueSafe -
             a(1).asInstanceOf[LinearCombination0].constant.intValueSafe + 1

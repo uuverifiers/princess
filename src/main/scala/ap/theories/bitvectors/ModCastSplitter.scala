@@ -57,7 +57,7 @@ object CastAtomSplitter
        extends TermBasedSaturationProcedure(
           "CastAtomSplitter",
           arity           = 6,
-          basePriority    = ModuloArithmetic.MOD_CAST_SPLITTER_PRIORITY,
+          basePriority    = ModuloArithmeticConstants.MOD_CAST_SPLITTER_PRIORITY,
           priorityUpdates = true) {
 
   import ModuloArithmetic._
@@ -120,8 +120,8 @@ trait AtomSplitHandler {
  */
 object ModCastSplitHandler extends AtomSplitHandler {
   import ModuloArithmetic._
-  import ModuloArithmetic.{MOD_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
-                           SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
+  import ModuloArithmeticConstants.{MOD_CAST_SPLIT_LIMIT => SPLIT_LIMIT,
+                                    SPLITTER_PRIORITY_FACTOR => PRIORITY_FACTOR}
 
   val predicate = _mod_cast
 

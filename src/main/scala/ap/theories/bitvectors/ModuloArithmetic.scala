@@ -60,15 +60,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
                                  Set => MSet, ListBuffer, HashMap => MHashMap,
                                  LinkedHashMap}
 
-/**
- * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
- * number N). This in particular includes bit-vector/machine arithmetic.
- */
-object ModuloArithmetic extends Theory {
-
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  protected[bitvectors] val debug = false
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+object ModuloArithmeticConstants {
 
   protected[bitvectors] val directlyEncodeExtract = false
 
@@ -79,6 +71,18 @@ object ModuloArithmetic extends Theory {
 
   protected[bitvectors] val MOD_CAST_SPLIT_LIMIT = IdealInt(20)
   protected[bitvectors] val SHIFT_CAST_SPLIT_LIMIT = IdealInt(128)
+
+}
+
+/**
+ * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
+ * number N). This in particular includes bit-vector/machine arithmetic.
+ */
+object ModuloArithmetic extends Theory {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  protected[bitvectors] val debug = false
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[bitvectors] val AC = Debug.AC_MODULO_ARITHMETIC
 
