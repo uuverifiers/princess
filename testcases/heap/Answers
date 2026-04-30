@@ -127,7 +127,7 @@ unsat
 (
   (and (<= 0 (+ (- 1) a2)) (and (= (heap.size h2) a2) (exists ((var0 HeapObject)) (and (= (getInt var0) x) (exists ((var1 heap)) (and (= (+ (heap.size var1) (* (- 1) a2)) (- 1)) (= (allocHeap var1 var0) h2)))))))
   (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (= (+ (heap.size h3) (* (- 1) a2)) 1)) (exists ((var0 HeapObject)) (and (= (getInt var0) y) (exists ((var1 HeapObject) (var2 heap)) (and (and (= (heap.size (allocHeap var2 var1)) a2) (= (allocHeap (allocHeap var2 var1) var0) h3)) (and (= (getInt var1) x) (= (+ (heap.size var2) (* (- 1) a2)) (- 1))))))))
-  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (and (= (+ (heap.size h4) (* (- 1) a2)) 1) (= (getInt (heap.read h4 a2)) x))) (= (+ (getInt (heap.read h4 (+ 1 a2))) y) 0))
+  (and (and (and (= (+ a3 (* (- 1) a2)) 1) (<= 0 (+ (- 1) a2))) (and (= (+ (heap.size h4) (* (- 1) a2)) 1) (= (getInt (heap.read h4 a2)) x))) (= (+ (getInt (heap.read h4 ((as heap.addr addr) (+ 1 a2)))) y) 0))
   (and (= (+ (getInt (heap.read h5 a3)) y) 0) (= (+ (getInt (heap.read h5 a2)) x) 0))
 )
 Loading alloc-interpolation-3b.smt2 ...
@@ -230,6 +230,17 @@ sat
 (model
   (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
   (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+)
+Loading addr-int-interpolation.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 46), simplifying (95), interpolating ...
+
+unsat
+(
+  (forall ((var0 Int)) (or (is-O_Int (heap.read h ((as heap.addr addr) var0))) (or (<= 0 (+ (heap.size (as heap.empty heap)) (* (- 1) var0))) (<= 0 (+ (- 3) (+ (* (- 1) (heap.size (as heap.empty heap))) var0))))))
+  (and (= (heap.rangeSize r) 2) (forall ((var0 Int)) (or (is-O_Int (heap.read h ((as heap.addr addr) var0))) (or (<= 0 (+ (- 2) (+ var0 (* (- 1) (heap.rangeStart r))))) (<= 0 (+ (- 1) (+ (* (- 1) var0) (heap.rangeStart r))))))))
+  (is-O_Int (heap.read h a))
 )
 Loading simple-heap.smt2 ...
 Preprocessing ...
@@ -463,6 +474,17 @@ sat
 (model
   (define-fun H2 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
   (define-fun H1 () Heap (heap.heapAddrPair_1 (heap.alloc (as heap.empty Heap) (WrappedInt 3))))
+)
+Loading addr-int-interpolation.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 59), simplifying (97), interpolating ...
+
+unsat
+(
+  (and (and (not (heap.valid h ((as heap.addr addr) 3))) (heap.valid h ((as heap.addr addr) 2))) (and (is-O_Int (heap.read h ((as heap.addr addr) 2))) (is-O_Int (heap.read h ((as heap.addr addr) 1)))))
+  (and (and (not (heap.valid h ((as heap.addr addr) 3))) (heap.valid h ((as heap.addr addr) 2))) (and (and (and (= (heap.rangeSize r) 2) (= (heap.rangeStart r) 1)) (is-O_Int (heap.read h ((as heap.addr addr) 2)))) (is-O_Int (heap.read h ((as heap.addr addr) 1)))))
+  (and (and (and (not (= a (as heap.null addr))) (not (heap.valid h ((as heap.addr addr) 3)))) (heap.valid h ((as heap.addr addr) 2))) (and (is-O_Int (heap.read h a)) (<= 0 (+ 2 (* (- 1) (addr_ord a))))))
 )
 Loading bug-model-1.smt2 ...
 sat

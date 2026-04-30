@@ -4,7 +4,7 @@
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
  * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2025 Zafer Esen <zafer.esen@gmail.com>
+ *               2020-2026 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1111,6 +1111,42 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       case Theory.SatSoundnessConfig.Existential => true
       case _                                     => false
     }
+
+  override def iPostprocess(f : IFormula,
+                            signature : Signature) : IFormula =
+    AddressSortRestorer.visit(f, ()).asInstanceOf[IFormula]
+
+  private object AddressSortRestorer
+    extends CollectingVisitor[Unit, IExpression] {
+    import IExpression.toFunApplier
+
+    private val funSet  = functions.toSet
+    private val predSet = predefPredicates.map(_.asInstanceOf[Predicate]).toSet
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(f : MonoSortedIFunction, _) if funSet contains f =>
+        val newArgs =
+          for ((t, s) <- subres.take(f.arity).map(_.asInstanceOf[ITerm])
+                                             .zip(f.argSorts)) yield
+            wrapWithAddr(t, s)
+        IFunApp(f, newArgs.toList)
+      case IAtom(p : MonoSortedPredicate, _) if predSet contains p =>
+        val newArgs =
+          for ((t, s) <- subres.take(p.arity).map(_.asInstanceOf[ITerm])
+                                             .zip(p.argSorts)) yield
+            wrapWithAddr(t, s)
+        IAtom(p, newArgs.toList)
+      case _ =>
+        t update subres
+    }
+
+    private def wrapWithAddr(t: ITerm, s: Sort) = {
+      if (s == AddressSort && Sort.sortOf(t) != s)
+        addr(t)
+      else t
+    }
+  }
 
   override val postSimplifiers : Seq[IExpression => IExpression] =
     super.postSimplifiers ++ Vector(rewriter _)
