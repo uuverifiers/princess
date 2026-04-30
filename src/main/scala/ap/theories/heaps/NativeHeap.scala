@@ -4,7 +4,7 @@
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
  * Copyright (C) 2016-2025 Philipp Ruemmer <ph_r@gmx.net>
- *               2020-2025 Zafer Esen <zafer.esen@gmail.com>
+ *               2020-2026 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1111,6 +1111,51 @@ class NativeHeap(heapSortName      : String, addressSortName : String,
       case Theory.SatSoundnessConfig.Existential => true
       case _                                     => false
     }
+
+  override def iPostprocess(f : IFormula,
+                            signature : Signature) : IFormula =
+    AddrSortRestorer.visit(f, ()).asInstanceOf[IFormula]
+
+  private object AddrSortRestorer
+          extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    private val funSet  = functions.toSet
+    private val predSet = predefPredicates.map(_.asInstanceOf[Predicate]).toSet
+
+    private def wrapWithSort(t : ITerm, expected : Sort) : ITerm = {
+      if (Sort.sortOf(t) == expected)
+        return t
+      if (expected == AddressSort) Sort.sortOf(t) match {
+        case Sort.Integer | Sort.Nat | Sort.AnySort | _ : Sort.Interval =>
+          t match {
+            case IIntLit(IdealInt.ZERO) => nullAddr()
+            case _ => addr(t)
+          }
+        case s =>
+          throw new HeapException(
+            "unexpected sort " + s + " for address argument: " + t)
+      } else
+        t
+    }
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(f : MonoSortedIFunction, _) if funSet contains f =>
+        val newArgs =
+          for ((a, s) <- subres.take(f.arity).map(_.asInstanceOf[ITerm])
+                                              .zip(f.argSorts))
+          yield wrapWithSort(a, s)
+        IFunApp(f, newArgs.toList)
+      case IAtom(p : MonoSortedPredicate, _) if predSet contains p =>
+        val newArgs =
+          for ((a, s) <- subres.map(_.asInstanceOf[ITerm]).zip(p.argSorts))
+          yield wrapWithSort(a, s)
+        IAtom(p, newArgs.toList)
+      case _ =>
+        t update subres
+    }
+  }
 
   override val postSimplifiers : Seq[IExpression => IExpression] =
     super.postSimplifiers ++ Vector(rewriter _)
