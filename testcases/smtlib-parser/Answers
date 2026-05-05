@@ -236,9 +236,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun e () (_ BitVec 16) (_ bv1999 16))
-  (define-fun d () (_ BitVec 8) (_ bv207 8))
-  (define-fun c () (_ BitVec 8) (_ bv7 8))
+  (define-fun e () (_ BitVec 16) (_ bv1791 16))
+  (define-fun d () (_ BitVec 8) (_ bv255 8))
+  (define-fun c () (_ BitVec 8) (_ bv6 8))
 )
 Loading bv1b.smt2 ...
 Preprocessing ...
@@ -246,9 +246,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun e () (_ BitVec 16) (_ bv1999 16))
-  (define-fun d () (_ BitVec 8) (_ bv207 8))
-  (define-fun c () (_ BitVec 8) (_ bv7 8))
+  (define-fun e () (_ BitVec 16) (_ bv1791 16))
+  (define-fun d () (_ BitVec 8) (_ bv255 8))
+  (define-fun c () (_ BitVec 8) (_ bv6 8))
 )
 Loading bitops1.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
@@ -268,9 +268,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun y1 () (_ BitVec 32) (_ bv3056074986 32))
-  (define-fun x1 () (_ BitVec 32) (_ bv3056074985 32))
-  (define-fun x0 () (_ BitVec 32) (_ bv2707660461 32))
+  (define-fun y1 () (_ BitVec 32) (_ bv2178569978 32))
+  (define-fun x1 () (_ BitVec 32) (_ bv2178569977 32))
+  (define-fun x0 () (_ BitVec 32) (_ bv1670427083 32))
 )
 Loading modelConstructionBug2.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it

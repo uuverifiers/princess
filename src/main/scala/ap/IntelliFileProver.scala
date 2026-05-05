@@ -39,7 +39,8 @@ import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.{Certificate, DagCertificateConverter}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
-import ap.theories.TheoryRegistry
+import ap.theories.{TheoryRegistry, MulTheory, IntValueEnumTheory,
+                    ModuloArithmetic}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
 import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
@@ -48,6 +49,8 @@ object IntelliFileProver {
   
   private val AC = Debug.AC_MAIN
   
+  private val ModuloArithmeticDeps = ModuloArithmetic.dependencies.toSet
+
 }
 
 /**
@@ -63,28 +66,33 @@ class IntelliFileProver(reader   : java.io.Reader,
                                  userDefStoppingCond, settings) {
 
   import Prover._
+  import IntelliFileProver._
 
   private val posUnitResolution = Param.POS_UNIT_RESOLUTION(settings)
 
   // are only theories used for which we can also reason about the
   // negated formula?
   private lazy val onlyCompleteTheories = rawSignature.theories forall {
-    case ap.types.TypeTheory                => true
-    case _ : ap.theories.MulTheory          => true
-    case _ : ap.theories.IntValueEnumTheory => true
-    case ap.theories.ModuloArithmetic       => posUnitResolution
-    // strictly speaking, only works for guarded formulas in ADT ... (TODO!)
-    case _ : ap.theories.ADT                => posUnitResolution
-    case _                                  => false
+    case ap.types.TypeTheory                            => true
+    case _ : MulTheory                                  => true
+    case _ : IntValueEnumTheory                         => true
+    case ModuloArithmetic                               => posUnitResolution
+    case t if ModuloArithmeticDeps(t)                   => true
+    // strictly speaking, only works for guarded
+    // formulas in ADT ... (TODO!)
+    case _ : ap.theories.ADT                            => posUnitResolution
+    case _                                              => false
   }
 
   // only theories for which quantifier elimination is implemented?
   private lazy val onlyQEEnabledTheories = rawSignature.theories forall {
-    case ap.types.TypeTheory                => true
-    case _ : ap.theories.MulTheory          => true
-    case _ : ap.theories.IntValueEnumTheory => true
-    case ap.theories.ModuloArithmetic       => posUnitResolution
-    case _                                  => false
+    case ap.types.TypeTheory                            => true
+    case _ : MulTheory                                  => true
+    case _ : IntValueEnumTheory                         => true
+    case ModuloArithmetic                               => posUnitResolution
+    case t if ModuloArithmeticDeps(t)                   => true
+    case ap.theories.bitvectors.BitwiseOpSplitter       => true
+    case _                                              => false
   }
 
   // is the problem free of uninterpreted Boolean variables?

@@ -5,7 +5,7 @@ Constructing satisfying assignment for the existential constants ...
 VALID
 
 Under the assignment:
-b9 & b8 & !b7 & b6 & !b5 & !b4 & !b3 & !b2 & !b1 & !b0
+!b9 & !b8 & b7 & !b6 & !b5 & b4 & !b3 & b2 & !b1 & b0
 Loading bvsdiv.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -37,9 +37,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv127 8))
-  (define-fun d () (_ BitVec 8) (_ bv127 8))
-  (define-fun c () (_ BitVec 8) (_ bv127 8))
+  (define-fun x () (_ BitVec 8) (_ bv64 8))
+  (define-fun d () (_ BitVec 8) (_ bv128 8))
+  (define-fun c () (_ BitVec 8) (_ bv128 8))
 )
 Loading bvsdiv6c.smt2 ...
 Preprocessing ...
@@ -47,7 +47,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv88 8))
+  (define-fun x () (_ BitVec 8) (_ bv11 8))
 )
 Loading bvsdiv7.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
@@ -111,6 +111,11 @@ unsat
   (and (bvule x (_ bv6 8)) (bvule (_ bv3 8) x))
   (bvule (_ bv8 8) y)
 )
+Loading bvxor.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
 Loading shift2.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -224,7 +229,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun T1_572572 () (_ BitVec 8) (_ bv0 8))
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv192 8))
 )
 Loading bench_977b.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
@@ -233,7 +238,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun T1_572572 () (_ BitVec 8) (_ bv0 8))
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv200 8))
 )
 Loading bench_977c.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
@@ -309,7 +314,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-z = 1.\as[bv[3]] & y = 3.\as[bv[3]] & x = 5.\as[bv[3]]
+z = 4.\as[bv[3]] & y = 5.\as[bv[3]] & x = 6.\as[bv[3]]
 Loading bv-ops2.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -335,7 +340,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-x = 15.\as[bv[4]]
+true
 Loading bv-ops5.pri ...
 Preprocessing ...
 Constructing satisfying assignment for the existential constants ...
@@ -343,7 +348,7 @@ Constructing satisfying assignment for the existential constants ...
 VALID
 
 Under the assignment:
-y = 4043309055.\as[bv[32]] & x = 4043309055.\as[bv[32]]
+y = 0.\as[bv[32]] & x = 4043309055.\as[bv[32]]
 Loading bitops-1.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
@@ -372,6 +377,16 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+Loading concat2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun c () (_ BitVec 48) (_ bv281474976710655 48))
+  (define-fun b () (_ BitVec 32) (_ bv4294967295 32))
+  (define-fun a () (_ BitVec 16) (_ bv65535 16))
+)
 Loading concore.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -426,7 +441,7 @@ unsat
 Loading example13.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 17), simplifying (38), interpolating ...
+Found proof (size 19), simplifying (40), interpolating ...
 
 VALID
 
@@ -435,7 +450,7 @@ x[5:2] != 6.\as[bv[4]]
 Loading example13.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 17), simplifying (38), interpolating ...
+Found proof (size 19), simplifying (40), interpolating ...
 
 unsat
 (
@@ -458,6 +473,21 @@ Preprocessing ...
 Constructing countermodel ...
 
 unsat
+Loading large_shift2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading large_shift3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun r () (_ BitVec 1024) (_ bv0 1024))
+  (define-fun t () (_ BitVec 1024) (_ bv179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639474124377767893424865485276302219601246094119453082952085005768838150682342462881473913110540827237163350510684586298239947245938479716304835356329624224137215 1024))
+  (define-fun s () (_ BitVec 1024) (_ bv1 1024))
+)
 Loading bvashr.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -505,7 +535,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-d = 27343733359679827402274728501681.\as[bv[106]] & c = 1023.\as[bv[11]] & b = 6071528471025506.\as[bv[53]] & a = 27343733359679827402274728501681.\as[bv[106]] & z = 1023.\as[bv[12]] & y = 2047.\as[bv[11]] & x = 5229123574718791.\as[bv[53]]
+d = 27343733359679963359487671190416.\as[bv[106]] & c = 2047.\as[bv[11]] & b = 6071528471025536.\as[bv[53]] & a = 27343733359679963359487671190416.\as[bv[106]] & z = 2047.\as[bv[12]] & y = 1535.\as[bv[11]] & x = 5229123574718804.\as[bv[53]]
 Loading big-bv3.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -513,7 +543,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-d = 27343733359679858777016176814436.\as[bv[106]] & c = 1023.\as[bv[11]] & b = 6071528471025513.\as[bv[53]] & a = 27343733359679858777016176814436.\as[bv[106]] & z = 1023.\as[bv[12]] & y = 2047.\as[bv[11]] & x = 5229123574718794.\as[bv[53]]
+d = 27343733359680005192476268940864.\as[bv[106]] & c = 2047.\as[bv[11]] & b = 6071528471025545.\as[bv[53]] & a = 27343733359680005192476268940864.\as[bv[106]] & z = 2047.\as[bv[12]] & y = 1535.\as[bv[11]] & x = 5229123574718808.\as[bv[53]]
 Loading conversions.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -528,6 +558,59 @@ sat
 (model
   (define-fun BITVEC64_VAR_a () (_ BitVec 64) (_ bv0 64))
 )
+Loading bvand.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+z = 4294967295.\as[bv[32]] & y = 4294967295.\as[bv[32]] & x = 4294967295.\as[bv[32]]
+Loading bvand2.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+z = 257.\as[bv[16]] & y = 8452.\as[bv[16]] & x = 5409.\as[bv[16]]
+Loading overflow.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading overflow2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+Loading overflow3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () (_ BitVec 32) (_ bv2147483647 32))
+  (define-fun x () (_ BitVec 32) (_ bv2 32))
+)
+Loading rotate.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun z () (_ BitVec 32) (_ bv4294901758 32))
+  (define-fun x () (_ BitVec 32) (_ bv4294901758 32))
+)
+Loading rotate2.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun z () (_ BitVec 32) (_ bv4278124286 32))
+  (define-fun x () (_ BitVec 32) (_ bv4278124286 32))
+)
 Loading disjunction.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -536,7 +619,7 @@ unsat
 Loading bv-ops3c.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 41)
+Found proof (size 1)
 
 VALID
 
@@ -544,191 +627,20 @@ Assumptions after simplification:
 ---------------------------------
 
   (input)
-  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & 3 >= x & x >= 0 &
-    x[1:1] = v1 & x[0:0] = v0 & \exists int v2, v3, v4; (1 >= v4 & v4 >= 0 & 1
-      >= v3 & v3 >= 0 & 3 >= v2 & v2 >= 1 & v2[1:1] = v4 & v2[0:0] = v3 &
-      \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 + -1*v1 >= -1 & v1 >= v4 &
-        -1*v3 + -1*v0 >= -1 & v0 >= v3 & v5[1:1] = 1 - v1 & v5[0:0] = 1 - v0)))
+  false
 
 Those formulas are unsatisfiable:
 ---------------------------------
 
 Begin of proof
 | 
-| DELTA: instantiating (input) with fresh symbols all_1_0, all_1_1 gives:
-|   (1)  1 >= all_1_0 & all_1_0 >= 0 & 1 >= all_1_1 & all_1_1 >= 0 & 3 >= x & x
-|        >= 0 & x[1:1] = all_1_0 & x[0:0] = all_1_1 & \exists int v0, v1, v2; (1
-|          >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >= v0 & v0 >= 1 & v0[1:1] =
-|          v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3 & v3 >= 0 & -1*v2 +
-|            -1*all_1_0 >= -1 & all_1_0 >= v2 & -1*v1 + -1*all_1_1 >= -1 &
-|            all_1_1 >= v1 & v3[1:1] = 1 - all_1_0 & v3[0:0] = 1 - all_1_1))
-| 
-| ALPHA: (1) implies:
-|   (2)  \exists int v0, v1, v2; (1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 & 3 >=
-|          v0 & v0 >= 1 & v0[1:1] = v2 & v0[0:0] = v1 & \exists int v3; (3 >= v3
-|            & v3 >= 0 & -1*v2 + -1*all_1_0 >= -1 & all_1_0 >= v2 & -1*v1 +
-|            -1*all_1_1 >= -1 & all_1_1 >= v1 & v3[1:1] = 1 - all_1_0 & v3[0:0]
-|            = 1 - all_1_1))
-| 
-| DELTA: instantiating (2) with fresh symbols all_4_0, all_4_1, all_4_2 gives:
-|   (3)  1 >= all_4_0 & all_4_0 >= 0 & 1 >= all_4_1 & all_4_1 >= 0 & 3 >=
-|        all_4_2 & all_4_2 >= 1 & all_4_2[1:1] = all_4_0 & all_4_2[0:0] =
-|        all_4_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_4_0 + -1*all_1_0
-|          >= -1 & all_1_0 >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1
-|          >= all_4_1 & v0[1:1] = 1 - all_1_0 & v0[0:0] = 1 - all_1_1)
-| 
-| ALPHA: (3) implies:
-|   (4)  all_4_2 >= 1
-|   (5)  3 >= all_4_2
-|   (6)  all_4_1 >= 0
-|   (7)  all_4_2[0:0] = all_4_1
-|   (8)  all_4_2[1:1] = all_4_0
-|   (9)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_4_0 + -1*all_1_0 >= -1 &
-|          all_1_0 >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1 >=
-|          all_4_1 & v0[1:1] = 1 - all_1_0 & v0[0:0] = 1 - all_1_1)
-| 
-| DELTA: instantiating (9) with fresh symbol all_7_0 gives:
-|   (10)  3 >= all_7_0 & all_7_0 >= 0 & -1*all_4_0 + -1*all_1_0 >= -1 & all_1_0
-|         >= all_4_0 & -1*all_4_1 + -1*all_1_1 >= -1 & all_1_1 >= all_4_1 &
-|         all_7_0[1:1] = 1 - all_1_0 & all_7_0[0:0] = 1 - all_1_1
-| 
-| ALPHA: (10) implies:
-|   (11)  all_1_1 >= all_4_1
-|   (12)  -1*all_4_1 + -1*all_1_1 >= -1
-|   (13)  all_1_0 >= all_4_0
-|   (14)  -1*all_4_0 + -1*all_1_0 >= -1
-| 
-| THEORY_AXIOM ModuloArithmetic: 
-Warning: type clash during inference: bv[1] vs int
-Warning: type clash during inference: bv[1] vs int
-|   (15)  \forall int v0; \forall any v1, v2; (v0[1:1] != v2 | v0[0:0] != v1 |
-|           v0.\as[bv[2]] = 2*v2 + v1)
-| 
-| GROUND_INST: instantiating (15) with all_4_2, all_4_1, all_4_0, simplifying
-|              with (7), (8) gives:
-|   (16)  all_4_2.\as[bv[2]] = 2*all_4_0 + all_4_1
-| 
-| THEORY_AXIOM ModuloArithmetic: 
-|   (17)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | 3 < v0 | v0 < 1 |
-|           v0.\as[bv[2]] != 2*v2 + v1)
-| 
-| GROUND_INST: instantiating (17) with all_4_2, all_4_1, all_4_0, simplifying
-|              with (16) gives:
-|   (18)  2*all_4_0 + all_4_1 = all_4_2 | 3 < all_4_2 | all_4_2 < 1
-| 
-| BETA: splitting (18) gives:
-| 
-| Case 1:
-| | 
-| |   (19)  0 >= all_4_2
-| | 
-| | COMBINE_INEQS: (4), (19) imply:
-| |   (20)  false
-| | 
-| | CLOSE: (20) is inconsistent.
-| | 
-| Case 2:
-| | 
-| |   (21)  2*all_4_0 + all_4_1 = all_4_2 | 3 < all_4_2
-| | 
-| | BETA: splitting (21) gives:
-| | 
-| | Case 1:
-| | | 
-| | |   (22)  all_4_2 >= 4
-| | | 
-| | | COMBINE_INEQS: (5), (22) imply:
-| | |   (23)  false
-| | | 
-| | | CLOSE: (23) is inconsistent.
-| | | 
-| | Case 2:
-| | | 
-| | |   (24)  2*all_4_0 + all_4_1 = all_4_2
-| | | 
-| | | REDUCE: (14), (24) imply:
-| | |   (25)  all_4_0 + all_4_1 - all_4_2 - all_1_0 >= -1
-| | | 
-| | | REDUCE: (13), (24) imply:
-| | |   (26)  all_4_0 + all_4_1 - all_4_2 + all_1_0 >= 0
-| | | 
-| | | COL_REDUCE: introducing fresh symbol sc_16_1_0 defined by:
-| | |   (27)  all_4_0 - all_4_2 = sc_16_1_0
-| | | 
-| | | COMBINE_EQS: (24), (27) imply:
-| | |   (28)  all_4_1 + all_4_2 = -2*sc_16_1_0
-| | | 
-| | | REDUCE: (25), (27), (28) imply:
-| | |   (29)  -1*all_4_2 + -1*sc_16_1_0 - all_1_0 >= -1
-| | | 
-| | | REDUCE: (26), (27), (28) imply:
-| | |   (30)  -1*all_4_2 + -1*sc_16_1_0 + all_1_0 >= 0
-| | | 
-| | | REDUCE: (12), (28) imply:
-| | |   (31)  all_4_2 + 2*sc_16_1_0 - all_1_1 >= -1
-| | | 
-| | | REDUCE: (11), (28) imply:
-| | |   (32)  all_4_2 + 2*sc_16_1_0 + all_1_1 >= 0
-| | | 
-| | | REDUCE: (6), (28) imply:
-| | |   (33)  -2*sc_16_1_0 >= all_4_2
-| | | 
-| | | COMBINE_INEQS: (29), (31) imply:
-| | |   (34)  sc_16_1_0 - all_1_0 - all_1_1 >= -2
-| | | 
-| | | COMBINE_INEQS: (30), (31) imply:
-| | |   (35)  sc_16_1_0 + all_1_0 - all_1_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (29), (32) imply:
-| | |   (36)  sc_16_1_0 - all_1_0 + all_1_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (30), (32) imply:
-| | |   (37)  sc_16_1_0 + all_1_0 + all_1_1 >= 0
-| | | 
-| | | COMBINE_INEQS: (4), (33) imply:
-| | |   (38)  -1 >= sc_16_1_0
-| | | 
-| | | SIMP: (38) implies:
-| | |   (39)  -1 >= sc_16_1_0
-| | | 
-| | | COMBINE_INEQS: (34), (39) imply:
-| | |   (40)  -1*all_1_0 + -1*all_1_1 >= -1
-| | | 
-| | | COMBINE_INEQS: (36), (39) imply:
-| | |   (41)  all_1_1 >= all_1_0
-| | | 
-| | | COMBINE_INEQS: (35), (39) imply:
-| | |   (42)  all_1_0 >= all_1_1
-| | | 
-| | | COMBINE_INEQS: (37), (39) imply:
-| | |   (43)  all_1_0 + all_1_1 >= 1
-| | | 
-| | | COMBINE_INEQS: (40), (42) imply:
-| | |   (44)  0 >= all_1_1
-| | | 
-| | | SIMP: (44) implies:
-| | |   (45)  0 >= all_1_1
-| | | 
-| | | COMBINE_INEQS: (41), (43) imply:
-| | |   (46)  all_1_1 >= 1
-| | | 
-| | | SIMP: (46) implies:
-| | |   (47)  all_1_1 >= 1
-| | | 
-| | | COMBINE_INEQS: (45), (47) imply:
-| | |   (48)  false
-| | | 
-| | | CLOSE: (48) is inconsistent.
-| | | 
-| | End of split
-| | 
-| End of split
+| CLOSE: (input) is inconsistent.
 | 
 End of proof
 Loading bvsdiv6.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 606)
+Found proof (size 582)
 
 unsat
 Loading bvsrem2.smt2 ...

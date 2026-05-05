@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun s () (_ BitVec 1024))
+(declare-fun t () (_ BitVec 1024))
+(declare-fun r () (_ BitVec 1024))
+(assert (= r (bvshl s t)))
+(assert (= (bvand s (_ bv1 1024)) (_ bv1 1024)))
+(assert (= r (_ bv0 1024)))
+(check-sat)

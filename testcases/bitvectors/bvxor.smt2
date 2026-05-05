@@ -1,0 +1,8 @@
+(set-logic QF_BV)
+(declare-fun s () (_ BitVec 64))
+(declare-fun t () (_ BitVec 64))
+(declare-fun u () (_ BitVec 64))
+(assert (= u (bvxor s t)))
+(assert (= (bvadd s t) (bvnot (_ bv0 64))))
+(assert (distinct u (bvnot (_ bv0 64))))
+(check-sat)
