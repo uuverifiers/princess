@@ -483,11 +483,11 @@ val predicates5Cert = """; Assumptions after simplification:
 
 (define-fun all_2_0 () Int (choice ((all_2_0 Int)) (and (p all_2_0) (not (q
           all_2_0)))))
-(anchor :step t3 :args ((:= ($v0 Int) all_2_0)))
-(step t4 (cl (= (and (p $v0) (not (q $v0))) (and (p all_2_0) (not (q
-            all_2_0))))) :rule refl)
+(anchor :step t3 :args ((:= (all_2_0_choice Int) all_2_0)))
+(step t4 (cl (= (and (p all_2_0_choice) (not (q all_2_0_choice))) (and (p
+          all_2_0) (not (q all_2_0))))) :rule refl)
 (step t3 (cl (= (exists (($v0 Int)) (and (p $v0) (not (q $v0)))) (and (p
-          all_2_0) (not (q all_2_0))))) :rule sko_ex)
+          all_2_0) (not (q all_2_0))))) :rule sko_ex_rename)
 (step t5 (cl (not (= (exists (($v0 Int)) (and (p $v0) (not (q $v0)))) (and (p
             all_2_0) (not (q all_2_0))))) (not (exists (($v0 Int)) (and (p $v0)
           (not (q $v0))))) (and (p all_2_0) (not (q all_2_0)))) :rule
@@ -509,6 +509,20 @@ val predicates5Cert = """; Assumptions after simplification:
 
 ; End of proof
 """
+
+val predicates6 = """\predicates {
+  p(int, int); q(int);  
+}
+
+\problem {
+  \exists int x, y; (p(x, y) & !q(x)) &
+  \forall int x, y; (p(x, y) -> q(x))
+->
+  false
+}
+"""
+
+val predicates6Cert = ""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -542,8 +556,11 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("disj") =
     checkProof(disj, disjCert)
-/*
+
   property("predicate5") =
     checkProof(predicates5, predicates5Cert)
+/*
+  property("predicate6") =
+    checkProof(predicates6, predicates6Cert)
 */
 }

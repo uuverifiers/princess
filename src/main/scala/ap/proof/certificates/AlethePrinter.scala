@@ -1178,7 +1178,8 @@ class AlethePrinter(
 
           step(List(eqvForStr), ("rule", "refl"))
 
-          printCommandStr("step", l1, List(eqvForStr2), List(("rule", "sko_ex")))
+          printCommandStr("step", l1, List(eqvForStr2),
+                          List(("rule", "sko_ex_rename")))
 
           val l2 =
             step(List(s"(not $eqvForStr2)", s"(not $quantForStr)", resultStr),
