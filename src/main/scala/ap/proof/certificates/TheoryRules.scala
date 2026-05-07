@@ -46,4 +46,4 @@ trait AugmentedTheoryRule extends TheoryRule {
   def theory : Theory
 }
 
-object GenericTheoryRule extends TheoryRule
+case object GenericTheoryRule extends TheoryRule

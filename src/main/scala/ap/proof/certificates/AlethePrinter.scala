@@ -40,7 +40,7 @@ import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   VariableSortInferenceVisitor, TPTPTParser}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.terfor.{TermOrder, Term, OneTerm, VariableTerm, ConstantTerm}
+import ap.terfor.{TermOrder, Term, Formula, OneTerm, VariableTerm, ConstantTerm}
 import ap.basetypes.IdealInt
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
@@ -562,7 +562,7 @@ class AlethePrinter(
                 ruleName        : String,
                 assumedFormulas : Iterable[CertFormula],
                 newFormula      : Option[CertFormula],
-                extraAttributes : Seq[(String, String)] = List()) : Unit = {
+                extraAttributes : Seq[(String, String)] = List()) : String = {
     val l1 = freshLabel()
 
     val attributes =
@@ -573,8 +573,28 @@ class AlethePrinter(
 
     printCommand("step", l1, newFormula.toSeq.map((_, false)), attributes)
     
-    for (g <- newFormula)
-      postprocessFormula(g, l1)
+    newFormula match {
+      case Some(g) => postprocessFormula(g, l1)
+      case None => l1
+    }
+  }
+
+  private def introduceClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[(CertFormula, Boolean)],
+                extraAttributes : Seq[(String, String)] = List()) : String = {
+    val l1 = freshLabel()
+
+    val attributes =
+      List(("rule", ruleName)) ++
+      (if (assumedFormulas.isEmpty) List()
+       else List(("premises", f"(${l(assumedFormulas)})"))) ++
+      extraAttributes
+
+    printCommand("step", l1, clause, attributes)
+
+    l1
   }
 
   private def introduceFormulaThroughResolution(
@@ -694,6 +714,41 @@ class AlethePrinter(
 
   //////////////////////////////////////////////////////////////////////////////
 
+  object PrinterCtxt extends AlethePrinterContext {
+
+    def l(f : CertFormula) : String = l(f)
+
+    def printAxiomSplit(rule            : String,
+                        assumptions     : Seq[Formula],
+                        cases           : Seq[Conjunction],
+                        nextInferences  : List[BranchInference],
+                        nextAssumptions : List[Set[CertFormula]],
+                        childCert       : Certificate) : Unit = {
+      println("printAxiomSplit")
+    }
+
+    def continuePrinting(inferences  : List[BranchInference],
+                         assumptions : List[Set[CertFormula]],
+                         childCert   : Certificate) : Unit = {
+      println("continuePrinting")
+    }
+
+    def printSubproof(subCert     : Certificate,
+                      assumptions : Seq[CertFormula]) : String =
+      AlethePrinter.this.printSubproof(subCert, assumptions)
+
+    def introduceClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[(CertFormula, Boolean)],
+                extraAttributes : Seq[(String, String)] = List()) : String =
+      AlethePrinter.this.introduceClauseThroughStep(ruleName, assumedFormulas,
+                                                    clause, extraAttributes)
+
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private val branchStack = new ArrayStack[(Int, String)]
 
   private def push : Unit =
@@ -717,14 +772,49 @@ class AlethePrinter(
 
   private def printCertificate(cert : Certificate) : Unit = cert match {
 
-    case BranchInferenceCertificate(inferences, child, _) => {
-      val assumptions =
-        computeAssumptions(inferences.toList.tail, child.assumedFormulas)
+    case BranchInferenceCertificate(_inferences, child, _) => {
+      var inferences =
+        _inferences.toList
+      var assumptions =
+        computeAssumptions(inferences.tail, child.assumedFormulas)
+      var cont =
+        true
 
-      for ((inf, assumptions) <- inferences.iterator zip assumptions.iterator)
-        printInference(inf, assumptions, child.order)
+      val order = child.order
 
-      printCertificate(child)
+      while (cont && !inferences.isEmpty) {
+        val nextInferences = inferences.tail
+        val nextAssumptions = assumptions.tail
+
+        inferences.head match {
+          case inf@TheoryAxiomInference(_, theory, rule) => {
+            AletheTheoryRegistry.lookup(theory) match {
+              case Some(printer) => {
+                printer.printTheoryAxiomInference(inf,
+                                                  nextInferences,
+                                                  nextAssumptions,
+                                                  child,
+                                                  order,
+                                                  PrinterCtxt)
+                cont = false
+              }
+              case None => {
+                Console.err.println(s"No printer available for theory $theory")
+                printInference(inf, assumptions.head, order)
+              }
+            }
+          }
+          case inf => {
+            printInference(inf, assumptions.head, order)
+          }
+        }
+
+        inferences = nextInferences
+        assumptions = nextAssumptions
+      }
+
+      if (cont)
+        printCertificate(child)
     }
 
     case cert : BetaCertificate => {
@@ -887,9 +977,9 @@ class AlethePrinter(
     }
   }
 
-  private def printInference(inf : BranchInference,
+  private def printInference(inf                 : BranchInference,
                              nextAssumedFormulas : Set[CertFormula],
-                             childOrder : TermOrder) : Unit = {
+                             childOrder          : TermOrder) : Unit = {
     if (inf == ReusedProofMarker ||
         (inf.localBoundConstants.isEmpty &&
          (inf.providedFormulas forall {
@@ -918,8 +1008,8 @@ class AlethePrinter(
         printRewritingRule("ANTI_SYMM", inf)
       case _ : DivRightInference =>
         printRewritingRule("DIV_RIGHT", inf)
-      case inf : TheoryAxiomInference =>
-        printRewritingRule("THEORY_AXIOM " + inf.theory, inf)
+//      case inf : TheoryAxiomInference =>
+//        printRewritingRule("THEORY_AXIOM " + inf.theory, inf)
       case QuantifierInference(quantifiedFormula, newConstants, _, _) =>
 /*        printlnPrefBreaking("DELTA: ",
                     "instantiating " +  l(quantifiedFormula) +

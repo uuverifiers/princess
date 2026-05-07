@@ -524,8 +524,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
       val (f, _, _) = extractPriInput(input)
       ?? (f)
 
-      ???
-      println(aletheCertificateAsString())
+//      ???
+//      println(aletheCertificateAsString())
 
       ??? == ProverStatus.Valid &&
       aletheCertificateAsString() == cert

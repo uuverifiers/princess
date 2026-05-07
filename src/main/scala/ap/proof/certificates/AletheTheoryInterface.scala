@@ -34,7 +34,7 @@
 package ap.proof.certificates
 
 import ap.theories.Theory
-import ap.terfor.Formula
+import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -67,7 +67,8 @@ trait AlethePrinterContext {
    */
   def l(f : CertFormula) : String
 
-  def printAxiomSplit(assumptions     : Seq[Formula],
+  def printAxiomSplit(rule            : String,
+                      assumptions     : Seq[Formula],
                       cases           : Seq[Conjunction],
                       nextInferences  : List[BranchInference],
                       nextAssumptions : List[Set[CertFormula]],
@@ -77,6 +78,15 @@ trait AlethePrinterContext {
                        assumptions : List[Set[CertFormula]],
                        childCert   : Certificate) : Unit
 
+  def printSubproof(subCert     : Certificate,
+                    assumptions : Seq[CertFormula]) : String
+
+  def introduceClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[(CertFormula, Boolean)],
+                extraAttributes : Seq[(String, String)] = List()) : String
+
 }
 
 trait AletheTheoryPrinter {
@@ -85,6 +95,7 @@ trait AletheTheoryPrinter {
                                 nextInferences  : List[BranchInference],
                                 nextAssumptions : List[Set[CertFormula]],
                                 childCert       : Certificate,
+                                order           : TermOrder,
                                 ctxt            : AlethePrinterContext) : Unit
 
 }
@@ -95,12 +106,13 @@ class DistributedAletheTheoryPrinter extends AletheTheoryPrinter {
                                 nextInferences  : List[BranchInference],
                                 nextAssumptions : List[Set[CertFormula]],
                                 childCert       : Certificate,
+                                order           : TermOrder,
                                 ctxt            : AlethePrinterContext) : Unit={
     inference.theoryRule match {
       case rule : AlethePrintingTheoryRule =>
         rule.printAletheTAI(inference,
                             nextInferences, nextAssumptions,
-                            childCert, ctxt)
+                            childCert, order, ctxt)
       case rule =>
         throw new Exception("do not know how to print theory rule " + rule)
     }
@@ -114,6 +126,7 @@ trait AlethePrintingTheoryRule extends TheoryRule {
                      nextInferences  : List[BranchInference],
                      nextAssumptions : List[Set[CertFormula]],
                      childCert       : Certificate,
+                     order           : TermOrder,
                      ctxt            : AlethePrinterContext) : Unit
 
 }

@@ -110,7 +110,9 @@ object Plugin {
    */
   case class AxiomSplit  (assumptions : Seq[Formula],
                           cases : Seq[(Conjunction, Seq[Action])],
-                          theory : Theory)          extends Action
+                          theory : Theory,
+                          theoryRule : TheoryRule = GenericTheoryRule)
+                                                    extends Action
 
   /**
    * Split a proof goal by applying the cut rule.
@@ -146,7 +148,7 @@ object Plugin {
 
       !(conj(assumptions) ==> axiom).isTrue
     }
-    case AxiomSplit(assumptions, cases, _) => {
+    case AxiomSplit(assumptions, cases, _, _) => {
       implicit val _ = order
       import TerForConvenience._
 
@@ -466,9 +468,10 @@ object PluginTask {
    * <code>instAxiom</code> is the instantiated axiom, but excluding
    * assumed predicate literals (given as <code>predAssumptions</code>).
    */
-  protected[ap] def axiomInferences(instAxiom : CertFormula,
+  protected[ap] def axiomInferences(instAxiom       : CertFormula,
                                     predAssumptions : Seq[CertFormula],
-                                    theory : Theory)
+                                    theory          : Theory,
+                                    rule            : TheoryRule)
                                    (implicit order : TermOrder)
                                   : Seq[BranchInference] = {
     val predLits =
@@ -501,7 +504,7 @@ object PluginTask {
                                   predLits, instAxiom, order)))
       }
 
-    List(TheoryAxiomInference(axiom, theory)) ++ instInf
+    List(TheoryAxiomInference(axiom, theory, rule)) ++ instInf
   }
 
   /**
@@ -611,7 +614,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
            List(AxiomSplit(assumptions, List(), theory)),
            contActions, goal, branchInferences, ptf)
 
-      case List(AxiomSplit(assumptions, cases, theory)) => {
+      case List(AxiomSplit(assumptions, cases, theory, rule)) => {
         implicit val order = goal.order
 
         import PluginTask.{prepareAssumptions, axiomInferences,
@@ -632,7 +635,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
               cases
             val newInferences =
               branchInferences addWithDefaultInfs axiomInferences(
-                CertFormula(axiomCase), predAssumptions, theory)
+                CertFormula(axiomCase), predAssumptions, theory, rule)
             handleActionsRec(rest.toList,
                              AddFormula(!axiomCase) :: contActions,
                              goal,
@@ -649,7 +652,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
               !assumption
             val newInferences =
               branchInferences addWithDefaultInfs axiomInferences(
-                negA, predAssumptions, theory)
+                negA, predAssumptions, theory, rule)
             applyActions(AddFormula(assumption.toConj) :: contActions,
                          goal,
                          newInferences,
@@ -682,7 +685,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
                 BetaCertificate.naryWithDisjunction(allCerts, order)
     
               BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, predAssumptions, theory),
+                  axiomInferences(instAxiom, predAssumptions, theory, rule),
                   betaCert, order)
             }
             
@@ -715,14 +718,14 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
                     proveSimpleAssumptions(predAssumptions ++ arithAssumptions)
                   val (instAxiom, betaCert) =
                     BetaCertificate.naryWithDisjunction(allCerts, order)
-                  (axiomInferences(instAxiom, List(), theory),
+                  (axiomInferences(instAxiom, List(), theory, rule),
                    betaCert)
                 } else {
                   val allCerts =
                     proveSimpleAssumptions(arithAssumptions)
                   val (instAxiom, betaCert) =
                     BetaCertificate.naryWithDisjunction(allCerts, order)
-                  (axiomInferences(instAxiom, predAssumptions, theory),
+                  (axiomInferences(instAxiom, predAssumptions, theory, rule),
                    betaCert)
                 }
 
@@ -772,7 +775,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
                 BetaCertificate.naryWithDisjunction(allCerts, order)
     
               BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, predAssumptions, theory),
+                  axiomInferences(instAxiom, predAssumptions, theory, rule),
                   betaCert, order)
             }
     
@@ -897,7 +900,7 @@ abstract class PluginTask(val plugin : TheoryProcedure) extends Task {
               for (b <- subActions.reverseIterator)
                 actionStack push (otherActions ++ b)
             }
-            case AxiomSplit(_, cases, _) => {
+            case AxiomSplit(_, cases, _, _) => {
               val otherActions = actions.init
               for ((axiomCase, rest) <- cases.reverseIterator)
                 actionStack push (otherActions ++

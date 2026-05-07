@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -537,12 +537,14 @@ class LoggingBranchInferenceCollector private
 
       // a case where we can just add the axiom using an inference;
       // no assumptions
-      addSequence(axiomInferences(resultCertFor, predAssumptions, theory))
+      addSequence(axiomInferences(resultCertFor, predAssumptions, theory,
+                  GenericTheoryRule))
 
     } else if (arithAssumptions.size == 1 && result.isFalse) {
 
       val assumption = arithAssumptions.head
-      addSequence(axiomInferences(!assumption, List(), theory))
+      addSequence(axiomInferences(!assumption, List(), theory,
+                                  GenericTheoryRule))
       addPlusDefaultInfs(simpleAssumptionInf(assumption))
 
     } else {
@@ -565,7 +567,7 @@ class LoggingBranchInferenceCollector private
           BetaCertificate.naryWithDisjunction(allCerts, order)
     
         BranchInferenceCertificate.prepend(
-          axiomInferences(instAxiom, predAssumptions, theory),
+          axiomInferences(instAxiom, predAssumptions, theory, GenericTheoryRule),
           betaCert, order)
       }
 
