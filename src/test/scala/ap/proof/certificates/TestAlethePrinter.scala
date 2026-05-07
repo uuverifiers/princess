@@ -522,7 +522,76 @@ val predicates6 = """\predicates {
 }
 """
 
-val predicates6Cert = ""
+val predicates6Cert = """; Assumptions after simplification:
+; ---------------------------------
+
+(assume input_0 (and (forall (($v0 Int)) (forall (($v1 Int)) (or (not (p $v0
+              $v1)) (q $v0)))) (exists (($v0 Int)) (exists (($v1 Int))  (and (p
+            $v0 $v1) (not (q $v0)))))))
+
+; Those formulas are unsatisfiable:
+; ---------------------------------
+
+; Begin of proof
+
+(step t1 (cl (forall (($v0 Int)) (forall (($v1 Int))  (or (not (p $v0 $v1)) (q
+            $v0))))) :rule and :premises (input_0) :args (0))
+(step t2 (cl (exists (($v0 Int)) (exists (($v1 Int)) (and (p $v0 $v1) (not (q
+              $v0)))))) :rule and :premises (input_0) :args (1))
+
+(define-fun all_2_1 () Int (choice ((all_2_1 Int)) (exists (($v0 Int)) (and (p
+          all_2_1 $v0) (not (q all_2_1))))))
+(anchor :step t3 :args ((:= (all_2_1_choice Int) all_2_1)))
+(step t4 (cl (= (exists (($v0 Int)) (and (p all_2_1_choice $v0) (not (q
+              all_2_1_choice)))) (exists (($v0 Int)) (and (p all_2_1 $v0) (not
+            (q all_2_1)))))) :rule refl)
+(step t3 (cl (= (exists (($v0 Int)) (exists (($v1 Int)) (and (p $v0 $v1) (not (q
+                $v0))))) (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q
+              all_2_1)))))) :rule sko_ex_rename)
+(step t5 (cl (not (= (exists (($v0 Int)) (exists (($v1 Int)) (and (p $v0 $v1)
+              (not (q $v0))))) (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q
+                all_2_1)))))) (not (exists (($v0 Int)) (exists (($v1 Int)) (and
+            (p $v0 $v1) (not (q $v0)))))) (exists (($v0 Int)) (and (p all_2_1
+          $v0) (not (q all_2_1))))) :rule equiv_pos2)
+(step t6 (cl (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q all_2_1))))) :rule
+  resolution :premises (t3 t2 t5))
+(define-fun all_2_0 () Int (choice ((all_2_0 Int)) (and (p all_2_1 all_2_0) (not
+        (q all_2_1)))))
+(anchor :step t7 :args ((:= (all_2_0_choice Int) all_2_0)))
+(step t8 (cl (= (and (p all_2_1 all_2_0_choice) (not (q all_2_1))) (and (p
+          all_2_1 all_2_0) (not (q all_2_1))))) :rule refl)
+(step t7 (cl (= (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q all_2_1))))
+      (and (p all_2_1 all_2_0) (not (q all_2_1))))) :rule sko_ex_rename)
+(step t9 (cl (not (= (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q
+                all_2_1)))) (and (p all_2_1 all_2_0) (not (q all_2_1))))) (not
+      (exists (($v0 Int)) (and (p all_2_1 $v0) (not (q all_2_1))))) (and (p
+        all_2_1 all_2_0) (not (q all_2_1)))) :rule equiv_pos2)
+(step t10 (cl (and (p all_2_1 all_2_0) (not (q all_2_1)))) :rule resolution
+  :premises (t7 t6 t9))
+
+(step t11 (cl (not (q all_2_1))) :rule and :premises (t10) :args (1))
+(step t12 (cl (p all_2_1 all_2_0)) :rule and :premises (t10) :args (0))
+
+(step t13 (cl (or (not (forall (($v0 Int)) (forall (($v1 Int))  (or (not (p $v0
+                  $v1)) (q $v0))))) (forall (($v0 Int))  (or (not (p all_2_1
+              $v0)) (q all_2_1))))) :rule forall_inst :args (all_2_1))
+(step t14 (cl (not (forall (($v0 Int)) (forall (($v1 Int))  (or (not (p $v0
+                $v1)) (q $v0))))) (forall (($v0 Int))  (or (not (p all_2_1 $v0))
+        (q all_2_1)))) :rule or :premises (t13))
+(step t15 (cl (forall (($v0 Int))  (or (not (p all_2_1 $v0)) (q all_2_1))))
+  :rule resolution :premises (t1 t14))
+(step t16 (cl (or (not (forall (($v0 Int))  (or (not (p all_2_1 $v0)) (q
+              all_2_1)))) (or (not (p all_2_1 all_2_0)) (q all_2_1)))) :rule
+  forall_inst :args (all_2_0))
+(step t17 (cl (not (forall (($v0 Int))  (or (not (p all_2_1 $v0)) (q all_2_1))))
+    (or (not (p all_2_1 all_2_0)) (q all_2_1))) :rule or :premises (t16))
+(step t18 (cl (or (not (p all_2_1 all_2_0)) (q all_2_1))) :rule resolution
+  :premises (t15 t17))
+(step t19 (cl (not (p all_2_1 all_2_0)) (q all_2_1)) :rule or :premises (t18))
+(step t20 (cl ) :rule resolution :premises (t11 t12 t19))
+
+; End of proof
+"""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -559,8 +628,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("predicate5") =
     checkProof(predicates5, predicates5Cert)
-/*
+
   property("predicate6") =
     checkProof(predicates6, predicates6Cert)
-*/
+
 }

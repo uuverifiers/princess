@@ -1144,112 +1144,77 @@ class AlethePrinter(
 
       case QuantifierInference(quantifiedFormula, newConstants,
                                result, order) => {
-//        if (newConstants.size != 1)
-//          throw new Exception("Skolemization with more than one variable is not handled yet")
 
-        var instFormula = quantifiedFormula.toConj
-        var instFormula2 = quantifiedFormula.toConj
+        var quanFormula = quantifiedFormula.toConj
 
         for (c <- newConstants.reverse) {
-          val n = 0
-          val newFormula = instFormula.instantiate(List(c))(order)
-          val id = SMTLineariser.quoteIdentifier(c.name)
+          val certQuanFormula= CertFormula(quanFormula)
+
+          val skolemName     = SMTLineariser.quoteIdentifier(c.name)
+          val skolemName2    = SMTLineariser.quoteIdentifier(c.name + "_choice")
+
+          val newFormula     = quanFormula.instantiate(List(c))(order)
+          val certNewFormula = CertFormula(newFormula)
+
+          val skolemConst    = new ConstantTerm (skolemName2)
+          val newFormula2    = quanFormula.instantiate(List(skolemConst))(order)
+
           // TODO: generalize sorts
           val sort = "Int"
-          val varName = s"${id}_choice" // nthVarName(n)
-
-          val bindings = s"((:= ($varName $sort) $id))"
 
           printlnPrefBreaking("",
-            s"(define-fun $id () $sort " +
-            s"(choice (($id $sort)) ${for2String(CertFormula(newFormula))}))")
+            s"(define-fun $skolemName () $sort " +
+            s"(choice (($skolemName $sort)) ${for2String(certNewFormula)}))")
 
-          instFormula2 =
-            instFormula2.instantiate(List(new ConstantTerm (varName)))(order)
-
-          val l1 = freshLabel()
-          val bindingsStr = bindings.mkString(" ")
+          val l1       = freshLabel()
+          val bindings = s"((:= ($skolemName2 $sort) $skolemName))"
           printCommand("anchor", List(":step", l1, ":args", bindings))
 
-          val quantForStr = for2String(CertFormula(instFormula))
-          val resultStr = for2String(CertFormula(newFormula))
-          val eqvForStr = s"(= ${for2String(CertFormula(instFormula2))} $resultStr)"
-          val eqvForStr2 = s"(= $quantForStr $resultStr)"
+          val certQuanFormulaStr = for2String(certQuanFormula)
+          val certNewFormulaStr  = for2String(certNewFormula)
+          val eqvForStr =
+            s"(= $certQuanFormulaStr $certNewFormulaStr)"
+          val eqvForStr2 =
+            s"(= ${for2String(CertFormula(newFormula2))} $certNewFormulaStr)"
 
-          step(List(eqvForStr), ("rule", "refl"))
-
-          printCommandStr("step", l1, List(eqvForStr2),
+          step(List(eqvForStr2), ("rule", "refl"))
+          printCommandStr("step", l1, List(eqvForStr),
                           List(("rule", "sko_ex_rename")))
 
           val l2 =
-            step(List(s"(not $eqvForStr2)", s"(not $quantForStr)", resultStr),
-                ("rule", "equiv_pos2"))
+            step(List(s"(not $eqvForStr)", s"(not $certQuanFormulaStr)",
+                      certNewFormulaStr),
+                 ("rule", "equiv_pos2"))
           val l3 =
-            hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
-                               resultStr)
-          formulaLabel.put(CertFormula(newFormula), l3)
+            hyperResolutionStr(l2, List(l1, l(certQuanFormula)), certNewFormulaStr)
+          formulaLabel.put(certNewFormula, l3)
 
-          instFormula = newFormula
+          quanFormula = newFormula
         }
-
-/*
-        for ((c, n) <- newConstants.zipWithIndex) {
-          val newFormula = instFormula.instantiate(List(c))(order)
-          val id = SMTLineariser.quoteIdentifier(c.name)
-          // TODO: generalize sorts
-          val sort = "Int"
-          val varName = nthVarName(n)
-
-          bindings += s"(:= ($varName $sort) $id)"
-
-          printlnPrefBreaking("",
-            s"(define-fun $id () $sort " +
-            s"(choice (($id $sort)) ${for2String(CertFormula(newFormula))}))")
-
-          instFormula = newFormula
-          instFormula2 =
-            instFormula2.instantiate(List(new ConstantTerm (varName)))(order)
-        }
-
-        val l1 = freshLabel()
-        val bindingsStr = bindings.mkString(" ")
-        printCommand("anchor", List(":step", l1, ":args", s"($bindingsStr)"))
-
-        val quantForStr = for2String(quantifiedFormula)
-        val resultStr = for2String(result)
-        val eqvForStr = s"(= ${for2String(CertFormula(instFormula2))} $resultStr)"
-        val eqvForStr2 = s"(= $quantForStr $resultStr)"
-
-        step(List(eqvForStr), ("rule", "refl"))
-
-        printCommandStr("step", l1, List(eqvForStr2), List(("rule", "sko_ex")))
-
-        val l2 =
-          step(List(s"(not $eqvForStr2)", s"(not $quantForStr)", resultStr),
-               ("rule", "equiv_pos2"))
-        val l3 =
-          hyperResolutionStr(l2, List(l1, l(quantifiedFormula)),
-                             for2String(result))
-        formulaLabel.put(result, l3)
-        */
       }
 
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, result, order) => {
         // TODO: make simplification of the instantiated formula explicit?
-        val instFor =
-          CertFormula(quantifiedFormula.toConj.instantiate(instanceTerms)(order))
-        val terms =
-          "(" + instanceTerms.map(term2String).mkString(" ") + ")"
-        val l1 =
-          introduceFormulaThroughResolution("forall_inst",
-                                            List(quantifiedFormula),
-                                            instFor,
-                                            swapOrder = true,
-                                            useOr = true,
-                                            extraAttributes = List(("args", terms)))
-        val l2 =
-          disjunctionToClause(instFor, l1)
+
+        var quanFormula = quantifiedFormula.toConj
+        var label       = ""
+
+        for (t <- instanceTerms.reverse) {
+          val newFormula = quanFormula.instantiate(List(t))(order)
+          val terms      = s"(${term2String(t)})"
+          label =
+            introduceFormulaThroughResolution("forall_inst",
+                                              List(CertFormula(quanFormula)),
+                                              CertFormula(newFormula),
+                                              swapOrder = true,
+                                              useOr = true,
+                                              extraAttributes =
+                                                List(("args", terms)))
+          quanFormula = newFormula
+        }
+
+        val l2 = disjunctionToClause(CertFormula(quanFormula), label)
         hyperResolution(l2, dischargedAtoms, result)
       }
       case _ =>
