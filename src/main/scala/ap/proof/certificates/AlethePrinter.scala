@@ -354,6 +354,11 @@ class AlethePrinter(
     print(o)
   }
 
+  private def printlnComment(o : Any) : Unit = {
+    printlnPref
+    printlnPref("; " + o)
+  }
+
   private def printlnPrefBreaking(label : String, o : Any) : Unit = {
     val remLineWidth = (LINE_WIDTH - prefix.size - label.size) max 50
     val text = "" + o
@@ -718,6 +723,9 @@ class AlethePrinter(
 
     def l(f : CertFormula) : String = l(f)
 
+    def printlnComment(o : Any) : Unit =
+      AlethePrinter.this.printlnComment(o)
+
     def printAxiomSplit(rule            : String,
                         assumptions     : Seq[Formula],
                         cases           : Seq[Conjunction],
@@ -744,6 +752,21 @@ class AlethePrinter(
                 extraAttributes : Seq[(String, String)] = List()) : String =
       AlethePrinter.this.introduceClauseThroughStep(ruleName, assumedFormulas,
                                                     clause, extraAttributes)
+
+    def hyperResolution(nucleus   : CertFormula,
+                        electrons : Seq[CertFormula],
+                        result    : CertFormula) : String =
+      AlethePrinter.this.hyperResolution(nucleus, electrons, result)
+
+    def hyperResolution(nucleus   : String,
+                        electrons : Seq[CertFormula],
+                        result    : CertFormula) : String =
+      AlethePrinter.this.hyperResolution(nucleus, electrons, result)
+
+    def hyperResolutionStr(nucleus   : String,
+                           electrons : Seq[String],
+                           result    : String) : String =
+      AlethePrinter.this.hyperResolutionStr(nucleus, electrons, result)
 
   }
   
@@ -826,9 +849,8 @@ class AlethePrinter(
             ("premises",
              f"(${l(cert.localAssumedFormulas)} ${l(!cert.leftFormula)})"))
         } else {
-          printlnPref
-          printlnPref("; BETA: splitting " +
-                      l(cert.localAssumedFormulas) + " gives:")
+          printlnComment("BETA: splitting " +
+                         l(cert.localAssumedFormulas) + " gives:")
 
           val l1 =
             printSubproof(cert.subCertificates(0), List(cert.leftFormula))
@@ -836,9 +858,8 @@ class AlethePrinter(
           if (cert.lemma)
             formulaLabel.put(!cert.leftFormula, l1)
 
-          printlnPref
-          printlnPref("; splitting " +
-                      l(cert.localAssumedFormulas) + ", second case:")
+          printlnComment("splitting " +
+                         l(cert.localAssumedFormulas) + ", second case:")
 
           stepCertFor(asClause(cert.rightFormula),
                       ("rule", "resolution"),

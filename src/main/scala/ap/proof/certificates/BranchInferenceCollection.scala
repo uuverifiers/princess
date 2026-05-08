@@ -515,7 +515,8 @@ class LoggingBranchInferenceCollector private
   def otherComputation(assumptions : Seq[Formula],
                        result : Formula,
                        order : TermOrder,
-                       theoryAnyRef : AnyRef) : Unit = {
+                       theoryAnyRef : AnyRef,
+                       theoryRule : TheoryRule) : Unit = {
     implicit val _ = order
 
     import ap.proof.theoryPlugins.PluginTask
@@ -538,13 +539,12 @@ class LoggingBranchInferenceCollector private
       // a case where we can just add the axiom using an inference;
       // no assumptions
       addSequence(axiomInferences(resultCertFor, predAssumptions, theory,
-                  GenericTheoryRule))
+                  theoryRule))
 
     } else if (arithAssumptions.size == 1 && result.isFalse) {
 
       val assumption = arithAssumptions.head
-      addSequence(axiomInferences(!assumption, List(), theory,
-                                  GenericTheoryRule))
+      addSequence(axiomInferences(!assumption, List(), theory, theoryRule))
       addPlusDefaultInfs(simpleAssumptionInf(assumption))
 
     } else {
@@ -567,7 +567,7 @@ class LoggingBranchInferenceCollector private
           BetaCertificate.naryWithDisjunction(allCerts, order)
     
         BranchInferenceCertificate.prepend(
-          axiomInferences(instAxiom, predAssumptions, theory, GenericTheoryRule),
+          axiomInferences(instAxiom, predAssumptions, theory, theoryRule),
           betaCert, order)
       }
 

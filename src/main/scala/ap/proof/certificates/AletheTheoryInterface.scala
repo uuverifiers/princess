@@ -67,6 +67,8 @@ trait AlethePrinterContext {
    */
   def l(f : CertFormula) : String
 
+  def printlnComment(o : Any) : Unit
+
   def printAxiomSplit(rule            : String,
                       assumptions     : Seq[Formula],
                       cases           : Seq[Conjunction],
@@ -86,6 +88,18 @@ trait AlethePrinterContext {
                 assumedFormulas : Iterable[CertFormula],
                 clause          : Seq[(CertFormula, Boolean)],
                 extraAttributes : Seq[(String, String)] = List()) : String
+
+  def hyperResolution(nucleus   : CertFormula,
+                      electrons : Seq[CertFormula],
+                      result    : CertFormula) : String
+
+  def hyperResolution(nucleusLabel : String,
+                      electrons    : Seq[CertFormula],
+                      result       : CertFormula) : String
+
+  def hyperResolutionStr(nucleusLabel   : String,
+                         electronLabels : Seq[String],
+                         resultFormula  : String) : String
 
 }
 

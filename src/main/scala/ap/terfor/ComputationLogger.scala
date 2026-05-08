@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.equations.EquationConj
 import ap.terfor.conjunctions.Conjunction
+import ap.proof.certificates.{TheoryRule, GenericTheoryRule}
 import ap.util.Debug
 
 object ComputationLogger {
@@ -88,7 +89,8 @@ object ComputationLogger {
     def otherComputation(assumptions : Seq[Formula],
                          result : Formula,
                          order : TermOrder,
-                         theory : AnyRef) : Unit = {}
+                         theory : AnyRef,
+                         theoryRule : TheoryRule) : Unit = {}
   }
 
   val NonLogger = new NonLoggingLogger
@@ -234,7 +236,8 @@ trait ComputationLogger {
   def otherComputation(assumptions : Seq[Formula],
                        result : Formula,
                        order : TermOrder,
-                       theory : AnyRef) : Unit
+                       theory : AnyRef,
+                       theoryRule : TheoryRule = GenericTheoryRule) : Unit
   
   //////////////////////////////////////////////////////////////////////////////
   // Some convenience methods that ease logging

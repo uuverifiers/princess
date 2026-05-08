@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,6 +74,12 @@ object CertFormula {
       CertCompoundFormula(f)
       
     }
+
+  /** The literal true */
+  val TRUE  : CertFormula = CertEquation(LinearCombination.ZERO)
+
+  /** The literal false */
+  val FALSE : CertFormula = CertEquation(LinearCombination.ONE)
 
   /**
    * Total ordering of <code>CertFormula</code> objects.
