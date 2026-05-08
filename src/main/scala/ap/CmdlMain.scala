@@ -391,14 +391,9 @@ object CmdlMain {
     val formulaParts = rawFormulaParts mapValues {
       f => CertFormula(f.negate)
     }
+
     val dagCert = List(cert) // TODO: DagCertificateConverter(cert)
-
-    val formulaPrinter =
-      new AlethePrinter.AletheFormulaPrinter (
-        predTranslation
-      )
-
-    val printer = new AlethePrinter(formulaPrinter)
+    val printer = new AlethePrinter(predTranslation)
 
     printer(dagCert, formulaParts)
   }

@@ -34,8 +34,9 @@
 package ap.proof.certificates
 
 import ap.theories.Theory
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, Term}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Atom
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -57,6 +58,10 @@ object AletheTheoryRegistry {
 
 trait AlethePrinterContext {
 
+  def printFormula(f : CertFormula, variables : List[String]) : Unit
+
+  def printTerm(t : Term, variables : List[String]) : Unit
+
   /**
    * Retrieve the label of some formula in the proof.
    */
@@ -69,19 +74,22 @@ trait AlethePrinterContext {
 
   def printlnComment(o : Any) : Unit
 
-  def printAxiomSplit(rule            : String,
-                      assumptions     : Seq[Formula],
-                      cases           : Seq[Conjunction],
-                      nextInferences  : List[BranchInference],
-                      nextAssumptions : List[Set[CertFormula]],
-                      childCert       : Certificate) : Unit
+  def printAxiomSplit(
+                rule            : String,
+                assumptions     : Seq[Formula],
+                cases           : Seq[Conjunction],
+                nextInferences  : List[BranchInference],
+                nextAssumptions : List[Set[CertFormula]],
+                childCert       : Certificate) : Unit
 
-  def continuePrinting(inferences  : List[BranchInference],
-                       assumptions : List[Set[CertFormula]],
-                       childCert   : Certificate) : Unit
+  def continuePrinting(
+                inferences      : List[BranchInference],
+                assumptions     : List[Set[CertFormula]],
+                childCert       : Certificate) : Unit
 
-  def printSubproof(subCert     : Certificate,
-                    assumptions : Seq[CertFormula]) : String
+  def printSubproof(
+                subCert         : Certificate,
+                assumptions     : Seq[CertFormula]) : String
 
   def introduceClauseThroughStep(
                 ruleName        : String,
@@ -89,17 +97,26 @@ trait AlethePrinterContext {
                 clause          : Seq[(CertFormula, Boolean)],
                 extraAttributes : Seq[(String, String)] = List()) : String
 
-  def hyperResolution(nucleus   : CertFormula,
-                      electrons : Seq[CertFormula],
-                      result    : CertFormula) : String
+  def introduceFormulaThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                newFormula      : Option[CertFormula],
+                extraAttributes : Seq[(String, String)] = List()) : String
 
-  def hyperResolution(nucleusLabel : String,
-                      electrons    : Seq[CertFormula],
-                      result       : CertFormula) : String
+  def hyperResolution(
+                nucleus         : CertFormula,
+                electrons       : Seq[CertFormula],
+                result          : CertFormula) : String
 
-  def hyperResolutionStr(nucleusLabel   : String,
-                         electronLabels : Seq[String],
-                         resultFormula  : String) : String
+  def hyperResolution(
+                nucleusLabel    : String,
+                electrons       : Seq[CertFormula],
+                result          : CertFormula) : String
+
+  def hyperResolutionStr(
+                nucleusLabel    : String,
+                electronLabels  : Seq[String],
+                resultFormula   : String) : String
 
 }
 
@@ -112,8 +129,13 @@ trait AletheTheoryPrinter {
                                 order           : TermOrder,
                                 ctxt            : AlethePrinterContext) : Unit
 
+  def printTheoryAtom(f         : Atom,
+                      variables : List[String],
+                      ctxt      : AlethePrinterContext) : Boolean
+
 }
 
+/*
 class DistributedAletheTheoryPrinter extends AletheTheoryPrinter {
 
   def printTheoryAxiomInference(inference       : TheoryAxiomInference,
@@ -144,3 +166,4 @@ trait AlethePrintingTheoryRule extends TheoryRule {
                      ctxt            : AlethePrinterContext) : Unit
 
 }
+*/
