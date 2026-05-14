@@ -56,11 +56,26 @@ object AletheTheoryRegistry {
 
 }
 
-trait AlethePrinterContext {
+trait AletheFormulaPrinterContext {
 
+  /**
+   * Print a formula in Alethe format to stdout.
+   */
   def printFormula(f : CertFormula, variables : List[String]) : Unit
 
+  /**
+   * Print a term in Alethe format to stdout.
+   */
   def printTerm(t : Term, variables : List[String]) : Unit
+
+}
+
+trait AlethePrinterContext {
+
+  /**
+   * Print a comment that is part of an Alethe proof.
+   */
+  def printlnComment(o : Any) : Unit
 
   /**
    * Retrieve the label of some formula in the proof.
@@ -72,8 +87,6 @@ trait AlethePrinterContext {
    */
   def l(f : CertFormula) : String
 
-  def printlnComment(o : Any) : Unit
-
   def printAxiomSplit(
                 rule            : String,
                 assumptions     : Seq[Formula],
@@ -82,37 +95,66 @@ trait AlethePrinterContext {
                 nextAssumptions : List[Set[CertFormula]],
                 childCert       : Certificate) : Unit
 
+  /**
+   * Printing a sequence of inferences and subsequent certificate in Alethe
+   * format.
+   */
   def continuePrinting(
                 inferences      : List[BranchInference],
-                assumptions     : List[Set[CertFormula]],
                 childCert       : Certificate) : Unit
 
+  /**
+   * Derive the clause <code>!f1, !f2, ..., !fn</code> specified by the 
+   * argument <code>assumptions</code>, reasoning by contradiction using the
+   * given certificate. The result is the label of the derived clause.
+   */
   def printSubproof(
                 subCert         : Certificate,
                 assumptions     : Seq[CertFormula]) : String
 
+  /**
+   * Introduce a clause by applying a rule and return the label of the clause.
+   */
   def introduceClauseThroughStep(
                 ruleName        : String,
                 assumedFormulas : Iterable[CertFormula],
                 clause          : Seq[(CertFormula, Boolean)],
                 extraAttributes : Seq[(String, String)] = List()) : String
 
+  /**
+   * Introduce a formula by applying a rule and return the label of the formula.
+   */
   def introduceFormulaThroughStep(
                 ruleName        : String,
                 assumedFormulas : Iterable[CertFormula],
                 newFormula      : Option[CertFormula],
                 extraAttributes : Seq[(String, String)] = List()) : String
 
+  /**
+   * Apply the resolution rule with the given <code>nucleus</code> and
+   * <code>electrons</code> to derive the formula <code>result</code>, return
+   * the label of the new formula.
+   */
   def hyperResolution(
                 nucleus         : CertFormula,
                 electrons       : Seq[CertFormula],
                 result          : CertFormula) : String
 
+  /**
+   * Apply the resolution rule with the given <code>nucleusLabel</code> and
+   * <code>electrons</code> to derive the formula <code>result</code>, return
+   * the label of the new formula.
+   */
   def hyperResolution(
                 nucleusLabel    : String,
                 electrons       : Seq[CertFormula],
                 result          : CertFormula) : String
 
+  /**
+   * Apply the resolution rule with the given <code>nucleusLabel</code> and
+   * <code>electronLabels</code> to derive a formula described by the String
+   * <code>resultFormula</code>, return the label of the new formula.
+   */
   def hyperResolutionStr(
                 nucleusLabel    : String,
                 electronLabels  : Seq[String],
@@ -122,6 +164,9 @@ trait AlethePrinterContext {
 
 trait AletheTheoryPrinter {
 
+  /**
+   * Print an inference introducing a theory axiom in Alethe syntax to stdout.
+   */
   def printTheoryAxiomInference(inference       : TheoryAxiomInference,
                                 nextInferences  : List[BranchInference],
                                 nextAssumptions : List[Set[CertFormula]],
@@ -129,9 +174,21 @@ trait AletheTheoryPrinter {
                                 order           : TermOrder,
                                 ctxt            : AlethePrinterContext) : Unit
 
-  def printTheoryAtom(f         : Atom,
+  /**
+   * Ask a theory to print an atom in Alethe syntax to stdout; the predicate of
+   * the atom has to part of the theory signature. If the method returns
+   * <code>true</code>, the atom has been printed successfully, otherwise
+   * the theory is unable to handle the atom.
+   */
+  def printTheoryAtom(a         : Atom,
                       variables : List[String],
-                      ctxt      : AlethePrinterContext) : Boolean
+                      ctxt      : AletheFormulaPrinterContext) : Boolean
+
+  /**
+   * Check whether an atom (with a predicate belonging to a theory) should be
+   * hidden in Alethe proofs.
+   */
+  def hideTheoryAtom(a : Atom) : Boolean
 
 }
 

@@ -55,9 +55,27 @@ object AlethePrinter {
 
   def nthVarName(n : Int) : String = "$v" + n
 
-  class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction],
-                             ctxt            : AlethePrinterContext)
+  // TODO: cache?
+  def getTheoryPrinter(pred : Predicate) : Option[AletheTheoryPrinter] =
+    for (theory  <- TheoryRegistry.lookupSymbol(pred);
+          printer <- AletheTheoryRegistry.lookup(theory))
+    yield printer
+
+  def hideAtom(a : Atom) =
+    getTheoryPrinter(a.pred) match {
+      case Some(printer) => printer.hideTheoryAtom(a)
+      case None          => false
+    }
+
+  class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
+
+    object FPrinterCtxt extends AletheFormulaPrinterContext {
+      def printFormula(f : CertFormula, variables : List[String]) : Unit =
+        AletheFormulaPrinter.this.printFor(f, variables)
+      def printTerm(t : Term, variables : List[String]) : Unit =
+        AletheFormulaPrinter.this.printTerm(t, variables)
+    }
 
     def for2String(f : CertFormula) : String =
       ap.DialogUtil.asString { printFor(f, List()) }
@@ -94,6 +112,8 @@ object AlethePrinter {
             printLC(lc, variables)
             print("))")
           }
+          case CertPredLiteral(_, atom) if hideAtom(atom) =>
+            print("true")
           case CertPredLiteral(false, atom) => {
             printAtom(atom, variables)
           }
@@ -151,15 +171,10 @@ object AlethePrinter {
       }
 
     private def printAtom(a : Atom, variables : List[String]) : Unit =
-      TheoryRegistry.lookupSymbol(a.pred) match {
-        case Some(theory) =>
-          AletheTheoryRegistry.lookup(theory) match {
-            case Some(printer) =>
-              if (!printer.printTheoryAtom(a, variables, ctxt))
-                printUnintAtom(a, variables)
-            case None =>
-              printUnintAtom(a, variables)
-          }
+      getTheoryPrinter(a.pred) match {
+        case Some(printer) =>
+          if (!printer.printTheoryAtom(a, variables, FPrinterCtxt))
+            printUnintAtom(a, variables)
         case None =>
           printUnintAtom(a, variables)
       }
@@ -226,11 +241,11 @@ object AlethePrinter {
                    newVars)
         }
 
-        for (a <- c.predConj.positiveLits) {
+        for (a <- c.predConj.positiveLits; if !hideAtom(a)) {
           print(" ")
           printFor(CertPredLiteral(negated, a), newVars)
         }
-        for (a <- c.predConj.negativeLits) {
+        for (a <- c.predConj.negativeLits; if !hideAtom(a)) {
           print(" ")
           printFor(CertPredLiteral(!negated, a), newVars)
         }
@@ -253,7 +268,7 @@ object AlethePrinter {
   }
 }
 
-class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
+class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
 
   import CertificatePrettyPrinter._
   import AlethePrinter._
@@ -262,12 +277,6 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
   //////////////////////////////////////////////////////////////////////////////
 
   object PrinterCtxt extends AlethePrinterContext {
-
-    def printFormula(f : CertFormula, variables : List[String]) : Unit =
-      formulaPrinter.printFor(f, variables)
-
-    def printTerm(t : Term, variables : List[String]) : Unit =
-      formulaPrinter.printTerm(t, variables)
 
     def l(f : CertFormula) : String = l(f)
 
@@ -284,7 +293,6 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
     }
 
     def continuePrinting(inferences  : List[BranchInference],
-                         assumptions : List[Set[CertFormula]],
                          childCert   : Certificate) : Unit = {
       AlethePrinter.this.printInferences(inferences, childCert)
     }
@@ -328,8 +336,6 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  val formulaPrinter =
-    new AlethePrinter.AletheFormulaPrinter(predTranslation, PrinterCtxt)
   import formulaPrinter.{for2String, term2String, partName2String}
 
   private def number2String(n : IdealInt) : String =
@@ -462,12 +468,15 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
       var curSplitParenNum = 0
       var lastSplitPos = 0
       var lastSplitParenNum = 0
+      var insideString = false
 
       while (cnt < text.size) {
         text(cnt) match {
           case '(' | '{' | '[' => parenNum = parenNum + 1
           case ')' | '}' | ']' => parenNum = parenNum - 1
-          case ' ' => {
+          case '\"' if !insideString => insideString = true
+          case '\"' if insideString => insideString = false
+          case ' ' if !insideString => {
             // this is where we might split
             curSplitPos = cnt
             curSplitParenNum = parenNum
@@ -1089,17 +1098,15 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
                     " defined by:")
     }
 
-    val ruleName =
-      inf match {
-        case _ : AlphaInference => "and"
-        case _ => ""
-      }
-
     inf match {
       case _ : AlphaInference => {
         val CertCompoundFormula(c) = inf.assumedFormulas.head
         val ac = c.arithConj
         val pc = c.predConj
+        lazy val cleanedPC =
+          pc.updateLitsSubset(pc.positiveLits.filterNot(hideAtom),
+                              pc.negativeLits.filterNot(hideAtom),
+                              pc.order)
         def opt(n : Int) = if (n == -1) None else Some(n)
 
         val argComp =
@@ -1115,14 +1122,14 @@ class AlethePrinter(predTranslation : Map[Predicate, IFunction]) {
                   for (n <- opt(ac.inEqs.indexOf(lc)))
                   yield n + ac.positiveEqs.size + ac.negativeEqs.size
                 case CertPredLiteral(false, a) =>
-                  for (n <- opt(pc.positiveLits.indexOf(a)))
+                  for (n <- opt(cleanedPC.positiveLits.indexOf(a)))
                   yield n + ac.size
                 case CertPredLiteral(true, a) =>
-                  for (n <- opt(pc.negativeLits.indexOf(a)))
-                  yield n + ac.size + pc.positiveLits.size
+                  for (n <- opt(cleanedPC.negativeLits.indexOf(a)))
+                  yield n + ac.size + cleanedPC.positiveLits.size
                 case CertCompoundFormula(d) =>
                   for (n <- opt(c.negatedConjs.indexOf(!d)))
-                  yield n + ac.size + pc.size
+                  yield n + ac.size + cleanedPC.size
               }
             idx match {
               case Some(n) => f"($n)"
