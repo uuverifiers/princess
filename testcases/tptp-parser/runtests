@@ -17,8 +17,8 @@ TESTS="PUZ001+1.p PHI009+1.p"
 
 $PRI "$@" -clausifier=simple +boolFunsAsPreds $TESTS
 
-$PRI "$@" +unsatCore unsat-core.p
-$PRI "$@" +printProof unsat-core.p
+$PRI "$@" -timeoutSec=120 +unsatCore unsat-core.p
+$PRI "$@" -timeoutSec=120 +printProof unsat-core.p 2>&1 | head -n6
 
 $PRI "$@" -realRatSaturationRounds=1 -assert ARI495\=1.p
 
