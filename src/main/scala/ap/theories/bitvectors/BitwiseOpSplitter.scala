@@ -139,6 +139,9 @@ object BitwiseOpSplitter
           Atom(_bv_and, args.drop(1), order)
         case LinearCombination.Constant(IdealInt.ONE) =>
           Atom(_bv_xor, args.drop(1), order)
+        case _ =>
+          // case we cannot handle
+          return List()
       }
 
     if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
