@@ -60,6 +60,7 @@ doc:
 		main/scala/ap/theories/bitvectors/*.scala \
 		main/scala/ap/theories/rationals/*.scala \
 		main/scala/ap/theories/arrays/*.scala \
+		main/scala/ap/theories/heaps/*.scala \
 		main/scala/ap/types/*.scala \
 		main/scala/ap/algebra/*.scala \
 		main/scala/ap/api/*.scala \
