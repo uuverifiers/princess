@@ -202,7 +202,11 @@ object AlethePrinter {
         printForRec(c.negatedConjs.head, variables, !negated)
       } else {
         val N = variables.size
-        val needsAnd = c.size > 1
+
+        val keptPosLits =
+          c.predConj.positiveLits.filterNot(hideAtom(_))
+        val keptNegLits =
+          c.predConj.negativeLits.filterNot(hideAtom(_))
 
         // TODO: group blocks of quantifiers
         var newVars = variables
@@ -216,6 +220,9 @@ object AlethePrinter {
           print(f"$varName Int")  // TODO
           print(")) ")
         }
+
+        val needsAnd =
+          c.size - c.predConj.size + keptPosLits.size + keptNegLits.size > 1
 
         if (needsAnd) {
           if (negated)
@@ -241,11 +248,11 @@ object AlethePrinter {
                    newVars)
         }
 
-        for (a <- c.predConj.positiveLits; if !hideAtom(a)) {
+        for (a <- keptPosLits) {
           print(" ")
           printFor(CertPredLiteral(negated, a), newVars)
         }
-        for (a <- c.predConj.negativeLits; if !hideAtom(a)) {
+        for (a <- keptNegLits) {
           print(" ")
           printFor(CertPredLiteral(!negated, a), newVars)
         }
@@ -308,6 +315,14 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                 extraAttributes : Seq[(String, String)] = List()) : String =
       AlethePrinter.this.introduceClauseThroughStep(ruleName, assumedFormulas,
                                                     clause, extraAttributes)
+
+    def introduceMultiClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[Seq[(CertFormula, Boolean)]],
+                extraAttributes : Seq[(String, String)] = List()) : String =
+      AlethePrinter.this.introduceMultiClauseThroughStep(
+        ruleName, assumedFormulas, clause, extraAttributes)
 
     def introduceFormulaThroughStep(
                 ruleName        : String,
@@ -694,6 +709,39 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
       extraAttributes
 
     printCommand("step", l1, clause, attributes)
+
+    l1
+  }
+
+  /**
+   * Introduce a clause in which each literal can be a conjunction of
+   * formulas.
+   */
+  private def introduceMultiClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[Seq[(CertFormula, Boolean)]],
+                extraAttributes : Seq[(String, String)] = List()) : String = {
+    val l1 = freshLabel()
+
+    val attributes =
+      List(("rule", ruleName)) ++
+      (if (assumedFormulas.isEmpty) List()
+       else List(("premises", f"(${l(assumedFormulas)})"))) ++
+      extraAttributes
+    val formulasStr =
+      for (fors <- clause) yield {
+        val strs =
+          for ((f, neg) <- fors; fString = for2String(f))
+          yield (if (neg) f"(not $fString)" else fString)
+        strs match {
+          case Seq() => "true"
+          case Seq(s) => s
+          case fs => s"(and ${fs.mkString(" ")})"
+        }
+      }
+
+    printCommandStr("step", l1, formulasStr, attributes)
 
     l1
   }

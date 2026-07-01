@@ -122,6 +122,16 @@ trait AlethePrinterContext {
                 extraAttributes : Seq[(String, String)] = List()) : String
 
   /**
+   * Introduce a clause in which each literal can be a conjunction of formulas
+   * by applying a rule and return the label of the clause.
+   */
+  def introduceMultiClauseThroughStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                clause          : Seq[Seq[(CertFormula, Boolean)]],
+                extraAttributes : Seq[(String, String)] = List()) : String
+
+  /**
    * Introduce a formula by applying a rule and return the label of the formula.
    */
   def introduceFormulaThroughStep(
