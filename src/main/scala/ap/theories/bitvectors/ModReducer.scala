@@ -585,6 +585,10 @@ object ModReducer {
           a
         }
       }
+
+      case _ =>
+        // case we cannot handle
+        a
     }
   }
 
