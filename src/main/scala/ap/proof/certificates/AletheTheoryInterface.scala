@@ -37,6 +37,7 @@ import ap.theories.Theory
 import ap.terfor.{Formula, TermOrder, Term}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
+import ap.terfor.linearcombination.LinearCombination
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -193,6 +194,16 @@ trait AletheTheoryPrinter {
   def printTheoryAtom(a         : Atom,
                       variables : List[String],
                       ctxt      : AletheFormulaPrinterContext) : Boolean
+
+  /**
+   * Ask a theory to print an equation in Alethe syntax to stdout.
+   * If the method returns <code>true</code>, the equation has been
+   * printed successfully, otherwise the theory is unable to handle the
+   * equation.
+   */
+  def printTheoryEquation(lc        : LinearCombination,
+                          variables : List[String],
+                          ctxt      : AletheFormulaPrinterContext) : Boolean
 
   /**
    * Check whether an atom (with a predicate belonging to a theory) should be

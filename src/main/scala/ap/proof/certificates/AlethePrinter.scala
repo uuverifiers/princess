@@ -41,8 +41,9 @@ import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.{TermOrder, Term, Formula, OneTerm, VariableTerm, ConstantTerm}
-import ap.theories.TheoryRegistry
+import ap.theories.{TheoryRegistry, Theory}
 import ap.basetypes.IdealInt
+import ap.types.Sort
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack, ArrayBuffer}
@@ -58,7 +59,7 @@ object AlethePrinter {
   // TODO: cache?
   def getTheoryPrinter(pred : Predicate) : Option[AletheTheoryPrinter] =
     for (theory  <- TheoryRegistry.lookupSymbol(pred);
-          printer <- AletheTheoryRegistry.lookup(theory))
+         printer <- AletheTheoryRegistry.lookup(theory))
     yield printer
 
   def hideAtom(a : Atom) =
@@ -67,8 +68,20 @@ object AlethePrinter {
       case None          => false
     }
 
+  object TheoryPrintableConstant {
+    def unapply(c : ConstantTerm) : Option[(ConstantTerm, AletheTheoryPrinter)] =
+      Sort.sortOf(c) match {
+        case s : Theory.TheorySort =>
+          for (p <- AletheTheoryRegistry.lookup(s.theory)) yield (c, p)
+        case _ =>
+          None
+      }
+  }
+
   class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
+
+    import LinearCombination.{Difference, CoeffTermWithOffset}
 
     object FPrinterCtxt extends AletheFormulaPrinterContext {
       def printFormula(f : CertFormula, variables : List[String]) : Unit =
@@ -88,24 +101,41 @@ object AlethePrinter {
             printLC(lc, variables)
             print(")")
           }
-          case CertEquation(LinearCombination.Difference(left, right)) => {
+          case CertEquation(Difference(left, right)) => {
             print("(= ")
             printTerm(left, variables)
             print(" ")
             printTerm(right, variables)
             print(")")
           }
+          case CertEquation(lc@CoeffTermWithOffset(
+                              _, TheoryPrintableConstant(_, printer), _)) =>
+            if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt)) {
+              print("(= 0 ")
+              printLC(lc, variables)
+              print(")")
+            }
           case CertEquation(lc) => {
             print("(= 0 ")
             printLC(lc, variables)
             print(")")
           }
-          case CertNegEquation(LinearCombination.Difference(left, right)) => {
+          case CertNegEquation(Difference(left, right)) => {
             print("(not (= ")
             printTerm(left, variables)
             print(" ")
             printTerm(right, variables)
             print("))")
+          }
+          case CertNegEquation(lc@CoeffTermWithOffset(
+                                 _, TheoryPrintableConstant(_, printer), _)) => {
+            print("(not ")
+            if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt)) {
+              print("(= 0 ")
+              printLC(lc, variables)
+              print(")")
+            }
+            print(")")
           }
           case CertNegEquation(lc) => {
             print("(not (= 0 ")
