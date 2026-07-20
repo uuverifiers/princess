@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2020-2022 Zafer Esen <zafer.esen@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -2608,8 +2608,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
                           List(stringType)), SMTInteger)
 
     case PlainSymbol("str.++") =>
-      (translateNAryStringFun(stringTheory.str_++, args,
-                              stringType), stringType)
+      (translateAssocNAryStringFun(stringTheory.str_++, args,
+                                   stringType), stringType)
     case PlainSymbol("str.len") =>
       (translateStringFun(stringTheory.str_len, args,
                           List(stringType)), SMTInteger)
@@ -2652,14 +2652,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
       (translateStringFun(stringTheory.re_range, args,
                           List(stringType, stringType)), regexType)
     case PlainSymbol("re.++") =>
-      (translateNAryStringFun(stringTheory.re_++, args,
-                              regexType), regexType)
+      (translateAssocNAryStringFun(stringTheory.re_++, args,
+                                   regexType), regexType)
     case PlainSymbol("re.union") =>
-      (translateNAryStringFun(stringTheory.re_union, args,
-                              regexType), regexType)
+      (translateAssocNAryStringFun(stringTheory.re_union, args,
+                                   regexType), regexType)
     case PlainSymbol("re.inter") =>
-      (translateNAryStringFun(stringTheory.re_inter, args,
-                              regexType), regexType)
+      (translateAssocNAryStringFun(stringTheory.re_inter, args,
+                                   regexType), regexType)
     case PlainSymbol("re.diff") =>
       (translateNAryStringFun(stringTheory.re_diff, args,
                               regexType), regexType)
@@ -3392,6 +3392,28 @@ class SMTParser2InputAbsy (_env : Environment[SMTTypes.SMTType,
        (s, t) => f(s, t)
      }
   }
+
+  private def translateAssocNAryStringFun(f : IFunction,
+                                          args : Seq[Term],
+                                          argType : SMTType) : IExpression =
+    if (args.size < 4) {
+      translateNAryStringFun(f, args, argType)
+    } else {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      if (!(transArgs forall { case (_, t) => t == argType }))
+        throw new TranslationException(
+          f.name + " cannot be applied to arguments of type " +
+          (transArgs map (_._2) mkString ", "))
+      // Create a balanced tree of terms to avoid deep nesting
+      var transTerms = transArgs.map(asTerm(_))
+      while (transTerms.size > 1) {
+        transTerms =
+          transTerms.grouped(2)
+                    .map(p => if (p.size > 1) f(p(0), p(1)) else p(0))
+                    .toVector
+      }
+      transTerms.head
+    }
 
   private def translateStringPred(p : Predicate,
                                   args : Seq[Term],
