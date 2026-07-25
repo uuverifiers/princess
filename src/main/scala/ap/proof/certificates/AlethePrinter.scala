@@ -97,9 +97,9 @@ object AlethePrinter {
                  variables : List[String]) : Unit =
         f match {
           case CertInequality(lc) => {
-            print("(<= 0 ")
+            print("(>= ")
             printLC(lc, variables)
-            print(")")
+            print(" 0)")
           }
           case CertEquation(Difference(left, right)) => {
             print("(= ")
@@ -108,17 +108,18 @@ object AlethePrinter {
             printTerm(right, variables)
             print(")")
           }
-          case CertEquation(lc@CoeffTermWithOffset(
-                              _, TheoryPrintableConstant(_, printer), _)) =>
-            if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt)) {
-              print("(= 0 ")
-              printLC(lc, variables)
-              print(")")
+          case CertEquation(lc@CoeffTermWithOffset(IdealInt.ONE, c, offset)) =>
+            c match {
+              case TheoryPrintableConstant(_, printer) =>
+                if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt))
+                  printConstantEq(c, -offset, variables)
+              case c =>
+                printConstantEq(c, -offset, variables)
             }
           case CertEquation(lc) => {
-            print("(= 0 ")
+            print("(= ")
             printLC(lc, variables)
-            print(")")
+            print(" 0)")
           }
           case CertNegEquation(Difference(left, right)) => {
             print("(not (= ")
@@ -127,20 +128,21 @@ object AlethePrinter {
             printTerm(right, variables)
             print("))")
           }
-          case CertNegEquation(lc@CoeffTermWithOffset(
-                                 _, TheoryPrintableConstant(_, printer), _)) => {
+          case CertNegEquation(lc@CoeffTermWithOffset(IdealInt.ONE, c, offset)) => {
             print("(not ")
-            if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt)) {
-              print("(= 0 ")
-              printLC(lc, variables)
-              print(")")
+            c match {
+              case TheoryPrintableConstant(_, printer) =>
+                if (!printer.printTheoryEquation(lc, variables, FPrinterCtxt))
+                  printConstantEq(c, -offset, variables)
+              case c =>
+                printConstantEq(c, -offset, variables)
             }
             print(")")
           }
           case CertNegEquation(lc) => {
-            print("(not (= 0 ")
+            print("(not (= ")
             printLC(lc, variables)
-            print("))")
+            print(" 0))")
           }
           case CertPredLiteral(_, atom) if hideAtom(atom) =>
             print("true")
@@ -156,6 +158,15 @@ object AlethePrinter {
             printForRec(c, variables, false)
           }
         }
+
+    def printConstantEq(t : Term, rhs : IdealInt,
+                        variables : List[String]) : Unit = {
+      print("(= ")
+      printTerm(t, variables)
+      print(" ")
+      print(SMTLineariser.toSMTExpr(rhs))
+      print(")")
+    }
 
     def printTerm(t : Term, variables : List[String]) : Unit =
       t match {
@@ -635,6 +646,22 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     val l = freshLabel()
     printCommandStr("step", l, formulas.map(for2String(_)), attributes)
     l
+  }
+
+  /**
+   * Infer <code>for2</code>, assuming that <code>for1</code> and
+   * <code>(= for1 for2)</code> are known.
+   */
+  private def inferFormulaFromEqv(eqvLabel : String,
+                                  for1 : CertFormula,
+                                  for2 : CertFormula) : String = {
+    val for2Str = for2String(for2)
+    val eqvStr = s"(not (= ${for2String(for1)} $for2Str))"
+    val l1 = step(List(eqvStr, s"(not ${for2String(for1)})", for2Str),
+                  ("rule", "equiv_pos2"))
+    val l2 = hyperResolutionStr(l1, List(eqvLabel, l(for1)), for2Str)
+    formulaLabel.put(for2, l2)
+    l2
   }
 
   private def closeByEqv(formula : CertFormula,
@@ -1135,8 +1162,10 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     inf match {
       case _ : AlphaInference =>
         //printRewritingRule("ALPHA", inf)
-      case _ : ReducePredInference | _ : ReduceInference =>
+      case /* _ : ReducePredInference | */ _ : ReduceInference =>
         printRewritingRule("REDUCE", inf)
+      case _ : ReducePredInference =>
+        // nothing
       case _ : SimpInference =>
         //printRewritingRule("SIMP", inf)
       case _ : PredUnifyInference =>
@@ -1282,6 +1311,15 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                                           inf.providedFormulas.head,
                                           extraAttributes =
                                             List(("args", f"(${inf.factor} 1)")))
+
+      case ReducePredInference(equations, beforeAtom, afterAtom, _) => {
+        val eqs = equations.flatten.map(_._2).map(l(_))
+        val atomEq = s"(= ${for2String(beforeAtom)} ${for2String(afterAtom)})"
+        val l1 = step(List(atomEq),
+                      ("rule", "g_eunif"),
+                      ("premises", s"(${eqs.mkString(" ")})"))
+        val l2 = inferFormulaFromEqv(l1, beforeAtom, afterAtom)
+      }
 
       case QuantifierInference(quantifiedFormula, newConstants,
                                result, order) => {

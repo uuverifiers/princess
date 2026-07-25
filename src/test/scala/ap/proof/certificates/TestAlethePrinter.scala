@@ -56,49 +56,49 @@ object TestAlethePrinter {
   val inequalities5Cert = """; Assumptions after simplification:
 ; ---------------------------------
 
-(assume input_0 (and (<= 0 (+ (* (- 5) z) y (- 1))) (<= 0 (+ (* 5 z) (* (- 1) y)
-        2)) (<= 0 (+ (* (- 1) y) (* 5 x))) (<= 0 (+ y (* (- 5) x) 1))))
+(assume input_0 (and (>= (+ (* (- 5) z) y (- 1)) 0) (>= (+ (* 5 z) (* (- 1) y)
+        2) 0) (>= (+ (* (- 1) y) (* 5 x)) 0) (>= (+ y (* (- 5) x) 1) 0)))
 
 ; Those formulas are unsatisfiable:
 ; ---------------------------------
 
 ; Begin of proof
 
-(step t1 (cl (<= 0 (+ y (* (- 5) x) 1))) :rule and :premises (input_0) :args
+(step t1 (cl (>= (+ y (* (- 5) x) 1) 0)) :rule and :premises (input_0) :args
   (3))
-(step t2 (cl (<= 0 (+ (* (- 1) y) (* 5 x)))) :rule and :premises (input_0) :args
+(step t2 (cl (>= (+ (* (- 1) y) (* 5 x)) 0)) :rule and :premises (input_0) :args
   (2))
-(step t3 (cl (<= 0 (+ (* 5 z) (* (- 1) y) 2))) :rule and :premises (input_0)
+(step t3 (cl (>= (+ (* 5 z) (* (- 1) y) 2) 0)) :rule and :premises (input_0)
   :args (1))
-(step t4 (cl (<= 0 (+ (* (- 5) z) y (- 1)))) :rule and :premises (input_0) :args
+(step t4 (cl (>= (+ (* (- 5) z) y (- 1)) 0)) :rule and :premises (input_0) :args
   (0))
 
-(step t5 (cl (<= 0 (+ (* 5 z) (* (- 5) x) 3)) (not (<= 0 (+ y (* (- 5) x) 1)))
-    (not (<= 0 (+ (* 5 z) (* (- 1) y) 2)))) :rule la_generic :args (1 1 1))
-(step t6 (cl (<= 0 (+ (* 5 z) (* (- 5) x) 3))) :rule resolution :premises (t1 t3
+(step t5 (cl (>= (+ (* 5 z) (* (- 5) x) 3) 0) (not (>= (+ y (* (- 5) x) 1) 0))
+    (not (>= (+ (* 5 z) (* (- 1) y) 2) 0))) :rule la_generic :args (1 1 1))
+(step t6 (cl (>= (+ (* 5 z) (* (- 5) x) 3) 0)) :rule resolution :premises (t1 t3
     t5))
 
-(step t7 (cl (<= 0 (+ z (* (- 1) x))) (not (<= 0 (+ (* 5 z) (* (- 5) x) 3))))
+(step t7 (cl (>= (+ z (* (- 1) x)) 0) (not (>= (+ (* 5 z) (* (- 5) x) 3) 0)))
   :rule la_generic :args (5 1))
-(step t8 (cl (<= 0 (+ z (* (- 1) x)))) :rule resolution :premises (t6 t7))
+(step t8 (cl (>= (+ z (* (- 1) x)) 0)) :rule resolution :premises (t6 t7))
 
-(step t9 (cl (<= 0 (+ (* (- 5) z) (* 5 x) (- 1))) (not (<= 0 (+ (* (- 5) z) y (-
-            1)))) (not (<= 0 (+ (* (- 1) y) (* 5 x))))) :rule la_generic :args
+(step t9 (cl (>= (+ (* (- 5) z) (* 5 x) (- 1)) 0) (not (>= (+ (* (- 5) z) y (-
+            1)) 0)) (not (>= (+ (* (- 1) y) (* 5 x)) 0))) :rule la_generic :args
   (1 1 1))
-(step t10 (cl (<= 0 (+ (* (- 5) z) (* 5 x) (- 1)))) :rule resolution :premises
+(step t10 (cl (>= (+ (* (- 5) z) (* 5 x) (- 1)) 0)) :rule resolution :premises
   (t2 t4 t9))
 
-(step t11 (cl (<= 0 (+ (* (- 1) z) x (- 1))) (not (<= 0 (+ (* (- 5) z) (* 5 x)
-          (- 1))))) :rule la_generic :args (5 1))
-(step t12 (cl (<= 0 (+ (* (- 1) z) x (- 1)))) :rule resolution :premises (t10
+(step t11 (cl (>= (+ (* (- 1) z) x (- 1)) 0) (not (>= (+ (* (- 5) z) (* 5 x) (-
+            1)) 0))) :rule la_generic :args (5 1))
+(step t12 (cl (>= (+ (* (- 1) z) x (- 1)) 0)) :rule resolution :premises (t10
     t11))
 
-(step t13 (cl (<= 0 (- 1)) (not (<= 0 (+ (* (- 1) z) x (- 1)))) (not (<= 0 (+ z
-          (* (- 1) x))))) :rule la_generic :args (1 1 1))
-(step t14 (cl (<= 0 (- 1))) :rule resolution :premises (t12 t8 t13))
+(step t13 (cl (>= (- 1) 0) (not (>= (+ (* (- 1) z) x (- 1)) 0)) (not (>= (+ z (*
+            (- 1) x)) 0))) :rule la_generic :args (1 1 1))
+(step t14 (cl (>= (- 1) 0)) :rule resolution :premises (t12 t8 t13))
 
-(step t15 (cl (= (<= 0 (- 1)) false)) :rule comp_simplify)
-(step t16 (cl (not (= (<= 0 (- 1)) false)) (not (<= 0 (- 1))) false) :rule
+(step t15 (cl (= (>= (- 1) 0) false)) :rule comp_simplify)
+(step t16 (cl (not (= (>= (- 1) 0) false)) (not (>= (- 1) 0)) false) :rule
   equiv_pos2)
 (step t17 (cl (not false)) :rule false)
 (step t18 (cl ) :rule resolution :premises (t14 t15 t16 t17))
@@ -344,109 +344,107 @@ val disj = """\functions {
 val disjCert = """; Assumptions after simplification:
 ; ---------------------------------
 
-(assume input_0 (and (or (= 0 (+ y x (- 1))) (= 0 (+ y x 1))) (or (and (= 0 (+ y
-            (- 2))) (= 0 (+ x (- 2)))) (and (= 0 (+ y (- 1))) (= 0 (+ x (-
-              1)))))))
+(assume input_0 (and (or (= (+ y x (- 1)) 0) (= (+ y x 1) 0)) (or (and (= y 2)
+        (= x 2)) (and (= y 1) (= x 1)))))
 
 ; Those formulas are unsatisfiable:
 ; ---------------------------------
 
 ; Begin of proof
 
-(step t1 (cl (or (and (= 0 (+ y (- 2))) (= 0 (+ x (- 2)))) (and (= 0 (+ y (-
-              1))) (= 0 (+ x (- 1)))))) :rule and :premises (input_0) :args (1))
-(step t2 (cl (and (= 0 (+ y (- 2))) (= 0 (+ x (- 2)))) (and (= 0 (+ y (- 1))) (=
-        0 (+ x (- 1))))) :rule or :premises (t1))
-(step t3 (cl (or (= 0 (+ y x (- 1))) (= 0 (+ y x 1)))) :rule and :premises
+(step t1 (cl (or (and (= y 2) (= x 2)) (and (= y 1) (= x 1)))) :rule and
+  :premises (input_0) :args (1))
+(step t2 (cl (and (= y 2) (= x 2)) (and (= y 1) (= x 1))) :rule or :premises
+  (t1))
+(step t3 (cl (or (= (+ y x (- 1)) 0) (= (+ y x 1) 0))) :rule and :premises
   (input_0) :args (0))
-(step t4 (cl (= 0 (+ y x (- 1))) (= 0 (+ y x 1))) :rule or :premises (t3))
+(step t4 (cl (= (+ y x (- 1)) 0) (= (+ y x 1) 0)) :rule or :premises (t3))
 
 ; BETA: splitting t2 gives:
 (anchor :step t5)
   
-  (assume t6 (and (= 0 (+ y (- 2))) (= 0 (+ x (- 2)))))
+  (assume t6 (and (= y 2) (= x 2)))
   
-  (step t7 (cl (= 0 (+ x (- 2)))) :rule and :premises (t6) :args (1))
-  (step t8 (cl (= 0 (+ y (- 2)))) :rule and :premises (t6) :args (0))
+  (step t7 (cl (= x 2)) :rule and :premises (t6) :args (1))
+  (step t8 (cl (= y 2)) :rule and :premises (t6) :args (0))
   
   ; BETA: splitting t4 gives:
   (anchor :step t9)
     
-    (assume t10 (= 0 (+ y x (- 1))))
+    (assume t10 (= (+ y x (- 1)) 0))
     
-    (step t11 (cl (= 0 (+ x 1)) (not (= 0 (+ y x (- 1)))) (not (= 0 (+ y (-
-                2))))) :rule la_generic :args ((- 1) 1 (- 1)))
-    (step t12 (cl (= 0 (+ x 1))) :rule resolution :premises (t10 t8 t11))
-    
-    (step t13 (cl (= 0 3) (not (= 0 (+ x 1))) (not (= 0 (+ x (- 2))))) :rule
+    (step t11 (cl (= x (- 1)) (not (= (+ y x (- 1)) 0)) (not (= y 2))) :rule
       la_generic :args ((- 1) 1 (- 1)))
-    (step t14 (cl (= 0 3)) :rule resolution :premises (t12 t7 t13))
+    (step t12 (cl (= x (- 1))) :rule resolution :premises (t10 t8 t11))
     
-    (step t15 (cl (= (= 0 3) false)) :rule eq_simplify)
-    (step t16 (cl (not (= (= 0 3) false)) (not (= 0 3)) false) :rule equiv_pos2)
+    (step t13 (cl (= 3 0) (not (= x (- 1))) (not (= x 2))) :rule la_generic
+      :args ((- 1) 1 (- 1)))
+    (step t14 (cl (= 3 0)) :rule resolution :premises (t12 t7 t13))
+    
+    (step t15 (cl (= (= 3 0) false)) :rule eq_simplify)
+    (step t16 (cl (not (= (= 3 0) false)) (not (= 3 0)) false) :rule equiv_pos2)
     (step t17 (cl (not false)) :rule false)
     (step t18 (cl ) :rule resolution :premises (t14 t15 t16 t17))
     
-  (step t9 (cl (not (= 0 (+ y x (- 1))))) :rule subproof)
+  (step t9 (cl (not (= (+ y x (- 1)) 0))) :rule subproof)
   
   ; splitting t4, second case:
-  (step t19 (cl (= 0 (+ y x 1))) :rule resolution :premises (t4 t9))
+  (step t19 (cl (= (+ y x 1) 0)) :rule resolution :premises (t4 t9))
   
-  (step t20 (cl (= 0 (+ x 3)) (not (= 0 (+ y x 1))) (not (= 0 (+ y (- 2)))))
-    :rule la_generic :args ((- 1) 1 (- 1)))
-  (step t21 (cl (= 0 (+ x 3))) :rule resolution :premises (t19 t8 t20))
-  
-  (step t22 (cl (= 0 5) (not (= 0 (+ x 3))) (not (= 0 (+ x (- 2))))) :rule
+  (step t20 (cl (= x (- 3)) (not (= (+ y x 1) 0)) (not (= y 2))) :rule
     la_generic :args ((- 1) 1 (- 1)))
-  (step t23 (cl (= 0 5)) :rule resolution :premises (t21 t7 t22))
+  (step t21 (cl (= x (- 3))) :rule resolution :premises (t19 t8 t20))
   
-  (step t24 (cl (= (= 0 5) false)) :rule eq_simplify)
-  (step t25 (cl (not (= (= 0 5) false)) (not (= 0 5)) false) :rule equiv_pos2)
+  (step t22 (cl (= 5 0) (not (= x (- 3))) (not (= x 2))) :rule la_generic :args
+    ((- 1) 1 (- 1)))
+  (step t23 (cl (= 5 0)) :rule resolution :premises (t21 t7 t22))
+  
+  (step t24 (cl (= (= 5 0) false)) :rule eq_simplify)
+  (step t25 (cl (not (= (= 5 0) false)) (not (= 5 0)) false) :rule equiv_pos2)
   (step t26 (cl (not false)) :rule false)
   (step t27 (cl ) :rule resolution :premises (t23 t24 t25 t26))
   
-(step t5 (cl (not (and (= 0 (+ y (- 2))) (= 0 (+ x (- 2)))))) :rule subproof)
+(step t5 (cl (not (and (= y 2) (= x 2)))) :rule subproof)
 
 ; splitting t2, second case:
-(step t28 (cl (and (= 0 (+ y (- 1))) (= 0 (+ x (- 1))))) :rule resolution
-  :premises (t2 t5))
+(step t28 (cl (and (= y 1) (= x 1))) :rule resolution :premises (t2 t5))
 
-(step t29 (cl (= 0 (+ x (- 1)))) :rule and :premises (t28) :args (1))
-(step t30 (cl (= 0 (+ y (- 1)))) :rule and :premises (t28) :args (0))
+(step t29 (cl (= x 1)) :rule and :premises (t28) :args (1))
+(step t30 (cl (= y 1)) :rule and :premises (t28) :args (0))
 
 ; BETA: splitting t4 gives:
 (anchor :step t31)
   
-  (assume t32 (= 0 (+ y x (- 1))))
+  (assume t32 (= (+ y x (- 1)) 0))
   
-  (step t33 (cl (= 0 x) (not (= 0 (+ y x (- 1)))) (not (= 0 (+ y (- 1))))) :rule
+  (step t33 (cl (= x 0) (not (= (+ y x (- 1)) 0)) (not (= y 1))) :rule
     la_generic :args ((- 1) 1 (- 1)))
-  (step t34 (cl (= 0 x)) :rule resolution :premises (t30 t32 t33))
+  (step t34 (cl (= x 0)) :rule resolution :premises (t30 t32 t33))
   
-  (step t35 (cl (= 0 1) (not (= 0 x)) (not (= 0 (+ x (- 1))))) :rule la_generic
-    :args ((- 1) 1 (- 1)))
-  (step t36 (cl (= 0 1)) :rule resolution :premises (t29 t34 t35))
+  (step t35 (cl (= 1 0) (not (= x 0)) (not (= x 1))) :rule la_generic :args ((-
+        1) 1 (- 1)))
+  (step t36 (cl (= 1 0)) :rule resolution :premises (t29 t34 t35))
   
-  (step t37 (cl (= (= 0 1) false)) :rule eq_simplify)
-  (step t38 (cl (not (= (= 0 1) false)) (not (= 0 1)) false) :rule equiv_pos2)
+  (step t37 (cl (= (= 1 0) false)) :rule eq_simplify)
+  (step t38 (cl (not (= (= 1 0) false)) (not (= 1 0)) false) :rule equiv_pos2)
   (step t39 (cl (not false)) :rule false)
   (step t40 (cl ) :rule resolution :premises (t36 t37 t38 t39))
   
-(step t31 (cl (not (= 0 (+ y x (- 1))))) :rule subproof)
+(step t31 (cl (not (= (+ y x (- 1)) 0))) :rule subproof)
 
 ; splitting t4, second case:
-(step t41 (cl (= 0 (+ y x 1))) :rule resolution :premises (t4 t31))
+(step t41 (cl (= (+ y x 1) 0)) :rule resolution :premises (t4 t31))
 
-(step t42 (cl (= 0 (+ x 2)) (not (= 0 (+ y x 1))) (not (= 0 (+ y (- 1))))) :rule
-  la_generic :args ((- 1) 1 (- 1)))
-(step t43 (cl (= 0 (+ x 2))) :rule resolution :premises (t30 t41 t42))
+(step t42 (cl (= x (- 2)) (not (= (+ y x 1) 0)) (not (= y 1))) :rule la_generic
+  :args ((- 1) 1 (- 1)))
+(step t43 (cl (= x (- 2))) :rule resolution :premises (t30 t41 t42))
 
-(step t44 (cl (= 0 3) (not (= 0 (+ x 2))) (not (= 0 (+ x (- 1))))) :rule
-  la_generic :args ((- 1) 1 (- 1)))
-(step t45 (cl (= 0 3)) :rule resolution :premises (t29 t43 t44))
+(step t44 (cl (= 3 0) (not (= x (- 2))) (not (= x 1))) :rule la_generic :args
+  ((- 1) 1 (- 1)))
+(step t45 (cl (= 3 0)) :rule resolution :premises (t29 t43 t44))
 
-(step t46 (cl (= (= 0 3) false)) :rule eq_simplify)
-(step t47 (cl (not (= (= 0 3) false)) (not (= 0 3)) false) :rule equiv_pos2)
+(step t46 (cl (= (= 3 0) false)) :rule eq_simplify)
+(step t47 (cl (not (= (= 3 0) false)) (not (= 3 0)) false) :rule equiv_pos2)
 (step t48 (cl (not false)) :rule false)
 (step t49 (cl ) :rule resolution :premises (t45 t46 t47 t48))
 
@@ -592,6 +590,105 @@ val predicates6Cert = """; Assumptions after simplification:
 
 ; End of proof
 """
+
+val reducePredSMT2 = """(declare-fun p (Int Int) Bool)
+(declare-const w Int)
+
+(assert (or (= w 1) (= w 42)))
+(assert (or (p w 0) (p w 1)))
+
+(assert (not (p 1 0)))
+(assert (not (p 42 0)))
+(assert (not (p 1 1)))
+(assert (not (p 42 1)))
+
+(check-sat)
+"""
+
+val reducePred = """\predicates { p(int, int); }
+\functions { int w; }
+\problem { (w = 1 | w = 42) & (p(w, 0) | p(w, 1)) &
+           !p(1, 0) & !p(42, 0) & !p(1, 1) & !p(42, 1) -> false }"""
+
+val reducePredCert = """; Assumptions after simplification:
+; ---------------------------------
+
+(assume input_0 (and (not (p 42 1)) (not (p 42 0)) (not (p 1 1)) (not (p 1 0))
+    (or (= w 42) (= w 1)) (or (p w 1) (p w 0))))
+
+; Those formulas are unsatisfiable:
+; ---------------------------------
+
+; Begin of proof
+
+(step t1 (cl (not (p 1 0))) :rule and :premises (input_0) :args (3))
+(step t2 (cl (not (p 1 1))) :rule and :premises (input_0) :args (2))
+(step t3 (cl (not (p 42 0))) :rule and :premises (input_0) :args (1))
+(step t4 (cl (not (p 42 1))) :rule and :premises (input_0) :args (0))
+(step t5 (cl (or (p w 1) (p w 0))) :rule and :premises (input_0) :args (5))
+(step t6 (cl (p w 1) (p w 0)) :rule or :premises (t5))
+(step t7 (cl (or (= w 42) (= w 1))) :rule and :premises (input_0) :args (4))
+(step t8 (cl (= w 42) (= w 1)) :rule or :premises (t7))
+
+; BETA: splitting t6 gives:
+(anchor :step t9)
+  
+  (assume t10 (p w 1))
+  
+  ; BETA: splitting t8 gives:
+  (anchor :step t11)
+    
+    (assume t12 (= w 42))
+    
+    (step t13 (cl (= (p w 1) (p 42 1))) :rule g_eunif :premises (t12))
+    (step t14 (cl (not (= (p w 1) (p 42 1))) (not (p w 1)) (p 42 1)) :rule
+      equiv_pos2)
+    (step t15 (cl (p 42 1)) :rule resolution :premises (t13 t10 t14))
+    
+    (step t16 (cl ) :rule resolution :premises (t4 t15))
+    
+  (step t11 (cl (not (= w 42))) :rule subproof)
+  
+  ; splitting t8, second case:
+  (step t17 (cl (= w 1)) :rule resolution :premises (t8 t11))
+  
+  (step t18 (cl (= (p w 1) (p 1 1))) :rule g_eunif :premises (t17))
+  (step t19 (cl (not (= (p w 1) (p 1 1))) (not (p w 1)) (p 1 1)) :rule
+    equiv_pos2)
+  (step t20 (cl (p 1 1)) :rule resolution :premises (t18 t10 t19))
+  
+  (step t21 (cl ) :rule resolution :premises (t2 t20))
+  
+(step t9 (cl (not (p w 1))) :rule subproof)
+
+; splitting t6, second case:
+(step t22 (cl (p w 0)) :rule resolution :premises (t6 t9))
+
+; BETA: splitting t8 gives:
+(anchor :step t23)
+  
+  (assume t24 (= w 42))
+  
+  (step t25 (cl (= (p w 0) (p 42 0))) :rule g_eunif :premises (t24))
+  (step t26 (cl (not (= (p w 0) (p 42 0))) (not (p w 0)) (p 42 0)) :rule
+    equiv_pos2)
+  (step t27 (cl (p 42 0)) :rule resolution :premises (t25 t22 t26))
+  
+  (step t28 (cl ) :rule resolution :premises (t3 t27))
+  
+(step t23 (cl (not (= w 42))) :rule subproof)
+
+; splitting t8, second case:
+(step t29 (cl (= w 1)) :rule resolution :premises (t8 t23))
+
+(step t30 (cl (= (p w 0) (p 1 0))) :rule g_eunif :premises (t29))
+(step t31 (cl (not (= (p w 0) (p 1 0))) (not (p w 0)) (p 1 0)) :rule equiv_pos2)
+(step t32 (cl (p 1 0)) :rule resolution :premises (t30 t22 t31))
+
+(step t33 (cl ) :rule resolution :premises (t1 t32))
+
+; End of proof
+"""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -631,5 +728,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("predicate6") =
     checkProof(predicates6, predicates6Cert)
+
+  property("reducePred") =
+    checkProof(reducePred, reducePredCert)
 
 }
