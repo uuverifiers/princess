@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2026 Philipp Ruemmer <ph_r@gmx.net>
  *               2023      Amanda Stjerna <amanda.stjerna@it.uu.se>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1706,6 +1706,57 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   private val parserSettings = otherSettings.toParserSettings
+
+  /**
+   * Parse an input file in the Princess input format
+   * (<code>.pri</code>) and return the formula, the specified
+   * interpolants, and the signature specified in the file. All
+   * symbols will also be added to this prover.
+   */
+  def extractPriInput(input : String) :
+      (IFormula, List[IInterpolantSpec], Signature) = {
+    val reader = new java.io.BufferedReader (new java.io.StringReader(input))
+    extractPriInput(reader)
+  }
+
+  /**
+   * Parse an input file in the Princess input format
+   * (<code>.pri</code>) and return the formula, the specified
+   * interpolants, and the signature specified in the file. All
+   * symbols will also be added to this prover.
+   */
+  def extractPriInput(input : java.io.Reader) :
+      (IFormula, List[IInterpolantSpec], Signature) = {
+
+    val parser = ApParser2InputAbsy(parserSettings)
+    val p@(formula, _, signature) = parser(input)
+
+    if (!signature.universalConstants.isEmpty)
+      throw new SimpleAPIException(
+        "SimpleAPI cannot handle universal constants in .pri file yet")
+
+    val order = signature.order
+
+    addTheories(signature.theories)
+
+    addConstantsRaw(order.sort(signature.existentialConstants))
+    makeExistentialRaw(signature.existentialConstants)
+    addConstantsRaw(order.sort(signature.nullaryFunctions))
+
+    for (p <- order.sortPreds(order.orderedPredicates))
+      TheoryRegistry.lookupSymbol(p) match {
+        case None => addRelation(p)
+        case _ => // don't add theory symbols again!
+      }
+
+    for (f <- FunctionCollector(formula).toSeq.sortBy(_.name))
+      TheoryRegistry.lookupSymbol(f) match {
+        case None => addFunction(f)
+        case _ => // don't add theory symbols again!
+      }
+
+    p
+  }
 
   /**
    * Execute an SMT-LIB script. Symbols declared in the script will
