@@ -245,7 +245,7 @@ object ModReducer {
                 println("\t" + newA)
               }
               //-END-ASSERTION-/////////////////////////////////////////////////
-              logger.otherComputation(allAssumptions, newA, order,
+              logger.otherComputation(allAssumptions.distinct, newA, order,
                                       ModuloArithmetic)
               newA
 

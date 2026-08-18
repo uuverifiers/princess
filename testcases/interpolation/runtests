@@ -26,6 +26,7 @@ TESTS="columnRed.pri cryptarithm.pri \
        bv-interpolation-1.pri bv-interpolation-2.pri bv-interpolation-3.smt2 \
        bv-interpolation-4.smt2 bv-interpolation-5.pri bv-interpolation-6.smt2 \
        bv-interpolation-8.pri sorts.pri quadraticInEq6-interpolation.pri \
+       bv-interpolation-10.pri \
        sequences1.smt2 sequences2.smt2 sequences3.smt2 sequences4.smt2 \
        sequences5.smt2 sequences6.smt2 sequences7.smt2 definitions.smt2"
 
