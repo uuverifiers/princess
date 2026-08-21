@@ -142,6 +142,18 @@ trait AlethePrinterContext {
                 extraAttributes : Seq[(String, String)] = List()) : String
 
   /**
+   * Introduce a formula <code>f</code> by applying a rule that produces
+   * an equation <code>f = rhs</code>, followed by taking apart that equation
+   * and return the label of the formula.
+   */
+  def introduceFormulaThroughEqualityStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                newFormula      : Option[CertFormula],
+                rhs             : Boolean,
+                extraAttributes : Seq[(String, String)] = List()) : String
+
+  /**
    * Apply the resolution rule with the given <code>nucleus</code> and
    * <code>electrons</code> to derive the formula <code>result</code>, return
    * the label of the new formula.

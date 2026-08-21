@@ -354,8 +354,8 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                 assumedFormulas : Iterable[CertFormula],
                 clause          : Seq[(CertFormula, Boolean)],
                 extraAttributes : Seq[(String, String)] = List()) : String =
-      AlethePrinter.this.introduceClauseThroughStep(ruleName, assumedFormulas,
-                                                    clause, extraAttributes)
+      AlethePrinter.this.introduceClauseThroughStep(
+        ruleName, assumedFormulas, clause, extraAttributes)
 
     def introduceMultiClauseThroughStep(
                 ruleName        : String,
@@ -370,8 +370,17 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                 assumedFormulas : Iterable[CertFormula],
                 newFormula      : Option[CertFormula],
                 extraAttributes : Seq[(String, String)] = List()) : String =
-      AlethePrinter.this.introduceFormulaThroughStep(ruleName, assumedFormulas,
-                                                     newFormula, extraAttributes)
+      AlethePrinter.this.introduceFormulaThroughStep(
+        ruleName, assumedFormulas, newFormula, extraAttributes)
+
+  def introduceFormulaThroughEqualityStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                newFormula      : Option[CertFormula],
+                rhs             : Boolean,
+                extraAttributes : Seq[(String, String)] = List()) : String =
+    AlethePrinter.this.introduceFormulaThroughEqualityStep(
+      ruleName, assumedFormulas, newFormula, rhs, extraAttributes)
 
     def hyperResolution(nucleus   : CertFormula,
                         electrons : Seq[CertFormula],
@@ -745,6 +754,33 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
       extraAttributes
 
     printCommand("step", l1, newFormula.toSeq.map((_, false)), attributes)
+    
+    newFormula match {
+      case Some(g) => postprocessFormula(g, l1)
+      case None => l1
+    }
+  }
+
+  private def introduceFormulaThroughEqualityStep(
+                ruleName        : String,
+                assumedFormulas : Iterable[CertFormula],
+                newFormula      : Option[CertFormula],
+                rhs             : Boolean,
+                extraAttributes : Seq[(String, String)] = List()) : String = {
+    val l0 = freshLabel()
+
+    val attributes =
+      List(("rule", ruleName)) ++
+      (if (assumedFormulas.isEmpty) List()
+       else List(("premises", f"(${l(assumedFormulas)})"))) ++
+      extraAttributes
+
+    val forStr =
+      for2String(newFormula.getOrElse(CertFormula(Conjunction.FALSE)))
+    val eqStr =
+      s"(= $forStr $rhs)"
+
+    printCommandStr("step", l0, List(eqStr), attributes)
     
     newFormula match {
       case Some(g) => postprocessFormula(g, l1)
