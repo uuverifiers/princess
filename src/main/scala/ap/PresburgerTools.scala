@@ -439,7 +439,6 @@ object PresburgerTools {
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
-    val signature = Signature(Set(), Set(), c.constants, order)
     val reducer =
       if (containsBVNonlin(c))
         ReduceWithConjunction(Conjunction.TRUE, order, bvReducerSettings)
@@ -460,6 +459,7 @@ object PresburgerTools {
         case 1 if (quantifiers contains Quantifier.EX) => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
+          val signature = Signature(Set(), Set(), c.constants, order)
           val typedC = TypeTheory.preprocess(!c, signature)
           TypeTheory.filterTypeConstraints(
             !bvExpansionProver(typedC, order).closingConstraint)
@@ -467,6 +467,7 @@ object PresburgerTools {
         case _ => {
           // we need to add type constraints in general, otherwise QE might
           // give unexpected results
+          val signature = Signature(Set(), Set(), c.constants, order)
           val typedC = TypeTheory.preprocess(c, signature)
           TypeTheory.filterTypeConstraints(
             bvExpansionProver(typedC, order).closingConstraint)
