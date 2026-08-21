@@ -854,8 +854,7 @@ object ModuloArithmetic extends Theory {
     (functionPredicateMapping map (_._2)).toSet
 
   val predicateMatchConfig: Signature.PredicateMatchConfig =
-    (for (p <- predicates.toSet --
-           List(_mod_cast, _l_shift_cast, _r_shift_cast, _bv_extract))
+    (for (p <- predicates.iterator)
      yield (p -> Signature.PredicateMatchStatus.None)).toMap
   val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
 

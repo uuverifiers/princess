@@ -529,7 +529,7 @@ object PresburgerTools {
     def quanElimPossible(c : Conjunction) : Boolean = c.predicates forall {
       p => (TheoryRegistry lookupSymbol p) match {
         case Some(ModuloArithmetic) =>
-          p != ModuloArithmetic._bv_extract
+          p != ModuloArithmetic._bv_extract // TODO: probably incorrect?
         case _ =>
           false
       }
