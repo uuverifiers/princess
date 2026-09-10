@@ -783,8 +783,8 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     printCommandStr("step", l0, List(eqStr), attributes)
     
     newFormula match {
-      case Some(g) => postprocessFormula(g, l1)
-      case None => l1
+      case Some(g) => postprocessFormula(g, l0)
+      case None => l0
     }
   }
 
