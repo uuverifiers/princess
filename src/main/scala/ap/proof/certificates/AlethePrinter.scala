@@ -775,16 +775,29 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
        else List(("premises", f"(${l(assumedFormulas)})"))) ++
       extraAttributes
 
-    val forStr =
-      for2String(newFormula.getOrElse(CertFormula(Conjunction.FALSE)))
-    val eqStr =
-      s"(= $forStr $rhs)"
+    val formula   = newFormula.getOrElse(CertFormula(Conjunction.FALSE))
+    val forStr    = for2String(formula)
+    val negForStr = for2String(if (rhs) formula else !formula)
+    val eqStr     = s"(= $negForStr $rhs)"
 
     printCommandStr("step", l0, List(eqStr), attributes)
     
+    val l10 =
+      if (rhs) {
+        // derive true
+        val tt = step(List("true"), ("rule", "true"))
+        step(List(forStr), ("rule", "eq_mp"), ("premises", s"($tt $l0)"))
+      } else {
+        // derive (not false)
+        val tf = step(List("(not false)"), ("rule", "false"))
+        val l1 = step(List(s"(= (not $rhs) (not $negForStr))"),
+                      ("rule", "g_eunif"), ("premises", s"($l0)"))
+        step(List(forStr), ("rule", "eq_mp"), ("premises", s"($tf $l1)"))
+      }
+
     newFormula match {
-      case Some(g) => postprocessFormula(g, l0)
-      case None => l0
+      case Some(g) => postprocessFormula(g, l10)
+      case None => l10
     }
   }
 
@@ -1150,21 +1163,24 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     val endLabel = freshLabel()
     push
 
-    try {
-      printCommand("anchor", List(":step", endLabel))
-      addPrefix("  ")
-      printlnPref
+    val assumptions =
+      try {
+        printCommand("anchor", List(":step", endLabel))
+        addPrefix("  ")
+        printlnPref
 
-      val assumptions = result.map(introduceFormulaThroughAssumption(_))
-      subproof(assumptions)
+        val assumptions = result.map(introduceFormulaThroughAssumption(_))
+        subproof(assumptions)
 
-      printlnPref
-    } finally {
-      pop
-    }
+        printlnPref
+        assumptions
+      } finally {
+        pop
+      }
 
     printCommand("step", endLabel, result.map((_, true)),
-                 List(("rule", "subproof")))
+                 List(("rule", "subproof"),
+                      ("discharge", s"(${assumptions.mkString(" ")})")))
     endLabel
   }
 

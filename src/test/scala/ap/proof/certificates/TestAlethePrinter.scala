@@ -227,14 +227,14 @@ val predicates4Cert = """; Assumptions after simplification:
       
       (step t18 (cl ) :rule resolution :premises (t16 t17))
       
-    (step t15 (cl (not (not q))) :rule subproof)
+    (step t15 (cl (not (not q))) :rule subproof :discharge (t16))
     
     ; splitting t9, second case:
     (step t19 (cl (not p)) :rule resolution :premises (t9 t15))
     
     (step t20 (cl ) :rule resolution :premises (t19 t14))
     
-  (step t12 (cl (not r)) :rule subproof)
+  (step t12 (cl (not r)) :rule subproof :discharge (t13))
   
   ; splitting t5, second case:
   (step t21 (cl p) :rule resolution :premises (t5 t12))
@@ -247,7 +247,7 @@ val predicates4Cert = """; Assumptions after simplification:
     
     (step t25 (cl ) :rule resolution :premises (t23 t24))
     
-  (step t22 (cl (not (not q))) :rule subproof)
+  (step t22 (cl (not (not q))) :rule subproof :discharge (t23))
   
   ; splitting t9, second case:
   (step t26 (cl (not p)) :rule resolution :premises (t9 t22))
@@ -255,7 +255,7 @@ val predicates4Cert = """; Assumptions after simplification:
   (step t27 (cl ) :rule resolution :premises (t26 t21))
   
 (step t2 (cl (not (and (or (not r) p) (or (not q) (not p)) (or (not p) q) (or r
-          p)))) :rule subproof)
+          p)))) :rule subproof :discharge (t3))
 
 ; splitting t1, second case:
 (step t28 (cl (and (or (and r (not p)) (and q p)) (or (and p (not q)) (and (not
@@ -285,7 +285,7 @@ val predicates4Cert = """; Assumptions after simplification:
     
     (step t40 (cl ) :rule resolution :premises (t39 t36))
     
-  (step t37 (cl (not (and r (not p)))) :rule subproof)
+  (step t37 (cl (not (and r (not p)))) :rule subproof :discharge (t38))
   
   ; splitting t32, second case:
   (step t41 (cl (and q p)) :rule resolution :premises (t32 t37))
@@ -294,7 +294,7 @@ val predicates4Cert = """; Assumptions after simplification:
   
   (step t43 (cl ) :rule resolution :premises (t35 t42))
   
-(step t33 (cl (not (and p (not q)))) :rule subproof)
+(step t33 (cl (not (and p (not q)))) :rule subproof :discharge (t34))
 
 ; splitting t30, second case:
 (step t44 (cl (and (not r) (not p))) :rule resolution :premises (t30 t33))
@@ -311,7 +311,7 @@ val predicates4Cert = """; Assumptions after simplification:
   
   (step t50 (cl ) :rule resolution :premises (t46 t49))
   
-(step t47 (cl (not (and r (not p)))) :rule subproof)
+(step t47 (cl (not (and r (not p)))) :rule subproof :discharge (t48))
 
 ; splitting t32, second case:
 (step t51 (cl (and q p)) :rule resolution :premises (t32 t47))
@@ -386,7 +386,7 @@ val disjCert = """; Assumptions after simplification:
     (step t17 (cl (not false)) :rule false)
     (step t18 (cl ) :rule resolution :premises (t14 t15 t16 t17))
     
-  (step t9 (cl (not (= (+ y x (- 1)) 0))) :rule subproof)
+  (step t9 (cl (not (= (+ y x (- 1)) 0))) :rule subproof :discharge (t10))
   
   ; splitting t4, second case:
   (step t19 (cl (= (+ y x 1) 0)) :rule resolution :premises (t4 t9))
@@ -404,7 +404,7 @@ val disjCert = """; Assumptions after simplification:
   (step t26 (cl (not false)) :rule false)
   (step t27 (cl ) :rule resolution :premises (t23 t24 t25 t26))
   
-(step t5 (cl (not (and (= y 2) (= x 2)))) :rule subproof)
+(step t5 (cl (not (and (= y 2) (= x 2)))) :rule subproof :discharge (t6))
 
 ; splitting t2, second case:
 (step t28 (cl (and (= y 1) (= x 1))) :rule resolution :premises (t2 t5))
@@ -430,7 +430,7 @@ val disjCert = """; Assumptions after simplification:
   (step t39 (cl (not false)) :rule false)
   (step t40 (cl ) :rule resolution :premises (t36 t37 t38 t39))
   
-(step t31 (cl (not (= (+ y x (- 1)) 0))) :rule subproof)
+(step t31 (cl (not (= (+ y x (- 1)) 0))) :rule subproof :discharge (t32))
 
 ; splitting t4, second case:
 (step t41 (cl (= (+ y x 1) 0)) :rule resolution :premises (t4 t31))
@@ -647,7 +647,7 @@ val reducePredCert = """; Assumptions after simplification:
     
     (step t16 (cl ) :rule resolution :premises (t4 t15))
     
-  (step t11 (cl (not (= w 42))) :rule subproof)
+  (step t11 (cl (not (= w 42))) :rule subproof :discharge (t12))
   
   ; splitting t8, second case:
   (step t17 (cl (= w 1)) :rule resolution :premises (t8 t11))
@@ -659,7 +659,7 @@ val reducePredCert = """; Assumptions after simplification:
   
   (step t21 (cl ) :rule resolution :premises (t2 t20))
   
-(step t9 (cl (not (p w 1))) :rule subproof)
+(step t9 (cl (not (p w 1))) :rule subproof :discharge (t10))
 
 ; splitting t6, second case:
 (step t22 (cl (p w 0)) :rule resolution :premises (t6 t9))
@@ -676,7 +676,7 @@ val reducePredCert = """; Assumptions after simplification:
   
   (step t28 (cl ) :rule resolution :premises (t3 t27))
   
-(step t23 (cl (not (= w 42))) :rule subproof)
+(step t23 (cl (not (= w 42))) :rule subproof :discharge (t24))
 
 ; splitting t8, second case:
 (step t29 (cl (= w 1)) :rule resolution :premises (t8 t23))
