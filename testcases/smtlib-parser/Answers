@@ -268,9 +268,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun y1 () (_ BitVec 32) (_ bv2178569978 32))
-  (define-fun x1 () (_ BitVec 32) (_ bv2178569977 32))
-  (define-fun x0 () (_ BitVec 32) (_ bv1670427083 32))
+  (define-fun y1 () (_ BitVec 32) (_ bv2657084770 32))
+  (define-fun x1 () (_ BitVec 32) (_ bv2657084769 32))
+  (define-fun x0 () (_ BitVec 32) (_ bv1670427087 32))
 )
 Loading modelConstructionBug2.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it

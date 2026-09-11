@@ -36,7 +36,7 @@ package ap.theories.bitvectors
 import ap.theories._
 
 import ap.basetypes.IdealInt
-import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
+import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}

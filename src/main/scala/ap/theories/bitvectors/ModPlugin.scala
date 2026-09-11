@@ -85,7 +85,8 @@ object ModPlugin extends Plugin {
           ExtractPartitioner.handleGoal(goal)
         case Plugin.GoalState.Intermediate =>
           InEqSimplifier.handleGoal(goal)                 elseDo
-          (ExtractIntervalPropagator.handleGoal(goal) ++
+          (ModCastIntervalPropagator.handleGoal(goal) ++
+           ExtractIntervalPropagator.handleGoal(goal) ++
            BitwiseOpIntervalPropagator.handleGoal(goal))
         case Plugin.GoalState.Final =>
           ExtractArithEncoder.handleGoal(goal)
