@@ -62,15 +62,23 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 
 object ModuloArithmeticConstants {
 
-  protected[bitvectors] val directlyEncodeExtract = false
+  // already encode extract operations in the preprocessor
+  protected[bitvectors] val directlyEncodeExtract        = false
+
+  // eagerly translate some cases of extract to arithmetic constraints
+  protected[bitvectors] val eagerlyEncodeExtract         = true
+
+  // propagation of cut points also through negation, expressed using
+  // arithmetic constraints
+  protected[bitvectors] val propagateCutPointsThroughNot = true
 
   protected[bitvectors] val MOD_CAST_SPLITTER_PRIORITY   = 0
   protected[bitvectors] val BITWISE_OP_SPLITTER_PRIORITY = 0
 
-  protected[bitvectors] val SPLITTER_PRIORITY_FACTOR = 10
+  protected[bitvectors] val SPLITTER_PRIORITY_FACTOR     = 10
 
-  protected[bitvectors] val MOD_CAST_SPLIT_LIMIT = IdealInt(20)
-  protected[bitvectors] val SHIFT_CAST_SPLIT_LIMIT = IdealInt(128)
+  protected[bitvectors] val MOD_CAST_SPLIT_LIMIT         = IdealInt(20)
+  protected[bitvectors] val SHIFT_CAST_SPLIT_LIMIT       = IdealInt(128)
 
 }
 

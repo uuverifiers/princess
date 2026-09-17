@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,12 +50,11 @@ object TaskAggregator {
     CountingTaskAggregator.formulaCounter(_.constants.iterator)
 
   /**
-   * Aggregator counting the zero-ary predicates occurring in
+   * Aggregator counting the predicates occurring in
    * <code>FormulaTask</code> instances.
    */
-  val BooleanVarCounter =
-    CountingTaskAggregator.formulaCounter(
-      _.predicates.iterator filter (_.arity == 0))
+  val PredicateCounter =
+    CountingTaskAggregator.formulaCounter(_.predicates.iterator)
 
   /**
    * Aggregator counting instances of the <code>LazyMatchTask</code>
@@ -150,7 +149,7 @@ object TaskAggregator {
     new VectorTaskAggregator(Vector(ConstantCounter,
                                     LazyMatchTaskCounter,
                                     IntermediatePluginTaskCounter,
-                                    BooleanVarCounter,
+                                    PredicateCounter,
                                     abbrevCounter(abbrevLabels),
                                     ScheduledTheoryProcedureCounter))
 

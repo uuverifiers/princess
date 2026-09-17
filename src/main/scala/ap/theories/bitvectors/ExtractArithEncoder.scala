@@ -59,180 +59,120 @@ object ExtractArithEncoder extends TheoryProcedure {
   import ModuloArithmetic._
   import ModPlugin.hasImpliedIneqConstraints
 
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
-      import TerForConvenience._
-      implicit val order : TermOrder = goal.order
+  def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+    if (extracts.isEmpty)
+      return List()
 
-      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-      if (extracts.isEmpty)
-        return List()
-
-      val inEqs = goal.facts.arithConj.inEqs
-
-      val terms =
-        new LinkedHashMap[LinearCombination,
-                          (Int, Int, List[(IdealInt, Term)],
-                           Int, List[LinearCombination],
-                           List[Atom])]
-      val ignoredTerms =
-        new MHashSet[LinearCombination]
-
-      def elimExtract(ex : Atom,
-                      ub : Int, lb : Int,
-                      arg : LinearCombination,
-                      res : LinearCombination) : Unit = {
-        (terms get arg) match {
-          case None =>
-            terms.put(arg, (ub, lb, List((pow2(lb), res)), 0, List(), List(ex)))
-          case Some((firstUB, lastLB, ts, nextVarInd, constraints, atoms)) =>
-            if (lastLB > ub + 1) {
-              // need to put a quantified variable in between
-              val vv = v(nextVarInd)
-              val newTS = (pow2(lb), res) :: (pow2(ub + 1), vv) :: ts
-              val newConstraints =
-                LinearCombination(List((IdealInt.MINUS_ONE, l(vv)),
-                                      (pow2MinusOne(lastLB - ub - 1), OneTerm)),
-                                  order) ::
-                (l(vv)) :: constraints
-              terms.put(arg, (firstUB, lb, newTS,
-                              nextVarInd+1, newConstraints, ex :: atoms))
-            } else if (lastLB == ub + 1) {
-              // no variable needed
-              terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
-                              nextVarInd, constraints, ex :: atoms))
-            } else {
-              // This extract cannot be eliminated, since it
-              // overlaps with the last one. In this case we don't
-              // eliminate extracts for this term altogether at this
-              // point, we wait until the extracts have been split
-              terms -= arg
-              ignoredTerms += arg
-            }
-        }
-      }
-
-      for (ex <- extracts) ex match {
-        case Atom(`_bv_extract`,
-                  Seq(_,
-                      _,
-                      arg,
-                      _),
-                  _) if (ignoredTerms contains arg) =>
-          // nothing
-        case Atom(`_bv_extract`,
-                  Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
-                      arg,
-                      res),
-                  _) =>
-          elimExtract(ex, ub, lb, arg, res)
-        case _ =>
-          // nothing
-      }
-
-      if (terms.isEmpty)
-        return List()
-
-      // if necessary, add a variable for the least-significant bits
-      for (arg <- terms.keys) terms(arg) match {
-        case (_, 0, _, _, _, _) =>
-          // nothing
-        case (_, lastUB, _, _, _, atoms) =>
-          elimExtract(atoms.head, -1, 0, arg, l(0))
-      }
-
-      val axioms =
-        for ((arg, (firstUB, lastLB, ts, varNum,
-                    constraints, atoms)) <- terms) yield {
-          val modRes = LinearCombination(ts, order)
-          val defFor =
-            exists(varNum,
-                   conj(constraints >= 0,
-                        _mod_cast(List(l(0), l(pow2MinusOne(firstUB+1)),
-                                       l(arg), modRes))))
-          Plugin.AddAxiom(atoms.distinct, defFor, ModuloArithmetic)
-        }
-
-      val toRemove =
-        conj(for (Plugin.AddAxiom(atoms, _, _) <- axioms.iterator;
-                  a <- atoms.iterator)
-             yield a)
-
-      val actions = List(Plugin.RemoveFacts(toRemove)) ++ axioms
-
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      if (debug) {
-        println("Extract to arithmetic:")
-        for (a <- actions)
-          println("\t" + a)
-      }
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-
-      actions
-    }
-
-    /**
-     * Determine constants that occur in general arithmetic context.
-     */
-    private def arithmeticExtractedConsts(goal : Goal)
-                                        : MHashSet[ConstantTerm] = {
-      val arithConsts = new MHashSet[ConstantTerm]
-
-      val facts = goal.facts
-      val ac = facts.arithConj
-      val reduceWithFacts = goal.reduceWithFacts
-
-      arithConsts ++= ac.positiveEqs.constants
-
-      for (lc <- ac.inEqs)
-        if (lc.constants.size > 1)
-          arithConsts ++= lc.constants
-
-      for (a <- facts.predConj.negativeLits)
-        arithConsts ++= a.constants
-
-      // find constants whose value is completely determined by
-      // extracts, as well as extracts on more complex terms
-
-      val lastLB = new MHashMap[ConstantTerm, IdealInt]
-      val blockedConsts = new MHashSet[ConstantTerm]
-
-      for (a <- facts.predConj.positiveLits) a match {
-        case Atom(`_bv_extract`,
-                  Seq(Constant(IdealInt(upper)), Constant(IdealInt(lower)),
-                      SingleTerm(c : ConstantTerm), Constant(_)),
-                  _) =>
-          if (!(arithConsts contains c) &&
-              !(blockedConsts contains c)) (lastLB get c) match {
-            case Some(lb) =>
-              if (upper + IdealInt.ONE == lb)
-                lastLB.put(c, lower)
-              else
-                blockedConsts += c
-            case None => {
-              for (ub <- reduceWithFacts.upperBound(c);
-                   if ub <= pow2MinusOne(upper+1);
-                   lb <- reduceWithFacts.lowerBound(c);
-                   if lb.signum >= 0)
-                lastLB.put(c, lower)
-              if (!(lastLB contains c))
-                blockedConsts += c
-            }
-          }
-        case Atom(`_bv_extract`,
-                  Seq(_, _, SingleTerm(c : ConstantTerm), _),
-                  _) =>
-          blockedConsts += c
-        case Atom(`_bv_extract`,
-                  Seq(_,  _, arg, _), _) =>
-          arithConsts ++= arg.constants
-        case a =>
-          arithConsts ++= a.constants
-      }
-
-      for ((c, IdealInt.ZERO) <- lastLB)
-        if (!(blockedConsts contains c))
-          arithConsts += c
-
-      arithConsts
-    }
+    eliminateExtracts(extracts, goal)
   }
+
+  def eliminateExtracts(extracts : Seq[Atom],
+                        goal : Goal) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    implicit val order : TermOrder = goal.order
+
+    val inEqs = goal.facts.arithConj.inEqs
+
+    val terms =
+      new LinkedHashMap[LinearCombination,
+                        (Int, Int, List[(IdealInt, Term)],
+                         Int, List[LinearCombination],
+                         List[Atom])]
+    val ignoredTerms =
+      new MHashSet[LinearCombination]
+
+    def elimExtract(ex : Atom,
+                    ub : Int, lb : Int,
+                    arg : LinearCombination,
+                    res : LinearCombination) : Unit = {
+      (terms get arg) match {
+        case None =>
+          terms.put(arg, (ub, lb, List((pow2(lb), res)), 0, List(), List(ex)))
+        case Some((firstUB, lastLB, ts, nextVarInd, constraints, atoms)) =>
+          if (lastLB > ub + 1) {
+            // need to put a quantified variable in between
+            val vv = v(nextVarInd)
+            val newTS = (pow2(lb), res) :: (pow2(ub + 1), vv) :: ts
+            val newConstraints =
+              LinearCombination(List((IdealInt.MINUS_ONE, l(vv)),
+                                     (pow2MinusOne(lastLB - ub - 1), OneTerm)),
+                                order) ::
+              (l(vv)) :: constraints
+            terms.put(arg, (firstUB, lb, newTS,
+                            nextVarInd+1, newConstraints, ex :: atoms))
+          } else if (lastLB == ub + 1) {
+            // no variable needed
+            terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
+                            nextVarInd, constraints, ex :: atoms))
+          } else {
+            // This extract cannot be eliminated, since it
+            // overlaps with the last one. In this case we don't
+            // eliminate extracts for this term altogether at this
+            // point, we wait until the extracts have been split
+            terms -= arg
+            ignoredTerms += arg
+          }
+      }
+    }
+
+    for (ex <- extracts) ex match {
+      case Atom(`_bv_extract`,
+                Seq(_,
+                    _,
+                    arg,
+                    _),
+                _) if (ignoredTerms contains arg) =>
+      // nothing
+      case Atom(`_bv_extract`,
+                Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
+                    arg,
+                    res),
+                _) =>
+        elimExtract(ex, ub, lb, arg, res)
+      case _ =>
+        // nothing
+    }
+
+    if (terms.isEmpty)
+      return List()
+
+    // if necessary, add a variable for the least-significant bits
+    for (arg <- terms.keys) terms(arg) match {
+      case (_, 0, _, _, _, _) =>
+        // nothing
+      case (_, lastUB, _, _, _, atoms) =>
+        elimExtract(atoms.head, -1, 0, arg, l(0))
+    }
+
+    val axioms =
+      for ((arg, (firstUB, lastLB, ts, varNum,
+                  constraints, atoms)) <- terms) yield {
+        val modRes = LinearCombination(ts, order)
+        val defFor =
+          exists(varNum,
+                 conj(constraints >= 0,
+                      _mod_cast(List(l(0), l(pow2MinusOne(firstUB+1)),
+                                     l(arg), modRes))))
+        Plugin.AddAxiom(atoms.distinct, defFor, ModuloArithmetic)
+      }
+
+    val toRemove =
+      conj(for (Plugin.AddAxiom(atoms, _, _) <- axioms.iterator;
+                a <- atoms.iterator)
+           yield a)
+
+    val actions = List(Plugin.RemoveFacts(toRemove)) ++ axioms
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    if (debug) {
+      println("Extract to arithmetic:")
+      for (a <- actions)
+        println("\t" + a)
+    }
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    actions
+  }
+
+}

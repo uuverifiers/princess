@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -191,8 +191,8 @@ case object UpdateTasksTask extends EagerTask {
            criticalPreds : Set[Predicate],
            postProcs : ArrayBuffer[ProofTree => ProofTree],
            ptf : ProofTreeFactory) : TaskManager = {
-    val occurringBooleanVars =
-      tasks.taskSummaryFor(TaskAggregator.BooleanVarCounter)
+    val occurringPredicates =
+      tasks.taskSummaryFor(TaskAggregator.PredicateCounter)
     val abbrevCounter =
       tasks.taskSummaryFor(
         TaskAggregator.extractAbbrevAggregator(tasks.taskAggregator))
@@ -202,8 +202,8 @@ case object UpdateTasksTask extends EagerTask {
       abbrevCounter._2.keySet
 
     val eliminableBooleanVars =
-      (for ((p, n) <- occurringBooleanVars.iterator;
-            if (n == 1 && !(criticalPreds contains p)))
+      (for ((p, n) <- occurringPredicates.iterator;
+            if (p.arity == 0 && n == 1 && !(criticalPreds contains p)))
        yield p).toSet
 
     val danglingAbbrevDefs = 
