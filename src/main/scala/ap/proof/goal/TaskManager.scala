@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2024 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -203,6 +203,9 @@ class TaskManager private (// the regular tasks that have a priority
 
   def taskConstants : Set[ConstantTerm] =
     taskSummaryFor(TaskAggregator.ConstantCounter).keySet
+
+  def taskPredicates : Set[Predicate] =
+    taskSummaryFor(TaskAggregator.PredicateCounter).keySet
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -84,7 +84,8 @@ object ModPlugin extends Plugin {
           InEqSimplifier.handleGoal(goal)                 elseDo
           (ModCastIntervalPropagator.handleGoal(goal) ++
            ExtractIntervalPropagator.handleGoal(goal) ++
-           BitwiseOpIntervalPropagator.handleGoal(goal))
+           BitwiseOpIntervalPropagator.handleGoal(goal))  elseDo
+          extractToArithmetic(goal)
         case Plugin.GoalState.Final =>
           ExtractArithEncoder.handleGoal(goal)
       }
@@ -96,6 +97,23 @@ object ModPlugin extends Plugin {
 
       actions
     }
+
+  def extractToArithmetic(goal : Goal) : Seq[Plugin.Action] = {
+    val predConj = goal.facts.predConj
+
+    if (ModuloArithmeticConstants.eagerlyEncodeExtract &&
+        predConj.predicates.contains(_bv_extract) &&
+        Seqs.disjoint(predConj.predicates,
+                      Set(_bv_and, _bv_xor)) &&
+        Seqs.disjoint(goal.tasks.taskPredicates,
+                      Set(_bv_and, _bv_xor, _bv_extract))) {
+      // if a goal contains extracts, but not bit-wise operators,
+      // it usually pays off to rewrite the extracts to arithmetic constraints
+      ExtractArithEncoder.handleGoal(goal)
+    } else {
+      List()
+    }
+  }
 
   /**
    * Generate an assertion that will cause all values of the given

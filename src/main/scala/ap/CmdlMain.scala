@@ -553,9 +553,11 @@ object CmdlMain {
         Some(prover.result)
       }
     } catch {
-      case _ : StackOverflowError => {
+      case e : StackOverflowError => {
         if (format == Param.InputFormat.SMTLIB)
           println("unknown")
+        if (stackTraces)
+          e.printStackTrace
         Console.err.println("Stack overflow, giving up")
         // let's hope that everything is still in a valid state
         None

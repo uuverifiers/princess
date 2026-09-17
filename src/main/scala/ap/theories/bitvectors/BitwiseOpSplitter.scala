@@ -108,17 +108,27 @@ object BitwiseOpSplitter
     (for (a <- predConj.positiveLitsWithPred(_bv_and).iterator)
      yield List(l(0)) ++ a.toSeq) ++
     (for (a <- predConj.positiveLitsWithPred(_bv_xor).iterator)
-     yield List(l(1)) ++ a.toSeq)
+     yield List(l(1)) ++ a.toSeq) //++
+// Currently not used!
+//    (for (a <- predConj.positiveLitsWithPred(_bv_extract).iterator)
+//     yield List(l(2)) ++ a.toSeq)
   }
   
   // TODO: tune priority
   def applicationPriority(goal : Goal, args : ApplicationPoint) : Int =
-    if (args(2).isConstant || args(3).isConstant)
-      // prefer to split bit-wise operations that have at least one constant
-      // argument
-      0
-    else
-      50
+    args(0) match {
+      case LinearCombination.Constant(IdealInt(0 | 1)) =>
+        // bv_and or bv_xor
+        if (args(2).isConstant || args(3).isConstant)
+          // prefer to split bit-wise operations that have at least one constant
+          // argument
+          0
+        else
+          50
+      case LinearCombination.Constant(IdealInt(2)) =>
+        // extract
+        500
+    }
 
   def computeSplitPoint(pattern : IdealInt, bits : Int) : Int = {
     val mid = bits / 2
@@ -133,56 +143,72 @@ object BitwiseOpSplitter
                              args : ApplicationPoint) : Seq[Plugin.Action] = {
     implicit val order : TermOrder = goal.order
 
-    val p =
-      args(0) match {
-        case LinearCombination.Constant(IdealInt.ZERO) =>
-          Atom(_bv_and, args.drop(1), order)
-        case LinearCombination.Constant(IdealInt.ONE) =>
-          Atom(_bv_xor, args.drop(1), order)
-        case _ =>
-          // case we cannot handle
-          return List()
-      }
-
-    if (goal.facts.predConj.positiveLitsAsSet.contains(p)) {
-      val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = p
-
-      val splitPoint =
-        if (bits <= 1)
-          None
-        else if (arg1.isConstant)
-          Some(computeSplitPoint(arg1.constant, bits))
-        else if (arg2.isConstant)
-          Some(computeSplitPoint(arg2.constant, bits))
-        else
-          Some(bits / 2)
-
-      /*
-        case LinearCombination.Constant(IdealInt(bits)) if bits <= -1 => {
-          val f1 = enumIntValuesOf(p(1), order)
-          val f2 = enumIntValuesOf(p(2), order)
-          List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
-        }
-        */
-
-      splitPoint match {
-        case Some(point) => {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          if (debug) {
-            println(s"Splitting $p into intervals" +
-                    s" [0, ${point-1}] and [$point, ${bits-1}] ...")
-          }
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-
-          val nonConstArg = if (arg1.isConstant) arg2 else arg1
-          ExtractPartitioner.splitActions(goal, List((nonConstArg, List(point))))
-        }
-        case _ =>
-          List()
-      }
-    } else {
-      List()
+    args(0) match {
+      case LinearCombination.Constant(IdealInt.ZERO) =>
+        handleBitwiseOp(Atom(_bv_and, args.drop(1), order), goal)
+      case LinearCombination.Constant(IdealInt.ONE) =>
+        handleBitwiseOp(Atom(_bv_xor, args.drop(1), order), goal)
+      case LinearCombination.Constant(IdealInt(2)) =>
+        handleExtract(goal, args)
+      case _ =>
+        // case we cannot handle
+        return List()
     }
+  }
+
+  private def handleBitwiseOp(p : Atom, goal : Goal) : Seq[Plugin.Action] = {
+    if (!goal.facts.predConj.positiveLitsAsSet.contains(p))
+      return List()
+
+    val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = p
+
+    val splitPoint =
+      if (bits <= 1)
+        None
+      else if (arg1.isConstant)
+        Some(computeSplitPoint(arg1.constant, bits))
+      else if (arg2.isConstant)
+        Some(computeSplitPoint(arg2.constant, bits))
+      else
+        Some(bits / 2)
+
+    /*
+     case LinearCombination.Constant(IdealInt(bits)) if bits <= -1 => {
+     val f1 = enumIntValuesOf(p(1), order)
+     val f2 = enumIntValuesOf(p(2), order)
+     List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
+     }
+     */
+
+    splitPoint match {
+      case Some(point) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug) {
+          println(s"Splitting $p into intervals" +
+                    s" [0, ${point-1}] and [$point, ${bits-1}] ...")
+        }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        val nonConstArg = if (arg1.isConstant) arg2 else arg1
+        ExtractPartitioner.splitActions(goal, List((nonConstArg, List(point))))
+      }
+      case _ =>
+        List()
+    }
+  }
+
+  private def handleExtract(goal : Goal,
+                            args : ApplicationPoint) : Seq[Plugin.Action] = {
+//    println("handleExtract")
+//    println(goal.facts)
+
+    val argTerm = args(3)
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+                                      .filter(a => a(2) == argTerm)
+    if (extracts.isEmpty)
+      List()
+    else
+      ExtractArithEncoder.eliminateExtracts(extracts, goal)
   }
 
 }

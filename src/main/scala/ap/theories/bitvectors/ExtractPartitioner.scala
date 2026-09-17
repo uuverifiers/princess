@@ -371,7 +371,8 @@ object ExtractPartitioner extends TheoryProcedure {
           // propagate FROM t2 TO t1
           addCutPoints(t1, cut2.map(_ + lb).filter(c => c <= ub))
 
-    //      propagateNot(ub - lb + 1, t2)
+          if (ModuloArithmeticConstants.propagateCutPointsThroughNot)
+            propagateNot(ub - lb + 1, t2)
         }
       case _ =>
         // currently ignored
@@ -395,9 +396,11 @@ object ExtractPartitioner extends TheoryProcedure {
       addCutPoints(arg2, cut1transformed ++ cut3transformed)
       addCutPoints(res,  cut1transformed ++ cut2transformed)
 
-//      propagateNot(bits, arg1)
-//      propagateNot(bits, arg2)
-//      propagateNot(bits, res)
+      if (ModuloArithmeticConstants.propagateCutPointsThroughNot) {
+        propagateNot(bits, arg1)
+        propagateNot(bits, arg2)
+        propagateNot(bits, res)
+      }
     }
 
   }
