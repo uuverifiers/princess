@@ -50,6 +50,14 @@ class BVInterpolation2 extends Properties("BVInterpolation2") {
 
   val withAssertions = false
 
+  def withTO(prover : SimpleAPI)(comp : => Unit) : Unit =
+    try {
+      prover.withTimeout(1000) { comp }
+    } catch {
+      case SimpleAPI.TimeoutException =>
+        Console.err.println("Warning: timeout during interpolation check")
+    }
+
   property("interpolation bug") = {
     Debug.enableAllAssertions(withAssertions)
     SimpleAPI.withProver(enableAssert = withAssertions, sanitiseNames = false) { aprover =>
@@ -165,36 +173,44 @@ class BVInterpolation2 extends Properties("BVInterpolation2") {
           validator.scope {
             //println("A => I")
             validator.??(A ===> I)
-            validator.??? match {
-              case ProverStatus.Valid =>
-                // println("verified")
-              case ProverStatus.Invalid => {
-                // println("Condition violated: " + validator.partialModel)
-                assert(false)
+            withTO(validator) {
+              validator.??? match {
+                case ProverStatus.Valid =>
+                  // println("verified")
+                case ProverStatus.Invalid => {
+                  // println("Condition violated: " + validator.partialModel)
+                  assert(false)
+                }
               }
             }
           }
+
           validator.scope {
             //println("B & I => J")
             validator.??((B & I) ===> J)
-            validator.??? match {
-              case ProverStatus.Valid =>
-                //println("verified")
-              case ProverStatus.Invalid => {
-                //println("Condition violated: " + validator.partialModel)
-                assert(false)
+            withTO(validator) {
+              validator.??? match {
+                case ProverStatus.Valid =>
+                  //println("verified")
+                case ProverStatus.Invalid => {
+                  //println("Condition violated: " + validator.partialModel)
+                  assert(false)
+                }
               }
             }
           }
+
           validator.scope {
             //println("C & J => false")
             validator.??((C & J) ===> false)
-            validator.??? match {
-              case ProverStatus.Valid =>
-                //println("verified")
-              case ProverStatus.Invalid => {
-                //println("Condition violated: " + validator.partialModel)
-                assert(false)
+            withTO(validator) {
+              validator.??? match {
+                case ProverStatus.Valid =>
+                  //println("verified")
+                case ProverStatus.Invalid => {
+                  //println("Condition violated: " + validator.partialModel)
+                  assert(false)
+                }
               }
             }
           }

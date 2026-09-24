@@ -51,7 +51,8 @@ import scala.collection.mutable.{LinkedHashMap, HashSet => MHashSet,
 
 /**
  * BitwiseOpIntervalPropagator handles interval constraint propagation
- * between the arguments and results of bit-wise operators, currently bv_and.
+ * between the arguments and results of bit-wise operators, currently
+ * bv_and and bv_xor.
  */
 object BitwiseOpIntervalPropagator {
   import ModuloArithmetic._
