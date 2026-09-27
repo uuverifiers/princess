@@ -45,7 +45,8 @@ import ap.theories.{TheoryRegistry, Theory}
 import ap.basetypes.IdealInt
 import ap.types.Sort
 
-import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
+import scala.collection.mutable.{HashSet => MHashSet,
+                                 HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack, ArrayBuffer}
 import scala.util.Sorting
 
@@ -224,12 +225,31 @@ object AlethePrinter {
       if (a.size == 0) {
         print(SMTLineariser.quoteIdentifier(a.pred.name))
       } else {
-        print(f"(${SMTLineariser.quoteIdentifier(a.pred.name)}")
-        for (t <- a) {
-          print(" ")
-          printLC(t, variables)
+        predTranslation.get(a.pred) match {
+          case Some(fun) if fun.arity == 0 => {
+            print(f"(= ${SMTLineariser.quoteIdentifier(fun.name)} ")
+            printLC(a.last, variables)
+            print(")")
+          }
+          case Some(fun) => {
+            print(f"(= (${SMTLineariser.quoteIdentifier(fun.name)}")
+            for (t <- a.init) {
+              print(" ")
+              printLC(t, variables)
+            }
+            print(") ")
+            printLC(a.last, variables)
+            print(")")
+          }
+          case None => {
+            print(f"(${SMTLineariser.quoteIdentifier(a.pred.name)}")
+            for (t <- a) {
+              print(" ")
+              printLC(t, variables)
+            }
+            print(")")
+          }
         }
-        print(")")
       }
 
     private def printForRec(c         : Conjunction,
@@ -433,7 +453,10 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
           case PartName.THEORY_AXIOMS   => "theory-axioms"
           case _                        => partName2String(name)
         }
-        introduceFormulaThroughAssumption(initialFormulas(name), label)
+        val formula = initialFormulas(name)
+        if (name == PartName.FUNCTION_AXIOMS)
+          functionAxioms += formula
+        introduceFormulaThroughAssumption(formula, label)
       }
 
       if (!(unusedNames forall PartName.predefNamesSet)) {
@@ -572,6 +595,8 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
 
   private val formulaLabel = new LinkedHashMap[CertFormula, String]
   private var formulaCounter : Int = 1
+
+  private val functionAxioms = new MHashSet[CertFormula]
 
   private def introduceFormula(f : CertFormula, label : String = "") : Unit =
     if (label == "") {
@@ -1302,6 +1327,9 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                                              nextAssumedFormulas,
                                              childOrder,
                                              argComputer = Some(argComp))
+        
+        if (inf.assumedFormulas.forall(functionAxioms))
+          functionAxioms ++= inf.providedFormulas
       }
 
       case PredUnifyInference(left, right, result, _)
@@ -1429,6 +1457,9 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
       case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, result, order) => {
         // TODO: make simplification of the instantiated formula explicit?
+
+        if (functionAxioms(quantifiedFormula))
+          println("function axiom! " + instanceTerms)
 
         var quanFormula = quantifiedFormula.toConj
         var label       = ""
