@@ -454,9 +454,12 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
           case _                        => partName2String(name)
         }
         val formula = initialFormulas(name)
-        if (name == PartName.FUNCTION_AXIOMS)
+        if (name == PartName.FUNCTION_AXIOMS) {
+          // Function axioms are kept implicit, do not output any step
           functionAxioms += formula
-        introduceFormulaThroughAssumption(formula, label)
+        } else {
+          introduceFormulaThroughAssumption(formula, label)
+        }
       }
 
       if (!(unusedNames forall PartName.predefNamesSet)) {
@@ -1239,8 +1242,8 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     inf match {
       case _ : AlphaInference =>
         //printRewritingRule("ALPHA", inf)
-      case /* _ : ReducePredInference | */ _ : ReduceInference =>
-        printRewritingRule("REDUCE", inf)
+      case _ : ReduceInference =>
+        // printRewritingRule("REDUCE", inf)
       case _ : ReducePredInference =>
         // nothing
       case _ : SimpInference =>
@@ -1283,6 +1286,12 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     }
 
     inf match {
+      case _ : AlphaInference
+          if (inf.assumedFormulas.forall(functionAxioms)) => {
+        // Function axioms are kept implicit, do not output any step
+        functionAxioms ++= inf.providedFormulas
+      }
+
       case _ : AlphaInference => {
         val CertCompoundFormula(c) = inf.assumedFormulas.head
         val ac = c.arithConj
@@ -1327,9 +1336,6 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
                                              nextAssumedFormulas,
                                              childOrder,
                                              argComputer = Some(argComp))
-        
-        if (inf.assumedFormulas.forall(functionAxioms))
-          functionAxioms ++= inf.providedFormulas
       }
 
       case PredUnifyInference(left, right, result, _)
@@ -1386,11 +1392,20 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
       }
 
       case inf : SimpInference =>
-        introduceFormulaThroughResolution("la_generic",
-                                          inf.assumedFormulas,
-                                          inf.providedFormulas.head,
-                                          extraAttributes =
-                                            List(("args", f"(${inf.factor} 1)")))
+        introduceFormulaThroughResolution(
+          "la_generic",
+          inf.assumedFormulas,
+          inf.providedFormulas.head,
+          extraAttributes = List(("args", f"(${inf.factor} 1)")))
+
+      case inf : ReduceInference => {
+        val (eqCoeffs, eqFors) = inf.equations.unzip
+        introduceFormulaThroughResolution(
+          "la_generic",
+          eqFors ++ List(inf.targetLit),
+          inf.result,
+          extraAttributes = List(("args", f"(1 ${eqCoeffs.mkString(" ")} 1)")))
+      }
 
       case ReducePredInference(equations, beforeAtom, afterAtom, _) => {
         val eqs = equations.flatten.map(_._2).map(l(_))
@@ -1455,11 +1470,15 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
       }
 
       case GroundInstInference(quantifiedFormula, instanceTerms,
+                               _, dischargedAtoms, result : CertEquation, order)
+          if functionAxioms.contains(quantifiedFormula) &&
+             dischargedAtoms.size == 2 => {
+        introduceFormulaThroughStep("g_eunif", dischargedAtoms, Some(result))
+      }
+
+      case GroundInstInference(quantifiedFormula, instanceTerms,
                                _, dischargedAtoms, result, order) => {
         // TODO: make simplification of the instantiated formula explicit?
-
-        if (functionAxioms(quantifiedFormula))
-          println("function axiom! " + instanceTerms)
 
         var quanFormula = quantifiedFormula.toConj
         var label       = ""
