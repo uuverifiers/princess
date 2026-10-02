@@ -689,6 +689,158 @@ val reducePredCert = """; Assumptions after simplification:
 
 ; End of proof
 """
+
+val congruence = """\functions {
+  int f(int);
+  int c, d;
+}
+
+\problem {
+  \forall int i, x; {f(i)} f(i) < f(i+1)
+  ->
+  f(c) = d
+  ->
+  f(c+1) > d
+}
+"""
+
+val congruenceCert = """; Assumptions after simplification:
+; ---------------------------------
+
+(assume input_0 (exists (($v0 Int)) (and (>= (+ (* (- 1) $v0) d) 0) (= (f (+ c
+            1)) $v0) (= (f c) d) (forall (($v1 Int)) (forall (($v2 Int)) (or
+            (not (= (f $v1) $v2)) (exists (($v3 Int)) (and (>= (+ $v3 (* (- 1)
+                      $v2) (- 1)) 0) (= (f (+ $v1 1)) $v3)))))))))
+
+; Those formulas are unsatisfiable:
+; ---------------------------------
+
+; Begin of proof
+
+(define-fun all_2_0 () Int (choice ((all_2_0 Int)) (and (>= (+ (* (- 1) all_2_0)
+          d) 0) (= (f (+ c 1)) all_2_0) (= (f c) d) (forall (($v0 Int)) (forall
+          (($v1 Int)) (or (not (= (f $v0) $v1)) (exists (($v2 Int)) (and (>= (+
+                    $v2 (* (- 1) $v1) (- 1)) 0) (= (f (+ $v0 1)) $v2)))))))))
+(anchor :step t1 :args ((:= (all_2_0_choice Int) all_2_0)))
+(step t2 (cl (= (and (>= (+ (* (- 1) all_2_0_choice) d) 0) (= (f (+ c 1))
+          all_2_0_choice) (= (f c) d) (forall (($v0 Int)) (forall (($v1 Int))
+            (or (not (= (f $v0) $v1)) (exists (($v2 Int)) (and (>= (+ $v2 (* (-
+                          1) $v1) (- 1)) 0) (= (f (+ $v0 1)) $v2))))))) (and (>=
+          (+ (* (- 1) all_2_0) d) 0) (= (f (+ c 1)) all_2_0) (= (f c) d) (forall
+          (($v0 Int)) (forall (($v1 Int)) (or (not (= (f $v0) $v1)) (exists
+                (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1) (- 1)) 0) (= (f (+ $v0
+                        1)) $v2))))))))) :rule refl)
+(step t1 (cl (= (exists (($v0 Int)) (and (>= (+ (* (- 1) $v0) d) 0) (= (f (+ c
+                1)) $v0) (= (f c) d) (forall (($v1 Int)) (forall (($v2 Int)) (or
+                (not (= (f $v1) $v2)) (exists (($v3 Int)) (and (>= (+ $v3 (* (-
+                            1) $v2) (- 1)) 0) (= (f (+ $v1 1)) $v3)))))))) (and
+        (>= (+ (* (- 1) all_2_0) d) 0) (= (f (+ c 1)) all_2_0) (= (f c) d)
+        (forall (($v0 Int)) (forall (($v1 Int)) (or (not (= (f $v0) $v1))
+              (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1) (- 1)) 0) (= (f
+                      (+ $v0 1)) $v2))))))))) :rule sko_ex_rename)
+(step t3 (cl (not (= (exists (($v0 Int)) (and (>= (+ (* (- 1) $v0) d) 0) (= (f
+                (+ c 1)) $v0) (= (f c) d) (forall (($v1 Int)) (forall (($v2
+                    Int)) (or (not (= (f $v1) $v2)) (exists (($v3 Int)) (and (>=
+                        (+ $v3 (* (- 1) $v2) (- 1)) 0) (= (f (+ $v1 1))
+                        $v3)))))))) (and (>= (+ (* (- 1) all_2_0) d) 0) (= (f (+
+                c 1)) all_2_0) (= (f c) d) (forall (($v0 Int)) (forall (($v1
+                  Int)) (or (not (= (f $v0) $v1)) (exists (($v2 Int)) (and (>=
+                      (+ $v2 (* (- 1) $v1) (- 1)) 0) (= (f (+ $v0 1))
+                      $v2))))))))) (not (exists (($v0 Int)) (and (>= (+ (* (- 1)
+                $v0) d) 0) (= (f (+ c 1)) $v0) (= (f c) d) (forall (($v1 Int))
+            (forall (($v2 Int)) (or (not (= (f $v1) $v2)) (exists (($v3 Int))
+                  (and (>= (+ $v3 (* (- 1) $v2) (- 1)) 0) (= (f (+ $v1 1))
+                      $v3))))))))) (and (>= (+ (* (- 1) all_2_0) d) 0) (= (f (+
+            c 1)) all_2_0) (= (f c) d) (forall (($v0 Int)) (forall (($v1 Int))
+          (or (not (= (f $v0) $v1)) (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1)
+                      $v1) (- 1)) 0) (= (f (+ $v0 1)) $v2)))))))) :rule
+  equiv_pos2)
+(step t4 (cl (and (>= (+ (* (- 1) all_2_0) d) 0) (= (f (+ c 1)) all_2_0) (= (f
+          c) d) (forall (($v0 Int)) (forall (($v1 Int)) (or (not (= (f $v0)
+                $v1)) (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1) (- 1))
+                  0) (= (f (+ $v0 1)) $v2)))))))) :rule resolution :premises (t1
+    input_0 t3))
+
+(step t5 (cl (>= (+ (* (- 1) all_2_0) d) 0)) :rule and :premises (t4) :args (0))
+(step t6 (cl (= (f c) d)) :rule and :premises (t4) :args (2))
+(step t7 (cl (= (f (+ c 1)) all_2_0)) :rule and :premises (t4) :args (1))
+(step t8 (cl (forall (($v0 Int)) (forall (($v1 Int))  (or (not (= (f $v0) $v1))
+          (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1) (- 1)) 0) (= (f (+
+                    $v0 1)) $v2))))))) :rule and :premises (t4) :args (3))
+
+(step t9 (cl (or (not (forall (($v0 Int)) (forall (($v1 Int))  (or (not (= (f
+                    $v0) $v1)) (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1)
+                      (- 1)) 0) (= (f (+ $v0 1)) $v2))))))) (forall (($v0 Int)) 
+        (or (not (= (f c) $v0)) (exists (($v1 Int)) (and (>= (+ $v1 (* (- 1)
+                    $v0) (- 1)) 0) (= (f (+ c 1)) $v1))))))) :rule forall_inst
+  :args (c))
+(step t10 (cl (not (forall (($v0 Int)) (forall (($v1 Int))  (or (not (= (f $v0)
+                $v1)) (exists (($v2 Int)) (and (>= (+ $v2 (* (- 1) $v1) (- 1))
+                  0) (= (f (+ $v0 1)) $v2))))))) (forall (($v0 Int))  (or (not
+          (= (f c) $v0)) (exists (($v1 Int)) (and (>= (+ $v1 (* (- 1) $v0) (-
+                  1)) 0) (= (f (+ c 1)) $v1)))))) :rule or :premises (t9))
+(step t11 (cl (forall (($v0 Int))  (or (not (= (f c) $v0)) (exists (($v1 Int))
+          (and (>= (+ $v1 (* (- 1) $v0) (- 1)) 0) (= (f (+ c 1)) $v1)))))) :rule
+  resolution :premises (t8 t10))
+(step t12 (cl (or (not (forall (($v0 Int))  (or (not (= (f c) $v0)) (exists
+              (($v1 Int)) (and (>= (+ $v1 (* (- 1) $v0) (- 1)) 0) (= (f (+ c 1))
+                  $v1)))))) (or (not (= (f c) d)) (exists (($v0 Int)) (and (>=
+              (+ $v0 (* (- 1) d) (- 1)) 0) (= (f (+ c 1)) $v0)))))) :rule
+  forall_inst :args (d))
+(step t13 (cl (not (forall (($v0 Int))  (or (not (= (f c) $v0)) (exists (($v1
+                Int)) (and (>= (+ $v1 (* (- 1) $v0) (- 1)) 0) (= (f (+ c 1))
+                $v1)))))) (or (not (= (f c) d)) (exists (($v0 Int)) (and (>= (+
+              $v0 (* (- 1) d) (- 1)) 0) (= (f (+ c 1)) $v0))))) :rule or
+  :premises (t12))
+(step t14 (cl (or (not (= (f c) d)) (exists (($v0 Int)) (and (>= (+ $v0 (* (- 1)
+                d) (- 1)) 0) (= (f (+ c 1)) $v0))))) :rule resolution :premises
+  (t11 t13))
+(step t15 (cl (not (= (f c) d)) (exists (($v0 Int)) (and (>= (+ $v0 (* (- 1) d)
+            (- 1)) 0) (= (f (+ c 1)) $v0)))) :rule or :premises (t14))
+(step t16 (cl (exists (($v0 Int)) (and (>= (+ $v0 (* (- 1) d) (- 1)) 0) (= (f (+
+              c 1)) $v0)))) :rule resolution :premises (t6 t15))
+
+(define-fun all_14_0 () Int (choice ((all_14_0 Int)) (and (>= (+ all_14_0 (* (-
+              1) d) (- 1)) 0) (= (f (+ c 1)) all_14_0))))
+(anchor :step t17 :args ((:= (all_14_0_choice Int) all_14_0)))
+(step t18 (cl (= (and (>= (+ all_14_0_choice (* (- 1) d) (- 1)) 0) (= (f (+ c
+              1)) all_14_0_choice)) (and (>= (+ all_14_0 (* (- 1) d) (- 1)) 0)
+        (= (f (+ c 1)) all_14_0)))) :rule refl)
+(step t17 (cl (= (exists (($v0 Int)) (and (>= (+ $v0 (* (- 1) d) (- 1)) 0) (= (f
+              (+ c 1)) $v0))) (and (>= (+ all_14_0 (* (- 1) d) (- 1)) 0) (= (f
+            (+ c 1)) all_14_0)))) :rule sko_ex_rename)
+(step t19 (cl (not (= (exists (($v0 Int)) (and (>= (+ $v0 (* (- 1) d) (- 1)) 0)
+            (= (f (+ c 1)) $v0))) (and (>= (+ all_14_0 (* (- 1) d) (- 1)) 0) (=
+            (f (+ c 1)) all_14_0)))) (not (exists (($v0 Int)) (and (>= (+ $v0 (*
+                (- 1) d) (- 1)) 0) (= (f (+ c 1)) $v0)))) (and (>= (+ all_14_0
+          (* (- 1) d) (- 1)) 0) (= (f (+ c 1)) all_14_0))) :rule equiv_pos2)
+(step t20 (cl (and (>= (+ all_14_0 (* (- 1) d) (- 1)) 0) (= (f (+ c 1))
+        all_14_0))) :rule resolution :premises (t17 t16 t19))
+
+(step t21 (cl (>= (+ all_14_0 (* (- 1) d) (- 1)) 0)) :rule and :premises (t20)
+  :args (0))
+(step t22 (cl (= (f (+ c 1)) all_14_0)) :rule and :premises (t20) :args (1))
+
+(step t23 (cl (= all_14_0 all_2_0)) :rule g_eunif :premises (t22 t7))
+
+(step t24 (cl (>= (+ all_2_0 (* (- 1) d) (- 1)) 0) (not (= all_14_0 all_2_0))
+    (not (>= (+ all_14_0 (* (- 1) d) (- 1)) 0))) :rule la_generic :args (1 -1
+    1))
+(step t25 (cl (>= (+ all_2_0 (* (- 1) d) (- 1)) 0)) :rule resolution :premises
+  (t21 t23 t24))
+
+(step t26 (cl (>= (- 1) 0) (not (>= (+ all_2_0 (* (- 1) d) (- 1)) 0)) (not (>=
+        (+ (* (- 1) all_2_0) d) 0))) :rule la_generic :args (1 1 1))
+(step t27 (cl (>= (- 1) 0)) :rule resolution :premises (t25 t5 t26))
+
+(step t28 (cl (= (>= (- 1) 0) false)) :rule comp_simplify)
+(step t29 (cl (not (= (>= (- 1) 0) false)) (not (>= (- 1) 0)) false) :rule
+  equiv_pos2)
+(step t30 (cl (not false)) :rule false)
+(step t31 (cl ) :rule resolution :premises (t27 t28 t29 t30))
+
+; End of proof
+"""
 }
 
 class TestAlethePrinter extends Properties("TestAlethePrinter") {
@@ -731,5 +883,8 @@ class TestAlethePrinter extends Properties("TestAlethePrinter") {
 
   property("reducePred") =
     checkProof(reducePred, reducePredCert)
+
+  property("congruence") =
+    checkProof(congruence, congruenceCert)
 
 }

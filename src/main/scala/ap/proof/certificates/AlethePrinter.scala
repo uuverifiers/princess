@@ -427,38 +427,41 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
     term2String(LinearCombination(n))
 
   def apply(dagCertificate : Seq[Certificate],
-            initialFormulas : Map[PartName, CertFormula]) : Unit = {
+            initialFormulas : Seq[(PartName, CertFormula)]) : Unit = {
     certificateNum = dagCertificate.size
     val assumedFormulas = dagCertificate.last.assumedFormulas
 
-    val partNamesSet = initialFormulas.keySet
-    val partNames =
-      (partNamesSet filterNot predefNamesSet).toIndexedSeq.sortBy(_.toString) ++
-      (predefNames filter partNamesSet).toIndexedSeq
-
-    val (usedNames, unusedNames) = partNames partition {
-      name => assumedFormulas contains initialFormulas(name)
-    }
-
-    println("; Assumptions after simplification:")
-    println("; ---------------------------------")
-
     push
     try {
-      for (name <- usedNames) {
-        println()
-        val label = name match {
-          case PartName.NO_NAME         => "input"
-          case PartName.FUNCTION_AXIOMS => "function-axioms"
-          case PartName.THEORY_AXIOMS   => "theory-axioms"
-          case _                        => partName2String(name)
-        }
-        val formula = initialFormulas(name)
-        if (name == PartName.FUNCTION_AXIOMS) {
-          // Function axioms are kept implicit, do not output any step
-          functionAxioms += formula
+      println("; Assumptions after simplification:")
+      println("; ---------------------------------")
+
+      val unusedNames = new ArrayBuffer[PartName]
+      val usedLabels = new MHashSet[String]
+
+      for ((name, formula) <- initialFormulas) {
+        if (assumedFormulas.contains(formula)) {
+          if (name == PartName.FUNCTION_AXIOMS) {
+            // Function axioms are kept implicit, do not output any step
+            functionAxioms += formula
+          } else {
+            println()
+            val baseLabel = name match {
+              case PartName.NO_NAME        => "input"
+              case PartName.THEORY_AXIOMS  => "theory-axioms"
+              case _                       => partName2String(name)
+            }
+            val label = {
+              var l = baseLabel
+              while (usedLabels.contains(l))
+                l = l + "2"
+              l
+            }
+            usedLabels += label
+            introduceFormulaThroughAssumption(formula, label)
+          }
         } else {
-          introduceFormulaThroughAssumption(formula, label)
+          unusedNames += name
         }
       }
 

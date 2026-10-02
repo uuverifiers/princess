@@ -293,6 +293,8 @@ object SimpleAPI {
 
   protected[api] val COMMON_PART_NR         = -1
   private        val INTERNAL_AXIOM_PART_NR = -10
+  private        val FUNCTION_AXIOM_PART_NR = -11
+  private        val THEORY_AXIOM_PART_NR   = -12
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2483,7 +2485,7 @@ class SimpleAPI private (enableAssert        : Boolean,
                          ProverStatus.Valid) contains getStatusHelp(false)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val formulaParts = constructFormulaParts(partNames)
+    val formulaParts = constructFormulaPartsSeq(partNames)
 
     DialogUtil asString {
       CmdlMain.doPrintAletheCertificate(currentCertificate,
@@ -2515,6 +2517,35 @@ class SimpleAPI private (enableAssert        : Boolean,
     }
 
     formulaParts.toMap
+  }
+
+  private def constructFormulaPartsSeq(partNames : Map[Int, PartName]) = {
+    val formulaParts = new ArrayBuffer[(PartName, Conjunction)]
+    for (((f, n), num) <- formulaeInProver.iterator.zipWithIndex) {
+      val name = (partNames get n) match {
+        case Some(name) =>
+          name
+        case None =>
+          n match {
+            case INTERNAL_AXIOM_PART_NR =>
+              new PartName ("axioms_" + num)
+            case FUNCTION_AXIOM_PART_NR =>
+              PartName.FUNCTION_AXIOMS
+            case THEORY_AXIOM_PART_NR =>
+              PartName.THEORY_AXIOMS
+            case COMMON_PART_NR =>
+              new PartName ("input_" + num)
+            case n if n < 0 =>
+              PartName.NO_NAME
+            case _ =>
+              new PartName ("#" + n + "_" + num)
+          }
+      }
+
+      formulaParts += ((name, f))
+    }
+
+    formulaParts.toSeq
   }
 
   /**
@@ -4216,6 +4247,10 @@ class SimpleAPI private (enableAssert        : Boolean,
       kind match {
         case FormulaKind.Input | FormulaKind.InputPreproc =>
           currentPartitionNum
+        case FormulaKind.FunctionAxiom =>
+          FUNCTION_AXIOM_PART_NR
+        case FormulaKind.TheoryAxiom =>
+          THEORY_AXIOM_PART_NR
         case _ =>
           INTERNAL_AXIOM_PART_NR
       }

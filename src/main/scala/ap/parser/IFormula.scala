@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2025 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -508,7 +508,7 @@ object PartName {
   val NO_NAME         = new PartName ("NoName")
   /** The distinguished name used for function axioms. */
   val FUNCTION_AXIOMS = new PartName ("FunctionAxioms")
-  /** The distinguished name used for function axioms. */
+  /** The distinguished name used for theory axioms. */
   val THEORY_AXIOMS   = new PartName ("TheoryAxioms")
 
   val predefNames : Seq[PartName] =

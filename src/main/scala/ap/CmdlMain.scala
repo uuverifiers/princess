@@ -380,17 +380,16 @@ object CmdlMain {
                                      prover : Prover) = {
     println()
     doPrintAletheCertificate(cert,
-                             prover.getFormulaParts,
+                             prover.getFormulaParts.toSeq.sortBy(_._1.toString),
                              prover.getPredTranslation)
   }
 
   protected[ap] def doPrintAletheCertificate(
                       cert : Certificate,
-                      rawFormulaParts : Map[PartName, Conjunction],
+                      rawFormulaParts : Seq[(PartName, Conjunction)],
                       predTranslation : Map[Predicate, IFunction]) : Unit = {
-    val formulaParts = rawFormulaParts mapValues {
-      f => CertFormula(f.negate)
-    }
+    val formulaParts =
+      rawFormulaParts.map(p => (p._1, CertFormula(p._2.negate)))
 
     val formulaPrinter =
       new AlethePrinter.AletheFormulaPrinter (
