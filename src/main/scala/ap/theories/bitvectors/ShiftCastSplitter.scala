@@ -113,8 +113,11 @@ object LShiftCastSplitHandler extends AtomSplitHandler {
     val a = Atom(_l_shift_cast, args, order)
     analyseExpBounds(goal, a, false) match {
       case (lower, Some(upper), _, _) =>
-        ((upper - (lower max IdealInt.ZERO) + 1) min SPLIT_LIMIT
-          ).intValueSafe * PRIORITY_FACTOR
+        if (lower <= upper)
+          ((upper - (lower max IdealInt.ZERO) + 1) min SPLIT_LIMIT
+            ).intValueSafe * PRIORITY_FACTOR
+        else
+          0
       case _ =>
         SPLIT_LIMIT.intValueSafe * PRIORITY_FACTOR
     }
