@@ -42,6 +42,7 @@ import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.types.SortedPredicate
 import LinearCombination.Constant
 import ap.util.Debug
@@ -58,8 +59,17 @@ object ModCastIntervalPropagator {
   import ModuloArithmetic._
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-    if (goal.facts.predConj.predicates.contains(_mod_cast)) {
-      bwdPropagation(goal)
+    propagate(goal.facts,
+              goal.reduceWithFacts,
+              Param.PROOF_CONSTRUCTION(goal.settings),
+              goal.order)
+
+  def propagate(facts   : Conjunction,
+                reducer : ReduceWithConjunction,
+                proofs  : Boolean,
+                order   : TermOrder) : Seq[Plugin.Action] =
+    if (facts.predConj.predicates.contains(_mod_cast)) {
+      bwdPropagation(facts, reducer, proofs, order)
     } else {
       List()
     }
@@ -67,16 +77,17 @@ object ModCastIntervalPropagator {
   /**
    * Propagate information about mod_cast results to the mod_cast arguments.
    */
-  def bwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+  def bwdPropagation(facts   : Conjunction,
+                     reducer : ReduceWithConjunction,
+                     proofs  : Boolean,
+                     order   : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
-    implicit val order : TermOrder = goal.order
+    implicit val _order : TermOrder = order
 
-    val casts    = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
-    val reducer  = goal.reduceWithFacts
-    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val casts = facts.predConj.positiveLitsWithPred(_mod_cast)
     import reducer.{lowerBound, upperBound}
 
-    val actions  = new ArrayBuffer[Plugin.Action]
+    val actions = new ArrayBuffer[Plugin.Action]
 
     for (a <- casts) {
       val sort@ModSort(sortLB, sortUB) = (SortedPredicate argumentSorts a).last
