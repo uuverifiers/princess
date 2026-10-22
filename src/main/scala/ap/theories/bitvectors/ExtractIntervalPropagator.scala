@@ -42,6 +42,7 @@ import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import LinearCombination.Constant
 import ap.util.Debug
 
@@ -57,8 +58,18 @@ object ExtractIntervalPropagator {
   import ModuloArithmetic._
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-    if (goal.facts.predConj.predicates.contains(_bv_extract)) {
-      fwdPropagation(goal) ++ bwdPropagation(goal)
+    propagate(goal.facts,
+              goal.reduceWithFacts,
+              Param.PROOF_CONSTRUCTION(goal.settings),
+              goal.order)
+
+  def propagate(facts   : Conjunction,
+                reducer : ReduceWithConjunction,
+                proofs  : Boolean,
+                order   : TermOrder) : Seq[Plugin.Action] =
+    if (facts.predConj.predicates.contains(_bv_extract)) {
+      fwdPropagation(facts, reducer, proofs, order) ++
+      bwdPropagation(facts, reducer, proofs, order)
     } else {
       List()
     }
@@ -66,16 +77,17 @@ object ExtractIntervalPropagator {
   /**
    * Propagate information about extract arguments to the extract result.
    */
-  def fwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+  def fwdPropagation(facts   : Conjunction,
+                     reducer : ReduceWithConjunction,
+                     proofs  : Boolean,
+                     order   : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
-    implicit val order : TermOrder = goal.order
+    implicit val _order : TermOrder = order
 
-    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-    val reducer  = goal.reduceWithFacts
-    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val extracts = facts.predConj.positiveLitsWithPred(_bv_extract)
     import reducer.{lowerBound, upperBound}
 
-    val actions  = new ArrayBuffer[Plugin.Action]
+    val actions = new ArrayBuffer[Plugin.Action]
 
     // TODO: cache results of lowerBound/upperBound?
     for (ex@Atom(_, Seq(Constant(ub), Constant(lb), arg, res), _) <-
@@ -128,16 +140,17 @@ object ExtractIntervalPropagator {
   /**
    * Propagate information about extract results to the extract arguments.
    */
-  def bwdPropagation(goal : Goal) : Seq[Plugin.Action] = {
+  def bwdPropagation(facts   : Conjunction,
+                     reducer : ReduceWithConjunction,
+                     proofs  : Boolean,
+                     order   : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
-    implicit val order : TermOrder = goal.order
+    implicit val _order : TermOrder = order
 
-    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
-    val reducer  = goal.reduceWithFacts
-    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val extracts = facts.predConj.positiveLitsWithPred(_bv_extract)
     import reducer.{lowerBound, upperBound}
 
-    val actions  = new ArrayBuffer[Plugin.Action]
+    val actions = new ArrayBuffer[Plugin.Action]
 
     // TODO: make sure that the order of actions is deterministic
     for ((arg, exes) <- extracts.groupBy(_(2))) {
