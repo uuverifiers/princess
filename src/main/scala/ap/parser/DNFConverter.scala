@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2022 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2026 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -68,6 +68,33 @@ object DNFConverter {
       import p._
       addConstantsRaw(SymbolCollector constantsSorted f)
       val disjuncts = PresburgerTools.nonDNFEnumDisjuncts(asConjunction(f))
+      (for (d <- disjuncts) yield asIFormula(d)).toIndexedSeq
+    }
+  }
+
+  /**
+   * Conversion to DNF using the quantifier elimination procedure,
+   * assuming that the constants
+   * <code>eliminatedConsts</code> are implicitly existentially quantified and
+   * can be eliminated or renamed arbitrarily.
+   *
+   * This only works for quantifier-free formulas in Presburger
+   * arithmetic.
+   */
+  def qeDNF(f                : IFormula,
+            eliminatedConsts : Seq[ConstantTerm]) : Seq[IFormula] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, ContainsSymbol isPresburger f)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (!NeedsSplitting(f))
+      return List(f)
+
+    SimpleAPI.withProver { p =>
+      import p._
+      addConstantsRaw(SymbolCollector constantsSorted f)
+      val disjuncts =
+        PresburgerTools.nonDNFEnumDisjuncts(asConjunction(f), eliminatedConsts)
       (for (d <- disjuncts) yield asIFormula(d)).toIndexedSeq
     }
   }
@@ -149,14 +176,125 @@ object DNFConverter {
               yield lit)
         }
 
-        res +=
-        UniformSubstVisitor(neededCriticalLits, abstractionVisitor.backMapping)
+        res += UniformSubstVisitor(neededCriticalLits,
+                                   abstractionVisitor.backMapping)
         modelConstructor !! ~neededCriticalLits
       }
     }}
 
-    res
+    res.toSeq
   }
+
+  /**
+   * Conversion to DNF using a model-based approach that minimises the
+   * number of resulting disjuncts. The method assumes that the constants
+   * <code>eliminatedConsts</code> are implicitly existentially quantified and
+   * can be eliminated or renamed arbitrarily.
+   */
+  def mbDNF(f                : IFormula,
+            eliminatedConsts : Seq[ConstantTerm]) : Seq[IFormula] = {
+    if (!NeedsSplitting(f))
+      return List(f)
+
+    val res = new ArrayBuffer[IFormula]
+
+    SimpleAPI.withProver { modelConstructor =>
+    SimpleAPI.withProver { implicationChecker =>
+      // First replace all sub-formulas we don't understand with Boolean
+      // variables
+      val abstractionVisitor = new AbstractionVisitor
+      val aF                 = abstractionVisitor(f)
+
+      val (vars, consts, preds) = SymbolCollector varsConstsPreds aF
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, vars.isEmpty)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val constsSorted = consts.toSeq.sortBy(_.name)
+      val predsSorted  = preds.toSeq.sortBy(_.name)
+
+      val elimConstsSet = eliminatedConsts.toSet
+
+      modelConstructor.addConstantsRaw(constsSorted)
+      modelConstructor.addRelations(predsSorted)
+
+      implicationChecker.addConstantsRaw(constsSorted)
+      implicationChecker.addRelations(predsSorted)
+
+      val flags = implicationChecker.createBooleanVariables(SizeVisitor(aF))
+      modelConstructor !! aF
+      implicationChecker ?? aF
+
+      while (modelConstructor.??? == ProverStatus.Sat) {
+        ap.util.Timeout.check
+
+        val litCollector =
+          new CriticalAtomsCollector(modelConstructor.partialModel)
+        val criticalLits = litCollector.visit(aF, ()) match {
+          case Some((true, fors)) =>
+            fors
+          case _ =>
+            throw new IllegalArgumentException("Could not dnf-transform " + aF)
+        }
+
+        val neededCriticalLits = implicationChecker.scope {
+          import implicationChecker._
+
+          val neededFlags = flags take criticalLits.size
+          for ((flag, lit) <- neededFlags zip criticalLits)
+            !! (flag ==> lit)
+
+          val flagValue = Array.fill(neededFlags.size)(true)
+
+          for (n <- 0 until neededFlags.size) {
+            scope {
+              flagValue(n) = false
+              for (j <- n until neededFlags.size)
+                !! (neededFlags(j) <===> flagValue(j))
+              ??? match {
+                case ProverStatus.Valid =>
+                  // nothing
+                case _ =>
+                  flagValue(n) = true
+              }
+            }
+
+            !! (neededFlags(n) <===> flagValue(n))
+          }
+
+          and(for ((lit, true) <- criticalLits.iterator zip flagValue.iterator)
+              yield lit)
+        }
+
+        // eliminate existentially quantified constants whenever possible
+        val occurringConsts =
+          SymbolCollector.constantsSorted(neededCriticalLits)
+        val abstractedConsts =
+          (for (p <- SymbolCollector.nullaryPredicates(neededCriticalLits);
+                f <- abstractionVisitor.backMapping.get(p).toSeq;
+                c <- SymbolCollector.constants(f))
+           yield c).toSet
+        val eliminableConsts =
+          occurringConsts.filter(c => elimConstsSet(c) && !abstractedConsts(c))
+
+        val abstractedDisjunct =
+          if (eliminableConsts.isEmpty) {
+            neededCriticalLits
+          } else {
+            val quanLits =
+              quanConsts(Quantifier.EX, eliminableConsts, neededCriticalLits)
+            implicationChecker.simplify(quanLits)
+          }
+
+        res += UniformSubstVisitor(abstractedDisjunct,
+                                   abstractionVisitor.backMapping)
+        modelConstructor !! ~abstractedDisjunct
+      }
+    }}
+
+    res.toSeq
+  }  
 
   //////////////////////////////////////////////////////////////////////////////
 
