@@ -1792,6 +1792,17 @@ class SimpleAPI private (enableAssert        : Boolean,
   }
 
   /**
+   * Extract the assertions in an SMT-LIB script.
+   * Symbols declared in the script will
+   * be added to the prover; however, if the prover already knows about
+   * symbols with the same name, they will be reused.
+   */
+  def extractSMTLIBAssertions(input : String) : Seq[IFormula] = {
+    val reader = new java.io.BufferedReader (new java.io.StringReader(input))
+    extractSMTLIBAssertions(reader)
+  }
+
+  /**
    * Extract assertions and declared symbols in an SMT-LIB script.
    * Symbols declared in the script will be added to the prover;
    * however, if the prover already knows about symbols with the same

@@ -198,6 +198,17 @@ trait AletheTheoryPrinter {
                                 ctxt            : AlethePrinterContext) : Unit
 
   /**
+   * Print the instantiation of a theory axiom (provided through field
+   * <code>Theory.axioms</code>) in Alethe syntax to stdout.
+   */
+  def printTheoryAxiomGroundInst(inference       : GroundInstInference,
+                                 nextInferences  : List[BranchInference],
+                                 nextAssumptions : List[Set[CertFormula]],
+                                 childCert       : Certificate,
+                                 order           : TermOrder,
+                                 ctxt            : AlethePrinterContext) : Unit
+
+  /**
    * Ask a theory to print an atom in Alethe syntax to stdout; the predicate of
    * the atom has to part of the theory signature. If the method returns
    * <code>true</code>, the atom has been printed successfully, otherwise

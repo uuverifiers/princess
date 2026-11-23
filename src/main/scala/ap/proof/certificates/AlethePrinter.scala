@@ -79,6 +79,20 @@ object AlethePrinter {
       }
   }
 
+  object TheoryFormula {
+    def unapply(c : CertFormula) : Option[Theory] = {
+      val preds = c.predicates
+      val theories =
+        (for (p <- preds.iterator;
+              t <- TheoryRegistry.lookupSymbol(p).iterator)
+         yield t).toSet
+      if (theories.size == 1)
+        Some(theories.iterator.next)
+      else
+        None
+    }
+  }
+
   class AletheFormulaPrinter(predTranslation : Map[Predicate, IFunction])
         extends CertificatePrettyPrinter.FormulaPrinter(predTranslation) {
 
@@ -444,6 +458,10 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
           if (name == PartName.FUNCTION_AXIOMS) {
             // Function axioms are kept implicit, do not output any step
             functionAxioms += formula
+          } else if (name == PartName.THEORY_AXIOMS) {
+            // We assume that each theory takes care of printing its axioms and
+            // proof rules, those functions are therefore kept implicit
+            theoryAxioms += formula
           } else {
             println()
             val baseLabel = name match {
@@ -602,7 +620,7 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
   private val formulaLabel = new LinkedHashMap[CertFormula, String]
   private var formulaCounter : Int = 1
 
-  private val functionAxioms = new MHashSet[CertFormula]
+  private val functionAxioms, theoryAxioms = new MHashSet[CertFormula]
 
   private def introduceFormula(f : CertFormula, label : String = "") : Unit =
     if (label == "") {
@@ -1152,6 +1170,25 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
             }
           }
         }
+        case inf@GroundInstInference(axiom@TheoryFormula(theory),
+                                     _, _, _, _, _)
+            if theoryAxioms.contains(axiom) => {
+          AletheTheoryRegistry.lookup(theory) match {
+            case Some(printer) => {
+              printer.printTheoryAxiomGroundInst(inf,
+                                                 nextInferences,
+                                                 nextAssumptions,
+                                                 child,
+                                                 order,
+                                                 PrinterCtxt)
+              cont = false
+            }
+            case None => {
+              Console.err.println(s"No printer available for theory $theory")
+              printInference(inf, assumptions.head, order)
+            }
+          }
+        }
         case inf => {
           printInference(inf, assumptions.head, order)
         }
@@ -1293,6 +1330,12 @@ class AlethePrinter(formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
           if (inf.assumedFormulas.forall(functionAxioms)) => {
         // Function axioms are kept implicit, do not output any step
         functionAxioms ++= inf.providedFormulas
+      }
+
+      case _ : AlphaInference
+          if (inf.assumedFormulas.forall(theoryAxioms)) => {
+        // Function axioms are kept implicit, do not output any step
+        theoryAxioms ++= inf.providedFormulas
       }
 
       case _ : AlphaInference => {
