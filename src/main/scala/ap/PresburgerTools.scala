@@ -107,7 +107,28 @@ object PresburgerTools {
       ConstraintSimplifier.LEMMA_SIMPLIFIER(formula, formula.order)
     else
       Conjunction.disj(toDNFGeneral(formula), formula.order)
-  
+
+  /**
+   * Turn a formula into DNF, assuming that the constants
+   * <code>eliminatedConsts</code> are implicitly existentially quantified and
+   * can be eliminated or renamed arbitrarily.
+   * The DNF might not be complete in the sense that
+   * a formula <code> a & b | a & c </code> might only be normalised to
+   * <code> a & (b | c) </code>
+   */
+  def toDNF(formula          : Conjunction,
+            eliminatedConsts : Seq[ConstantTerm]) : Conjunction = {
+    val order = formula.order
+    if (isQFPresburger(formula)) {
+      val f =
+        Conjunction.quantify(Quantifier.EX, eliminatedConsts, formula, order)
+      ConstraintSimplifier.LEMMA_SIMPLIFIER(f, order)
+    } else {
+      // TODO: handle eliminated constants also in this case
+      Conjunction.disj(toDNFGeneral(formula), formula.order)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def toDNFGeneral(f : Conjunction) : Seq[Conjunction] =
@@ -159,6 +180,17 @@ object PresburgerTools {
    */
   def nonDNFEnumDisjuncts(formula : Conjunction) : Iterator[Conjunction] =
     enumDisjuncts(toDNF(formula))
+  
+  /**
+   * Enumerate the disjuncts of a formula (which might not be in DNF),
+   * assuming that the constants
+   * <code>eliminatedConsts</code> are implicitly existentially quantified and
+   * can be eliminated or renamed arbitrarily.
+   */
+  def nonDNFEnumDisjuncts(formula          : Conjunction,
+                          eliminatedConsts : Seq[ConstantTerm])
+                                           : Iterator[Conjunction] =
+    enumDisjuncts(toDNF(formula, eliminatedConsts))
   
   private def enumDisjunctsPos(formula : Conjunction,
                                conjuncts : Conjunction) : Iterator[Conjunction] = {

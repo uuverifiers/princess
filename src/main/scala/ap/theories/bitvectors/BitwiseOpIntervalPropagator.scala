@@ -42,7 +42,7 @@ import ap.parameters.Param
 import ap.terfor.{TerForConvenience, Formula, Term, TermOrder}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import LinearCombination.Constant
 import ap.util.Debug
 
@@ -58,26 +58,37 @@ object BitwiseOpIntervalPropagator {
   import ModuloArithmetic._
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-    fwdAndPropagation(goal) ++ fwdXorPropagation(goal)
+    propagate(goal.facts,
+              goal.reduceWithFacts,
+              Param.PROOF_CONSTRUCTION(goal.settings),
+              goal.order)
+
+  def propagate(facts   : Conjunction,
+                reducer : ReduceWithConjunction,
+                proofs  : Boolean,
+                order   : TermOrder) : Seq[Plugin.Action] =
+    fwdAndPropagation(facts, reducer, proofs, order) ++
+    fwdXorPropagation(facts, reducer, proofs, order)
 
   //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Propagate information about arguments to the result.
    */
-  def fwdAndPropagation(goal : Goal) : Seq[Plugin.Action] = {
-    if (!goal.facts.predConj.predicates.contains(_bv_and))
+  def fwdAndPropagation(facts   : Conjunction,
+                        reducer : ReduceWithConjunction,
+                        proofs  : Boolean,
+                        order   : TermOrder) : Seq[Plugin.Action] = {
+    if (!facts.predConj.predicates.contains(_bv_and))
       return List()
 
     import TerForConvenience._
-    implicit val order : TermOrder = goal.order
+    implicit val _order : TermOrder = order
 
-    val bvops    = goal.facts.predConj.positiveLitsWithPred(_bv_and)
-    val reducer  = goal.reduceWithFacts
-    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val bvops = facts.predConj.positiveLitsWithPred(_bv_and)
     import reducer.{lowerBound, upperBound}
 
-    val actions  = new ArrayBuffer[Plugin.Action]
+    val actions = new ArrayBuffer[Plugin.Action]
 
     for (atom@Atom(`_bv_and`, Seq(Constant(bits), arg1, arg2, res), _) <-
            bvops) {
@@ -161,19 +172,20 @@ object BitwiseOpIntervalPropagator {
   /**
    * Propagate information about arguments to the result.
    */
-  def fwdXorPropagation(goal : Goal) : Seq[Plugin.Action] = {
-    if (!goal.facts.predConj.predicates.contains(_bv_xor))
+  def fwdXorPropagation(facts   : Conjunction,
+                        reducer : ReduceWithConjunction,
+                        proofs  : Boolean,
+                        order   : TermOrder) : Seq[Plugin.Action] = {
+    if (!facts.predConj.predicates.contains(_bv_xor))
       return List()
 
     import TerForConvenience._
-    implicit val order : TermOrder = goal.order
+    implicit val _order : TermOrder = order
 
-    val bvops    = goal.facts.predConj.positiveLitsWithPred(_bv_xor)
-    val reducer  = goal.reduceWithFacts
-    val proofs   = Param.PROOF_CONSTRUCTION(goal.settings)
+    val bvops = facts.predConj.positiveLitsWithPred(_bv_xor)
     import reducer.{lowerBound, upperBound}
 
-    val actions  = new ArrayBuffer[Plugin.Action]
+    val actions = new ArrayBuffer[Plugin.Action]
 
     for (atom@Atom(`_bv_xor`, Seq(Constant(bits), arg1, arg2, res), _) <-
            bvops) {

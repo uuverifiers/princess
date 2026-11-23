@@ -427,6 +427,33 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Compute formulas that are derivable by constraint propagation from the
+   * given <code>facts</code>. The initial ranges of symbols are described by
+   * the <code>reducer</code>.
+   */
+  def constraintPropagation(facts   : Conjunction,
+                            reducer : ReduceWithConjunction,
+                            order   : TermOrder) : Seq[Formula] = {
+    val actions =
+      BitwiseOpIntervalPropagator.propagate(facts, reducer, false, order) ++
+      ExtractIntervalPropagator.propagate  (facts, reducer, false, order) ++
+      ModCastIntervalPropagator.propagate  (facts, reducer, false, order)
+    for (Plugin.AddAxiom(_, f, _) <- actions) yield f
+  }
+
+  /**
+   * Compute formulas that are derivable by constraint propagation from the
+   * given <code>facts</code>. The initial ranges of symbols are described by
+   * the <code>reducer</code>.
+   */
+  def constraintPropagation(facts : Conjunction) : Seq[Formula] = {
+    val order = facts.order
+    constraintPropagation(facts, ReduceWithConjunction(facts, order), order)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private def extractBitWidth(t1 : ITerm, t2 : ITerm) : Int = {
     val width1 = extractBitWidth(t1)
     val width2 = extractBitWidth(t2)
