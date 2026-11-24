@@ -94,14 +94,16 @@ TESTS="existential.pri \
        overflow3.smt2 \
        rotate.smt2 \
        rotate2.smt2 \
-       disjunction.smt2"
+       disjunction.smt2 \
+       simplification-bug.smt2"
 
 $PRI "$@" $TESTS
 
 $PRI "$@" +printProof bv-ops3c.pri
 
 TESTS="bvsdiv6.smt2 \
-       bvsrem2.smt2"
+       bvsrem2.smt2 \
+       simplification-bug.smt2"
 
 $PRI "$@" -constructProofs=always $TESTS
 

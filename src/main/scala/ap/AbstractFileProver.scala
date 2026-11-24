@@ -367,8 +367,8 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
         val Seq(axiomF, inputF) =
           for (fors <- Seq(axioms, inputs)) yield {
             (for (INamedPart(n, f) <- fors.iterator)
-             yield (n -> reducer(Conjunction.conj(InputAbsy2Internal(f, order),
-                                                  order)))).toMap
+             yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order))
+             ).toMap
           }
 
         val matchedTotal = checkMatchedTotalFunctions(inputF map (_._2))
@@ -390,7 +390,8 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
             redC
           }}
   
-        val namedParts = (axiomF2 ++ inputF2) mapValues (convertQuantifiers _)
+        val namedParts =
+          (axiomF2 ++ inputF2) mapValues (f => convertQuantifiers(reducer(f)))
 
         val namedParts2 =
           if (theoryAxioms.isFalse)
@@ -408,15 +409,13 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
         // merge everything into one formula; we keep the axioms
         // separate, though, because we have to check for quantifier
         // occurrences in the non-axiom formulas.
-
         val Seq(axiomF, inputF) =
           for (fors <- Seq(axioms, inputs)) yield {
-            reducer(
-              Conjunction.conj(
-                InputAbsy2Internal(
-                  IExpression.or(for (f <- fors.iterator)
-                                 yield (IExpression removePartName f)), order),
-                order))
+            Conjunction.conj(
+              InputAbsy2Internal(
+                IExpression.or(for (f <- fors.iterator)
+                                yield (IExpression removePartName f)), order),
+              order)
           }
 
         val matchedTotal =
@@ -426,11 +425,10 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
           Conjunction.disjFor(List(axiomF, inputF), order)
 
         val (inputRed, incomp) = Incompleteness.track {
-          convertQuantifiers(Theory.preprocess(allInputs,
-                                               transSignature.theories,
-                                               transSignature))
+          convertQuantifiers(reducer(Theory.preprocess(allInputs,
+                                                       transSignature.theories,
+                                                       transSignature)))
         }
-  
         if (incomp)
           ignoredQuantifiers = true
   
