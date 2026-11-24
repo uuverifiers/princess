@@ -1280,6 +1280,11 @@ object ModPreprocessor {
       }
     }
 
+/*
+    We should not call the bit-vector reducer on the formula yet. The formula
+    has not been preprocessed by the TypeTheory yet, so some sort information
+    is still missing.
+
     val reducerSettings =
       Param.REDUCER_PLUGIN       .set(
       Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,
@@ -1293,8 +1298,9 @@ object ModPreprocessor {
                                        reducerSettings)(after1)
 
 //    println("after2: " + after2)
+*/
 
-    after2
+    after1
   }  
 
   private object BVPred {
