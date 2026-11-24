@@ -391,7 +391,10 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
           }}
   
         val namedParts =
-          ((axiomF2 ++ inputF2) mapValues (f => convertQuantifiers(reducer(f)))).toMap
+          (axiomF2 ++ inputF2)
+            .toMap
+            .mapValues(f => convertQuantifiers(reducer(f)))
+            .toMap
 
         val namedParts2 =
           if (theoryAxioms.isFalse)
