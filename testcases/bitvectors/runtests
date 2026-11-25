@@ -95,7 +95,9 @@ TESTS="existential.pri \
        rotate.smt2 \
        rotate2.smt2 \
        disjunction.smt2 \
-       simplification-bug.smt2"
+       simplification-bug.smt2 \
+       preprocessor-bug.smt2 \
+       preprocessor-bug2.smt2"
 
 $PRI "$@" $TESTS
 
