@@ -309,6 +309,8 @@ abstract class AbstractFileProver(reader  : java.io.Reader,
       Conjunction.conj(for (t <- theories) yield t.axioms, order).negate
     
     private val functionalPreds = 
+      (for (t <- theories;
+            p <- t.functionalPredicates) yield p).toSet ++
       (for ((p, f) <- functionEncoder.predTranslation.iterator;
             if (!f.relational)) yield p).toSet
     
