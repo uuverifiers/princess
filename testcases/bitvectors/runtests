@@ -107,3 +107,6 @@ TESTS="bvsdiv6.smt2 \
 
 $PRI "$@" -constructProofs=always $TESTS
 
+TESTS="simplification-bug.smt2"
+
+$PRI "$@" +incremental $TESTS

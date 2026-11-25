@@ -1630,8 +1630,7 @@ class SimpleAPI private (enableAssert        : Boolean,
     // flush to make sure that no old axioms are left in the
     // function encoder
     flushTodo
-    ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
-      toInternalNoAxioms(f, currentOrder))
+    stdReducer()(toInternalNoAxioms(f, currentOrder))
   }
 
   /**
@@ -1658,8 +1657,15 @@ class SimpleAPI private (enableAssert        : Boolean,
    */
   def reduceWithFormula(c : Conjunction) : ReduceWithConjunction = {
     flushTodo
-    ReduceWithConjunction(c, currentOrder, reducerSettings)
+    stdReducer(c)
   }
+
+  /**
+   * Instantiate a reducer with the given formula as assumptions.
+   */
+  private def stdReducer(c : Conjunction = Conjunction.TRUE)
+                       : ReduceWithConjunction =
+    ReduceWithConjunction(c, currentOrder, reducerSettings)
 
   /**
    * Convert a formula from the internal prover format to input syntax.
@@ -2104,8 +2110,8 @@ class SimpleAPI private (enableAssert        : Boolean,
       if (formulaeInProver.size == 1)
         formulaeInProver.keysIterator.next()
       else
-        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
-              Conjunction.disj(formulaeInProver.keysIterator, currentOrder))
+        stdReducer()(
+          Conjunction.disj(formulaeInProver.keysIterator, currentOrder))
 
     // explicitly quantify all universal variables
     val uniConstants = completeFor.constants -- existentialConstants
@@ -3545,25 +3551,25 @@ class SimpleAPI private (enableAssert        : Boolean,
    */
   private def reduceTerm(t : ITerm)
                         : (Conjunction, IExpression.ConstantTerm, TermOrder) = {
-        val existential = setupTermEval
-        
-        val c = new IExpression.ConstantTerm ("c")
-        val extendedOrder = order extend c
-        
-        val reduced =
-          ReduceWithConjunction(currentModel, extendedOrder, reducerSettings)(
-                                toInternalNoAxioms(t === c, extendedOrder))
+    val existential = setupTermEval
+    
+    val c = new IExpression.ConstantTerm ("c")
+    val extendedOrder = order extend c
+    
+    val reduced =
+      ReduceWithConjunction(currentModel, extendedOrder, reducerSettings)(
+                            toInternalNoAxioms(t === c, extendedOrder))
 
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertPre(AC, !existential || (
-          // in the existential case, the queried term should only contain
-          // existential constants
-          (reduced.constants subsetOf (existentialConstants + c)) &&
-          reduced.predicates.isEmpty
-          ))
-        //-END-ASSERTION-///////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+    Debug.assertPre(AC, !existential || (
+      // in the existential case, the queried term should only contain
+      // existential constants
+      (reduced.constants subsetOf (existentialConstants + c)) &&
+      reduced.predicates.isEmpty
+      ))
+    //-END-ASSERTION-///////////////////////////////////////////////////////
 
-        (reduced, c, extendedOrder)
+    (reduced, c, extendedOrder)
   }
   
   private def setupTermEval = getStatusHelp(false) match {
@@ -3951,9 +3957,7 @@ class SimpleAPI private (enableAssert        : Boolean,
         if (currentModel == null) {
           Right(intF)
         } else {
-          val reduced =
-            ReduceWithConjunction(currentModel, currentOrder,
-                                  reducerSettings)(intF)
+          val reduced = stdReducer(currentModel)(intF)
 
           if (reduced.isTrue)
             Left(true)
@@ -4115,20 +4119,14 @@ class SimpleAPI private (enableAssert        : Boolean,
       implicit val o = currentOrder
       val completeFor =
         (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction
-
       rawFormulaeTodo = LazyConjunction.FALSE
-      val reducedFor =
-        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
-                              completeFor)
-      addToProver(reducedFor, FormulaKind.Input)
+      addToProver(completeFor, FormulaKind.Input)
     }
 
     if (!rawPreprocFormulaeTodo.isFalse) {
-      val reducedFor =
-        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
-                              rawPreprocFormulaeTodo.toConjunction)
-      addToProver(reducedFor, FormulaKind.InputPreproc)
+      val completeFor = rawPreprocFormulaeTodo.toConjunction
       rawPreprocFormulaeTodo = LazyConjunction.FALSE
+      addToProver(completeFor, FormulaKind.InputPreproc)
     }
 
     if (!axioms.isFalse)
@@ -4163,11 +4161,16 @@ class SimpleAPI private (enableAssert        : Boolean,
                           kind : FormulaKind.Value) : Unit = {
     val (formula2, incomp) = Incompleteness.track {
       kind match {
-        case FormulaKind.Input | FormulaKind.FunctionAxiom =>
-          convertQuantifiers(Theory.preprocess(formula,
-                                               theories,
-                                               toSignature(currentOrder)))
-        case FormulaKind.InputPreproc | FormulaKind.TheoryAxiom =>
+        case FormulaKind.Input =>
+          convertQuantifiers(stdReducer()(
+            Theory.preprocess(formula, theories, toSignature(currentOrder))))
+        case FormulaKind.InputPreproc =>
+          convertQuantifiers(stdReducer()(formula))
+        case FormulaKind.FunctionAxiom =>
+          // Function axioms should be preprocessed to ensure that type 
+          // information is added.
+          Theory.preprocess(formula, theories, toSignature(currentOrder))
+        case FormulaKind.TheoryAxiom =>
           formula
       }
     }
