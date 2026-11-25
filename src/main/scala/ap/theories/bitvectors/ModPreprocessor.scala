@@ -397,10 +397,10 @@ object ModPreprocessor {
     ////////////////////////////////////////////////////////////////////////////
 
     def constantBVSHL(bits : Int, arg : VisitorRes,
-                      shift : IdealInt) : VisitorRes =
+                      shift : IdealInt, ctxt : VisitorArg) : VisitorRes =
       shift match {
         case IdealInt.ZERO =>
-          arg
+          arg.modCastPow2(bits, ctxt)
         case shift if shift.signum < 0 =>
           throw new Exception("negative shift")
         case IdealInt(shift) if shift < bits => {
@@ -613,7 +613,7 @@ object ModPreprocessor {
           if (subres(3).isConstant) {
             ModSort(lower, upper) match {
               case UnsignedBVSort(bits) =>
-                constantBVSHL(bits, subres(2), subres(3).lowerBound)
+                constantBVSHL(bits, subres(2), subres(3).lowerBound, ctxt)
               // signed arithmetic?
               case sort =>
                 (subres(2) * pow2(subres(3).lowerBound max IdealInt.ZERO))
@@ -642,7 +642,7 @@ object ModPreprocessor {
 
         case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
-            constantBVSHL(bits, subres(1), subres(2).lowerBound)
+            constantBVSHL(bits, subres(1), subres(2).lowerBound, ctxt)
 //          (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
 //            .modCastPow2(bits, ctxt)
           } else {
