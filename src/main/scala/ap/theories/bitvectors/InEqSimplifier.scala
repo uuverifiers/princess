@@ -68,11 +68,14 @@ object InEqSimplifier {
     if (inEqs.isTrue || proofs)
       return List()
 
-    val zeroBoundedConsts, oneBoundedConsts = new MHashSet[ConstantTerm]
+    // We collect bounds for constants, separating between bounds directly
+    // provided by inequalities and derived bounds. Be careful with the
+    // derived bounds, since those might depend on the inequalities that we
+    // try to remove.
+    val zeroBoundedConsts, oneBoundedConsts,
+        impZeroBoundedConsts, impOneBoundedConsts = new MHashSet[ConstantTerm]
 
-    for (lc <- inEqs.geqZero.iterator ++
-               inEqs.geqZeroInfs.iterator ++
-               inEqs.geqZeroBounds.iterator)
+    for (lc <- inEqs.geqZero.iterator)
       lc match {
         case SingleTerm(c : ConstantTerm) =>
           zeroBoundedConsts += c
@@ -83,6 +86,23 @@ object InEqSimplifier {
           // nothing
       }
 
+    for (lc <- inEqs.geqZeroInfs.iterator ++
+               inEqs.geqZeroBounds.iterator)
+      lc match {
+        case SingleTerm(c : ConstantTerm) =>
+          impZeroBoundedConsts += c
+        case CoeffTermWithOffset(IdealInt.MINUS_ONE,
+                                 c : ConstantTerm, IdealInt.ONE) =>
+          impOneBoundedConsts += c
+        case _ =>
+          // nothing
+      }
+
+    def isZeroBounded(c : ConstantTerm) =
+      zeroBoundedConsts(c) || impZeroBoundedConsts(c)
+    def isOneBounded(c : ConstantTerm) =
+      oneBoundedConsts(c) || impOneBoundedConsts(c)
+
     val actions = new ArrayBuffer[Plugin.Action]
 
     for (lc <- inEqs.geqZero.iterator ++ inEqs.geqZeroInfs.iterator)
@@ -90,30 +110,37 @@ object InEqSimplifier {
         case TwoTermsWithOffset(IdealInt.ONE, c1 : ConstantTerm,
                                 IdealInt(-2), c2 : ConstantTerm,
                                 IdealInt.ONE)
-            if zeroBoundedConsts(c1) && oneBoundedConsts(c2) => {
+            if isZeroBounded(c1) && isOneBounded(c2) => {
           actions += Plugin.AddAxiom(List(), c1 >= c2, ModuloArithmetic)
-          actions += Plugin.RemoveFacts(lc >= 0)
+          // Remove the inequality only if we can be sure that we do not also
+          // delete the required bounds on c1, c2
+          // TODO: optimise this!
+          if (zeroBoundedConsts(c1) && oneBoundedConsts(c2))
+            actions += Plugin.RemoveFacts(lc >= 0)
         }
         case TwoTermsWithOffset(IdealInt(-2), c2 : ConstantTerm,
                                 IdealInt.ONE, c1 : ConstantTerm,
                                 IdealInt.ONE)
-            if zeroBoundedConsts(c1) && oneBoundedConsts(c2) => {
+            if isZeroBounded(c1) && isOneBounded(c2) => {
           actions += Plugin.AddAxiom(List(), c1 >= c2, ModuloArithmetic)
-          actions += Plugin.RemoveFacts(lc >= 0)
+          if (zeroBoundedConsts(c1) && oneBoundedConsts(c2))
+            actions += Plugin.RemoveFacts(lc >= 0)
         }
         case TwoTermsWithOffset(IdealInt(2),        c1 : ConstantTerm,
                                 IdealInt.MINUS_ONE, c2 : ConstantTerm,
                                 IdealInt.ZERO)
-            if zeroBoundedConsts(c1) && oneBoundedConsts(c2) => {
+            if isZeroBounded(c1) && isOneBounded(c2) => {
           actions += Plugin.AddAxiom(List(), c1 >= c2, ModuloArithmetic)
-          actions += Plugin.RemoveFacts(lc >= 0)
+          if (zeroBoundedConsts(c1) && oneBoundedConsts(c2))
+            actions += Plugin.RemoveFacts(lc >= 0)
         }
         case TwoTermsWithOffset(IdealInt.MINUS_ONE, c2 : ConstantTerm,
                                 IdealInt(2),        c1 : ConstantTerm,
                                 IdealInt.ZERO)
-            if zeroBoundedConsts(c1) && oneBoundedConsts(c2) => {
+            if isZeroBounded(c1) && isOneBounded(c2) => {
           actions += Plugin.AddAxiom(List(), c1 >= c2, ModuloArithmetic)
-          actions += Plugin.RemoveFacts(lc >= 0)
+          if (zeroBoundedConsts(c1) && oneBoundedConsts(c2))
+            actions += Plugin.RemoveFacts(lc >= 0)
         }
         case _ =>
           // nothing

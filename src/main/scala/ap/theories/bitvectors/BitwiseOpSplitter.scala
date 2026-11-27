@@ -162,6 +162,15 @@ object BitwiseOpSplitter
 
     val Seq(LinearCombination.Constant(IdealInt(bits)), arg1, arg2, res) = p
 
+/*
+    if (bits <= 2) {
+       val f1 = enumIntValuesOf(arg1, goal.order)
+       val f2 = enumIntValuesOf(arg2, goal.order)
+       List(Plugin.AddAxiom(
+        List(), Conjunction.conj(List(f1, f2), goal.order), ModuloArithmetic))
+    }
+*/
+
     val splitPoint =
       if (bits <= 1)
         None
@@ -171,14 +180,6 @@ object BitwiseOpSplitter
         Some(computeSplitPoint(arg2.constant, bits))
       else
         Some(bits / 2)
-
-    /*
-     case LinearCombination.Constant(IdealInt(bits)) if bits <= -1 => {
-     val f1 = enumIntValuesOf(p(1), order)
-     val f2 = enumIntValuesOf(p(2), order)
-     List(Plugin.AddAxiom(List(), conj(f1, f2), ModuloArithmetic))
-     }
-     */
 
     splitPoint match {
       case Some(point) => {
